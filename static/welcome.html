@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Welcome - Kickoff Companion</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="wordmark">Kickoff <em>Companion</em></h1>
+    <div class="topbar__spacer"></div>
+    <a class="btn" href="/setup">Connect a device</a>
+  </header>
+
+  <main class="sheet sheet--status sheet-narrow welcome">
+    <section class="panel panel-wide" aria-labelledby="h-intro">
+      <h2 id="h-intro">Welcome</h2>
+      <p class="lead" id="intro">Two steps and the app is ready: a free key from College Football Data, then your team. The rest is optional.</p>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-key">
+      <h2 id="h-key">Step 1. Your CFBD key</h2>
+      <div class="step-body">
+        <p>Every number in the app comes from <a href="https://collegefootballdata.com" target="_blank" rel="noopener">College Football Data</a> (CFBD). A key is free: sign up with an email address and CFBD mails it to you.</p>
+        <p><a class="btn" id="get-key" href="https://collegefootballdata.com/key" target="_blank" rel="noopener">Get a free key</a> <a class="btn" id="see-plans" href="https://collegefootballdata.com/api-tiers" target="_blank" rel="noopener">See CFBD's plans</a></p>
+        <div id="key-entry" class="welcome__key">
+          <label for="key-input" class="welcome__label">Paste the key</label>
+          <div class="welcome__row">
+            <input id="key-input" class="input mono" type="password" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Your CFBD key">
+            <button id="key-show" class="btn" type="button" aria-pressed="false">Show</button>
+            <button id="key-check" class="btn btn--primary" type="button">Check the key</button>
+          </div>
+        </div>
+        <p id="key-done" class="note note-good" hidden></p>
+        <p id="key-locked" class="note" hidden>A key is already set. To change it, open this page on the server computer itself, so nobody else on the network can swap it.</p>
+        <p id="key-error" class="note note-bad" role="alert" hidden></p>
+        <dl id="plan-facts" class="facts" hidden></dl>
+        <p class="note">The key is saved in the .env file on the server computer and never sent back to a browser.</p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-team" id="team-panel">
+      <h2 id="h-team">Step 2. Your home team</h2>
+      <div class="step-body">
+        <p>Your primary team #1. The Season page, the Game program and the Live sheet follow it, and <strong>only this team's colors and mascot theme the app</strong>. Its conference comes from CFBD.</p>
+        <label for="team-search" class="welcome__label">Find your school</label>
+        <input id="team-search" class="input" type="search" autocomplete="off" placeholder="Type a school, mascot or conference" disabled>
+        <div id="team-list" class="welcome__list" role="listbox" aria-label="FBS schools"></div>
+        <p id="team-chosen" class="welcome__chosen" hidden></p>
+        <p id="team-note" class="note">The list loads once the key is checked.</p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-primary" id="primary-panel">
+      <h2 id="h-primary">Step 3. More primary teams <span class="welcome__optional">optional, up to 4</span></h2>
+      <div class="step-body">
+        <p>Teams you follow closely, like a second school in the family. Each one's team page (schedule, results, stats, ranks, roster) loads as soon as a device connects and sits one tap away in the menu. They do not change the app's colors, and the Season, Game program and Live pages stay with your home team.</p>
+        <p id="primary-locked" class="note plan-note" hidden></p>
+        <label for="primary-search" class="welcome__label">Add a primary team</label>
+        <input id="primary-search" class="input" type="search" autocomplete="off" placeholder="Add a school" disabled>
+        <div id="primary-list" class="welcome__list welcome__list--short" role="listbox" aria-label="Primary teams to add"></div>
+        <div id="primary-chips" class="welcome__chips"></div>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-liked" id="liked-panel">
+      <h2 id="h-liked">Step 4. Secondary teams <span class="welcome__optional">optional</span></h2>
+      <div class="step-body">
+        <p>Teams you like to keep an eye on: single schools, a whole conference, or every school in a state. Nothing is loaded for them until a page asks, so they cost almost nothing. They show on the My teams page, in the My teams view of every ranked list, and on the ticker when it is set to My teams.</p>
+        <p id="liked-locked" class="note plan-note" hidden></p>
+        <div id="liked-pickers" class="welcome__liked">
+          <div>
+            <label for="liked-search" class="welcome__label">Schools</label>
+            <input id="liked-search" class="input" type="search" autocomplete="off" placeholder="Add a school" disabled>
+            <div id="liked-list" class="welcome__list welcome__list--short" role="listbox" aria-label="Schools to add"></div>
+            <div id="liked-chips" class="welcome__chips"></div>
+          </div>
+          <div>
+            <label for="liked-conferences" class="welcome__label">Conferences</label>
+            <div id="liked-conferences" class="welcome__checks"></div>
+          </div>
+          <div>
+            <label for="liked-states" class="welcome__label">States</label>
+            <div id="liked-states" class="welcome__checks"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-ticker" id="ticker-panel">
+      <h2 id="h-ticker">Step 5. The score ticker</h2>
+      <div class="step-body">
+        <p>The scrolling scores at the top of the Live sheet, the Game program and the Newspaper.</p>
+        <div class="welcome__choices" role="radiogroup" aria-label="Ticker">
+          <label><input type="radio" name="ticker" value="national" id="ticker-national" checked> <strong>National</strong> <span class="note">Every FBS game. The default.</span></label>
+          <label><input type="radio" name="ticker" value="mine" id="ticker-mine"> <strong>My teams</strong> <span class="note">Only the games of your primary and secondary teams. When none of them play, every game shows.</span></label>
+        </div>
+        <p id="ticker-locked" class="note plan-note" hidden></p>
+        <p class="note">Change it any time in Settings.</p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-finish">
+      <h2 id="h-finish">Done</h2>
+      <div class="step-body">
+        <p><button id="finish" class="btn btn--primary" type="button" disabled>Save and open the app</button></p>
+        <p id="finish-note" class="note">Check a key and pick a team first.</p>
+        <p id="finish-error" class="note note-bad" role="alert" hidden></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="welcome-status">Loading</span>
+  </footer>
+
+  <script type="module" src="/static/js/welcome.js"></script>
+</body>
+</html>

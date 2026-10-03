@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Kickoff Companion status</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="wordmark">Kickoff <em>Companion</em></h1>
+    <div class="topbar__spacer"></div>
+    <div id="status-pill" class="pill pill--quiet" role="status" aria-live="polite">Connecting</div>
+  </header>
+
+  <main class="sheet sheet--status">
+    <section class="panel" aria-labelledby="h-connect">
+      <h2 id="h-connect">Connect a device</h2>
+      <div class="step-body connect">
+        <img id="connect-qr" class="connect__qr" src="/setup/qr.svg" width="174" height="174" alt="QR code for the app's address">
+        <div class="connect__text">
+          <p class="note">Scan with a phone or tablet on the same Wi-Fi to open the app. Nothing to install.</p>
+          <p id="connect-url" class="mono connect__url"></p>
+          <p><a class="btn" href="/setup">More ways to connect</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-server">
+      <h2 id="h-server">Server</h2>
+      <dl class="facts" id="server-facts">
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="h-checks">
+      <h2 id="h-checks">Checks</h2>
+      <table class="checks">
+        <thead>
+          <tr><th scope="col">Component</th><th scope="col">Status</th><th scope="col">Detail</th></tr>
+        </thead>
+        <tbody id="checks-body">
+          <tr><td><span class="skel"></span></td><td><span class="skel skel-label"></span></td><td><span class="skel"></span></td></tr>
+          <tr><td><span class="skel"></span></td><td><span class="skel skel-label"></span></td><td><span class="skel"></span></td></tr>
+          <tr><td><span class="skel"></span></td><td><span class="skel skel-label"></span></td><td><span class="skel"></span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" aria-labelledby="h-tls">
+      <h2 id="h-tls">Secure connection</h2>
+      <dl class="facts" id="tls-facts">
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+      </dl>
+      <p class="panel-actions"><a class="btn" href="/setup">Set up another device</a></p>
+    </section>
+
+    <section class="panel" aria-labelledby="h-cfbd">
+      <h2 id="h-cfbd">CFBD upstream</h2>
+      <dl class="facts" id="cfbd-facts">
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="h-quota">
+      <h2 id="h-quota">API quota</h2>
+      <dl class="facts" id="quota-facts">
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="h-published">
+      <h2 id="h-published">Published data</h2>
+      <p class="note">Data CFBD changes on a weekly rhythm is kept until its next update time, then asked for again (the polls and weekly ratings by the server itself, so pages open without a call). Times are yours; each change CFBD makes is logged below with how long after the update time it landed.</p>
+      <table class="checks">
+        <thead>
+          <tr><th scope="col">Source</th><th scope="col">Next update</th><th scope="col">Rule</th><th scope="col">Last changes seen</th></tr>
+        </thead>
+        <tbody id="published-body">
+          <tr><td><span class="skel"></span></td><td><span class="skel skel-label"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section class="panel" aria-labelledby="h-config">
+      <h2 id="h-config">Configuration</h2>
+      <dl class="facts" id="config-facts">
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+        <dt><span class="skel skel-label"></span></dt><dd><span class="skel"></span></dd>
+      </dl>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="updated">Waiting for the first response</span>
+    <button id="refresh" type="button" class="btn">Refresh</button>
+  </footer>
+  <p class="foot-credit">Kickoff Companion is free from Myers Labs: <a href="https://github.com/Myerslabs/kickoff-companion" target="_blank" rel="noopener">github.com/Myerslabs/kickoff-companion</a>. <a href="https://collegefootballdata.com" target="_blank" rel="noopener">Data provided by CollegeFootballData.com</a>.</p>
+
+  <script type="module" src="/static/js/status.js"></script>
+</body>
+</html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0A1230">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Kickoff">
+  <title>Kickoff Companion</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <div id="app" class="shell">
+    <header class="topbar">
+      <span class="wordmark">Kickoff <em>Companion</em></span>
+      <div class="topbar__spacer"></div>
+      <span class="pill pill--quiet" role="status">Loading</span>
+    </header>
+  </div>
+  <script type="module" src="/static/js/app.js"></script>
+  <noscript>
+    <p class="note note--error">This app needs JavaScript. New device? Open <a href="/setup">/setup</a> first, then <a href="/status">/status</a> for the server status page.</p>
+  </noscript>
+</body>
+</html>

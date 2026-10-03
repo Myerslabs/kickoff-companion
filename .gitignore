@@ -1,0 +1,33 @@
+# Secrets. Never commit.
+.env
+
+# Runtime state (cache database, certificates and CA key, archive, live
+# recordings, feeds, weather, headshots, settings). Backed up, never committed.
+# The notes example and README are part of the app, so they stay tracked.
+logs/
+data/*
+!data/notes/
+data/notes/*
+!data/notes/_example.json
+!data/notes/README.md
+*.db
+*.db-wal
+*.db-shm
+
+# Runtime media cache (headshots, logos). Never commit images.
+static/media-cache/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Claude Code per-machine settings
+.claude/settings.local.json
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

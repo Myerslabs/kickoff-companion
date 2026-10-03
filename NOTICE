@@ -1,0 +1,26 @@
+Kickoff Companion
+Copyright (c) 2026 Myers Labs. Released under the MIT License (see LICENSE).
+
+Not affiliated with, endorsed by or sponsored by any college, university, athletic conference, the NCAA,
+any broadcaster, or CollegeFootballData.com. School names, team names and colors are shown only as the
+data describes them, chosen by each person who runs the app for the team they follow.
+
+DATA
+- College football data: Data provided by CollegeFootballData.com (https://collegefootballdata.com).
+  Each install uses its owner's own CFBD key and keeps a private cache under data/. Nothing in this
+  repository contains CFBD data: the tests and the demo run on a made-up league generated from the shape
+  of CFBD's responses, with every name and number invented.
+- Weather: the U.S. National Weather Service (https://www.weather.gov), a public service.
+- News headlines: the public RSS feeds each install is pointed at, shown as headlines with links.
+- Game notes (schemes, availability, depth charts, TV crew, coaches) are written by the owner, or by an AI
+  chat the owner asks, and stay on the owner's computer.
+
+FONTS
+- Barlow and Barlow Condensed, copyright 2017 The Barlow Project Authors, under the SIL Open Font License 1.1
+  (static/fonts/OFL.txt).
+
+SOFTWARE
+- Python packages installed by uv from uv.lock (FastAPI, Starlette, Uvicorn, HTTPX, Pydantic,
+  pydantic-settings, tzdata, cryptography, zeroconf, segno and their dependencies), each under its own
+  license.
+- uv by Astral (https://docs.astral.sh/uv/), installed on first start by the start scripts when missing.

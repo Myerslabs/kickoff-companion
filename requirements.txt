@@ -1,0 +1,13 @@
+# Runtime
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+httpx==0.28.1
+pydantic==2.13.5
+pydantic-settings==2.15.0
+tzdata==2026.4
+cryptography==50.0.1
+zeroconf==0.151.5
+segno==1.6.6
+
+# Tests
+pytest==9.1.1

@@ -1,0 +1,91 @@
+{
+  "gameId": 0,
+  "author": "hand (copy this file to <game_id>.json and fill it in)",
+  "writtenAt": "2026-09-23T12:00:00Z",
+  "sources": [
+    {
+      "label": "Conference availability report",
+      "url": "https://example.invalid/availability"
+    },
+    {
+      "label": "Team notes from the beat",
+      "url": null
+    }
+  ],
+  "schemes": {
+    "offense": "Spread, 11 personnel, up-tempo",
+    "defense": "4-2-5 with quarters coverage",
+    "source": "hand"
+  },
+  "sections": [
+    {
+      "heading": "Coaching matchup",
+      "paragraphs": [
+        "One or two short paragraphs. Plain football language."
+      ]
+    },
+    {
+      "heading": "Line movement",
+      "paragraphs": [
+        "Opened at -1.5, sits at -3 on Thursday."
+      ]
+    }
+  ],
+  "availability": [
+    {
+      "name": "Player Name",
+      "position": "WR",
+      "status": "Out",
+      "note": "knee, week 2"
+    },
+    {
+      "name": "Player Name",
+      "position": "OL",
+      "status": "Questionable",
+      "note": "ankle"
+    }
+  ],
+  "availabilitySource": "Conference availability report, Thursday",
+  "availabilityUpdatedAt": "2026-09-24",
+  "visitors": {
+    "source": "recruiting site of choice",
+    "sourceUrl": "https://example.invalid/visitors",
+    "updatedAt": "2026-09-25",
+    "home": [
+      {
+        "name": "Recruit Name",
+        "position": "WR",
+        "stars": 4,
+        "highSchool": "Example High",
+        "hometown": "Riverside, AL",
+        "classYear": 2027,
+        "status": "confirmed"
+      }
+    ],
+    "away": []
+  },
+  "lineups": {
+    "source": "the team's published depth chart (game notes PDF, a beat report of it, or Ourlads)",
+    "updatedAt": "2026-09-28",
+    "us": {
+      "team": "Swampwater Tech",
+      "scheme": "Spread option",
+      "source": "Swampwater Tech game notes, week 5",
+      "sourceUrl": "https://example.invalid/depth-chart",
+      "updatedAt": "2026-09-28",
+      "slots": [
+        { "unit": "Offense", "slot": "QB", "players": [{ "name": "Starter Name", "number": 12, "classYear": "RS SO" }, { "name": "Backup Name", "number": 9, "classYear": "RS FR" }] },
+        { "unit": "Defense", "slot": "JACK", "players": [{ "name": "Starter Name", "number": 0, "classYear": "SO", "note": "questionable, ankle" }] },
+        { "unit": "Special teams", "slot": "PK", "players": [{ "name": "Kicker Name", "number": 91, "classYear": "RS SO" }] }
+      ]
+    },
+    "them": {
+      "team": "Opponent",
+      "scheme": "4-2-5",
+      "source": "Ourlads",
+      "sourceUrl": "https://example.invalid/opponent-depth-chart",
+      "updatedAt": "2026-09-26",
+      "slots": []
+    }
+  }
+}

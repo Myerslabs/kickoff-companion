@@ -1,0 +1,57 @@
+# Kickoff Companion. Public release Phase 4: the dependencies live here, locked in uv.lock, so one
+# command sets up any OS: `uv sync` (or just run start.ps1 / start.sh, which does it). requirements.txt
+# and requirements-dev.txt carry the same pins for plain pip; tests/test_packaging.py keeps them in step.
+[project]
+name = "kickoff-companion"
+version = "0.1.0"
+description = "A second-screen companion for watching your college football team, served from your own computer."
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "fastapi==0.141.1",
+  "uvicorn[standard]==0.53.0",
+  "httpx==0.28.1",
+  "pydantic==2.13.5",
+  "pydantic-settings==2.15.0",
+  "tzdata==2026.4",
+  "cryptography==50.0.1",
+  "zeroconf==0.151.5",
+  "segno==1.6.6",
+]
+
+[dependency-groups]
+dev = [
+  "pytest==9.1.1",
+  "ruff==0.16.9",
+]
+
+[tool.uv]
+package = false  # an app run as `python -m app`, not a library to install
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q --strict-markers"
+filterwarnings = [
+  # Third-party deprecations raised inside Starlette's own TestClient module.
+  # Revisit when bumping starlette in requirements.txt.
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+  "ignore:The anyio.abc.BlockingPortal alias is deprecated",
+]
+
+# Phase 15: lint with `.\.venv\Scripts\python -m ruff check app tools tests` (ruff is in requirements-dev.txt).
+# Errors, bug-prone patterns and import order; long lines are house style here.
+[tool.ruff]
+target-version = "py312"
+line-length = 200
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]
+ignore = ["E501", "E731", "UP017", "UP042", "UP046", "UP047"]  # long lines, named lambdas and the newest syntax spellings are house style
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B905", "E741"]  # tests zip recorded lists of known length and use short names
+"tools/make_sample_data.py" = ["B023", "E741"]  # a one-off generator; its closures run inside the loop
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests", "tools"]

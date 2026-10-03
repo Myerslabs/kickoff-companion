@@ -1,0 +1,178 @@
+/* Kickoff Companion design tokens. Locked in Phase 2; see docs/03-DESIGN.md. The surface, text and
+   team colors below are the defaults; static/js/theme.js repaints them from the team's own colors.
+   Load order on every page: tokens.css, components.css, then the page's own stylesheet.
+   Breakpoints (CSS cannot put these in variables):
+     narrow   under 700px   one column, bands collapse to a summary line
+     medium   700 to 1099   two columns
+     wide     1100 and up   the full call-sheet grid */
+
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 400; font-display: swap; src: url("../fonts/Barlow-400.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/Barlow-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/Barlow-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/Barlow-700.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 500; font-display: swap; src: url("../fonts/BarlowCondensed-500.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: swap; src: url("../fonts/BarlowCondensed-600.woff2") format("woff2"); }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap; src: url("../fonts/BarlowCondensed-700.woff2") format("woff2"); }
+
+:root {
+  color-scheme: dark;
+
+  /* surfaces */
+  --ground: #0A1230;
+  --panel: #121C44;
+  --panel-raised: #182456;
+  --rule: #2A3770;
+  --rule-strong: #3B4C8C;
+
+  /* tables and band heads (Phase 14): shading that lets the eye follow a row across a wide table */
+  --band-head: #1A2761;
+  --table-head: #1F2D6B;
+  --row-alt: #18255B;
+  --row-hover: #263675;
+  --row-group: #1C2A64;
+  --row-rule: #1F2C63;
+  --sorted-col: rgba(250, 70, 22, 0.08);
+  --us-row: rgba(250, 70, 22, 0.13);
+
+  /* text */
+  --chalk: #F2F4FA;
+  --fog: #9BA6CC;
+  --mist: #8792C0; /* Phase 15: 4.5:1 on --panel (was #6F7BA6, 3.9:1) */
+
+  /* the team (defaults until theme.js paints the team's colors) */
+  --team-accent: #FA4616;
+  --team-primary: #0021A5;
+
+  /* the opponent, set at runtime from CFBD and contrast-checked; neutral until then */
+  --opp: #6F7BA6;
+  --opp-alt: #9BA6CC;
+  --opp-text: #F2F4FA;
+
+  /* status: never the only signal, always paired with a word or glyph */
+  --good: #3DD68C;
+  --stale: #FFD166;
+  --bad: #FF7B72;
+  --replay: #B388FF;
+
+  /* type. Phase 16 (UX-09): every size is multiplied by --ui-scale, the text size chosen on this
+     device in Settings (1, 1.12 or 1.25; prefs.js applyTextScale writes it on <html>). */
+  --ui-scale: 1;
+  --font-body: "Barlow", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-cond: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+  --text-display: calc(44px * var(--ui-scale));
+  --text-strip-score: calc(28px * var(--ui-scale));
+  --text-strip: calc(22px * var(--ui-scale));
+  --text-h1: calc(26px * var(--ui-scale));
+  --text-stat: calc(20px * var(--ui-scale));
+  --text-body: calc(16px * var(--ui-scale));
+  --text-label: calc(14px * var(--ui-scale));
+  --text-caption: calc(13px * var(--ui-scale));
+  /* sizes the shared kit uses outside the scale above (band titles, table headers, compact numerals, chips) */
+  --text-title: calc(18px * var(--ui-scale));
+  --text-th: calc(15px * var(--ui-scale));
+  --text-stat-compact: calc(18px * var(--ui-scale));
+  --text-chip: calc(14px * var(--ui-scale));
+
+  /* space */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --gap: 12px;
+  --tap: 44px;
+  --radius: 4px;
+  --topbar: 56px;
+
+  /* Phase 16 (stream F): what sticks under the top bar (a view with its own sticky strip raises it),
+     the radio dock's height (radio.js measures it), the change marks, and the form-control accent. */
+  --sticky-top: var(--topbar);
+  --dock-h: 0px;
+  --flash: color-mix(in srgb, var(--team-accent) 30%, transparent);
+  --changed-tint: color-mix(in srgb, var(--team-accent) 15%, transparent);
+  --press: var(--row-hover);
+  accent-color: var(--team-accent);
+}
+
+@media (max-width: 699px) {
+  :root {
+    --text-strip-score: calc(24px * var(--ui-scale));
+    --gap: 8px;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--ground);
+  color: var(--chalk);
+  font: var(--text-body) / 1.45 var(--font-body);
+  font-variant-numeric: tabular-nums lining-nums;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent; /* our own pressed states replace the browser's blue box */
+  scroll-padding-top: calc(var(--sticky-top) + var(--gap)); /* a band scrolled to never hides under the top bar */
+  overscroll-behavior-y: contain; /* no browser pull-to-refresh: the app has its own */
+}
+html.is-locked { overflow: hidden; } /* a side sheet, the player card or the menu is open */
+
+body { margin: 0; min-height: 100vh; }
+
+h1, h2, h3, .cond, .num {
+  font-family: var(--font-cond);
+  font-variant-numeric: tabular-nums lining-nums;
+  line-height: 1.2;
+}
+h1, h2, h3 { margin: 0; }
+h1 { font-size: var(--text-h1); font-weight: 700; }
+h2 { font-size: calc(20px * var(--ui-scale)); font-weight: 600; }
+h3 { font-size: calc(17px * var(--ui-scale)); font-weight: 600; }
+p { margin: 0; }
+a { color: inherit; }
+button { font: inherit; color: inherit; }
+img { max-width: 100%; }
+
+:focus-visible { outline: 3px solid var(--team-accent); outline-offset: 2px; }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Light theme (X6, optional): the same tokens, lighter surfaces, darker text. Chosen in Settings. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --ground: #EEF1F8;
+  --panel: #FFFFFF;
+  --panel-raised: #E4E9F5;
+  --rule: #C9D2EA;
+  --rule-strong: #A9B6DA;
+  --band-head: #F3F5FB;
+  --table-head: #E7ECF7;
+  --row-alt: #EFF3FA;
+  --row-hover: #E2E8F6;
+  --row-group: #EDF1F9;
+  --row-rule: #DDE3F1;
+  --sorted-col: rgba(250, 70, 22, 0.07);
+  --us-row: rgba(250, 70, 22, 0.11);
+  --chalk: #0A1230;
+  --fog: #465280;
+  --mist: #5A6690;
+  --opp-text: #0A1230;
+  --good: #1D8A57;
+  --stale: #8A6100;
+  --bad: #B3261E;
+  --replay: #5B33C4;
+}

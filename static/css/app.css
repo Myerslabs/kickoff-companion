@@ -1,0 +1,145 @@
+/* Status page (index.html) and device setup page (setup.html). Tokens and shared
+   components come from tokens.css and components.css. */
+
+.sheet--status { grid-template-columns: 1fr 1fr; padding: 16px 20px; }
+@media (max-width: 899px) { .sheet--status { grid-template-columns: 1fr; padding: 16px; } }
+.sheet-narrow { max-width: 960px; width: 100%; margin: 0 auto; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.panel-wide { grid-column: 1 / -1; }
+.panel > h2 {
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--fog);
+  border-bottom: 1px solid var(--rule);
+}
+.panel p { padding: 12px; }
+.panel .lead { font-size: 17px; }
+.panel-actions { padding: 0 12px 12px; }
+
+.facts {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 16px;
+  margin: 0;
+  padding: 12px;
+}
+.facts dt { color: var(--fog); }
+.facts dd { margin: 0; overflow-wrap: anywhere; }
+.skel-label { min-width: 60px; }
+
+.checks { width: 100%; border-collapse: collapse; }
+.checks th, .checks td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--rule); vertical-align: top; }
+.checks thead th { border-top: 0; color: var(--fog); font-weight: 600; }
+.checks td.status { white-space: nowrap; font-weight: 600; }
+.status-ok { color: var(--good); }
+.status-degraded { color: var(--stale); }
+.status-down { color: var(--bad); }
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--rule);
+  color: var(--fog);
+}
+
+.note-good { color: var(--good); }
+.step-body { padding: 12px; display: grid; gap: 12px; }
+.step-body p, .step-body .facts { padding: 0; }
+/* Connect a device (public release Phase 4b): the QR code beside the address, stacked on a phone. */
+.connect { grid-template-columns: auto 1fr; align-items: center; }
+.connect__qr { width: 174px; height: 174px; background: #fff; border-radius: 8px; padding: 6px; box-sizing: content-box; image-rendering: pixelated; }
+.connect__text { display: grid; gap: 8px; min-width: 0; }
+.connect__url { overflow-wrap: anywhere; }
+@media (max-width: 520px) { .connect { grid-template-columns: 1fr; justify-items: start; } }
+/* Welcome, the first-run setup (public release Phase 5a). */
+.note-bad { color: var(--bad); }
+.input { min-height: var(--tap); padding: 0 10px; width: 100%; min-width: 0; box-sizing: border-box; background: var(--ground); color: var(--chalk); border: 1px solid var(--rule-strong); border-radius: 4px; font: inherit; }
+.input:focus { outline: 3px solid var(--team-accent); outline-offset: 1px; }
+.input:disabled { opacity: 0.5; }
+.welcome__label { font-weight: 600; color: var(--fog); }
+.welcome__row { display: flex; gap: 8px; flex-wrap: wrap; }
+.welcome__row .input { flex: 1 1 260px; }
+.welcome__key { display: grid; gap: 6px; }
+.welcome__list { display: grid; gap: 2px; max-height: 280px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 4px; }
+.welcome__list:empty { display: none; }
+.welcome__list--short { max-height: 180px; }
+.welcome__item { display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 10px; background: transparent; color: var(--chalk); border: 0; text-align: left; font: inherit; cursor: pointer; }
+.welcome__item:focus-visible { background: var(--panel-raised); }
+@media (hover: hover) { .welcome__item:hover { background: var(--panel-raised); } }
+.welcome__item[aria-selected="true"] { background: var(--panel-raised); box-shadow: inset 3px 0 0 var(--team-accent); }
+.welcome__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid var(--rule-strong); }
+.welcome__meta { color: var(--fog); margin-left: auto; font-size: 14px; }
+.welcome__chosen { font-size: 18px; font-weight: 700; }
+.welcome__optional { font-weight: 400; color: var(--fog); font-size: 14px; }
+.welcome__liked { display: grid; gap: 16px; }
+.welcome__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.welcome__chips .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; border: 0; cursor: pointer; font: inherit; }
+.welcome__checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.welcome__checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
+.welcome__checks input { width: 20px; height: 20px; }
+.welcome__choices { display: grid; gap: 8px; }
+.welcome__choices label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: var(--tap); }
+.welcome__choices input { width: 20px; height: 20px; }
+.welcome__choices .note { flex-basis: 100%; margin: 0 0 0 28px; }
+.plan-note { border-left: 3px solid var(--team-accent); padding-left: 10px; }
+/* Public release Phase 8: where the app comes from */
+.foot-credit { margin: 0; padding: 4px 16px 16px; color: var(--fog); font-size: 13px; text-align: center; }
+.foot-credit a, .about__link a { color: var(--chalk); overflow-wrap: anywhere; }
+.about__link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.about__box { font-family: var(--font-mono, ui-monospace, monospace); }
+/* Radio for any team (public release Phase 5b) */
+.radio-help { display: grid; gap: 10px; }
+.radio-help__team p { margin: 0 0 6px; }
+.radio-help__links { display: flex; flex-wrap: wrap; gap: 8px; }
+.station-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
+.station-form label { display: grid; gap: 4px; font-weight: 600; color: var(--fog); }
+.station-list { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.station-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: var(--tap); border-bottom: 1px solid var(--rule); }
+.station-list .grow { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.plan-note a { color: var(--chalk); }
+.plain-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+details.device { border-top: 1px solid var(--rule); }
+details.device summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+details.device summary::-webkit-details-marker { display: none; }
+details.device summary::before { content: "+"; width: 16px; color: var(--team-accent); font-weight: 700; }
+details.device[open] summary::before { content: "\2013"; }
+details.device ol { margin: 0; padding: 0 12px 12px 40px; }
+details.device li { margin: 6px 0; }
+code {
+  font-family: ui-monospace, Consolas, Menlo, monospace;
+  font-size: 14px;
+  background: var(--ground);
+  padding: 2px 6px;
+  border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+
+/* Season view: inside the three-column media-guide grid the middle column is about 520 px
+   wide until very large screens, so the offense and defense tables stack there. Only there (Phase 16,
+   bug 4): the other pages that borrowed the .season wrapper keep their two-up spreads at 1100-1599 px. */
+@media (min-width: 1100px) and (max-width: 1599px) {
+  .season__guide .spread--2 { grid-template-columns: minmax(0, 1fr); }
+}
+.plan-features { margin-top: 12px; }
+.plan-feature .note { display: inline; }
+.plan-feature div.note { display: block; }
+.settings__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }

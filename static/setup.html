@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Connect a device - Kickoff Companion</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="wordmark">Kickoff <em>Companion</em></h1>
+    <div class="topbar__spacer"></div>
+    <a class="btn" href="/status">Status page</a>
+  </header>
+
+  <main class="sheet sheet--status sheet-narrow">
+    <section class="panel panel-wide" aria-labelledby="h-intro">
+      <h2 id="h-intro">Connect a phone or tablet</h2>
+      <p class="lead">Any device on the same Wi-Fi opens the app in its browser. Nothing to install: scan the code with the camera, or type the address.</p>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-open">
+      <h2 id="h-open">Step 1. Open the app</h2>
+      <div class="step-body connect">
+        <img id="qr" class="connect__qr" src="/setup/qr.svg" width="174" height="174" alt="QR code for the app's address">
+        <div class="connect__text">
+          <p><a id="app-link" class="btn btn--primary" href="/">Open the app</a></p>
+          <p id="app-url" class="mono connect__url"></p>
+          <p id="other-urls" class="note" hidden></p>
+          <p class="note">Point the camera at the code and tap the link it shows. Some Android phones cannot use names that end in .local; the number address always works.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-home">
+      <h2 id="h-home">Step 2. Add it to the home screen</h2>
+      <div class="step-body">
+        <ul class="plain-list">
+          <li><strong>iPhone and iPad (Safari):</strong> the Share button, then <strong>Add to Home Screen</strong>.</li>
+          <li><strong>Android (Chrome):</strong> the menu, then <strong>Add to Home screen</strong> or <strong>Install app</strong>.</li>
+          <li><strong>A computer:</strong> bookmark it, or in Chrome and Edge use <strong>Install</strong> in the address bar.</li>
+        </ul>
+        <p class="note">After that it opens with one tap, full screen. The app keeps the screen awake during games once you tap anywhere on it.</p>
+      </div>
+    </section>
+
+    <section id="trust-intro" class="panel panel-wide" aria-labelledby="h-trust" hidden>
+      <h2 id="h-trust">HTTPS is on: trust the certificate first</h2>
+      <p class="lead">This server is set to HTTPS (HTTPS=on in .env), so each device trusts its certificate once before step 1. Two minutes, then it is done for years. Switch HTTPS off to skip this.</p>
+      <p id="already-secure" class="note note-good" hidden>This device already trusts the certificate. You are on a secure connection right now.</p>
+    </section>
+
+    <section id="trust-download" class="panel panel-wide" aria-labelledby="h-download" hidden>
+      <h2 id="h-download">Download the certificate</h2>
+      <div class="step-body">
+        <p><a id="download" class="btn btn--primary" href="/setup/kickoff-companion-ca.crt">Download certificate</a></p>
+        <dl class="facts">
+          <dt>Name</dt><dd id="ca-name"><span class="skel"></span></dd>
+          <dt>Fingerprint (SHA-256)</dt><dd id="ca-fingerprint" class="mono"><span class="skel"></span></dd>
+          <dt>Valid until</dt><dd id="ca-until"><span class="skel"></span></dd>
+        </dl>
+        <p class="note">If the device shows a fingerprint, check that it matches the one above.</p>
+      </div>
+    </section>
+
+    <section id="trust-steps" class="panel panel-wide" aria-labelledby="h-steps" hidden>
+      <h2 id="h-steps">Trust it on this device</h2>
+      <details class="device">
+        <summary>iPhone and iPad</summary>
+        <ol>
+          <li>Tap <strong>Download certificate</strong> above. Safari asks to allow a configuration profile. Tap <strong>Allow</strong>, then <strong>Close</strong>.</li>
+          <li>Open <strong>Settings</strong>. Tap <strong>Profile Downloaded</strong> near the top (or General, then VPN &amp; Device Management). Tap <strong>Install</strong>, enter your passcode, tap <strong>Install</strong> again.</li>
+          <li>Open <strong>Settings</strong>, <strong>General</strong>, <strong>About</strong>. Scroll to the bottom and tap <strong>Certificate Trust Settings</strong>. Turn on <strong class="ca-name">the certificate named above</strong> and confirm.</li>
+          <li>Come back here and open the app.</li>
+        </ol>
+      </details>
+      <details class="device">
+        <summary>Android</summary>
+        <ol>
+          <li>Tap <strong>Download certificate</strong>. The file lands in Downloads.</li>
+          <li>Open <strong>Settings</strong> and search for <strong>CA certificate</strong>. It usually sits under Security, Encryption &amp; credentials, Install a certificate. Choose <strong>CA certificate</strong>, tap <strong>Install anyway</strong>, and pick the downloaded file.</li>
+          <li>Android shows a "network may be monitored" notice while a personal certificate is installed. That is expected.</li>
+          <li>Then open the app from Chrome.</li>
+        </ol>
+      </details>
+      <details class="device">
+        <summary>Windows</summary>
+        <ol>
+          <li>Click <strong>Download certificate</strong>, then open the downloaded file and click <strong>Install Certificate</strong>.</li>
+          <li>Choose <strong>Current User</strong>, then <strong>Place all certificates in the following store</strong>, <strong>Browse</strong>, and pick <strong>Trusted Root Certification Authorities</strong>. Finish and accept the security warning.</li>
+          <li>Or run this in PowerShell after downloading: <code>Import-Certificate -FilePath "$env:USERPROFILE\Downloads\<span class="ca-file">kickoff-companion-ca.crt</span>" -CertStoreLocation Cert:\CurrentUser\Root</code></li>
+          <li>Chrome and Edge trust it right away. Firefox keeps its own list; see the Firefox section.</li>
+        </ol>
+      </details>
+      <details class="device">
+        <summary>Mac</summary>
+        <ol>
+          <li>Click <strong>Download certificate</strong> and open the file. Keychain Access adds it to the login keychain.</li>
+          <li>In Keychain Access, double-click <strong class="ca-name">the certificate named above</strong>, expand <strong>Trust</strong>, and set <strong>When using this certificate</strong> to <strong>Always Trust</strong>. Close the window and enter your password.</li>
+        </ol>
+      </details>
+      <details class="device">
+        <summary>Linux, the Steam Deck included</summary>
+        <ol>
+          <li><strong>Firefox</strong> (the Steam Deck's browser and most others'): follow the Firefox section below. Firefox keeps its own list, so this works without admin rights.</li>
+          <li><strong>Chrome, Chromium or Edge</strong> keep their own list on Linux too. Open <code>chrome://certificate-manager</code> (older versions: Settings, Privacy and security, Security, Manage certificates), go to the certificates you installed yourself, choose the trusted authorities list, click <strong>Import</strong>, pick the downloaded file, and allow it to identify websites.</li>
+          <li>For the whole system (command-line tools and other apps; needs admin rights, so not on the Steam Deck's read-only system). Debian or Ubuntu: <code>sudo cp ~/Downloads/<span class="ca-file">kickoff-companion-ca.crt</span> /usr/local/share/ca-certificates/ &amp;&amp; sudo update-ca-certificates</code>. Fedora or Arch: <code>sudo trust anchor --store ~/Downloads/<span class="ca-file">kickoff-companion-ca.crt</span></code>.</li>
+        </ol>
+      </details>
+      <details class="device">
+        <summary>Firefox on any computer</summary>
+        <ol>
+          <li>Click <strong>Download certificate</strong> in Firefox. A dialog offers to trust the authority. Tick <strong>Trust this CA to identify websites</strong> and click OK.</li>
+          <li>On Windows you can instead type <code>about:config</code> in the address bar, search for <code>security.enterprise_roots.enabled</code>, and set it to <strong>true</strong> so Firefox uses the Windows list.</li>
+        </ol>
+      </details>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="setup-status">Loading the address</span>
+  </footer>
+
+  <script type="module" src="/static/js/setup.js"></script>
+</body>
+</html>

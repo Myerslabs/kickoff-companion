@@ -1,0 +1,4 @@
+{
+  "about": "Radio stations by team (app/services/stations.py). Each entry: team (as CFBD spells it), name, kind (stream, embed or link) and url (the station's official player, stream or page). The list grows as people ask for their team's station with the Request button on the Settings page.",
+  "stations": []
+}

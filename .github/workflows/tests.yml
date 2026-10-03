@@ -1,0 +1,36 @@
+# The test suite on Windows, Linux and macOS (public release Phase 4). The suite never touches the network
+# beyond installing packages: every CFBD answer comes from the made-up league.
+#
+# Runs only in the public repo (kickoff-companion), so a private copy spends no Actions minutes.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event.repository.name == 'kickoff-companion'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - uses: actions/setup-node@v4  # the front-end tests run the real modules under Node
+        with:
+          node-version: "22"
+      - name: Install from the lock file
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run --frozen ruff check app tools tests
+      - name: Tests
+        run: uv run --frozen pytest

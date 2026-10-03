@@ -1,0 +1,46 @@
+name: Radio station for a team
+description: Ask for your team's radio broadcast to be added to Kickoff Companion's station list.
+title: "Radio station: "
+labels: ["radio"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking. Stations are added to `app/radio_stations.json` as people request them.
+        The app plays only official sources: the station's or network's own player, stream or web page.
+        Nothing is pulled out of other sites, and audio cannot follow the app's spoiler delay.
+  - type: input
+    id: school
+    attributes:
+      label: School
+      description: As College Football Data spells it (the name in the app's team list).
+      placeholder: "Example State"
+    validations:
+      required: true
+  - type: input
+    id: station
+    attributes:
+      label: Station or network
+      description: The flagship station or the team's radio network.
+    validations:
+      required: true
+  - type: input
+    id: url
+    attributes:
+      label: Official address, if you know it
+      description: The station's or network's own page, player or stream. Leave blank if you are not sure.
+      placeholder: "https://"
+  - type: dropdown
+    id: kind
+    attributes:
+      label: How it plays, if you know
+      options:
+        - Not sure
+        - A page with a player (link)
+        - A player that can be shown inside the app (embed)
+        - A direct audio stream
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Other stations in the network, a Spanish-language broadcast, a station that only carries some games.

@@ -1,0 +1,14 @@
+# Every text file is stored and checked out with LF, as the files are written.
+# Git for Windows defaults to CRLF on checkout; this keeps fixtures byte-stable.
+* text=auto eol=lf
+
+# Binary assets
+*.woff2 binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.mp4 binary
+*.webm binary
+
+# Windows batch files need CRLF to run reliably (public release Phase 8: the double-click launcher)
+*.cmd text eol=crlf

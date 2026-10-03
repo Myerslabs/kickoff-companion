@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Kickoff Companion live debug</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="wordmark" href="/">Kickoff <em>Companion</em></a>
+    <span style="color: var(--fog); margin-left: 12px">live debug</span>
+    <div class="topbar__spacer"></div>
+    <span id="pill" class="pill pill--quiet" role="status">Connecting</span>
+  </header>
+  <main class="sheet sheet--status">
+    <section class="panel">
+      <h2>Replay and delay</h2>
+      <div class="facts" style="grid-template-columns: max-content minmax(0, 1fr)">
+        <dt>Game</dt><dd><select id="game" aria-label="Finished game"></select></dd>
+        <dt>Speed</dt><dd><select id="speed" aria-label="Replay speed"><option>1</option><option>5</option><option>10</option><option selected>30</option><option>60</option></select> x</dd>
+        <dt>Delay</dt><dd><input id="delay" type="range" min="0" max="120" step="5" value="0" style="width: 220px; accent-color: var(--team-accent)"> <b id="delay-value">0 s</b></dd>
+      </div>
+      <div class="panel-actions"><button id="start" class="btn btn--primary" type="button">Start replay</button> <button id="stop" class="btn" type="button">Stop</button> <button id="reconnect" class="btn btn--quiet" type="button">Reconnect stream</button></div>
+      <p id="note" class="note"></p>
+    </section>
+    <section class="panel">
+      <h2>Engine</h2>
+      <dl class="facts" id="engine"></dl>
+    </section>
+    <section class="panel panel-wide">
+      <h2>Delayed state</h2>
+      <dl class="facts" id="state"></dl>
+    </section>
+    <section class="panel panel-wide">
+      <h2>Released plays, newest first</h2>
+      <div id="plays" style="max-height: 480px; overflow: auto"></div>
+    </section>
+  </main>
+  <script type="module" src="/static/js/debug-live.js"></script>
+</body>
+</html>

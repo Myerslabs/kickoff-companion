@@ -1,0 +1,36 @@
+/* The styleguide page's own layout. Components come from components.css unchanged. */
+
+.sg { max-width: 1400px; margin: 0 auto; padding: var(--sp-4); }
+.sg__intro { display: grid; gap: var(--sp-2); padding: var(--sp-4) 0 var(--sp-5); border-bottom: 1px solid var(--rule-strong); }
+.sg__intro p { color: var(--fog); max-width: 70ch; }
+.sg__bp { display: inline-flex; gap: var(--sp-2); align-items: center; color: var(--fog); font-size: var(--text-label); }
+.sg__bp b { font-family: var(--font-cond); font-size: 18px; color: var(--chalk); }
+.sg__nav { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); padding: var(--sp-3) 0; font-size: var(--text-label); }
+.sg__nav a { color: var(--fog); text-decoration: none; min-height: 32px; display: inline-flex; align-items: center; }
+@media (hover: hover) { .sg__nav a:hover { color: var(--chalk); } }
+
+.sg__section { padding: var(--sp-5) 0; border-bottom: 1px solid var(--rule); }
+.sg__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.sg__head p { color: var(--fog); font-size: var(--text-label); max-width: 70ch; }
+.sg__states { display: grid; gap: var(--gap); grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr)); margin-top: var(--sp-4); }
+.sg__label { color: var(--mist); font-size: var(--text-caption); margin: var(--sp-3) 0 var(--sp-1); }
+.sg__row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.sg__stack { display: grid; gap: var(--gap); }
+
+.sg__swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-2); }
+.sw { border: 1px solid var(--rule); border-radius: var(--radius); overflow: hidden; }
+.sw__chip { height: 48px; }
+.sw__meta { padding: var(--sp-2); font-size: var(--text-caption); color: var(--fog); }
+.sw__meta b { display: block; color: var(--chalk); font-family: var(--font-cond); font-size: 15px; }
+
+.sg__type { display: grid; gap: var(--sp-3); }
+.spec { display: grid; grid-template-columns: 140px 1fr; gap: var(--sp-3); align-items: baseline; border-bottom: 1px solid var(--rule); padding-bottom: var(--sp-2); }
+.spec__meta { color: var(--fog); font-size: var(--text-caption); }
+.spec__sample { min-width: 0; overflow-wrap: anywhere; }
+
+.sg__frame { border: 1px solid var(--rule-strong); border-radius: var(--radius); overflow: hidden; }
+.sg__frame .topbar, .sg__frame .strip { position: static; }
+.sg__frame .radio-bar { position: static; }
+.sg__inline-drawer { position: relative; height: 420px; overflow: hidden; }
+.sg__inline-drawer .drawer { position: absolute; display: block; }
+.sg__inline-drawer .drawer__panel { width: min(320px, 100%); }
