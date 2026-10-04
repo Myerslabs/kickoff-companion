@@ -16,7 +16,7 @@ Clone the repository with git, or download it as a ZIP from the repository page 
 | macOS | `Kickoff Companion.command` (if macOS says it cannot open a downloaded file: right-click it, Open, then Open again) |
 | Linux, Steam Deck | `Kickoff Companion.sh` (choose Execute or Run if the file manager asks) |
 
-The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the setup page in the browser (section 3). Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
+The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a made-up league with a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
 
 ## 2. Install uv
 
@@ -31,7 +31,7 @@ Prefer plain pip? Make a virtual environment named `.venv` in the folder and ins
 
 ## 3. Configure (in the browser)
 
-Nothing to edit. On the first start the browser opens a setup page (`/welcome`):
+Nothing to edit. A fresh install opens the demo first; **Use my own team** on its welcome page (`/demo`) opens the setup page (`/welcome`). The menu's **Demo** item switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
 
 1. **Your CFBD key.** Get one free at [collegefootballdata.com/key](https://collegefootballdata.com/key): sign up with an email address and CFBD mails it. Paste it and the page checks it with CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
 2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Game program and the Live sheet follow it, and only its colors and mascot theme the app. The conference comes along.

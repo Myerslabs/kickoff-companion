@@ -27,6 +27,7 @@ export const MENU = [
       { id: "glossary", label: "Glossary" },
       { id: "settings", label: "Settings" },
       { id: "setup", label: "Device setup", href: "/setup" },
+      { id: "demo", label: "Demo", href: "/demo", hint: "a made-up league" }, // public release Phase 9b
     ],
   },
 ];

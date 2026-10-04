@@ -170,6 +170,19 @@ function rememberScroll() {
   document.addEventListener("click", save, { capture: true });
 }
 
+/** Public release Phase 9b: in the demo, a banner across the top says so and leads to the demo page (what a key
+ *  does, your own team). A server from before 9b has no /api/demo; then nothing shows. */
+function showDemoBanner(page) {
+  fetchJson("/api/demo")
+    .then((envelope) => {
+      const data = envelope?.data;
+      if (!data || data.demo !== true) return;
+      const banner = el("div", { class: "demo-banner", role: "note" }, el("span", {}, "Demo: a made-up league with a game under way."), el("a", { href: "/demo" }, data.configured === true ? "Back to my team ›" : "Use my own team ›"));
+      page.root.insertBefore(banner, page.root.firstChild);
+    })
+    .catch((error) => console.warn("Could not tell whether this is the demo.", error?.message || error));
+}
+
 /** Public release Phase 5b: ask the server to load the primary teams' pages now, so they open at once.
  *  The server decides (a Tier 2 key, at most every ten minutes); a failure only means they load on demand. */
 function warmPrimaries() {
@@ -209,6 +222,7 @@ async function start() {
   } catch (error) {
     console.error("Stat hints could not start; the app works without them.", error);
   }
+  showDemoBanner(page);
   mountRadio(page.root.querySelector(".shell__radio"));
   loadRadioSources();
   warmPrimaries();

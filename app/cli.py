@@ -77,18 +77,28 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     # In reload mode this process only watches files; the worker it spawns writes the log file.
     configure_logging(settings, to_file=not args.reload)
 
-    from app import restart
+    from app import restart, startmode
     from app.serving import run_server
 
-    code = run_server(settings, reload=args.reload, open_url=browser_url(settings, no_browser=args.no_browser or args.reload, login=args.login))
-    while code == restart.RESTART:  # setup finished or the team changed: serve again from the new .env
+    def serve(settings: Settings, *, first: bool) -> int:
+        """One serve: the demo or this install's own team (public release Phase 9b: a fresh install starts in the
+        demo; data/startup.json remembers a switch)."""
+        opening = browser_url(settings, no_browser=args.no_browser or args.reload, login=args.login) if first else None
+        if not args.reload and startmode.start_mode(settings) == startmode.DEMO:
+            from app.demo.run import serve_embedded
+
+            return serve_embedded(settings, open_url=f"{opening.rstrip('/')}/demo" if opening else None, restarting=not first)
+        return run_server(settings, reload=args.reload, open_url=opening, restarting=not first)
+
+    code = serve(settings, first=True)
+    while code == restart.RESTART:  # setup finished, the team changed, or the demo was switched: serve again
         try:
             settings = load_settings(env_file)
         except SettingsError as exc:
             print(str(exc), file=sys.stderr)
             return 2
         configure_logging(settings)
-        code = run_server(settings, restarting=True)
+        code = serve(settings, first=False)
     return code
 
 

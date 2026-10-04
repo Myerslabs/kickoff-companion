@@ -23,6 +23,7 @@ import sys
 import time
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import uvicorn
 from uvicorn.config import STARTUP_FAILURE
@@ -310,15 +311,17 @@ def open_in_browser(url: str) -> None:
 RESTART_BIND_SECONDS = 20  # after a restart the old listener may need a moment to let go of the port
 
 
-def run_server(settings: Settings, *, reload: bool = False, open_url: str | None = None, restarting: bool = False) -> int:
-    """Run the app. Returns a process exit code, or restart.RESTART when the app asked to restart."""
+def run_server(settings: Settings, *, reload: bool = False, open_url: str | None = None, restarting: bool = False, asgi: Any = None) -> int:
+    """Run the app. Returns a process exit code, or restart.RESTART when the app asked to restart. `asgi` serves a
+    ready-made app instead of building one from the settings (public release Phase 9b: the demo on this address)."""
+    reload = reload and asgi is None
     config = uvicorn.Config(
-        "app.main:create_app",
-        factory=True,
+        asgi if asgi is not None else "app.main:create_app",
+        factory=asgi is None,
         host=settings.host,
         port=settings.port,
         log_config=None,
-        access_log=True,
+        access_log=asgi is None,
         timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
         reload=reload,
         reload_dirs=[str(Path(__file__).resolve().parent)] if reload else None,

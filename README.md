@@ -18,7 +18,9 @@ A second screen for college football. Pick your team, start it on a computer at 
 
 - A computer that stays on during games: Windows 10 or later, macOS, or Linux.
 - Phones or tablets on the same Wi-Fi.
-- A free key from [College Football Data](https://collegefootballdata.com/key) (CFBD). Every number in the app comes from CFBD.
+- For your own team: a free key from [College Football Data](https://collegefootballdata.com/key) (CFBD). Every number in the app comes from CFBD. You can try the whole app first without one: it starts in a demo.
+
+**Your data stays with you.** Kickoff Companion is free, from Myers Labs. It runs on your computer and talks to CollegeFootballData.com directly: your key, your team and everything you look at stay there, and nothing is sent to Myers Labs. A CFBD key is free. CFBD's paid plans are paid to CFBD, not to us, and they only unlock more data:
 
 | CFBD plan | Calls a month | What the app shows |
 |---|---|---|
@@ -40,14 +42,15 @@ Anything a plan does not include stays on its page with a note saying which plan
    | Linux, Steam Deck | `Kickoff Companion.sh` |
 
    The first start installs [uv](https://docs.astral.sh/uv/), Python and the app's packages for your user (no admin rights, a minute or two, once). macOS may say it cannot open a downloaded file: right-click the launcher, Open, then Open again.
-3. The browser opens the setup page. Paste your CFBD key, pick your team, save. The app restarts with your team.
-4. On a phone or tablet, scan the QR code in the server window (or on the app's status page). The window that opened is the server: keep it open during the game, close it to stop.
+3. The browser opens the **demo**: a made-up league with a game already under way, so you can see everything working. Its welcome page explains what a CFBD key does.
+4. When you are ready, choose **Use my own team** on that page (or the banner at the top): paste your CFBD key, pick your team, save. The app restarts with your team. The menu's **Demo** item switches back to the demo any time, for showing a friend.
+5. On a phone or tablet, scan the QR code in the server window (or on the app's status page). The window that opened is the server: keep it open during the game, close it to stop.
 
 Settings in the app can start the server when you log in, make a Desktop icon, and keep the screen awake. The full guide, including the firewall on each system and the Steam Deck, is [docs/05-SETUP.md](docs/05-SETUP.md).
 
-## Try it without a key
+## The demo on its own
 
-The demo runs the whole app against a made-up league (136 schools with names like the Swampwater Tech Mudpuppies), no key and no network:
+A fresh install starts in the demo. To run it beside your own install (on its own port, no key, no network), with the made-up league of 136 schools like the Swampwater Tech Mudpuppies:
 
 ```
 uv run python -m app --demo

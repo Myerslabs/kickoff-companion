@@ -92,6 +92,13 @@
 .welcome__choices input { width: 20px; height: 20px; }
 .welcome__choices .note { flex-basis: 100%; margin: 0 0 0 28px; }
 .plan-note { border-left: 3px solid var(--team-accent); padding-left: 10px; }
+/* Public release Phase 9b: the demo page and the demo banner */
+.demo-page__actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.demo-plans { width: 100%; border-collapse: collapse; font-size: 14px; }
+.demo-plans th, .demo-plans td { padding: 8px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.demo-plans thead th { color: var(--fog); font-weight: 600; }
+.demo-banner { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 12px; padding: 6px 16px; background: var(--team-accent); color: var(--ground); font-weight: 600; font-size: 14px; text-align: center; }
+.demo-banner a { color: inherit; text-decoration: underline; }
 /* Public release Phase 8: where the app comes from */
 .foot-credit { margin: 0; padding: 4px 16px 16px; color: var(--fog); font-size: 13px; text-align: center; }
 .foot-credit a, .about__link a { color: var(--chalk); overflow-wrap: anywhere; }

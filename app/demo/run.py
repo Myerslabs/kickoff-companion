@@ -108,7 +108,7 @@ class FailWindow:
         return active
 
 
-def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, tier: int, fail: FailWindow | None):
+def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, tier: int, fail: FailWindow | None, mdns_name: str = "off"):
     import httpx
 
     import app.main as app_main
@@ -120,7 +120,7 @@ def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, t
     us = world.league.team(N.OUR_SCHOOL)
     settings = load_settings(
         env_file=None, cfbd_api_key=DEMO_KEY, cfbd_base_url=FAKE_BASE_URL, team=us.school, conference=us.conference,
-        season=world.season, host=host, port=port, lan_hostname="", mdns_name="off", data_dir=str(data_dir), log_dir=str(data_dir / "logs"),
+        season=world.season, host=host, port=port, lan_hostname="", mdns_name=mdns_name, data_dir=str(data_dir), log_dir=str(data_dir / "logs"),
         monthly_call_budget={0: 1000, 1: 5000}.get(tier, 30000),
     )
     upstream = DemoUpstream(world, clock, tier=tier, fail=fail)
@@ -338,6 +338,37 @@ def run(args: argparse.Namespace) -> int:
             shutil.rmtree(data_dir, ignore_errors=True)
             say(f"deleted {data_dir}")
     return 0
+
+
+EMBEDDED_START = 25.0  # simulated minutes after kickoff: a fresh install opens on a game already under way
+EMBEDDED_SPEED = 6.0  # about half an hour of live game before the final
+
+
+def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool = False) -> int:
+    """The demo on this install's own address and port (public release Phase 9b): a fresh install, or the menu's
+    Demo item, starts here. Phones reach it as they would the app (the QR code, the network name). The demo's
+    data is a scratch folder deleted at the end; `home` (this install's settings) only gives the address and
+    the folder where the start mode is saved. Returns a process exit code, or restart.RESTART on a switch."""
+    from app.serving import run_server
+
+    season = demo_season()
+    say(f"Starting the demo: the made-up {season} league (built once, then cached in {CACHE_DIR}).")
+    world = load_world(season=season, seed=2026, cache_dir=CACHE_DIR)
+    game = next_game(world)
+    clock = SimClock(game.slot.start + timedelta(minutes=EMBEDDED_START), EMBEDDED_SPEED)
+    data_dir = Path(tempfile.mkdtemp(prefix="kickoff-demo-"))
+    try:
+        application, asgi, _upstream, _settings = build(world, clock, data_dir, home.port, home.host, 2, None, mdns_name=home.mdns_name)
+        application.state.demo_mode = True
+        application.state.home_data_dir = Path(home.data_dir)
+        application.state.home_configured = not home.setup_needed
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
+                handler.addFilter(ConsoleFilter())
+        say("This is the demo: a made-up league with a game under way. The demo page in the browser explains how to use your own team.")
+        return run_server(home, open_url=open_url, restarting=restarting, asgi=asgi)
+    finally:
+        shutil.rmtree(data_dir, ignore_errors=True)
 
 
 def main(argv: list[str] | None = None) -> int:

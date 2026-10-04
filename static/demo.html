@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Welcome - Kickoff Companion</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1 class="wordmark">Kickoff <em>Companion</em></h1>
+    <div class="topbar__spacer"></div>
+    <a class="btn" href="/setup">Connect a device</a>
+  </header>
+
+  <main class="sheet sheet--status sheet-narrow welcome demo-page">
+    <section class="panel panel-wide" aria-labelledby="h-demo" id="demo-intro">
+      <h2 id="h-demo">Welcome to Kickoff Companion</h2>
+      <div class="step-body">
+        <p class="lead" id="demo-lead">You are looking at the demo: a made-up league of 136 schools, with a game under way right now. Everything works the way it will for your own team: the Live sheet, the game program, the season, the stats.</p>
+        <p class="demo-page__actions">
+          <a class="btn btn--primary" href="/" id="explore">Explore the demo</a>
+          <button class="btn" type="button" id="switch">Use my own team</button>
+        </p>
+        <p id="switch-note" class="note" role="status" hidden></p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-key" id="demo-key">
+      <h2 id="h-key">Your own team needs a CFBD key</h2>
+      <div class="step-body">
+        <p>Every number in the app comes from <a href="https://collegefootballdata.com" target="_blank" rel="noopener">College Football Data</a> (CFBD), a separate service. A key is free: sign up with an email address and CFBD mails it to you. On the next page you paste it and pick your team, and the app follows that team from then on.</p>
+        <p><a class="btn" id="get-key" href="https://collegefootballdata.com/key" target="_blank" rel="noopener">Get a free key</a></p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-private" id="demo-private">
+      <h2 id="h-private">Your data stays with you</h2>
+      <div class="step-body">
+        <p>Kickoff Companion is free, from Myers Labs. It runs on your computer and talks to CollegeFootballData.com directly: your key, your team and everything you look at stay here, and nothing is sent to Myers Labs.</p>
+      </div>
+    </section>
+
+    <section class="panel panel-wide" aria-labelledby="h-plans" id="demo-plans">
+      <h2 id="h-plans">What CFBD's plans add</h2>
+      <div class="step-body">
+        <p>A CFBD key is free. CFBD's paid plans are paid to CFBD, not to us, and they only unlock more data:</p>
+        <table class="demo-plans">
+          <thead><tr><th scope="col">CFBD plan</th><th scope="col">Calls a month</th><th scope="col">What the app shows</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Free</th><td>1,000</td><td>Every season page, and box scores and play-by-play after each game. The app runs lean so the calls last the month.</td></tr>
+            <tr><th scope="row">Tier 1, $1 a month</th><td>5,000</td><td>Adds CFBD's game weather and live scores across the country.</td></tr>
+            <tr><th scope="row">Tier 2, $5 a month</th><td>30,000</td><td>Adds live play-by-play for your game, more primary teams, secondary teams and the My teams ticker.</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Anything a plan does not include stays on its page with a note saying which plan shows it. <a id="see-plans" href="https://collegefootballdata.com/api-tiers" target="_blank" rel="noopener">See CFBD's plans</a></p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="demo-status">Loading</span>
+  </footer>
+  <p class="foot-credit">Kickoff Companion is free from Myers Labs: <a href="https://github.com/Myerslabs/kickoff-companion" target="_blank" rel="noopener">github.com/Myerslabs/kickoff-companion</a>. <a href="https://collegefootballdata.com" target="_blank" rel="noopener">Data provided by CollegeFootballData.com</a>.</p>
+
+  <script type="module" src="/static/js/demo-page.js"></script>
+</body>
+</html>

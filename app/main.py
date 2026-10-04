@@ -22,6 +22,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app import APP_NAME, BUILD_PHASE, __version__, restart
 from app import shutdown as shutdown_signal
 from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, players, program, radio, ratings, season, setup, ticker, welcome
+from app.api import demo as demo_api
 from app.api import matchup as matchup_api  # Phase 16 BX
 from app.api import search as search_api
 from app.api import settings as settings_api
@@ -106,7 +107,7 @@ class PlainHttpRedirect:
         await self.app(scope, receive, send)
 
 
-SETUP_OPEN = ("/welcome", "/api/welcome", "/static/", "/setup", "/api/setup", "/api/health", "/status", "/manifest.webmanifest", "/icons/", "/api/identity", "/favicon")
+SETUP_OPEN = ("/welcome", "/api/welcome", "/demo", "/api/demo", "/static/", "/setup", "/api/setup", "/api/health", "/status", "/manifest.webmanifest", "/icons/", "/api/identity", "/favicon")
 
 
 def setup_open(path: str) -> bool:
@@ -372,13 +373,17 @@ def create_app(
     app.state.headshots = HeadshotStore(settings.data_dir, transport=media_transport, user_agent=f"{APP_NAME.replace(' ', '')}/{__version__} (personal second screen)")
     app.state.logos = LogoStore(settings.data_dir, transport=logo_transport or media_transport, user_agent=agent)  # Phase 16: logos served from our own route
     app.state.started_at = datetime.now(timezone.utc)
+    app.state.demo_mode = False  # public release Phase 9b: app/demo/run.py serve_embedded sets these for the demo
+    app.state.home_data_dir = settings.data_dir
+    app.state.home_configured = not settings.setup_needed
 
     app.add_middleware(SetupGate, active=settings.setup_needed)
     app.add_middleware(PlainHttpRedirect, https=settings.https, legacy_tls=tls is not None and not settings.https)
     app.add_middleware(StaticCacheHeaders)
     app.include_router(health.router)
     app.include_router(setup.router)
-    app.include_router(welcome.router)  # public release Phase 5a: first-run setup
+    app.include_router(welcome.router)
+    app.include_router(demo_api.router)  # public release Phase 9b: the demo page and the switch  # public release Phase 5a: first-run setup
     app.include_router(season.router)
     app.include_router(players.router)
     app.include_router(media.router)
