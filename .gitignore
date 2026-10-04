@@ -17,6 +17,11 @@ data/notes/*
 # Runtime media cache (headshots, logos). Never commit images.
 static/media-cache/
 
+# The packaged program (tools/package/build.py): its staging files and builds
+tools/package/out/
+/dist/
+/build/
+
 # Python
 .venv/
 __pycache__/

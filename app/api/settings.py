@@ -10,8 +10,10 @@ from fastapi import APIRouter, Request
 from app import APP_NAME, DATA_CREDIT, DATA_URL, PUBLISHER, REPO_URL, __version__
 from app.api.envelope import envelope, error_response
 from app.api.radio import all_sources, radio_help
+from app.config import PROJECT_ROOT
+from app.paths import ROOTS
 from app.services import plan, stations, teamset
-from app.services.launcher import Launcher
+from app.services.launcher import Launcher, open_folder
 from app.services.notes_task import NotesRunner
 from app.services.prefs import PrefsError, PrefsStore
 
@@ -56,6 +58,7 @@ def _payload(request: Request) -> dict[str, Any]:
         "plan": plan.summary(request.app.state.cfbd),  # public release Phase 5a
         "canChangeKey": _on_server_computer(request),
         "notes": notes.status(prefs.prefs.notesCommand),
+        "files": {**ROOTS.describe(), "envFile": str(settings.env_file_used) if settings.env_file_used else None, "dataDir": str(settings.data_dir), "logDir": str(settings.log_dir)},  # public release Phase 10: where this install keeps its files
         "about": {"name": APP_NAME, "version": __version__, "publisher": PUBLISHER, "repoUrl": REPO_URL, "dataCredit": DATA_CREDIT, "dataUrl": DATA_URL},  # public release Phase 8
     }
 
@@ -103,6 +106,26 @@ async def put_settings(request: Request) -> Any:
         if result.get("error"):
             errors.append({"code": "autostart_failed", "message": result["error"]})
     return envelope(_payload(request), source="live", errors=errors)
+
+
+FOLDERS = ("install", "data", "logs")
+
+
+@router.post("/api/settings/open-folder")
+async def open_folder_route(request: Request) -> Any:
+    """Show this install's folder in the file manager (public release Phase 10). Only from the server computer itself:
+    the window opens there."""
+    if not _on_server_computer(request):
+        return error_response(403, "not_here", "Open the folder from the server computer itself; this device cannot open a window there.")
+    which = request.query_params.get("which", "install")
+    if which not in FOLDERS:
+        return error_response(400, "bad_folder", "which must be install, data or logs")
+    settings = request.app.state.settings
+    folder = {"install": PROJECT_ROOT, "data": settings.data_dir, "logs": settings.log_dir}[which]
+    error = open_folder(folder)
+    if error:
+        return error_response(500, "open_failed", error)
+    return envelope({"opened": str(folder)}, source="live")
 
 
 @router.post("/api/settings/desktop-shortcut")

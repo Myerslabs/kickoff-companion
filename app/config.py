@@ -23,11 +23,16 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from pydantic_settings import SettingsError as _PydanticSettingsError
 
 from app import APP_NAME
+from app.paths import ROOTS
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-STATIC_DIR = PROJECT_ROOT / "static"
+# Two roots (public release Phase 10, app/paths.py). From a checkout both are the project folder. As the packaged
+# program the bundle is read only and the install is the user's app-data folder (or beside the program, with a
+# file named `portable` there).
+PROJECT_ROOT = ROOTS.install  # what this install writes: .env, data/, logs/
+BUNDLE_DIR = ROOTS.bundle  # what ships with the program: static/, .env.example, app/radio_stations.json
+STATIC_DIR = BUNDLE_DIR / "static"
 DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
-ENV_EXAMPLE_FILE = PROJECT_ROOT / ".env.example"
+ENV_EXAMPLE_FILE = BUNDLE_DIR / ".env.example"
 KEY_URL = "https://collegefootballdata.com/key"
 
 # RFC 1123 host name: labels of letters, digits, and hyphens, joined by dots.

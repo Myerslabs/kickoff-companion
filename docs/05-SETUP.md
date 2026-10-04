@@ -4,9 +4,29 @@ Kickoff Companion runs on a computer in your home (the host) and shows on any ph
 
 To try it first with no key and no setup, run the demo (section 9).
 
-## 1. Get the code
+There are two ways to get it: **the download**, a packaged program with nothing to install, and **the code**, where uv installs Python and the packages. Section 1 covers both; sections 2 and 4 say where they differ.
 
-Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
+## 1. Get the program
+
+**The download.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take the archive for your system. A `.sha256` file beside each archive holds its checksum.
+
+| System | Archive | Then |
+|---|---|---|
+| Windows | `KickoffCompanion-<version>-windows-x64.zip` | Unzip it anywhere and double-click `KickoffCompanion.exe`. The first time, Windows says it protected your PC, because the program is not signed: **More info**, then **Run anyway**. |
+| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). Not yet tried on a Mac; say how it went. |
+| Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
+
+The program is the server: the window that opens stays open during the game, and closing it stops the server. The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, so a new version of the program replaces the old folder and loses nothing:
+
+| System | Your files |
+|---|---|
+| Windows | `%LOCALAPPDATA%\Kickoff Companion` (`C:\Users\<you>\AppData\Local\Kickoff Companion`) |
+| macOS | `~/Library/Application Support/Kickoff Companion` |
+| Linux, Steam Deck | `$XDG_DATA_HOME/kickoff-companion`, else `~/.local/share/kickoff-companion` |
+
+Settings, About, shows the folder with an **Open the folder** button (on the server computer itself). To keep everything beside the program instead, on a USB stick say, put an empty file named `portable` next to it before the first start. `DATA_DIR` and `LOG_DIR` in `.env` still move those two folders wherever they say.
+
+**The code.** Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
 
 **The short way: double-click.** In the folder, double-click the launcher for your system:
 
@@ -18,9 +38,9 @@ Clone the repository with git, or download it as a ZIP from the repository page 
 
 The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a made-up league with a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
 
-## 2. Install uv
+## 2. Install uv (the code only)
 
-[uv](https://docs.astral.sh/uv/) installs the right Python and every package for you. It needs no admin rights and does not change the system's Python. The launchers and the start scripts install it on the first start when it is missing.
+The download needs nothing here. For the code, [uv](https://docs.astral.sh/uv/) installs the right Python and every package for you. It needs no admin rights and does not change the system's Python. The launchers and the start scripts install it on the first start when it is missing.
 
 | System | Command |
 |---|---|
@@ -51,16 +71,18 @@ You can still set everything in `.env` by hand; `.env.example` lists every setti
 
 ## 4. Start
 
-| System | Command |
-|---|---|
-| Windows | `Kickoff Companion.cmd`, or `.\start.ps1` (right-click it, Run with PowerShell) |
-| macOS, Linux | `Kickoff Companion.command` or `Kickoff Companion.sh`, or `./start.sh` |
+| System | The download | The code |
+|---|---|---|
+| Windows | `KickoffCompanion.exe` | `Kickoff Companion.cmd`, or `.\start.ps1` (right-click it, Run with PowerShell) |
+| macOS, Linux | `./KickoffCompanion` (or double-click it) | `Kickoff Companion.command` or `Kickoff Companion.sh`, or `./start.sh` |
 
-The first start downloads Python and the packages, which takes a minute. Then the server checks `.env`, prints the address viewers use with a QR code for it, and opens the app in this computer's browser. Keep the window open; Ctrl+C stops it. The log is in `logs/app.log`.
+From the code, the first start downloads Python and the packages, which takes a minute. Then the server checks `.env`, prints the address viewers use with a QR code for it, and opens the app in this computer's browser. Keep the window open; Ctrl+C stops it. The log is in `logs/app.log` (under your files, section 1). If the download stops with a message (another copy already running, say), the window waits for Enter so you can read it.
 
 The browser opens when you start the server by hand. Settings, "Open the app on start", changes that (always, or never), and `--no-browser` skips it once.
 
 ## 5. Let viewers reach the host (firewall)
+
+**The download on Windows asks for itself:** the first start shows a Windows Security dialog for Kickoff Companion, publisher Myers Labs; **Allow** is the whole step. The code gets the same dialog for Python the first time it listens; the rules below are for when that was dismissed, or when the server starts at login before anyone can answer. On macOS and Linux both ways need the steps below.
 
 The server listens on `PORT` (default 8642) for the app, and on UDP 5353 to answer for its network name (section 6).
 
@@ -106,7 +128,9 @@ In the app, open Settings:
 
 - **Start at login** starts the server when you log in. On Windows that is a shortcut in the Startup folder, on Linux a systemd user service (`~/.config/systemd/user/kickoff-companion.service`), on macOS a LaunchAgent (`~/Library/LaunchAgents/com.kickoff-companion.server.plist`). It takes effect at the next login.
 - **Desktop icon** makes a double-click launcher. On Linux it also goes in the app menu.
-- **Tray mode** (Windows only) hides the server window behind a tray icon.
+- **Tray mode** (Windows only, the code only) hides the server window behind a tray icon. The download has no tray yet; its window stays, or minimize it.
+
+With the download, the login item and the icon start the program itself; with the code, the start script.
 
 ## 9. Demo mode
 
@@ -122,7 +146,9 @@ In the app, open Settings:
 
 ## 11. Updating
 
-`git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
+**The download:** take the new archive from the Releases page, delete the old program folder, unpack the new one, start it. Your files are in the app-data folder (section 1) and stay. With a `portable` file beside the program, move `portable`, `.env`, `data` and `logs` into the new folder first.
+
+**The code:** `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
 
 ## 12. If something is wrong
 
@@ -131,4 +157,6 @@ In the app, open Settings:
 | `kickoff.local` does not open | Use the number address the server prints. Then check the UDP 5353 firewall rule (section 5) and the "network name" line on the status page. |
 | A viewer cannot reach the host at all | The TCP firewall rule (section 5), the same Wi-Fi, the host awake. |
 | Certificate warning | Open the `http://` address, not `https://`. With `HTTPS=on`, trust the certificate on that device (section 7). |
-| The server will not start | The window says why; `logs/app.log` has the details. `uv run python -m app --check` checks `.env` without starting. |
+| The server will not start | The window says why; `logs/app.log` has the details. `uv run python -m app --check` (the code) or `KickoffCompanion --check` (the download) checks `.env` without starting. |
+| Windows says it protected your PC | The download is not signed. **More info**, then **Run anyway**; Windows asks once per download. |
+| Where are my files? | Settings, About, shows the folder and opens it; `--check` prints it too. Section 1 lists the app-data folder for each system. |

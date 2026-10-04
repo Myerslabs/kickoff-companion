@@ -92,15 +92,36 @@ TIERS = {0: ("Free", 1_000), 1: ("Tier 1", 5_000), 2: ("Tier 2", 30_000), 3: ("T
 
 
 GENERATOR_MODULES = ("names.py", "league.py", "sim.py", "stats.py", "season.py")  # what the pickled league is made of
+SOURCE_HASH_FILE = "demo-sources.sha1"  # the packaged program has bytecode only: its build writes the hash here (tools/package/build.py)
 
 
-def source_hash() -> str:
+def hash_sources(folder: Path) -> str | None:
+    """The short hash of the generator sources in `folder`, or None when one is missing (the packaged program)."""
     digest = hashlib.sha1()
     for name in GENERATOR_MODULES:
-        path = Path(__file__).parent / name
+        path = Path(folder) / name
+        if not path.is_file():
+            return None
         digest.update(name.encode())
         digest.update(path.read_bytes())
     return digest.hexdigest()[:12]
+
+
+def source_hash(folder: Path | None = None) -> str:
+    """What the pickled league is keyed by: the hash of this package's generator sources or, in the packaged program
+    (public release Phase 10, no source files on disk), the hash its build wrote to SOURCE_HASH_FILE beside this module."""
+    folder = Path(folder) if folder is not None else Path(__file__).parent
+    hashed = hash_sources(folder)
+    if hashed is not None:
+        return hashed
+    stamp = folder / SOURCE_HASH_FILE
+    try:
+        value = stamp.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        raise RuntimeError(f"The demo league cannot be keyed: no generator sources in {folder} and no {SOURCE_HASH_FILE} there (the packaged build writes it)") from exc
+    if len(value) != 12 or any(c not in "0123456789abcdef" for c in value):
+        raise RuntimeError(f"{stamp} does not hold a source hash (read {value[:20]!r})")
+    return value
 
 
 def load_world(seed: int = TEST_SEED, season: int = TEST_SEASON, cache_dir: Path | str | None = None) -> World:

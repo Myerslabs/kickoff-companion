@@ -22,6 +22,7 @@ from app.cfbd.quota import QuotaMode
 from app.config import Settings
 from app.logging_setup import LOG_FILE_NAME
 from app.netinfo import http_url, lan_ip, machine_name, other_urls, preferred_host, tablet_url
+from app.paths import ROOTS
 from app.tls import RENEW_BEFORE_DAYS, TlsState
 
 router = APIRouter(tags=["health"])
@@ -281,6 +282,7 @@ def health(request: Request) -> dict[str, Any]:
             "mdns": mdns.status() if mdns is not None else None,
             "python": platform.python_version(),
             "pid": os.getpid(),
+            "files": ROOTS.describe(),  # public release Phase 10: the packaged program and where its files are
         },
         "config": settings.public_summary(),
         "setup_needed": settings.setup_needed,

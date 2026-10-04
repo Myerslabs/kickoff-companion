@@ -1,15 +1,19 @@
-"""Command line entry: `python -m app [--check] [--reload] [--demo]`."""
+"""Command line entry: `python -m app [--check] [--reload] [--demo]`. The packaged program (tools/package/kickoff.py)
+runs main() too, then pause_before_closing()."""
 
 from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from app import APP_NAME, __version__
 from app.config import DEFAULT_ENV_FILE, Settings, SettingsError, load_settings
 from app.logging_setup import LOG_FILE_NAME, configure_logging
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
+from app.paths import ROOTS
 
 
 def check_report(settings: Settings) -> str:
@@ -40,6 +44,8 @@ def check_report(settings: Settings) -> str:
         ("Log file", f"{settings.log_dir / LOG_FILE_NAME} ({settings.log_level})"),
         ("Data folder", str(settings.data_dir)),
     ]
+    if ROOTS.packaged:  # public release Phase 10
+        rows += [("Program", str(ROOTS.program)), ("Files", f"{ROOTS.install} ({'beside the program' if ROOTS.portable else 'the app-data folder; a file named portable beside the program keeps them there instead'})")]
     width = max(len(label) for label, _ in rows)
     lines = [f"{APP_NAME} {__version__} settings check", ""]
     lines += [f"  {label:<{width}}  {value}" for label, value in rows]
@@ -100,6 +106,44 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
         configure_logging(settings)
         code = serve(settings, first=False)
     return code
+
+
+def console_owners(default: int = 1) -> int:
+    """How many processes share this console (Windows). One means the console is ours alone, as after a double-click,
+    and closes with the program. More means a shell started us and keeps the window."""
+    if not sys.platform.startswith("win"):
+        return default
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+        buffer = (ctypes.c_uint32 * 64)()
+        count = int(kernel32.GetConsoleProcessList(buffer, 64))
+        return count if count > 0 else default
+    except (OSError, AttributeError, ValueError, TypeError):
+        return default
+
+
+def pause_before_closing(
+    code: int,
+    *,
+    packaged: bool | None = None,
+    system: str = sys.platform,
+    owners: int | None = None,
+    ask: Callable[[str], Any] = input,
+) -> bool:
+    """The packaged program on Windows, started by a double-click and stopping with a message (a busy port, a bad
+    .env): wait for Enter so the message can be read before the window closes (public release Phase 10). A clean
+    stop, a shell start, a checkout or another system never waits. Returns True when it waited."""
+    if code == 0 or not (ROOTS.packaged if packaged is None else packaged) or not system.startswith("win"):
+        return False
+    if (console_owners() if owners is None else owners) != 1:
+        return False
+    try:
+        ask("\nPress Enter to close this window. ")
+    except (EOFError, OSError, KeyboardInterrupt):
+        pass
+    return True
 
 
 def browser_url(settings: Settings, *, no_browser: bool, login: bool) -> str | None:

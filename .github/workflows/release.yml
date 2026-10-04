@@ -1,0 +1,63 @@
+# The packaged program (public release Phase 10): one archive per system, attached to each GitHub release.
+# Runs only in the public repository (kickoff-companion), when a release is published or by hand (then the archives
+# are workflow artifacts). tools/package/build.py does the work: PyInstaller, a smoke test of the built program, the
+# archive with its SHA-256.
+name: release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.event.repository.name == 'kickoff-companion'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: The release tag must carry the app's version
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          uv run --frozen --no-dev python - <<'EOF'
+          import os
+          import sys
+
+          from app import __version__
+
+          tag = os.environ["TAG"].lstrip("v")
+          if tag != __version__:
+              sys.exit(f"The tag says {tag} but app/__init__.py says {__version__}: bump __version__ before releasing.")
+          print(f"Version {__version__} matches the tag.")
+          EOF
+      - name: Install the build group
+        run: uv sync --frozen --no-dev --group build
+      - name: Build, smoke-test and archive
+        run: uv run --frozen --no-dev --group build python tools/package/build.py --dist dist
+      - name: Attach the archive to the release
+        if: github.event_name == 'release'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          shopt -s nullglob
+          gh release upload "$TAG" dist/KickoffCompanion-*.zip dist/KickoffCompanion-*.tar.gz dist/*.sha256 --clobber
+      - name: Keep the archive as an artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: KickoffCompanion-${{ matrix.os }}
+          path: |
+            dist/KickoffCompanion-*

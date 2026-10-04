@@ -12,7 +12,11 @@ public release Phase 4). What each system gets:
 
 Switching on writes the file and registers it; it never starts a second server now (the one running
 is already up). Switching off unregisters and removes it. The tray icon is Windows only. Every system
-command goes through `runner`, so tests and demo mode never touch the real system."""
+command goes through `runner`, so tests and demo mode never touch the real system.
+
+The packaged program (public release Phase 10, `program` set): shortcuts, the service and the agent run the
+program itself with `--login` instead of a start script, and the tray switch is not offered (the tray script
+starts `python -m app`)."""
 
 from __future__ import annotations
 
@@ -52,6 +56,29 @@ def run_command(args: list[str]) -> tuple[int, str]:
     return done.returncode, (done.stdout + done.stderr).strip()
 
 
+def open_folder(path: Path, system: str = sys.platform, runner: Callable[[list[str]], Any] | None = None) -> str | None:
+    """Show `path` in the system's file manager (the Open button in Settings, public release Phase 10). Returns an
+    error text, or None. `runner` stands in for the system call in tests."""
+    path = Path(path)
+    if not path.is_dir():
+        return f"{path} does not exist yet"
+    try:
+        if system.startswith("win"):
+            if runner is not None:
+                runner([str(path)])
+            else:
+                os.startfile(str(path))  # type: ignore[attr-defined]  # the install folder, chosen by this program
+        else:
+            args = ["open" if system == "darwin" else "xdg-open", str(path)]
+            if runner is not None:
+                runner(args)
+            else:
+                subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError as exc:
+        return f"could not open {path}: {exc}"
+    return None
+
+
 def _run_powershell(args: list[str]) -> tuple[int, str]:
     """Kept for callers that pass a PowerShell script as the only argument."""
     return run_command(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", *args])
@@ -80,8 +107,12 @@ class Launcher:
         platform: str = sys.platform,
         appdata: str | None = None,
         home: str | Path | None = None,
+        program: str | Path | None = None,
+        static_dir: str | Path | None = None,
     ) -> None:
         self.project_root = Path(project_root)
+        self.program = Path(program) if program else None  # the packaged program, which starts itself
+        self.static_dir = Path(static_dir) if static_dir else self.project_root / "static"  # the icon for the Linux launcher
         self.platform = platform
         self.system = system_of(platform)
         self.runner: Runner = runner or (_run_powershell if self.system == "windows" else run_command)
@@ -97,11 +128,25 @@ class Launcher:
 
     @property
     def tray_supported(self) -> bool:
-        return self.system == "windows"
+        return self.system == "windows" and self.program is None  # the tray script starts python -m app, not the packaged program
 
     @property
     def script_path(self) -> Path:
         return self.project_root / (SCRIPT_NAME if self.system == "windows" else SHELL_SCRIPT)
+
+    @property
+    def launch_path(self) -> Path:
+        """What a shortcut or service runs: the packaged program itself, else the start script."""
+        return self.program or self.script_path
+
+    def _missing(self) -> str:
+        return f"{self.launch_path.name} is missing" + ("" if self.program else " from the project folder")
+
+    def _service_command(self) -> str:
+        """The login service's command line: the program itself, or start.sh in service mode."""
+        if self.program:
+            return f"{shlex.quote(str(self.program))} --login"
+        return f"/bin/bash {shlex.quote(str(self.script_path))} --service"
 
     @property
     def method(self) -> str | None:
@@ -157,8 +202,10 @@ class Launcher:
             "tray": self.tray_supported,
             "enabled": self.is_enabled(),
             "shortcut": str(self.shortcut_path) if self.shortcut_path else None,
-            "script": str(self.script_path),
-            "scriptExists": self.script_path.is_file(),
+            "script": str(self.launch_path),
+            "scriptExists": self.launch_path.is_file(),
+            "packaged": self.program is not None,  # public release Phase 10: the program starts itself
+            "program": str(self.program) if self.program else None,
         }
 
     # -- start at login ----------------------------------------------------------------------------------
@@ -166,8 +213,8 @@ class Launcher:
         """Switch start at login on or off. Returns the status plus an `error` when it failed."""
         if not self.supported:
             return {**self.status(), "error": "start at login is not available on this system"}
-        if enabled and not self.script_path.is_file():
-            return {**self.status(), "error": f"{self.script_path.name} is missing from the project folder"}
+        if enabled and not self.launch_path.is_file():
+            return {**self.status(), "error": self._missing()}
         if self.system == "windows":
             error = self._windows_login(enabled, tray)
         elif self.system == "linux":
@@ -197,12 +244,17 @@ class Launcher:
         return None
 
     def _lnk_script(self, target: Path, tray: bool, *, login: bool = False) -> str:
-        arguments = f"-NoExit -ExecutionPolicy Bypass -File \"{self.script_path}\"" + (" -Tray" if tray else "") + (" -Login" if login else "")
+        if self.program:  # the packaged program runs itself (no tray there)
+            exe, arguments, workdir = str(self.program), ("--login" if login else ""), str(self.program.parent)
+        else:
+            exe = "powershell.exe"
+            arguments = f"-NoExit -ExecutionPolicy Bypass -File \"{self.script_path}\"" + (" -Tray" if tray else "") + (" -Login" if login else "")
+            workdir = str(self.project_root)
         return (
             f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(str(target))}); "
-            f"$s.TargetPath = 'powershell.exe'; "
+            f"$s.TargetPath = {_ps_quote(exe)}; "
             f"$s.Arguments = {_ps_quote(arguments)}; "
-            f"$s.WorkingDirectory = {_ps_quote(str(self.project_root))}; "
+            f"$s.WorkingDirectory = {_ps_quote(workdir)}; "
             f"$s.Description = {_ps_quote(DESCRIPTION)}; "
             f"$s.Save()"
         )
@@ -217,7 +269,7 @@ class Launcher:
             "[Service]\n"
             "Type=simple\n"
             f"WorkingDirectory={self.project_root}\n"
-            f"ExecStart=/bin/bash {shlex.quote(str(self.script_path))} --service\n"
+            f"ExecStart={self._service_command()}\n"
             "Restart=on-failure\n"
             "RestartSec=15\n\n"
             "[Install]\n"
@@ -256,7 +308,7 @@ class Launcher:
         logs = self.project_root / "logs"
         return plistlib.dumps({
             "Label": AGENT_LABEL,
-            "ProgramArguments": ["/bin/bash", str(self.script_path), "--service"],
+            "ProgramArguments": [str(self.program), "--login"] if self.program else ["/bin/bash", str(self.script_path), "--service"],
             "WorkingDirectory": str(self.project_root),
             "RunAtLoad": True,
             "KeepAlive": {"SuccessfulExit": False},
@@ -286,8 +338,8 @@ class Launcher:
         """The double-click icon on the Desktop (and in the Linux app menu)."""
         if not self.supported:
             return {"created": False, "error": "a desktop icon is not available on this system"}
-        if not self.script_path.is_file():
-            return {"created": False, "error": f"{self.script_path.name} is missing from the project folder"}
+        if not self.launch_path.is_file():
+            return {"created": False, "error": self._missing()}
         target = self.desktop_path
         if self.system == "windows":
             code, output = self.runner([self._lnk_script(target, tray)])
@@ -304,21 +356,23 @@ class Launcher:
                 menu.write_text(self.desktop_entry(), encoding="utf-8")
                 menu.chmod(0o755)
             else:
-                target.write_text(f"#!/bin/bash\ncd {shlex.quote(str(self.project_root))} && exec /bin/bash ./{SHELL_SCRIPT}\n", encoding="utf-8")
+                command = f"exec {shlex.quote(str(self.program))}" if self.program else f"cd {shlex.quote(str(self.project_root))} && exec /bin/bash ./{SHELL_SCRIPT}"
+                target.write_text(f"#!/bin/bash\n{command}\n", encoding="utf-8")
             target.chmod(0o755)
         except OSError as exc:
             return {"created": False, "error": f"could not write {target}: {exc}"}
         return {"created": True, "path": str(target)}
 
     def desktop_entry(self) -> str:
-        icon = self.project_root / "static" / "icons" / "icon-192.png"
+        icon = self.static_dir / "icons" / "icon-192.png"
+        command = shlex.quote(str(self.program)) if self.program else f"/bin/bash {shlex.quote(str(self.script_path))}"
         return (
             "[Desktop Entry]\n"
             "Type=Application\n"
             f"Name={APP_TITLE}\n"
             "Comment=Start the Kickoff Companion server\n"
-            f"Exec=/bin/bash {shlex.quote(str(self.script_path))}\n"
-            f"Path={self.project_root}\n"
+            f"Exec={command}\n"
+            f"Path={self.program.parent if self.program else self.project_root}\n"
             f"Icon={icon}\n"
             "Terminal=true\n"
             "Categories=Utility;\n"

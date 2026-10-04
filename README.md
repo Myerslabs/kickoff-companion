@@ -12,7 +12,7 @@ A second screen for college football. Pick your team, start it on a computer at 
 - **People:** roster, leaders, recruiting, a card for every player, and our own stat grades for each position.
 - **Your teams:** one home team themes the app with its colors; with a Tier 2 key you can follow more primary teams and whole conferences or states, and set the score ticker to just your teams.
 - **Notes:** schemes, the injury report, depth charts, the TV crew and coaches come from a prompt the app writes for any AI chat; paste the answer back and the app checks it and saves it.
-- **Runs at home:** a small web server on Windows, macOS or Linux (the Steam Deck too). Phones and tablets connect by scanning a QR code. No accounts, no cloud, no ads.
+- **Runs at home:** a small web server on Windows, macOS or Linux (the Steam Deck too), as one download with nothing to install. Phones and tablets connect by scanning a QR code. No accounts, no cloud, no ads.
 
 ## What you need
 
@@ -32,6 +32,18 @@ Anything a plan does not include stays on its page with a note saying which plan
 
 ## Start
 
+**The download: nothing to install.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take the archive for your system (a `.sha256` file beside each one holds its checksum):
+
+| System | Archive | Then |
+|---|---|---|
+| Windows | `KickoffCompanion-<version>-windows-x64.zip` | Unzip it anywhere and double-click `KickoffCompanion.exe`. The first time, Windows says it protected your PC, because the program is not signed: **More info**, then **Run anyway**. |
+| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). Not yet tried on a Mac; say how it went. |
+| Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
+
+The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The program is the server. Your key, settings, notes and archive live in your app-data folder, which Settings, About, shows with an **Open the folder** button, so a new version simply replaces the old program folder. A file named `portable` beside the program keeps them beside it instead.
+
+**From the code** (for developers, or any system with [uv](https://docs.astral.sh/uv/)):
+
 1. Get the code: **Code, Download ZIP** on this page (then unzip it), or `git clone https://github.com/Myerslabs/kickoff-companion.git`.
 2. Double-click the launcher for your system:
 
@@ -41,10 +53,13 @@ Anything a plan does not include stays on its page with a note saying which plan
    | macOS | `Kickoff Companion.command` |
    | Linux, Steam Deck | `Kickoff Companion.sh` |
 
-   The first start installs [uv](https://docs.astral.sh/uv/), Python and the app's packages for your user (no admin rights, a minute or two, once). macOS may say it cannot open a downloaded file: right-click the launcher, Open, then Open again.
-3. The browser opens the **demo**: a made-up league with a game already under way, so you can see everything working. Its welcome page explains what a CFBD key does.
-4. When you are ready, choose **Use my own team** on that page (or the banner at the top): paste your CFBD key, pick your team, save. The app restarts with your team. The menu's **Demo** item switches back to the demo any time, for showing a friend.
-5. On a phone or tablet, scan the QR code in the server window (or on the app's status page). The window that opened is the server: keep it open during the game, close it to stop.
+   The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once). macOS may say it cannot open a downloaded file: right-click the launcher, Open, then Open again.
+
+**Then, either way:**
+
+1. The browser opens the **demo**: a made-up league with a game already under way, so you can see everything working. Its welcome page explains what a CFBD key does.
+2. When you are ready, choose **Use my own team** on that page (or the banner at the top): paste your CFBD key, pick your team, save. The app restarts with your team. The menu's **Demo** item switches back to the demo any time, for showing a friend.
+3. On a phone or tablet, scan the QR code in the server window (or on the app's status page). The window that opened is the server: keep it open during the game, close it to stop.
 
 Settings in the app can start the server when you log in, make a Desktop icon, and keep the screen awake. The full guide, including the firewall on each system and the Steam Deck, is [docs/05-SETUP.md](docs/05-SETUP.md).
 

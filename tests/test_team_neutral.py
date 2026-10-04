@@ -26,7 +26,7 @@ PATTERN = re.compile(
 ALLOW = "team-neutral: allowed"
 
 SCANNED = ("app", "static", "tools", "tests", "start.ps1", "start.sh", ".env.example", "pyproject.toml")
-SKIPPED_DIRS = {"__pycache__", "fixtures", "fonts", "icons"}
+SKIPPED_DIRS = {"__pycache__", "fixtures", "fonts", "icons", "out", "dist"}  # out: tools/package/out, PyInstaller's work files name this machine's folders
 SKIPPED_FILES = {
     "tests/test_team_neutral.py",  # this file names the words it looks for
     "tests/test_demo_league.py",  # checks the league against the real FBS list

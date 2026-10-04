@@ -38,6 +38,11 @@ function toggle(checked, onChange, ariaLabel) {
 }
 
 /** What "Start at login" does on the server's system (public release Phase 4), and whether it is on. */
+function iconText(auto) {
+  const what = auto.packaged ? "Kickoff Companion" : auto.system === "windows" ? "start.ps1" : "start.sh";
+  return auto.system === "linux" ? `A double-click icon for ${what} on the Desktop and in the app menu (Steam's Add a Non-Steam Game lists it).` : `A double-click icon for ${what} on the Desktop.`;
+}
+
 function loginText(auto) {
   if (!auto || !auto.supported) return "Not available on this server's system. Start it with start.ps1 or start.sh.";
   const what = typeof auto.method === "string" && auto.method ? auto.method : "a login item";
@@ -120,7 +125,7 @@ export function createSettingsView({ onStatus } = {}) {
           row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
           row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
           auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The start script hides its window behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start.") : null,
-          row("Desktop icon", shortcutButton, auto.system === "linux" ? "A double-click icon for start.sh on the Desktop and in the app menu (Steam's Add a Non-Steam Game lists it)." : `A double-click icon for ${auto.system === "windows" ? "start.ps1" : "start.sh"} on the Desktop.`),
+          row("Desktop icon", shortcutButton, iconText(auto)),
           row("Notes command", notesInput, notes.commandFound ? `Found: ${notes.commandPath}. The Game program also offers to write the notes with it.` : "Optional. Where Claude Code's command-line tool is installed on the server computer, the Game program also offers to write the notes with it. Copy and paste works without it."),
           saved,
         ),
@@ -324,6 +329,25 @@ export function createSettingsView({ onStatus } = {}) {
       }
       said.textContent = done ? " Copied." : " Select the link and copy it.";
     } }, "Copy the link");
+    // Public release Phase 10: where this install keeps its files, and an Open button on the server computer itself.
+    const files = prefsMeta()?.files && typeof prefsMeta().files === "object" ? prefsMeta().files : {};
+    const canOpen = prefsMeta()?.canChangeKey === true;
+    const opened = el("span", { class: "note", role: "status" }, "");
+    const openButton = el("button", { class: "btn", type: "button", onclick: async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const response = await fetch("/api/settings/open-folder", { method: "POST" });
+        const body = await response.json().catch(() => ({}));
+        opened.textContent = response.ok ? " Opened on the server computer." : ` ${text(body?.errors?.[0]?.message) || "Could not open the folder."}`;
+      } catch (error) {
+        opened.textContent = " Could not reach the server.";
+      } finally {
+        button.disabled = false;
+      }
+    } }, "Open the folder");
+    const where = files.packaged ? (files.portable ? " Beside the program, as the file named portable there asks." : " Your app-data folder: a new version of the program finds them there.") : " The project folder.";
+    const filesLine = el("p", { class: "note about__files" }, el("strong", {}, "Your files: "), text(files.install) || "-", ".", where, canOpen ? " " : "", canOpen ? openButton : null, opened);
     return band({
       id: "settings-about",
       title: "About",
@@ -336,6 +360,7 @@ export function createSettingsView({ onStatus } = {}) {
         el("p", {}, el("strong", {}, `${text(a.name || "Kickoff Companion")} is available for free from ${text(a.publisher || "Myers Labs")}.`), " Share it with anyone who follows a team:"),
         el("p", { class: "about__link" }, el("a", { href: repo, target: "_blank", rel: "noopener" }, repo), " ", copy, said),
         box,
+        filesLine,
         el("p", { class: "note" }, el("a", { href: dataUrl, target: "_blank", rel: "noopener" }, text(a.dataCredit || "Data provided by CollegeFootballData.com")), ". Not affiliated with any school, conference, the NCAA or CollegeFootballData.com."),
       ),
     });

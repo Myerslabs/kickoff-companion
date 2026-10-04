@@ -25,13 +25,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from app.config import PROJECT_ROOT  # this install's folder: the project from a checkout, the app-data folder as the packaged program
 from app.demo import names as N
 from app.demo.season import World
 from app.demo.sites import DemoSites
 from app.demo.upstream import DemoUpstream, load_world
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CACHE_DIR = PROJECT_ROOT / "data" / "demo"
+CACHE_DIR = PROJECT_ROOT / "data" / "demo"  # the league, built once and pickled
 DEMO_KEY = "DEMOKEY-" + "d0" * 16  # never a real key
 FAKE_BASE_URL = "http://cfbd.demo.invalid"  # never resolvable, so a missed transport cannot reach CFBD
 DEFAULT_PORT = 8650

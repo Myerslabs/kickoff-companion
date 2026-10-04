@@ -196,6 +196,7 @@ function render(data) {
   const server = obj(data.server);
   const config = obj(data.config);
   const logging = obj(data.logging);
+  const files = obj(server.files);
 
   setFacts(els.server, [
     ["Version", app.version ? `${text(app.version)}, phase ${text(app.phase)}` : DASH],
@@ -206,6 +207,8 @@ function render(data) {
     ["Started", localTime(server.started_at)],
     ["Uptime", duration(server.uptime_seconds)],
     ["Python", server.python],
+    ["Program", files.packaged ? `${text(files.program)}${files.portable ? " (portable)" : ""}` : files.install ? "From the project folder (python -m app)" : DASH],
+    ["Files", files.install],
     ["Log file", logging.file ? `${text(logging.file)} (${bytes(logging.size_bytes)})` : DASH],
   ]);
 

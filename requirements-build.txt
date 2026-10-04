@@ -1,0 +1,2 @@
+# The packaged program (public release Phase 10): pip install -r requirements-build.txt, then python tools/package/build.py
+pyinstaller==6.22.3

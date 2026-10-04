@@ -86,7 +86,7 @@ def test_launcher_writes_and_removes_the_startup_shortcut(tmp_path: Path, app, c
 
     launcher = Launcher(root, runner=runner, platform="win32", appdata=str(appdata), home=tmp_path / "home")
     assert launcher.status() == {"supported": True, "system": "windows", "method": "a shortcut in the Windows Startup folder", "tray": True, "enabled": False,
-                                 "shortcut": str(startup / SHORTCUT_NAME), "script": str(root / "start.ps1"), "scriptExists": True}
+                                 "shortcut": str(startup / SHORTCUT_NAME), "script": str(root / "start.ps1"), "scriptExists": True, "packaged": False, "program": None}
     on = launcher.set_enabled(True, tray=True)
     assert on["enabled"] and "error" not in on and len(calls) == 1
     assert "CreateShortcut" in calls[0][0] and "-Tray" in calls[0][0] and str(root / "start.ps1") in calls[0][0]

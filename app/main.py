@@ -35,6 +35,7 @@ from app.feeds import FeedStore, team_feeds, team_matcher
 from app.live.engine import LiveEngine
 from app.logging_setup import LOG_FILE_NAME, configure_logging
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
+from app.paths import ROOTS
 from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
 from app.services.connect import print_qr
@@ -215,6 +216,8 @@ async def lifespan(app: FastAPI):
     ip = lan_ip()
     host = preferred_host(settings, ip)
     log.info("%s %s starting (phase %d)", APP_NAME, __version__, BUILD_PHASE)
+    if ROOTS.packaged:
+        log.info("Packaged program %s; files in %s%s", ROOTS.program, PROJECT_ROOT, " (beside the program)" if ROOTS.portable else " (the app-data folder)")
     log.info(
         "Team %s, season %s, %s. Times shown in %s.",
         settings.team, settings.season, settings.conference, settings.timezone,
@@ -367,7 +370,7 @@ def create_app(
     app.state.myteams = MyTeamsService(cfbd, settings, app.state.prefs, app.state.program, app.state.ratings.fetcher)  # public release Phase 5b
     app.state.matchup = MatchupService(cfbd, settings)  # Phase 16 BX: UX-12
     app.state.archive = ArchiveService(settings.data_dir, app.state.analytics, app.state.program, settings.team)
-    app.state.launcher = Launcher(PROJECT_ROOT)
+    app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR)  # the packaged program starts itself at login
     app.state.mdns = Announcer(settings.mdns_host, settings.port)  # public release Phase 4: kickoff.local
     app.state.notes = NotesRunner(settings.data_dir, settings.log_dir, who=lambda: app.state.identity.current, season=settings.season, tz=settings.tzinfo)
     app.state.headshots = HeadshotStore(settings.data_dir, transport=media_transport, user_agent=f"{APP_NAME.replace(' ', '')}/{__version__} (personal second screen)")

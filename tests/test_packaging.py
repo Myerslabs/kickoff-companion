@@ -44,7 +44,8 @@ def test_pyproject_and_requirements_pin_the_same_versions():
 def test_the_lock_holds_every_pinned_version():
     lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
     locked = {p["name"].lower(): p.get("version") for p in lock["package"]}
-    wanted = {**listed(project()["project"]["dependencies"]), **listed(project()["dependency-groups"]["dev"])}
+    groups = project()["dependency-groups"]
+    wanted = {**listed(project()["project"]["dependencies"]), **listed(groups["dev"]), **listed(groups["build"])}
     for name, version in wanted.items():
         assert locked.get(name) == version, f"uv.lock has {name} {locked.get(name)}, pyproject pins {version}: run `uv lock`"
 
@@ -63,3 +64,10 @@ def test_start_scripts_for_every_system():
     ps = (ROOT / "start.ps1").read_text(encoding="utf-8")
     assert "sync --frozen" in ps and "-Tray" in ps and "tools\\tray.ps1" in ps
     assert not (ROOT / "start-gameday.ps1").exists()
+
+
+def test_the_build_group_matches_its_requirements_file():
+    """Public release Phase 10: PyInstaller lives in its own group, so neither users nor the test runs install it."""
+    build = listed(project()["dependency-groups"]["build"])
+    assert "pyinstaller" in build and pins(ROOT / "requirements-build.txt") == build
+    assert "pyinstaller" not in listed(project()["project"]["dependencies"]) and "pyinstaller" not in listed(project()["dependency-groups"]["dev"])
