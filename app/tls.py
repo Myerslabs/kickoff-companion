@@ -91,8 +91,10 @@ def planned_names(settings: Settings) -> tuple[list[str], list[str]]:
         dns.append(settings.lan_hostname)
     if settings.mdns_host:
         dns.append(settings.mdns_host)  # the name the server announces (app/services/mdns.py)
-    machine = machine_name().strip().lower()
-    if machine and valid_hostname(machine):
+    # The machine's own name, first label only: a Mac reports "Name.local" (public release Phase 9: macOS CI),
+    # and a DNS label is at most 63 characters.
+    machine = machine_name().strip().lower().split(".", 1)[0]
+    if machine and len(machine) <= 63 and valid_hostname(machine):
         dns.append(machine)
         if "." in settings.lan_hostname:
             suffix = settings.lan_hostname.split(".", 1)[1]
@@ -269,7 +271,9 @@ def _make_server(
     ip_addresses: list[str],
 ) -> tuple[ec.EllipticCurvePrivateKey, x509.Certificate]:
     key = ec.generate_private_key(ec.SECP256R1())
-    common_name = dns_names[0] if dns_names else (ip_addresses[0] if ip_addresses else "localhost")
+    # The subject's common name is only a label (clients check the alternative names) and may be 64 characters
+    # at most: the first name that fits, else the first address.
+    common_name = next((name for name in dns_names if len(name) <= 64), ip_addresses[0] if ip_addresses else "localhost")
     subject = x509.Name(
         [
             x509.NameAttribute(NameOID.COMMON_NAME, common_name),

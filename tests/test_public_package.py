@@ -39,7 +39,18 @@ def test_the_unix_launchers_are_executable_in_git():
     assert modes == {"Kickoff Companion.command": "100755", "Kickoff Companion.sh": "100755", "start.sh": "100755"}
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="no bash here")
+def _working_bash() -> bool:
+    """A bash that runs: Windows may have only the WSL stub, which prints a message and fails."""
+    if shutil.which("bash") is None:
+        return False
+    try:
+        probe = subprocess.run(["bash", "-c", "echo ok"], capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return probe.returncode == 0 and probe.stdout.strip() == b"ok"
+
+
+@pytest.mark.skipif(not _working_bash(), reason="no working bash here")
 def test_the_shell_scripts_parse():
     for name in ("start.sh", "Kickoff Companion.command", "Kickoff Companion.sh"):
         assert subprocess.run(["bash", "-n", name], cwd=ROOT, capture_output=True).returncode == 0, name  # relative: a Windows bash may not read drive paths

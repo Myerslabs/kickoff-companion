@@ -159,6 +159,20 @@ def test_planned_names_without_a_lan_hostname():
     assert all("." not in name or name == "localhost" for name in dns)
 
 
+def test_a_long_or_dotted_machine_name_still_makes_a_certificate(tmp_path, monkeypatch):
+    """macOS reports "Name.local", and CI machines have names past the 64-character limit of a certificate's
+    common name (public release Phase 9: the macOS CI run)."""
+    long_name = "Mac-" + "1" * 59 + ".local"  # 69 characters, a 63-character first label
+    monkeypatch.setattr("app.tls.machine_name", lambda: long_name)
+    settings = load_settings(env_file=None, cfbd_api_key=TEST_KEY, data_dir=str(tmp_path))
+    dns, _ = planned_names(settings)
+    assert ("mac-" + "1" * 59) in dns and long_name.lower() not in dns
+    state = TlsState.prepare(settings, now=NOW)
+    assert state.ca_cert_path.exists()
+    monkeypatch.setattr("app.tls.machine_name", lambda: "m" * 70)  # a single label past 63: left out
+    assert "m" * 70 not in planned_names(settings)[0]
+
+
 def test_tls_state_prepare_and_refresh(tmp_path):
     settings = load_settings(env_file=None, cfbd_api_key=TEST_KEY, data_dir=str(tmp_path), lan_hostname="football.localdomain")
     state = TlsState.prepare(settings, now=NOW)
