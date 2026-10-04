@@ -148,7 +148,7 @@ def test_planned_names_cover_hostname_machine_and_loopback():
     assert len(dns) == len(set(dns)) and len(ips) == len(set(ips))
     machine = machine_name().strip().lower()
     if machine and valid_hostname(machine):
-        assert machine in dns
+        assert machine.split(".", 1)[0] in dns  # the first label only (a Mac reports Name.local)
         assert f"{machine}.localdomain" in dns
 
 

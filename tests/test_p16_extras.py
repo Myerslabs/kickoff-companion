@@ -32,6 +32,7 @@ from app.cfbd.models import (
     parse_records,
 )
 from app.config import load_settings
+from app.live.engine import LiveEngine
 from app.logging_setup import configure_logging, shutdown_logging
 from app.main import create_app
 from app.services import context16, recap16
@@ -548,6 +549,10 @@ PAGES = ["/api/season/overview", "/api/program/next", f"/api/program/{LAST_GAME}
 def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch) -> tuple[list[tuple[str, str]], dict[str, Any]]:
     """Every affected page on a fresh app and cache: the calls CFBD saw, and the answers."""
     with monkeypatch.context() as patch:
+        # Counted calls must come from the pages only: the live engine's loop never starts (on a slow machine it
+        # could check the schedule before being stopped), and the clock is fixed before the app starts
+        # (public release Phase 9: the macOS CI run).
+        patch.setattr(LiveEngine, "start_background", lambda self: None)
         if not with_extras:
             async def nothing(*_: Any, **__: Any) -> None:
                 return None
@@ -563,6 +568,7 @@ def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch)
         route_all(fake)
         transport = httpx.MockTransport(sites.handler)
         app = create_app(settings, cfbd_transport=fake.transport, feeds_transport=transport, weather_transport=transport)
+        app.state.cfbd._clock = lambda: SUNDAY
         write_archive(settings.data_dir)
         answers: dict[str, Any] = {}
         with TestClient(app, base_url="https://testserver") as client:
