@@ -127,7 +127,7 @@ class PrefsStore:
         if not self.path.is_file():
             return Prefs()
         try:
-            raw = json.loads(self.path.read_text(encoding="utf-8"))
+            raw = json.loads(self.path.read_text(encoding="utf-8-sig"))  # a file saved by Notepad starts with a byte-order mark
         except (OSError, ValueError) as exc:
             self.error = f"{self.path.name} could not be read ({exc}); defaults apply"
             log.warning("Settings file problem: %s", self.error)

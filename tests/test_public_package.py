@@ -85,3 +85,25 @@ def test_readme_license_and_notice_agree():
     for link in links:
         if not link.startswith("http"):
             assert (ROOT / link).exists(), link
+
+
+def test_a_first_start_shows_its_progress_and_keeps_a_log():
+    """0.11.1: a new computer's first start says what it is doing while uv fetches Python and the packages (it
+    used to sit silent for minutes), finds uv where the installer was told to put it, and writes logs/start.log."""
+    ps1 = read("start.ps1")
+    assert "& $uv sync --frozen --no-dev" in ps1 and "Getting Python and the app's packages ready" in ps1
+    assert '$env:UV_PYTHON_PREFERENCE = "only-managed"' in ps1  # never Windows' Store stub for python
+    assert "sync --frozen --quiet --no-dev --inexact" in ps1 and "--no-dev --inexact" in read("start.sh")
+    assert r'Join-Path $root "logs\start.log"' in ps1 and "STOPPED: $message" in ps1
+    assert "$env:UV_INSTALL_DIR" in ps1 and "$env:XDG_BIN_HOME" in ps1
+    sh = read("start.sh")
+    assert 'UV_PYTHON_PREFERENCE=only-managed "$UV" sync --frozen --no-dev ||' in sh and 'START_LOG="$ROOT/logs/start.log"' in sh
+    assert '${UV_INSTALL_DIR:+"$UV_INSTALL_DIR/uv"}' in sh
+
+
+def test_settings_saved_by_notepad_still_load(tmp_path):
+    from app.services.prefs import PrefsStore
+
+    (tmp_path / "settings.json").write_bytes(b'\xef\xbb\xbf{"openBrowser": "never", "theme": "light"}')
+    store = PrefsStore(tmp_path)
+    assert store.error is None and store.prefs.openBrowser == "never" and store.prefs.theme == "light"

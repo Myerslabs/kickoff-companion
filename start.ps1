@@ -26,7 +26,27 @@ $root = $PSScriptRoot
 Set-Location -LiteralPath $root
 $python = Join-Path $root ".venv\Scripts\python.exe"
 
+# Each start writes what it did to logs\start.log (public release 0.11.1), so a first start that stops or seems to hang
+# on a new computer leaves a record to read or send, even after its window is closed.
+$startLog = Join-Path $root "logs\start.log"
+try {
+    New-Item -ItemType Directory -Force (Join-Path $root "logs") | Out-Null
+    Set-Content -LiteralPath $startLog -Encoding utf8 -Value "Kickoff Companion start, $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), PowerShell $($PSVersionTable.PSVersion), $([Environment]::OSVersion.VersionString)"
+} catch {
+    $startLog = $null  # a read-only folder: the steps still show in this window
+}
+
+function Write-Step($message) {
+    Write-Host $message
+    if ($startLog) {
+        try { Add-Content -LiteralPath $startLog -Encoding utf8 -Value "$(Get-Date -Format 'HH:mm:ss') $message" } catch { $script:startLog = $null }
+    }
+}
+
 function Stop-WithMessage($message) {
+    if ($startLog) {
+        try { Add-Content -LiteralPath $startLog -Encoding utf8 -Value "$(Get-Date -Format 'HH:mm:ss') STOPPED: $message" } catch { $script:startLog = $null }
+    }
     Write-Host ""
     Write-Host $message -ForegroundColor Yellow
     Write-Host ""
@@ -37,7 +57,12 @@ function Stop-WithMessage($message) {
 function Find-Uv {
     $command = Get-Command uv -ErrorAction SilentlyContinue
     if ($command) { return $command.Source }
-    foreach ($candidate in @((Join-Path $env:USERPROFILE ".local\bin\uv.exe"), (Join-Path $env:USERPROFILE ".cargo\bin\uv.exe"))) {
+    # Where Astral's installer puts it: UV_INSTALL_DIR or XDG_BIN_HOME when set, else ~\.local\bin (older: ~\.cargo\bin)
+    $candidates = @()
+    if ($env:UV_INSTALL_DIR) { $candidates += (Join-Path $env:UV_INSTALL_DIR "uv.exe") }
+    if ($env:XDG_BIN_HOME) { $candidates += (Join-Path $env:XDG_BIN_HOME "uv.exe") }
+    $candidates += (Join-Path $env:USERPROFILE ".local\bin\uv.exe"), (Join-Path $env:USERPROFILE ".cargo\bin\uv.exe")
+    foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
     return $null
@@ -46,8 +71,8 @@ function Find-Uv {
 $uv = Find-Uv
 if (-not $uv -and -not (Test-Path -LiteralPath $python) -and -not $Login) {
     Write-Host ""
-    Write-Host "First start: installing uv, which brings Python and the app's packages (no admin rights needed)."
-    Write-Host "This takes a minute or two and happens once."
+    Write-Step "First start: installing uv, which brings Python and the app's packages (no admin rights needed)."
+    Write-Step "This takes a few minutes and happens once."
     Write-Host ""
     try {
         Invoke-RestMethod https://astral.sh/uv/install.ps1 | Invoke-Expression
@@ -55,12 +80,24 @@ if (-not $uv -and -not (Test-Path -LiteralPath $python) -and -not $Login) {
         Stop-WithMessage ("uv could not be installed: $($_.Exception.Message)`nCheck the internet connection, or install it yourself from https://docs.astral.sh/uv/ and start again.")
     }
     $uv = Find-Uv
+    Write-Host ""
+    Write-Step "uv is installed. (The note above about PATH is uv's own; Kickoff Companion finds uv without it.)"
 }
 if ($uv) {
-    & $uv sync --frozen --quiet
-    if ($LASTEXITCODE -ne 0) {
-        Stop-WithMessage "uv could not prepare the Python environment (see above). Check the network and try again."
+    if (-not (Test-Path -LiteralPath $python)) {
+        # The first sync downloads Python and every package: show uv's progress instead of a silent window.
+        Write-Step "Getting Python and the app's packages ready with $uv. The first time takes a few minutes; progress shows below."
+        # uv's own Python only: probing for one on the system runs Windows' "python" Store stub, which pops up
+        # "Get Python from the Microsoft Store" (seen on a new machine, 2026-10-04). And no developer tools.
+        $env:UV_PYTHON_PREFERENCE = "only-managed"
+        & $uv sync --frozen --no-dev
+    } else {
+        & $uv sync --frozen --quiet --no-dev --inexact  # installs what is missing; keeps developer tools a developer added
     }
+    if ($LASTEXITCODE -ne 0) {
+        Stop-WithMessage "uv could not prepare the Python environment (exit code $LASTEXITCODE, see above). Check the network and try again."
+    }
+    Write-Step "Python and the packages are ready."
 }
 
 if (-not (Test-Path -LiteralPath $python)) {
@@ -71,6 +108,7 @@ if (-not (Test-Path -LiteralPath $python)) {
 }
 # No .env yet is fine: the server starts in setup mode and the browser page asks for the key and the team.
 
+Write-Step "Checking the settings."
 & $python -m app --check
 if ($LASTEXITCODE -ne 0) {
     Stop-WithMessage "The configuration check failed (see above). Fix .env and try again."
@@ -107,5 +145,5 @@ if ($code -eq 4) {
     Stop-WithMessage "Kickoff Companion is already running (another window, the tray icon, or start at login), or another program uses its port. Stop that copy first, then start again."
 }
 if ($code -ne 0) {
-    Stop-WithMessage "The server stopped with exit code $code. The log is in logs\app.log."
+    Stop-WithMessage "The server stopped with exit code $code. The log is in logs\app.log; the start steps are in logs\start.log."
 }

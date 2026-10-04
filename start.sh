@@ -20,7 +20,19 @@ PYTHON="$ROOT/.venv/bin/python"
 SERVICE=0
 [ "${1:-}" = "--service" ] && SERVICE=1
 
+# Each start writes what it did to logs/start.log (public release 0.11.1), so a first start that stops or seems to
+# hang leaves a record to read or send.
+START_LOG="$ROOT/logs/start.log"
+if mkdir -p "$ROOT/logs" 2>/dev/null && printf 'Kickoff Companion start, %s, %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$(uname -sr 2>/dev/null)" > "$START_LOG" 2>/dev/null; then :; else START_LOG=""; fi
+
+step() {
+  printf '%s\n' "$1"
+  [ -n "$START_LOG" ] && printf '%s %s\n' "$(date '+%H:%M:%S')" "$1" >> "$START_LOG" 2>/dev/null
+  return 0
+}
+
 stop_with() {
+  [ -n "$START_LOG" ] && printf '%s STOPPED: %s\n' "$(date '+%H:%M:%S')" "$1" >> "$START_LOG" 2>/dev/null
   printf '\n%s\n\n' "$1" >&2
   if [ "$SERVICE" -eq 0 ] && [ -t 0 ]; then
     read -r -p "Press Enter to close. " _
@@ -31,14 +43,17 @@ stop_with() {
 find_uv() {
   if command -v uv >/dev/null 2>&1; then command -v uv; return; fi
   # A login service starts with a short PATH, so look where the uv installer and Homebrew put it.
-  for candidate in "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv" /opt/homebrew/bin/uv /usr/local/bin/uv; do
+  for candidate in ${UV_INSTALL_DIR:+"$UV_INSTALL_DIR/uv"} ${XDG_BIN_HOME:+"$XDG_BIN_HOME/uv"} "$HOME/.local/bin/uv" "$HOME/.cargo/bin/uv" /opt/homebrew/bin/uv /usr/local/bin/uv; do
     if [ -x "$candidate" ]; then echo "$candidate"; return; fi
   done
 }
 
 UV="$(find_uv)"
 if [ -z "$UV" ] && [ ! -x "$PYTHON" ] && [ "$SERVICE" -eq 0 ]; then
-  printf '\nFirst start: installing uv, which brings Python and the app'"'"'s packages (no admin rights needed).\nThis takes a minute or two and happens once.\n\n'
+  step ""
+  step "First start: installing uv, which brings Python and the app's packages (no admin rights needed)."
+  step "This takes a few minutes and happens once."
+  step ""
   if command -v curl >/dev/null 2>&1; then
     curl -LsSf https://astral.sh/uv/install.sh | sh || stop_with "uv could not be installed (see above). Check the internet connection and start again."
   elif command -v wget >/dev/null 2>&1; then
@@ -47,9 +62,17 @@ if [ -z "$UV" ] && [ ! -x "$PYTHON" ] && [ "$SERVICE" -eq 0 ]; then
     stop_with "Neither curl nor wget is here to download uv. Install uv from https://docs.astral.sh/uv/ and start again."
   fi
   UV="$(find_uv)"
+  step "uv is installed. (Any note above about PATH is uv's own; Kickoff Companion finds uv without it.)"
 fi
 if [ -n "$UV" ]; then
-  "$UV" sync --frozen --quiet || stop_with "uv could not prepare the Python environment (see above). Check the network and try again."
+  if [ ! -x "$PYTHON" ]; then
+    # The first sync downloads Python and every package: show uv's progress instead of a silent window.
+    step "Getting Python and the app's packages ready with $UV. The first time takes a few minutes; progress shows below."
+    UV_PYTHON_PREFERENCE=only-managed "$UV" sync --frozen --no-dev || stop_with "uv could not prepare the Python environment (see above). Check the network and try again."
+  else
+    "$UV" sync --frozen --quiet --no-dev --inexact || stop_with "uv could not prepare the Python environment (see above). Check the network and try again."
+  fi
+  step "Python and the packages are ready."
 fi
 
 if [ ! -x "$PYTHON" ]; then
@@ -74,5 +97,5 @@ if [ "$code" -eq 4 ]; then
   stop_with "Kickoff Companion is already running (another window or the login service), or another program uses its port. Stop that copy first, then start again."
 fi
 if [ "$code" -ne 0 ] && [ "$code" -ne 130 ]; then
-  stop_with "The server stopped with exit code $code. The log is in logs/app.log."
+  stop_with "The server stopped with exit code $code. The log is in logs/app.log; the start steps are in logs/start.log."
 fi
