@@ -37,12 +37,13 @@ function toggle(checked, onChange, ariaLabel) {
   return el("label", { class: "setting__toggle" }, el("input", { type: "checkbox", checked: checked ? true : null, "aria-label": ariaLabel, onchange: (event) => onChange(event.target.checked) }), el("span", {}, checked ? "On" : "Off"));
 }
 
-/** What "Start at login" does on the server's system (public release Phase 4), and whether it is on. */
+/** What the Desktop icon starts: the packaged program itself (public release Phase 10), else the start script. */
 function iconText(auto) {
   const what = auto.packaged ? "Kickoff Companion" : auto.system === "windows" ? "start.ps1" : "start.sh";
   return auto.system === "linux" ? `A double-click icon for ${what} on the Desktop and in the app menu (Steam's Add a Non-Steam Game lists it).` : `A double-click icon for ${what} on the Desktop.`;
 }
 
+/** What "Start at login" does on the server's system (public release Phase 4), and whether it is on. */
 function loginText(auto) {
   if (!auto || !auto.supported) return "Not available on this server's system. Start it with start.ps1 or start.sh.";
   const what = typeof auto.method === "string" && auto.method ? auto.method : "a login item";

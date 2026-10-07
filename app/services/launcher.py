@@ -56,6 +56,20 @@ def run_command(args: list[str]) -> tuple[int, str]:
     return done.returncode, (done.stdout + done.stderr).strip()
 
 
+DESKTOP_RESERVED = frozenset(" \t\n\"'\\><~|&;$*?#()`")  # Desktop Entry spec: an Exec argument with one of these is quoted
+
+
+def desktop_arg(value: str) -> str:
+    """One argument of a .desktop Exec= line. The Desktop Entry spec quotes with double quotes only (not the shell's
+    single quotes), escapes " ` $ and \\ inside them, then doubles every backslash as any string value does; % starts a
+    field code, so a literal one is doubled."""
+    value = value.replace("%", "%%")
+    if not DESKTOP_RESERVED.intersection(value):
+        return value
+    quoted = "".join("\\" + c if c in '"`$\\' else c for c in value)
+    return '"' + quoted.replace("\\", "\\\\") + '"'
+
+
 def open_folder(path: Path, system: str = sys.platform, runner: Callable[[list[str]], Any] | None = None) -> str | None:
     """Show `path` in the system's file manager (the Open button in Settings, public release Phase 10). Returns an
     error text, or None. `runner` stands in for the system call in tests."""
@@ -365,7 +379,7 @@ class Launcher:
 
     def desktop_entry(self) -> str:
         icon = self.static_dir / "icons" / "icon-192.png"
-        command = shlex.quote(str(self.program)) if self.program else f"/bin/bash {shlex.quote(str(self.script_path))}"
+        command = desktop_arg(str(self.program)) if self.program else f"/bin/bash {desktop_arg(str(self.script_path))}"
         return (
             "[Desktop Entry]\n"
             "Type=Application\n"

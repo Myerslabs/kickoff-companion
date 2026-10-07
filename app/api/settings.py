@@ -4,6 +4,7 @@ switch. Secrets never appear here."""
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
 
@@ -24,6 +25,15 @@ def _on_server_computer(request: Request) -> bool:
     from app.api.welcome import on_server_computer
 
     return on_server_computer(request)
+
+
+def _same_origin(request: Request) -> bool:
+    """False when another site's page sent the request (its Origin names another host), so a page open in the server
+    computer's browser cannot reach a route that acts on that computer. No Origin (curl, a test) is allowed."""
+    origin = request.headers.get("origin")
+    if origin is None:
+        return True
+    return urlsplit(origin).netloc.lower() == request.headers.get("host", "").lower()
 
 
 def _payload(request: Request) -> dict[str, Any]:
@@ -108,24 +118,18 @@ async def put_settings(request: Request) -> Any:
     return envelope(_payload(request), source="live", errors=errors)
 
 
-FOLDERS = ("install", "data", "logs")
-
-
 @router.post("/api/settings/open-folder")
 async def open_folder_route(request: Request) -> Any:
-    """Show this install's folder in the file manager (public release Phase 10). Only from the server computer itself:
-    the window opens there."""
+    """Show this install's folder in the file manager (public release Phase 10). Only from the server computer itself,
+    where the window opens, and only from this app's own pages."""
     if not _on_server_computer(request):
         return error_response(403, "not_here", "Open the folder from the server computer itself; this device cannot open a window there.")
-    which = request.query_params.get("which", "install")
-    if which not in FOLDERS:
-        return error_response(400, "bad_folder", "which must be install, data or logs")
-    settings = request.app.state.settings
-    folder = {"install": PROJECT_ROOT, "data": settings.data_dir, "logs": settings.log_dir}[which]
-    error = open_folder(folder)
+    if not _same_origin(request):
+        return error_response(403, "cross_site", "Another site's page cannot open folders on this computer.")
+    error = open_folder(PROJECT_ROOT)
     if error:
         return error_response(500, "open_failed", error)
-    return envelope({"opened": str(folder)}, source="live")
+    return envelope({"opened": str(PROJECT_ROOT)}, source="live")
 
 
 @router.post("/api/settings/desktop-shortcut")

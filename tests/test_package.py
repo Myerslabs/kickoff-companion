@@ -15,7 +15,7 @@ import pytest
 from app.cli import pause_before_closing
 from app.demo import upstream
 from app.paths import PORTABLE_MARKER, Roots, app_data_dir, is_frozen
-from app.services.launcher import Launcher, open_folder
+from app.services.launcher import Launcher, desktop_arg, open_folder
 from tools.package import build
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -133,9 +133,17 @@ class TestLauncherRunsTheProgram:
         quoted = shlex.quote(str(program))
         assert f"ExecStart={quoted} --login" in launcher.unit_text() and "start.sh" not in launcher.unit_text()
         entry = launcher.desktop_entry()
-        assert f"Exec={quoted}\n" in entry and f"Icon={bundle / 'static' / 'icons' / 'icon-192.png'}" in entry and f"Path={program.parent}\n" in entry
+        assert f"Exec={desktop_arg(str(program))}\n" in entry and f"Icon={bundle / 'static' / 'icons' / 'icon-192.png'}" in entry and f"Path={program.parent}\n" in entry
         assert launcher.set_enabled(True).get("error") is None and ["systemctl", "--user", "enable", "kickoff-companion.service"] in calls
         assert launcher.tray_supported is False
+
+    def test_desktop_exec_quotes_the_desktop_entry_way(self):
+        """The .desktop Exec= line takes double quotes only (a shell's single quotes would split a path with a space)."""
+        assert desktop_arg("/opt/kickoff/KickoffCompanion") == "/opt/kickoff/KickoffCompanion"
+        assert desktop_arg("/home/u/My Apps/KickoffCompanion") == '"/home/u/My Apps/KickoffCompanion"'
+        assert desktop_arg("/home/u/it's/Kick") == "\"/home/u/it's/Kick\""
+        assert desktop_arg('/a/b"c$d') == '"/a/b\\\\"c\\\\$d"'  # \" and \$ inside the quotes, then every backslash doubled
+        assert desktop_arg("/a/100%/kick") == "/a/100%%/kick"
 
     def test_mac_agent_and_command_run_the_program(self, tmp_path):
         program, _ = frozen_layout(tmp_path)
@@ -186,10 +194,12 @@ def test_the_folder_opens_only_from_the_server_computer(client, monkeypatch):
     monkeypatch.setattr("app.api.settings._on_server_computer", lambda request: True)
     monkeypatch.setattr("app.api.settings.open_folder", lambda folder: opened.append(Path(folder)))
     assert client.post("/api/settings/open-folder").status_code == 200 and opened == [ROOT]
-    files = client.get("/api/settings").json()["data"]["files"]
-    assert client.post("/api/settings/open-folder?which=data").status_code == 200 and opened[-1] == Path(files["dataDir"])
-    assert client.post("/api/settings/open-folder?which=logs").status_code == 200 and opened[-1] == Path(files["logDir"])
-    assert client.post("/api/settings/open-folder?which=secrets").status_code == 400
+    host = "kickoff.local:8642"
+    assert client.post("/api/settings/open-folder", headers={"Host": host, "Origin": f"http://{host}"}).status_code == 200 and len(opened) == 2
+    for origin in ("https://evil.example", "null"):  # another site's page in the server computer's browser
+        crossed = client.post("/api/settings/open-folder", headers={"Host": host, "Origin": origin})
+        assert crossed.status_code == 403 and crossed.json()["errors"][0]["code"] == "cross_site"
+    assert len(opened) == 2
     monkeypatch.setattr("app.api.settings.open_folder", lambda folder: "no file manager here")
     failed = client.post("/api/settings/open-folder")
     assert failed.status_code == 500 and failed.json()["errors"][0]["message"] == "no file manager here"

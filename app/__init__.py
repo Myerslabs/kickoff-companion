@@ -5,5 +5,5 @@ PUBLISHER = "Myers Labs"  # public release Phase 8: free from Myers Labs, MIT li
 REPO_URL = "https://github.com/Myerslabs/kickoff-companion"
 DATA_CREDIT = "Data provided by CollegeFootballData.com"
 DATA_URL = "https://collegefootballdata.com"
-__version__ = "0.12.0"  # the release number; tools/release_public.py refuses a release message that names another
+__version__ = "0.12.1"  # the release number; tools/release_public.py refuses a release message that names another
 BUILD_PHASE = 15

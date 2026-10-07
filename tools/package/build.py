@@ -196,7 +196,15 @@ def smoke_test(program: Path) -> list[str]:
                         if code != 200:
                             problems.append(f"GET {path} answered {code}")
                         elif path.startswith("/api/"):
-                            errors = json.loads(body).get("errors") or []
+                            try:
+                                payload = json.loads(body)
+                            except ValueError as exc:
+                                problems.append(f"GET {path} did not answer JSON: {exc}")
+                                continue
+                            if not isinstance(payload, dict):
+                                problems.append(f"GET {path} answered a {type(payload).__name__}, not an envelope")
+                                continue
+                            errors = payload.get("errors") or []
                             if errors:
                                 problems.append(f"GET {path} carried errors: {errors[:3]}")
             finally:
