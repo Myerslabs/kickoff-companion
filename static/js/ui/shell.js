@@ -1,16 +1,21 @@
 // The app shell: top bar with the wordmark, inline tabs on wide screens, a status pill, the
 // Menu button, the menu drawer, and the radio mini-bar that survives every view change.
+// Phase 17 (#25, #32): the Game program is the first tab and the wordmark's home; setLive(true) marks the
+// Live sheet while our game is under way (a dot in its tab and menu item, and a LIVE flag on narrow screens).
 
+import { icon } from "./icons.js";
 import { ours } from "../identity.js";
 import { el, reducedMotion, syncPageLock, text } from "./dom.js";
 import { pill } from "./pills.js";
 
 export const VIEWS = [
+  { id: "program", label: "Game program" },
   { id: "newspaper", label: "Newspaper", wide: true },
   { id: "season", label: "Season" },
-  { id: "program", label: "Game program" },
   { id: "live", label: "Live sheet" },
 ];
+
+const liveDot = () => el("span", { class: "live-dot", "aria-hidden": "true" });
 
 export const MENU = [
   { group: "Views", items: VIEWS },
@@ -24,6 +29,10 @@ export const MENU = [
       { id: "radio", label: "Radio" },
       { id: "injuries", label: "Injury report" },
       { id: "archive", label: "Archive" },
+      { id: "review", label: "Season in review", hint: "record, streaks, best win" }, // Phase 19
+      { id: "preseason", label: "Preseason", hint: "offseason, outlook, staffs" }, // Phase 17 Part 3a
+      { id: "invite", label: "Invite friends", hint: "a QR code for the Wi-Fi" }, // Phase 18.6
+      { id: "board", label: "Game-day board", hint: "for a big screen" },
       { id: "glossary", label: "Glossary" },
       { id: "settings", label: "Settings" },
       { id: "setup", label: "Device setup", href: "/setup" },
@@ -50,11 +59,14 @@ export function menuWith(extraPrimaries = []) {
 
 /**
  * shell({ current, status: {kind, label}, onNavigate, menu })
- * returns { root, main, setStatus, setCurrent, openDrawer, closeDrawer, setRadio }
+ * returns { root, main, setStatus, setCurrent, setLive, openDrawer, closeDrawer, setRadio }
  */
-export function shell({ current = "season", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, menu = MENU } = {}) {
+export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, menu = MENU } = {}) {
   let currentView = current;
-  const statusSlot = el("div", { class: "topbar__status" }, pill(status));
+  let live = false;
+  let lastStatus = status && typeof status === "object" ? status : { kind: "quiet", label: "Connecting" };
+  let statusCard = null;
+  const statusSlot = el("div", { class: "topbar__status", role: "status" });
 
   const tabs = el(
     "nav",
@@ -73,8 +85,16 @@ export function shell({ current = "season", status = { kind: "quiet", label: "Co
           },
         },
         view.label,
+        view.id === "live" ? liveDot() : null,
       ),
     ),
+  );
+
+  const liveFlag = el(
+    "a",
+    { class: "live-flag", href: "#live", hidden: true, title: "Our game is live", onclick: (event) => { event.preventDefault(); navigate("live"); } },
+    liveDot(),
+    "LIVE",
   );
 
   const menuButton = el(
@@ -87,16 +107,17 @@ export function shell({ current = "season", status = { kind: "quiet", label: "Co
   const searchButton = el(
     "button",
     { class: "btn search-button", type: "button", "aria-label": "Search teams and players", title: "Search (/)", onclick: () => { if (typeof onSearch === "function") onSearch(); } },
-    el("span", { "aria-hidden": "true", class: "search-button__icon" }, "\u2315"),
+    el("span", { "aria-hidden": "true", class: "search-button__icon" }, icon("search")), // Phase 16 wave 3: the sprite
     el("span", { class: "search-button__label" }, "Search"),
   );
 
   const topbar = el(
     "header",
     { class: "topbar" },
-    el("a", { class: "wordmark", href: "#season", onclick: (e) => { e.preventDefault(); navigate("season"); } }, `${ours().name || "Kickoff"} `, el("em", {}, ours().name ? "Kickoff" : "Companion", ours().name ? el("span", { class: "wordmark__long" }, " Companion") : null)),
+    el("a", { class: "wordmark", href: "#program", onclick: (e) => { e.preventDefault(); navigate("program"); } }, `${ours().name || "Kickoff"} `, el("em", {}, ours().name ? "Kickoff" : "Companion", ours().name ? el("span", { class: "wordmark__long" }, " Companion") : null)),
     tabs,
     el("div", { class: "topbar__spacer" }),
+    liveFlag,
     statusSlot,
     typeof onSearch === "function" ? searchButton : null,
     menuButton,
@@ -154,6 +175,7 @@ export function shell({ current = "season", status = { kind: "quiet", label: "Co
                   },
                 },
                 item.label,
+                item.id === "live" && live ? [" ", liveDot(), el("small", {}, "our game is live")] : null,
                 item.hint ? el("small", {}, item.hint) : null,
               ),
             ),
@@ -207,8 +229,93 @@ export function shell({ current = "season", status = { kind: "quiet", label: "Co
     }, 220);
   }
 
+  // Phase 16 wave 3 (DS-12): the pill is a button; its card says what the state means, with Retry now and the
+  // server's status page. Retry asks the page to fetch again ("kickoff:retry", answered by the app).
+  const STATUS_WORDS = {
+    live: "The live feed is current.",
+    delayed: "The live feed is running behind your spoiler delay on purpose.",
+    replay: "A replay of a finished game is running.",
+    quiet: "Waiting for the page's data.",
+    stale: "This page shows an older copy of its data.",
+    offline: "This device could not reach the app's server.",
+  };
+
+  function closeStatusCard() {
+    if (!statusCard) return;
+    statusCard.remove();
+    statusCard = null;
+    document.removeEventListener("pointerdown", onOutside, true);
+    statusSlot.querySelector(".pill--button")?.setAttribute("aria-expanded", "false");
+  }
+
+  function onOutside(event) {
+    if (statusCard && !statusCard.contains(event.target) && !statusSlot.contains(event.target)) closeStatusCard();
+  }
+
+  function statusCardBody() {
+    const s = lastStatus || {};
+    const detail = typeof s.detail === "string" && s.detail ? s.detail : STATUS_WORDS[s.kind] || STATUS_WORDS.quiet;
+    const retry = el("button", { class: "btn btn--quiet status-card__retry", type: "button", onclick: () => {
+      retry.disabled = true;
+      retry.textContent = "Trying";
+      document.dispatchEvent(new CustomEvent("kickoff:retry"));
+      setTimeout(closeStatusCard, 600);
+    } }, "Retry now");
+    return [
+      el("b", { class: "status-card__title" }, text(s.label)),
+      el("p", { class: "status-card__detail" }, detail),
+      el("div", { class: "status-card__actions" }, retry, el("a", { class: "btn btn--quiet", href: "/status", target: "_blank", rel: "noopener" }, "Server status")),
+    ];
+  }
+
+  function toggleStatusCard() {
+    if (statusCard) {
+      closeStatusCard();
+      return;
+    }
+    statusCard = el("div", { class: "status-card", role: "dialog", "aria-label": "Data status" }, statusCardBody());
+    document.body.append(statusCard);
+    statusSlot.querySelector(".pill--button")?.setAttribute("aria-expanded", "true");
+    document.addEventListener("pointerdown", onOutside, true);
+  }
+
+  /** "Updated 4 min ago" from the time the page's data was fetched. */
+  function updatedLabel(at) {
+    const seconds = Math.max(0, (Date.now() - at) / 1000);
+    if (seconds < 60) return "Updated just now";
+    if (seconds < 3600) return `Updated ${Math.round(seconds / 60)} min ago`;
+    return `Updated ${Math.round(seconds / 3600)} h ago`;
+  }
+
   function setStatus(next) {
-    statusSlot.replaceChildren(pill(next));
+    lastStatus = next && typeof next === "object" ? { ...next } : { kind: "quiet" };
+    if (typeof lastStatus.updatedAt === "number" && Number.isFinite(lastStatus.updatedAt)) lastStatus.label = updatedLabel(lastStatus.updatedAt);
+    const button = pill({ ...lastStatus, onClick: toggleStatusCard });
+    button.setAttribute("aria-expanded", statusCard ? "true" : "false");
+    statusSlot.replaceChildren(button);
+    if (statusCard) statusCard.replaceChildren(...statusCardBody()); // an open card follows the page's state
+  }
+  setStatus(lastStatus);
+  // The Updated words age with the clock between refreshes; only a changed label is redrawn.
+  setInterval(() => {
+    if (typeof lastStatus?.updatedAt !== "number") return;
+    const label = updatedLabel(lastStatus.updatedAt);
+    if (label !== lastStatus.label) setStatus(lastStatus);
+  }, 30000);
+
+  /** Mark the Live sheet while our game is under way (Phase 17 #25); false clears it. */
+  function setLive(on) {
+    const next = on === true;
+    if (next === live) return;
+    live = next;
+    if (live) liveFlag.removeAttribute("hidden");
+    else liveFlag.setAttribute("hidden", "");
+    const tab = tabs.querySelector('.tab[data-view="live"]');
+    if (tab) {
+      tab.classList.toggle("tab--live", live);
+      tab.setAttribute("aria-label", live ? "Live sheet, our game is live" : "Live sheet");
+    }
+    renderDrawer();
   }
 
   function setRadio(state) {
@@ -217,12 +324,14 @@ export function shell({ current = "season", status = { kind: "quiet", label: "Co
   }
 
   document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && statusCard) closeStatusCard();
     if (event.key === "Escape" && drawer.hasAttribute("open")) closeDrawer();
   });
+  if (typeof window !== "undefined") window.addEventListener("hashchange", closeStatusCard);
 
   renderDrawer();
   const root = el("div", { class: "shell" }, topbar, main, radioSlot, drawer);
-  return { root, main, setStatus, setCurrent, openDrawer, closeDrawer, setRadio };
+  return { root, main, setStatus, setCurrent, setLive, openDrawer, closeDrawer, setRadio };
 }
 
 /** The pinned mini-bar shown while the radio plays: station, state, play or pause, close. */
@@ -238,7 +347,7 @@ export function radioBar({ station, state = "playing", detail, onToggle, onClose
     el(
       "button",
       { class: "btn icon-btn", type: "button", "aria-label": state === "playing" ? "Pause" : "Play", onclick: onToggle },
-      state === "playing" ? "‖" : "▶",
+      icon(state === "playing" ? "pause" : "play"),
     ),
     el("button", { class: "btn btn--quiet icon-btn", type: "button", "aria-label": "Close radio", onclick: onClose }, "×"),
   );

@@ -11,11 +11,12 @@ re-coded here too, so events stored by any earlier version read the same way."""
 from __future__ import annotations
 
 import math
+import re
 from typing import Any
 
 from app.live.analysis import drive_summary, fourth_down, quarter_splits, shot_chart, tendencies
 from app.live.events import LiveEvent, drive_result, drive_result_text, is_scrimmage
-from app.live.play_box import play_box
+from app.live.play_box import _subsequence, play_box
 from app.live.play_leaders import play_player_lines
 
 RED_ZONE_YARDS = 20
@@ -133,6 +134,22 @@ def _live_wp(points: list[dict[str, Any]]) -> dict[str, Any] | None:
     return {"source": "CFBD scoreboard", "homeWp": points[-1]["homeWp"], "series": ordered}
 
 
+
+_PENALTY_TEAM = re.compile(r"PENALTY\s+([A-Z][A-Z&.]*)")
+
+
+def _penalized_team(text: Any, boxes: dict[str, Any]) -> str | None:
+    """The team a PENALTY in the play text names ("PENALTY AUB Pass Interference ..."), as the box key, or None
+    when the text names neither team clearly (then the flag is not counted: a wrong count is worse than none)."""
+    if not isinstance(text, str):
+        return None
+    match = _PENALTY_TEAM.search(text.upper())
+    if match is None:
+        return None
+    token = match.group(1).rstrip(".")
+    hits = [name for name in boxes if name and _subsequence(token, name)]
+    return hits[0] if len(hits) == 1 else None
+
 def derive_state(events: list[LiveEvent], *, game_id: int, home: str | None, away: str | None, mode: str = "live", rosters: Any = None, ep_tables: Any = None) -> dict[str, Any]:
     """Fold the events into plays, drives, a status line, and per-team situational stats.
     `rosters` (app.live.play_leaders.Rosters) names the players in lines taken from the play-by-play.
@@ -205,8 +222,10 @@ def derive_state(events: list[LiveEvent], *, game_id: int, home: str | None, awa
                 box["explosive"]["twenty"] += 1
             if gained >= 40:
                 box["explosive"]["forty"] += 1
-        if box is not None and "penalty" in ptype.lower():
-            box["penalties"]["count"] += 1
+        if "penalty" in ptype.lower():
+            flagged = _penalized_team(play.get("text"), boxes)  # final pass: the flagged team, not the team with the ball
+            if flagged is not None:
+                boxes[flagged]["penalties"]["count"] += 1
         if "sack" in flags and defense in boxes:
             boxes[defense]["sacks"] += 1
     feed = (status or {}).get("teams")

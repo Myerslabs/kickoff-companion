@@ -40,13 +40,14 @@ def test_full_file_parses(tmp_path: Path):
 def test_bad_entries_are_dropped_and_the_rest_kept(tmp_path: Path):
     write(tmp_path, 6, {
         "sections": [{"heading": "Good"}, {"paragraphs": ["no heading"]}, "junk", None],
-        "availability": [{"name": "A", "status": "Out"}, {"name": "B"}, 42],
+        "availability": [{"name": "A", "status": "Out"}, {"name": "B"}, {"status": "Out"}, 42],
         "visitors": {"home": [{"name": "Recruit A"}, {"stars": 5}, "x"], "away": None},
     })
     notes, error = load_notes(tmp_path, 6)
     assert error is None
     assert [s.heading for s in notes.sections] == ["Good"]
-    assert [a.name for a in notes.availability] == ["A"]
+    assert [a.name for a in notes.availability] == ["A", "B"], "Phase 17: a row with no status is kept; one with no name is not"
+    assert notes.availability[1].status is None
     assert [v.name for v in notes.visitors.home] == ["Recruit A"] and notes.visitors.away == []
 
 

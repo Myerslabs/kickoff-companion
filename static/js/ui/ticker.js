@@ -3,6 +3,7 @@
 // Collapsible, remembered per device. The crawl pauses under a finger or the pointer and stops
 // for people who asked their device for less motion; when the games fit in the line it stays put.
 
+import { icon } from "./icons.js";
 import { el, isNum, recall, remember, replaceWith, text } from "./dom.js";
 
 const PIXELS_PER_SECOND = 45;
@@ -16,7 +17,9 @@ function gameEl(game) {
   const awayWins = isNum(game.away?.points) && isNum(game.home?.points) && game.away.points > game.home.points;
   const homeWins = isNum(game.away?.points) && isNum(game.home?.points) && game.home.points > game.away.points;
   const status = game.status === "final" ? "F" : game.status === "live" ? text(game.detail) : text(game.detail || "");
-  return el("span", { class: `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}` }, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status));
+  // Phase 16 wave 3 (owner pick 6A): a star on one of my teams when the ticker shows every game, never on our own game
+  const star = game.star === true && !game.isUs ? el("span", { class: "ticker__star" }, icon("star", { label: "One of your teams" })) : null;
+  return el("span", { class: `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}${star ? " ticker__game--fav" : ""}` }, star, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status));
 }
 
 /**
@@ -61,7 +64,8 @@ function drawable(games) {
  * crawl carries on, and destroy(), which a view calls when it replaces or drops the ticker so the
  * size observer does not outlive it.
  */
-export function ticker({ games = [], id = "ticker", label = "Scores" }) {
+export function ticker({ games = [], id = "ticker", label = "Scores", emptyText = "No other games right now." }) {
+  let currentEmpty = emptyText;
   const key = `ticker:${id}`;
   const collapsed = recall(key, false);
   let currentLabel = label;
@@ -80,7 +84,7 @@ export function ticker({ games = [], id = "ticker", label = "Scores" }) {
     stop = () => {};
     halves = null;
     if (shown.length === 0) {
-      list.replaceChildren(el("span", { class: "ticker__game st" }, "No other games right now."));
+      list.replaceChildren(el("span", { class: "ticker__game st" }, currentEmpty));
       return;
     }
     const half = el("div", { class: "ticker__half" }, shown.map(gameEl));
@@ -106,15 +110,16 @@ export function ticker({ games = [], id = "ticker", label = "Scores" }) {
         root.setAttribute("data-collapsed", next ? "true" : "false");
         toggle.setAttribute("aria-expanded", next ? "false" : "true");
         toggle.setAttribute("aria-label", `${next ? "Show" : "Hide"} ${currentLabel}`);
-        toggle.textContent = next ? "▸" : "▾";
+        toggle.replaceChildren(icon(next ? "chevron-right" : "chevron-down"));
         remember(key, next);
       },
     },
-    collapsed ? "▸" : "▾",
+    icon(collapsed ? "chevron-right" : "chevron-down"),
   );
   const labelEl = el("span", { class: "ticker__label" }, label);
   root.append(labelEl, list, toggle);
-  root.setGames = (next, nextLabel) => {
+  root.setGames = (next, nextLabel, nextEmpty) => {
+    if (typeof nextEmpty === "string" && nextEmpty.trim()) currentEmpty = nextEmpty.trim();
     if (typeof nextLabel === "string" && nextLabel !== currentLabel) {
       currentLabel = nextLabel;
       labelEl.textContent = nextLabel;

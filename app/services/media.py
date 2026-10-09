@@ -15,6 +15,8 @@ from pathlib import Path
 
 import httpx
 
+from app.httpcap import ResponseTooLarge, get_capped
+
 log = logging.getLogger("kickoff.media")
 
 HEADSHOT_URL = "https://a.espncdn.com/i/headshots/college-football/players/full/{id}.png"
@@ -86,7 +88,12 @@ class HeadshotStore:
             return Headshot(None, False, f"headshot fetches paused for {int(self.paused_until - now)} s after repeated failures")
 
         try:
-            response = await self._http.get(HEADSHOT_URL.format(id=player_id))
+            response = await get_capped(self._http, HEADSHOT_URL.format(id=player_id), MAX_BYTES)
+        except ResponseTooLarge:
+            self.failures = 0
+            self._remember_miss(player_id, f"larger than {MAX_BYTES} bytes")
+            self.stats["misses"] += 1
+            return Headshot(None, False, "upstream did not return a PNG")
         except httpx.HTTPError as exc:
             self._note_failure(f"{exc.__class__.__name__}")
             return Headshot(None, False, f"upstream error: {exc.__class__.__name__}")

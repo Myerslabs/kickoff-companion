@@ -4,7 +4,8 @@
 //
 // Phase 16 (stream SEASON):
 //   createSeasonView({ onStatus, arg, params })  arg "polls:<AP|Coaches|CFP>" opens on that poll and brings
-//       the Polls band into view (the poll list's Full page link).
+//       the Polls band into view (the poll list's Full page link). Phase 17 #2: params.band "standings" brings the
+//       standings into view (the cover's conference record chip).
 //   It runs on the shared poller (views/common.js): a refresh with the same data rebuilds nothing, a rebuild
 //   keeps the page's and every table's scroll, and the reader's poll choice lives in the view's ui state, so
 //   it survives every refresh. Values that changed since the last draw are marked (.is-changed).
@@ -14,17 +15,18 @@
 
 import { confLabel, usSchool } from "../identity.js";
 import { pollMs } from "../prefs.js";
-import { el, flashChanges, fmtNum, fmtStat, isNum, remember, snapshotKeys, text } from "../ui/dom.js";
+import { el, flashChanges, fmtNum, fmtStat, isNum, records, remember, snapshotKeys, text } from "../ui/dom.js";
 import { nationalHref, pollHref, pollName } from "../ui/national-link.js";
 import { openGame, recordLine, scheduleList, scheduleSkeleton } from "../ui/schedule.js";
 import { rankPath, trendRow } from "../ui/sparkline.js";
-import { band, jumpList, note, subhead } from "../ui/states.js";
+import { band, note, sectionChips, subhead } from "../ui/states.js";
 import { pollBadge, rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { formSquares, logoLink, profileTable, profileTiles } from "../ui/team-page.js";
 import { advancedPaired, resumeBlock } from "../ui/depth2.js";
 import { playoffBlock, playoffSummary } from "../ui/playoff.js";
 import { lastSeasonBlock, roadAheadBlock } from "../ui/offday.js";
 import { errorPanel, partState, poller, recordText } from "./common.js";
+import { flow } from "../ui/flow.js";
 
 export const NEXT_OPPONENT_KEY = "kickoff:next-opponent"; // the Ratings page marks this team's row
 
@@ -33,10 +35,6 @@ export function pollFromArg(arg) {
   if (typeof arg !== "string") return null;
   const m = /^polls:(.+)$/i.exec(arg.trim());
   return m ? pollName(m[1]) : null;
-}
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object") : [];
 }
 
 function school(value) {
@@ -75,9 +73,9 @@ function guide(...children) {
  * createSeasonView({ onStatus, arg }) -> { mount(container), refresh(), unmount() }
  * onStatus receives { kind, label } for the top-bar pill.
  */
-export function createSeasonView({ onStatus, arg } = {}) {
-  const ui = { poll: pollFromArg(arg), revealed: false };
-  const focusPolls = ui.poll !== null;
+export function createSeasonView({ onStatus, arg, params } = {}) {
+  const ui = { poll: pollFromArg(arg), revealed: false, flow: null, chips: null };
+  const focusBand = ui.poll !== null ? "#season-polls" : params?.band === "standings" ? "#season-standings" : null;
 
   function loadingLayout() {
     const loading = (id, title, skeleton) => band({ id, title, collapsible: false, state: { status: "loading" }, skeleton });
@@ -351,7 +349,7 @@ export function createSeasonView({ onStatus, arg } = {}) {
       { key: "label", label: "Rating", kind: "text" },
       {
         key: "value",
-        label: "Value",
+        label: "Value, FBS rank", // Phase 17 #27: the rating and its chip
         render: (row) => (isNum(row.value) ? el("span", { "data-k": `rating:${row.key}` }, fmtStat(row.value, row.format)) : el("span", { class: "nr" }, "")),
         rank: { key: "rank", of: "of", link: (row) => nationalHref(row.metric, { team }), placeholder: true },
       },
@@ -373,28 +371,42 @@ export function createSeasonView({ onStatus, arg } = {}) {
     });
   }
 
+  /** The Season bands that span two columns on a wide page (owner pick 2026-10-07: the big tables). */
+  const SEASON_WIDE = ["season-profile", "season-advanced", "season-last"]; // final pass: "This season and last" was clipped in one column on the iPad
+
   function render(envelope, container) {
     const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
     const team = school(data.team?.school) || usSchool();
     const next = nextOpponent(data);
     if (next) remember(NEXT_OPPONENT_KEY, next);
     const before = snapshotKeys(container);
+    // Phase 17 #7, #28: one flowing page instead of three fixed columns (whose short middle left holes): the
+    // bands pack into 1 to 4 columns by width, the stat profile and the advanced tables span two
     const grid = el(
       "div",
-      { class: "season" },
-      el("div", { class: "season__top" }),
-      column(scheduleBand(data, team), pollsBand(data, next?.school), trendsBand(data)),
-      guide(profileBand(data, team), lastSeasonBand(data, team)),
-      column(standingsBand(data, next?.school), ratingsBand(data, team), resumeBand(data, team), advancedBand(data, team)),
-      el("div", { class: "season__wide" }, roadAheadBand(data)),
-      data.playoff ? el("div", { class: "season__wide" }, playoffBand(data, team)) : null,
+      { class: "page season season--flow" },
+      scheduleBand(data, team),
+      profileBand(data, team),
+      standingsBand(data, next?.school),
+      pollsBand(data, next?.school),
+      ratingsBand(data, team),
+      lastSeasonBand(data, team),
+      resumeBand(data, team),
+      trendsBand(data),
+      advancedBand(data, team),
+      el("div", { class: "season__wide flow-full" }, roadAheadBand(data)),
+      data.playoff ? el("div", { class: "season__wide flow-full" }, playoffBand(data, team)) : null,
     );
-    grid.querySelector(".season__top").append(jumpList(grid)); // UX-11: a page row, never on a band head
-    container.replaceChildren(grid);
+    if (ui.flow) ui.flow.stop();
+    if (ui.chips) ui.chips.stop();
+    ui.chips = sectionChips(grid); // Phase 17 #5: the pinned section chips, above the page
+    ui.chips.refresh();
+    container.replaceChildren(ui.chips, grid);
+    ui.flow = flow(grid, { wide: SEASON_WIDE });
     flashChanges(before, container);
-    if (focusPolls && !ui.revealed) {
+    if (focusBand && !ui.revealed) {
       ui.revealed = true;
-      setTimeout(() => jumpToBand(container.querySelector("#season-polls")), 0); // after the router's scroll to the top
+      setTimeout(() => jumpToBand(container.querySelector(focusBand)), 0); // after the router's scroll to the top
     }
   }
 
@@ -405,8 +417,17 @@ export function createSeasonView({ onStatus, arg } = {}) {
     render,
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Season", message, retry)),
     renderLoading: loadingLayout,
+    loadingDetail: "The schedule, polls, standings and ratings",
   });
   view.ui = ui; // the tests read the poll choice
+  const unmount = view.unmount;
+  view.unmount = (...args) => {
+    ui.flow?.stop(); // the layout's observers go with the page
+    ui.flow = null;
+    ui.chips?.stop();
+    ui.chips = null;
+    return unmount.apply(view, args);
+  };
   return view;
 }
 

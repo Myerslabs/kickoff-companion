@@ -253,7 +253,7 @@ assert.equal(openingLine(0, 2.5, "Silver Dollar", "Swampwater Tech"), "a pick'em
 assert.equal(openingLine(2.5, 2.5, "Silver Dollar", "Swampwater Tech"), null);
 assert.equal(openingLine(null, 2.5, "Silver Dollar", "Swampwater Tech"), null);
 
-assert.equal(transferText({ from: "Georgia Tech", stars: 3, rating: 0.89, date: "2026-01-06", eligibility: "Immediate" }), "From Georgia Tech, 3★ in the portal, 0.8900, entered 2026-01-06, immediate");
+assert.equal(transferText({ from: "Georgia Tech", stars: 3, rating: 0.89, date: "2026-01-06", eligibility: "Immediate" }), "From Georgia Tech, 3-star in the portal, 0.8900, entered 2026-01-06, immediate");
 assert.equal(transferText({ from: "Silver Dollar" }), "From Silver Dollar");
 for (const bad of [null, undefined, {}, { from: "" }, { from: 3 }, "x"]) assert.equal(transferText(bad), null);
 

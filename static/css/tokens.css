@@ -17,31 +17,35 @@
 :root {
   color-scheme: dark;
 
-  /* surfaces */
-  --ground: #0A1230;
-  --panel: #121C44;
-  --panel-raised: #182456;
-  --rule: #2A3770;
-  --rule-strong: #3B4C8C;
+  /* surfaces. Phase 17 (#34, palette B): neutral charcoal for every team; the team's colors are accents only */
+  --ground: #14161B;
+  --panel: #1C1F26;
+  --panel-raised: #23272F;
+  --rule: #2D323C;
+  --rule-strong: #3E4450;
+  --topbar-bg: #1A1D23;
 
   /* tables and band heads (Phase 14): shading that lets the eye follow a row across a wide table */
-  --band-head: #1A2761;
-  --table-head: #1F2D6B;
-  --row-alt: #18255B;
-  --row-hover: #263675;
-  --row-group: #1C2A64;
-  --row-rule: #1F2C63;
-  --sorted-col: rgba(250, 70, 22, 0.08);
-  --us-row: rgba(250, 70, 22, 0.13);
+  --band-head: #22262E;
+  --table-head: #262A33;
+  --row-alt: #20232A;
+  --row-hover: #2B3039;
+  --row-group: #23272F;
+  --row-rule: #282C35;
+  --sorted-col: rgba(61, 107, 255, 0.08);
+  --us-row: rgba(61, 107, 255, 0.10);
 
   /* text */
-  --chalk: #F2F4FA;
-  --fog: #9BA6CC;
-  --mist: #8792C0; /* Phase 15: 4.5:1 on --panel (was #6F7BA6, 3.9:1) */
+  --chalk: #ECEEF2;
+  --fog: #9AA1AE;
+  --mist: #8C93A0;
 
-  /* the team (defaults until theme.js paints the team's colors) */
+  /* the team (defaults until theme.js paints the team's colors). Phase 17: --team-us is the primary made
+     readable on charcoal and marks what is ours (rows, bars, charts, our band heads); --team-accent marks
+     what is active (the current tab, primary buttons, focus); --team-primary is the primary as a fill. */
   --team-accent: #FA4616;
   --team-primary: #0021A5;
+  --team-us: #3D6BFF;
 
   /* the opponent, set at runtime from CFBD and contrast-checked; neutral until then */
   --opp: #6F7BA6;
@@ -154,23 +158,25 @@ img { max-width: 100%; }
 /* Light theme (X6, optional): the same tokens, lighter surfaces, darker text. Chosen in Settings. */
 :root[data-theme="light"] {
   color-scheme: light;
-  --ground: #EEF1F8;
+  --ground: #F1F2F4;
   --panel: #FFFFFF;
-  --panel-raised: #E4E9F5;
-  --rule: #C9D2EA;
-  --rule-strong: #A9B6DA;
-  --band-head: #F3F5FB;
-  --table-head: #E7ECF7;
-  --row-alt: #EFF3FA;
-  --row-hover: #E2E8F6;
-  --row-group: #EDF1F9;
-  --row-rule: #DDE3F1;
-  --sorted-col: rgba(250, 70, 22, 0.07);
-  --us-row: rgba(250, 70, 22, 0.11);
-  --chalk: #0A1230;
-  --fog: #465280;
-  --mist: #5A6690;
-  --opp-text: #0A1230;
+  --panel-raised: #E8EAEE;
+  --rule: #D3D6DC;
+  --rule-strong: #B4B9C2;
+  --topbar-bg: #FFFFFF;
+  --band-head: #F5F6F8;
+  --table-head: #ECEEF1;
+  --row-alt: #F4F5F7;
+  --row-hover: #E6E8EC;
+  --row-group: #F0F1F4;
+  --row-rule: #E1E3E8;
+  --sorted-col: rgba(0, 33, 165, 0.06);
+  --us-row: rgba(0, 33, 165, 0.07);
+  --chalk: #15181E;
+  --fog: #4A505C;
+  --mist: #5C6370;
+  --team-us: #0021A5;
+  --opp-text: #15181E;
   --good: #1D8A57;
   --stale: #8A6100;
   --bad: #B3261E;

@@ -68,7 +68,7 @@ function seasonsTables(seasons, gameLog) {
     return {
       title: categoryTitle(category),
       columns,
-      rows: list.map((season) => ({ year: text(season.year), ...(season.stats && typeof season.stats === "object" ? season.stats : {}) })),
+      rows: [...list].sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0)).map((season) => ({ year: text(season.year), ...(season.stats && typeof season.stats === "object" ? season.stats : {}) })), // newest first (owner, 2026-10-08)
       trend: want ? { values: trendValues(gameLog, category), label: want.label, format: "0f" } : null,
     };
   });
@@ -119,7 +119,7 @@ function gameLogTables(gameLog) {
     return {
       title: categoryTitle(category),
       columns: [...gameColumns(), ...categoryColumns(category, keys)],
-      rows: entries.map((entry) => ({ ...gameRow(entry.game), ...Object.fromEntries(Object.entries(entry.stats).map(([k, v]) => [k, normalizeStat(k, v)])) })),
+      rows: entries.map((entry) => ({ ...gameRow(entry.game), ...Object.fromEntries(Object.entries(entry.stats).map(([k, v]) => [k, normalizeStat(k, v)])) })).reverse(), // the latest game first (owner, 2026-10-08)
     };
   });
 }
@@ -137,7 +137,7 @@ function extraPanels(data) {
   const seasonRows = season ? PPA_SPLITS.map(([key, label]) => ({ label, avg: avg[key], total: total[key] })) : [];
   // the by-game rows carry no home or away: the game log's row for that week says which
   const where = new Map(games(data.gameLog).filter((g) => isNum(g.week)).map((g) => [g.week, g]));
-  const gameRows = (Array.isArray(ppa.games) ? ppa.games : []).filter((g) => g && typeof g === "object").map((g) => {
+  const gameRows = (Array.isArray(ppa.games) ? ppa.games : []).filter((g) => g && typeof g === "object").slice().reverse().map((g) => { // the latest game first
     const game = where.get(g.week);
     return { wk: isNum(g.week) ? String(g.week) : DASH, opponent: typeof g.opponent === "string" && g.opponent.trim() ? g.opponent.trim() : null, at: atOrVs(game && game.opponent === g.opponent ? game.homeAway : null), all: g.all, pass: g.pass, rush: g.rush };
   });
@@ -146,7 +146,7 @@ function extraPanels(data) {
     "div",
     {},
     season
-      ? el("p", { class: "note" }, `${isNum(season.plays) ? `${season.plays} plays graded. ` : ""}PPA per play ${fmtStat(avg.all, "+2f")}${isNum(ppa.teamRank) ? `, #${ppa.teamRank} of ${text(ppa.teamOf)} on the team` : ""}. Predicted points added per play: positive is good, and a season average settles down after a few games.`)
+      ? el("p", { class: "note" }, `${isNum(season.plays) ? `${season.plays} plays graded. ` : ""}`, el("span", { class: "hint-term" }, "PPA per play"), ` ${fmtStat(avg.all, "+2f")}${isNum(ppa.teamRank) ? `, #${ppa.teamRank} of ${text(ppa.teamOf)} on the team` : ""}. Predicted points added per play: positive is good, and a season average settles down after a few games.`) // Phase 17 #20: the term in the sentence opens its entry
       : el("p", { class: "note" }, "No play value yet. CFBD grades players after each game; a player needs a handful of plays before an average means anything."),
     seasonRows.length ? el("div", { class: "player-card__block" }, cardHeading("Season by split"), statTable({ compact: true, columns: [{ key: "label", label: "Split", kind: "text" }, { key: "avg", label: "Per play", format: "+2f" }, { key: "total", label: "Total", format: "+2f" }], rows: seasonRows })) : null,
     gameRows.length ? el("div", { class: "player-card__block" }, cardHeading("By game"), statTable({ compact: true, sortable: false, columns: [...gameColumns({ result: false }), { key: "all", label: "PPA/play", format: "+2f" }, { key: "pass", label: "Pass", format: "+2f" }, { key: "rush", label: "Rush", format: "+2f" }], rows: gameRows })) : null,

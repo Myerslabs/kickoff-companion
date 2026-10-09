@@ -172,7 +172,7 @@ function tickerGames() {
 function tokensSection() {
   const colors = [
     ["--ground", "app background"], ["--panel", "section background"], ["--panel-raised", "current drive, active row"], ["--rule", "grid lines"], ["--rule-strong", "band separators"],
-    ["--chalk", "primary text"], ["--fog", "secondary text"], ["--mist", "tertiary text"], ["--team-accent", "accent, key plays"], ["--team-primary", "Mudpuppies bands"],
+    ["--chalk", "primary text"], ["--fog", "secondary text"], ["--mist", "tertiary text"], ["--team-accent", "accent: active tab, primary buttons"], ["--team-us", "ours: rows, bars, our band heads"], ["--team-primary", "our color as a fill"],
     ["--opp", `${text(liveThem?.school)} at runtime`], ["--good", "status good, top-quartile rank"], ["--stale", "status stale, mid rank"], ["--bad", "status bad, bottom-quartile rank"], ["--replay", "replay badge"],
   ];
   const styles = getComputedStyle(document.documentElement);
@@ -196,7 +196,7 @@ function tokensSection() {
     "Tokens and type",
     "Locked dark theme, unchanged on 2026-09-21. Barlow Condensed for every numeral and heading, Barlow for body. Tabular figures on. The opponent color comes from CFBD at runtime and is checked against the panel.",
     el("div", { class: "sg__swatches" }, swatches),
-    label(`Opponent color check for ${text(liveThem?.school)} (${text(liveThem?.color)}, alternate ${text(liveThem?.altColor)}): using ${opp.color}, ${contrastRatio(opp.color, "#121C44").toFixed(1)}:1 against the panel; text on it is ${opp.textColor === "#F2F4FA" ? "chalk" : "the ground color"}.${opp.notes.length ? ` ${opp.notes.join("; ")}.` : ""}`),
+    label(`Opponent color check for ${text(liveThem?.school)} (${text(liveThem?.color)}, alternate ${text(liveThem?.altColor)}): using ${opp.color}, ${contrastRatio(opp.color, "#1C1F26").toFixed(1)}:1 against the panel; text on it is ${opp.textColor === "#ECEEF2" ? "chalk" : "the ground color"}.${opp.notes.length ? ` ${opp.notes.join("; ")}.` : ""}`),
     label("Rank chips by quartile of 136 FBS teams: green top quarter, yellow middle, red bottom quarter. The number always carries the meaning."),
     el("div", { class: "sg__row" }, [1, 12, 34, 35, 68, 102, 103, 136].map((rank) => rankChip(rank, 136)), rankChip(4, null)),
     el(
@@ -410,7 +410,7 @@ function cardSection() {
   return section(
     "card",
     "Player card",
-    "Slide-over from any player name, 600 px wide from 700 px up. Close, the name and the tabs stay on an opaque bar while the card scrolls. A 96 px headshot on navy when one loads, the number badge otherwise; a thin orange edge for Swampwater Tech, --opp for others; the team is a link in the bio line. Stars read '★★★★☆ 94 · #123 nat'. Stats (season by season with a career row, a sparkline beside each heading once two games are in), Game log (Wk | Opp | Result | stats), Play value, History. While it loads: skeleton bars, never an empty-state sentence, and the answer fills the same card in place.",
+    "Slide-over from any player name, 600 px wide from 700 px up. Close, the name and the tabs stay on an opaque bar while the card scrolls. A 96 px headshot on navy when one loads, the number badge otherwise; a thin orange edge for Swampwater Tech, --opp for others; the team is a link in the bio line. Stars read as five drawn stars, then '94 · #123 nat'. Stats (season by season with a career row, a sparkline beside each heading once two games are in), Game log (Wk | Opp | Result | stats), Play value, History. While it loads: skeleton bars, never an empty-state sentence, and the answer fills the same card in place.",
     el("div", { class: "sg__row" }, el("button", { class: "btn btn--primary", type: "button", onclick: () => openPlayerCard(props) }, "Open as slide-over"), el("button", { class: "btn", type: "button", onclick: () => { const close = openPlayerCard({ player: props.player, loading: true }); setTimeout(() => close.update(props), 1200); } }, "Open loading, fill after 1.2 s")),
     label("Inline: loading (name and number from the tapped row, skeleton bars)"),
     playerCard({ player: props.player, loading: true, inline: true }),
@@ -438,9 +438,9 @@ function compareSection() {
   const columns = [
     { key: "label", label: "Statistic", kind: "text", sortable: false },
     { key: "usText", label: US.abbr, kind: "text", sortable: false },
-    { key: "usRank", label: "Nat", kind: "rank", of: "usOf" },
+    { key: "usRank", label: "FBS rank", kind: "rank", of: "usOf" },
     { key: "themText", label: text(opponent.abbreviation), kind: "text", sortable: false },
-    { key: "themRank", label: "Nat", kind: "rank", of: "themOf" },
+    { key: "themRank", label: "FBS rank", kind: "rank", of: "themOf" },
   ];
   return section(
     "compare",
@@ -546,7 +546,7 @@ function seasonSection() {
   const columns = [
     { key: "label", label: "Stat", kind: "text" },
     { key: "valueText", label: US.abbr, kind: "text", sortable: false },
-    { key: "nationalRank", label: "Nat", kind: "rank", of: "nationalOf" },
+    { key: "nationalRank", label: "FBS rank", kind: "rank", of: "nationalOf" },
     { key: "conferenceRank", label: "BB", kind: "rank", of: "conferenceOf" },
   ];
   const nextGame = (sample.schedule || []).find((g) => !g.completed);
@@ -593,7 +593,7 @@ function opponentMatchupCard() {
   if (program.week) tags.push({ label: `Week ${program.week}` });
   if (isNum(opponent.sp?.rank)) tags.push({ label: `SP+ #${opponent.sp.rank}` });
   if (program.line?.formatted) tags.push({ label: program.line.formatted, kind: "us" });
-  const keys = [["offense", "ypg", "Yards per game"], ["offense", "pass_ypg", "Pass yards per game"], ["offense", "rush_ypg", "Rush yards per game"], ["offense", "ypp", "Yards per play"], ["offense", "third", "Third down"], ["defense", "ypg_d", "Opp yards per game"], ["defense", "pass_ypg_d", "Opp pass yards per game"], ["defense", "rush_ypg_d", "Opp rush yards per game"], ["defense", "ypp_d", "Opp yards per play"], ["defense", "third_d", "Opp third down"]];
+  const keys = [["offense", "ypg", "Yards per game"], ["offense", "pass_ypg", "Pass yards per game"], ["offense", "rush_ypg", "Rush yards per game"], ["offense", "ypp", "Yards per play"], ["offense", "third", "Third down"], ["defense", "ypg_d", "Yards allowed per game"], ["defense", "pass_ypg_d", "Pass yards allowed per game"], ["defense", "rush_ypg_d", "Rush yards allowed per game"], ["defense", "ypp_d", "Yards allowed per play"], ["defense", "third_d", "Third down allowed"]];
   const rows = keys.map(([side, key, labelText]) => {
     const u = profileRow(US.name, key) || {};
     const t = profileRow(opponent.school, key) || {};
@@ -642,7 +642,7 @@ function valueRankTable(team, side, caption) {
 
 function teamSummary(team, other) {
   const pick = (t, key) => profileRow(t, key);
-  const tileItems = [["ypp", "Yards per play"], ["ypg", "Yards per game"], ["ypg_d", "Opp yards per game"], ["ypp_d", "Opp yards per play"]].map(([key, labelText]) => {
+  const tileItems = [["ypp", "Yards per play"], ["ypg", "Yards per game"], ["ypg_d", "Yards allowed per game"], ["ypp_d", "Yards allowed per play"]].map(([key, labelText]) => {
     const row = pick(team, key);
     return { label: labelText, value: row?.value, format: row?.format, rank: row?.nationalRank, of: row?.nationalOf };
   });
@@ -738,7 +738,7 @@ function teamSection() {
 function recruitingSection() {
   const rec = sample.recruiting || {};
   const columns = [
-    { key: "nationalRank", label: "Nat", kind: "rank" },
+    { key: "nationalRank", label: "FBS rank", kind: "rank" },
     { key: "name", label: "Recruit", kind: "text", sub: "position" },
     { key: "stars", label: "Stars", format: "stars" },
     { key: "rating", label: "Rating", format: "rating100" },
@@ -950,7 +950,7 @@ function seasonKitSection() {
     columns: [
       { key: "label", label: "Statistic", kind: "text", sortable: false },
       { key: "valueText", label: "Value", kind: "text", sortable: false },
-      { key: "nationalRank", label: "Nat", kind: "rank", of: "nationalOf" },
+      { key: "nationalRank", label: "FBS rank", kind: "rank", of: "nationalOf" },
       { key: "conferenceRank", label: "BB", kind: "rank", of: "conferenceOf" },
     ],
     rows: rows.filter((row) => row.side === "offense").map((row) => ({ ...row, valueText: fmtStat(row.value, row.format) })),
@@ -1030,9 +1030,9 @@ function program16Section() {
   const beforeColumns = [
     { key: "label", label: "Statistic", kind: "text", sortable: false },
     { key: "usText", label: US.abbr, kind: "text", sortable: false },
-    { key: "usRank", label: "Nat", kind: "rank", of: "usOf" },
+    { key: "usRank", label: "FBS rank", kind: "rank", of: "usOf" },
     { key: "themText", label: themAbbr, kind: "text", sortable: false },
-    { key: "themRank", label: "Nat", kind: "rank", of: "themOf" },
+    { key: "themRank", label: "FBS rank", kind: "rank", of: "themOf" },
   ];
   const beforeRows = withNoRank.map((r) => ({ label: r.label, usText: fmtStat(r.us.value, r.format), usRank: r.us.rank, usOf: r.us.of, themText: fmtStat(r.them.value, r.format), themRank: r.them.rank, themOf: r.them.of }));
   const leaders = (program.leadersSideBySide || []).map((cat) => ({
@@ -1080,7 +1080,7 @@ function program16Section() {
     label("Nothing written yet: the honest empty state the program and the Live sheet share"),
     el("div", { class: "band" }, p16Starters({ lineups: null, us: program.us || { school: US.name }, them: opponent })),
     label("Weather row with the Radar link-out (UX-14) and the venue line (GX-19), example values"),
-    el("div", { class: "band program-weather" }, weatherRow({ kickoffText: "3:30 PM", tempF: 84, windMph: 9, windDir: "SE", sky: "Partly cloudy", precipChance: 20, source: "National Weather Service, example", radarUrl: "https://forecast.weather.gov/MapClick.php?lat=29.65&lon=-82.35" }), p16VenueLine({ capacity: 88548, grass: true, elevationFt: 148, yearBuilt: 1930, recordAtVenue: { wins: 3, losses: 1, ties: 0 } }, { us: US.name })),
+    el("div", { class: "band program-weather" }, weatherRow({ kickoffText: "3:30 PM", tempF: 84, windMph: 9, windDir: "SE", sky: "Partly cloudy", precipChance: 20, source: "National Weather Service, example", radarUrl: "https://forecast.weather.gov/MapClick.php?lat=29.65&lon=-82.35" }), p16VenueLine({ name: "Home Stadium (example)", capacity: 88548, grass: true, elevationFt: 148, yearBuilt: 1930, recordAtVenue: { opponent: "Opponent (example)", wins: 3, losses: 1, ties: 0, gamesWithoutVenue: 0 } }, { us: US.name })),
   );
 }
 
@@ -1115,7 +1115,7 @@ function peopleSection() {
       const cls = { year: sample.recruiting?.year, byState: rows, inState: { state: "FL", commits: fl ? fl.commits : 0, of: commits.length }, unknownState: byState.get(null)?.commits || 0 };
       const list = rec.whereRows(cls);
       where.replaceChildren(
-        statTable({ compact: true, columns: [{ key: "state", label: "State", kind: "text" }, { key: "commits", label: "Commits" }, { key: "averageRating", label: "Avg rating", format: "rating100" }, { key: "starMix", label: "5★ / 4★ / 3★", kind: "text" }], rows: list, sort: { key: "commits", dir: "descending" } }),
+        statTable({ compact: true, columns: [{ key: "state", label: "State", kind: "text" }, { key: "commits", label: "Commits" }, { key: "averageRating", label: "Avg rating", format: "rating100" }, { key: "starMix", label: "5-, 4-, 3-star", kind: "text" }], rows: list, sort: { key: "commits", dir: "descending" } }),
         el("p", { class: "note" }, rec.inStateLine(cls) || "No in-state share."),
       );
     })

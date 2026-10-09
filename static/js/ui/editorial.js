@@ -59,7 +59,7 @@ export function availabilityTable({ rows = [], source, updatedAt }) {
       { key: "statusText", label: "Status", kind: "text", sortable: false },
       { key: "note", label: "Note", kind: "text", sortable: false },
     ],
-    rows: rows.map((row) => ({ ...row, statusText: text(row.status) })),
+    rows: rows.map((row) => ({ ...row, statusText: typeof row.status === "string" && row.status.trim() ? row.status.trim() : "Not reported" })), // Phase 17: a row with no status is kept
   });
   for (const cell of table.querySelectorAll("tbody tr")) {
     const statusCell = cell.children[1];

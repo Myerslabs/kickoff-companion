@@ -19,7 +19,7 @@
 // starter with a playerId. Anything missing renders as a dash.
 
 import { usSchool } from "../identity.js";
-import { DASH, el, fmtDate, isNum, text } from "./dom.js";
+import { DASH, el, fmtDate, isNum, obj, records, str, text } from "./dom.js";
 import { plainChip } from "./stat-labels.js";
 import { note, subhead } from "./states.js";
 import { statTable } from "./stat-table.js";
@@ -28,19 +28,7 @@ const UNITS = ["offense", "defense", "special teams"];
 const DEPTH_HEADS = ["Starter", "Second", "Third", "Fourth", "Fifth"];
 const STATUS_CLASS = { out: "out", doubtful: "doubtful", questionable: "questionable", probable: "probable", available: "available" };
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
-export const LINEUPS_EMPTY = "No lineups for this game yet. The pre-game notes task copies both teams' published depth charts into the notes file; or add them by hand.";
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
-}
-
-function str(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
+export const LINEUPS_EMPTY = "No lineups for this game yet. They come with the game's notes: both teams' published depth charts.";
 
 /** 'TJ Shanahan Jr.' -> 'tj shanahan', like the server's name_key. */
 function nameKey(name) {
@@ -88,6 +76,12 @@ export function availabilityFor(rows, name) {
 
 function hasChart(lineup) {
   return lineupSlots(lineup).some((slot) => slot.players.length);
+}
+
+/** Whether the notes carry a depth chart for either team (Phase 17 #13: the bands offer "Add notes" when not). */
+export function hasLineups(lineups) {
+  const l = obj(lineups);
+  return hasChart(l.us) || hasChart(l.them);
 }
 
 /** "Ourlads, updated Sep 26": the file-level source, else the first team's; "" when nothing is written. */

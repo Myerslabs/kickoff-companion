@@ -31,6 +31,23 @@ function rawNum(box, key) {
  * The rows, in the order the screenshot brief lists them. `higherIsBetter` decides which side
  * is shown as leading; rows without it are neutral (time of possession, attempts).
  */
+/** The per-team efficiency block CFBD's live feed carries (feedStats), as rows for the Live sheet and the Archive:
+ *  one list, named as the Season and program tables name the same measures (final pass: PPA, not EPA; scoring
+ *  chances; the average start is a yard line here, yards to the goal on the season tables, so the label says which). */
+export const FEED_ROWS = [
+  ["Standard downs", "standardDownSuccessRate", "pct"],
+  ["Passing downs", "passingDownSuccessRate", "pct"],
+  ["PPA per play", "epaPerPlay", "+2f"],
+  ["PPA per pass", "epaPerPass", "+2f"],
+  ["PPA per rush", "epaPerRush", "+2f"],
+  ["Explosiveness", "explosiveness", "2f"],
+  ["Points per scoring chance", "pointsPerOpportunity", "2f"],
+  ["Scoring chances", "scoringOpportunities", "0f"],
+  ["Line yards per rush", "lineYardsPerRush", "1f"],
+  ["Average start, own yard line", "averageStartYardLine", "0f"],
+  ["Deserve to win", "deserveToWin", "pct"],
+];
+
 export function teamStatRows(u = {}, t = {}) {
   const row = (label, kind, usValue, themValue, { format = "0f", higherIsBetter, usText, themText } = {}) => ({
     label,
@@ -55,7 +72,7 @@ export function teamStatRows(u = {}, t = {}) {
     row("Yards per attempt", "sub", rawNum(u, "yardsPerPass"), rawNum(t, "yardsPerPass"), { format: "1f", higherIsBetter: true }),
     row("Passing TDs", "sub", rawNum(u, "passingTDs"), rawNum(t, "passingTDs"), { higherIsBetter: true }),
     row("Rush yards", "parent", u.rushingYards, t.rushingYards, { higherIsBetter: true }),
-    row("Attempts", "sub", rawNum(u, "rushingAttempts"), rawNum(t, "rushingAttempts"), {}),
+    row("Carries", "sub", rawNum(u, "rushingAttempts"), rawNum(t, "rushingAttempts"), {}), // final pass: carries everywhere, never attempts
     row("Yards per carry", "sub", rawNum(u, "yardsPerRushAttempt"), rawNum(t, "yardsPerRushAttempt"), { format: "1f", higherIsBetter: true }),
     row("Rushing TDs", "sub", rawNum(u, "rushingTDs"), rawNum(t, "rushingTDs"), { higherIsBetter: true }),
     row("First downs", "parent", u.firstDowns, t.firstDowns, { higherIsBetter: true }),
@@ -73,7 +90,7 @@ export function teamStatRows(u = {}, t = {}) {
 }
 
 function formatValue(value, format) {
-  if (format === "pct") return fmtPct(value);
+  if (format === "pct") return fmtPct(value, 1); // final pass: one decimal in tables
   if (format === "1f") return fmtNum(value, 1);
   return fmtNum(value, 0);
 }
@@ -104,8 +121,8 @@ export function teamStatsTable({ us = {}, them = {}, rows, compact = true, capti
           "tr",
           { class: row.kind === "sub" ? "is-sub" : "is-parent" },
           el("td", { class: "txt" }, row.label),
-          el("td", { class: `num${tone(row, "us")}` }, row.us),
-          el("td", { class: `num${tone(row, "them")}` }, row.them),
+          el("td", { class: `num${tone(row, "us")}`, dataset: { k: `ts:${row.label}:us` } }, row.us),
+          el("td", { class: `num tt-them${tone(row, "them")}`, dataset: { k: `ts:${row.label}:them` } }, row.them), // L-07: the divider between the teams
         ),
       ),
     ),
@@ -132,8 +149,8 @@ export function quarterLine({ us = {}, them = {} }) {
       "div",
       { class: `qline__row qline__row--${kind}`, style: { display: "contents" } },
       el("div", { class: `qline__team qline__team--${kind}` }, text(side.abbr)),
-      Array.from({ length: periods }, (_, i) => el("div", { class: "qline__val" }, isNum(side.scores?.[i]) ? side.scores[i] : DASH)),
-      el("div", { class: "qline__val qline__val--tot" }, text(total(side.scores || [], side.total))),
+      Array.from({ length: periods }, (_, i) => el("div", { class: "qline__val", dataset: { k: `q:${kind}:${i}` } }, isNum(side.scores?.[i]) ? side.scores[i] : DASH)),
+      el("div", { class: "qline__val qline__val--tot", dataset: { k: `q:${kind}:t` } }, text(total(side.scores || [], side.total))),
     );
   return el(
     "div",

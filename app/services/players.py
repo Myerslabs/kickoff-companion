@@ -35,12 +35,14 @@ from app.cfbd.models import (  # Phase 10
 )
 from app.config import Settings
 from app.services import context16, gamekeys
+from app.services.classes import class_fields, class_label
 from app.services.depth2 import class_rank, player_boards, portal_index, shared_ranks, transfer_for
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches, recruit_metric  # Phase 16 NV: the extra-call lists' keys and ranks
 from app.services.notes import load_notes
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
 from app.services.profiles import tie_ranks
+from app.services.season_notes import SeasonNotes
 from app.services.stats_extra import blue_chip, ppa_game_rows, ppa_season_rows, recruit_block, usage_rows  # Phase 10
 
 log = logging.getLogger("kickoff.players")
@@ -50,7 +52,6 @@ PPA_MIN_PLAYS_TEAM = 10
 # because a count derived from a three-place average can read up to 5% low (47 for a 50-play player).
 PPA_MIN_PLAYS_NATIONAL_CHECK = 45
 
-CLASS_NAMES = {1: "FR", 2: "SO", 3: "JR", 4: "SR", 5: "GR"}
 CATEGORIES = ("passing", "rushing", "receiving", "defensive", "interceptions", "kicking", "punting")
 TEAM_TOP = 5
 SCOPE_TOP = 10
@@ -103,6 +104,19 @@ def _scalar(value: Any) -> float | str | None:
     if number is not None:
         return number
     return value if isinstance(value, str) and value.strip() else None
+
+
+def history_classes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Name each History row's class (Phase 17, #19). CFBD's older rosters carry the player's current class
+    (its 2024 roster lists a 2024 freshman as a junior), so a past season counts back one class a year from
+    the latest season the player appears in. Below freshman (a redshirt year the data cannot show) or with
+    no class to count from, the row's class is None and the card shows a dash."""
+    anchor = next((r for r in reversed(rows) if isinstance(r.get("classYear"), int) and 1 <= r["classYear"] <= 5), None)
+    out = []
+    for row in rows:
+        level = anchor["classYear"] - (anchor["year"] - row["year"]) if anchor is not None else None
+        out.append({**row, "classYear": class_label(level) if level is not None else None})
+    return out
 
 
 def _height_text(inches: float | None) -> str | None:
@@ -203,6 +217,7 @@ def ppa_national(records: list[PlayerSeasonPpa], teams: dict[str, dict[str, Any]
 
 class PlayerService:
     def __init__(self, client: CfbdClient, settings: Settings) -> None:
+        self.season_notes = SeasonNotes(settings.data_dir, settings.season)  # Phase 17 #38: ages
         self.client = client
         self.settings = settings
         self.fetcher = PartFetcher(client, 4)
@@ -457,7 +472,7 @@ class PlayerService:
             "lastName": player.last_name,
             "team": player.team,
             "position": player.position,
-            "classYear": CLASS_NAMES.get(player.year or 0),
+            **class_fields(player.year, recruit.year if recruit else None, self.year),
             "height": player.height,
             "heightText": _height_text(player.height),
             "weight": player.weight,
@@ -469,7 +484,14 @@ class PlayerService:
             "recruitClass": recruit.year if recruit else None,
             "recruitMetric": recruit_metric(recruit.year, self.year) if recruit and isinstance(recruit.ranking, int) else None,  # Phase 16 NV: the class's recruit list
             "headshotUrl": f"/media/headshot/{player.id}",
+            **self._age(player.team, player.first_name, player.last_name),
         }
+
+    def _age(self, team: str | None, first: str | None, last: str | None) -> dict[str, Any]:
+        """Phase 17 #38: the age from the preseason load's birthdates (CFBD has none); nothing when unknown."""
+        name = " ".join(part for part in (first, last) if part)
+        age, born = self.season_notes.age(team, name, self.client._clock().astimezone(self.settings.tzinfo).date())
+        return {"age": age, "born": born} if age is not None else {"age": None}
 
     async def roster(self) -> Assembled:
         import asyncio
@@ -511,6 +533,7 @@ class PlayerService:
             "season": self.year,
             "team": {**teams.get(self.team, {}), "school": self.team},
             "players": players,
+            "costs": self.season_notes.costs_for(self.team),  # Phase 17 Part 3b: rumored roster costs
             "starCounts": counts,
             "average": round(sum(rated) / len(rated), 2) if rated else None,
             "rated": len(rated),
@@ -639,12 +662,16 @@ class PlayerService:
             if team_hint and team_hint != self.team and team_hint in fbs:
                 opponent = team_hint
             if not opponent:
-                return None
+                if schedule_part.ok:
+                    return None
+                return assemble({"playerId": player_id, "parts": statuses(parts, self.client._clock())}, parts)  # the schedule failed: say so, not 404
             opp_roster = await self._roster(opponent, self.year, "opponentRoster")
             parts["opponentRoster"] = opp_roster
             found = next((p for p in opp_roster.records if p.id == player_id), None)
             if found is None:
-                return None
+                if opp_roster.ok:
+                    return None
+                return assemble({"playerId": player_id, "parts": statuses(parts, self.client._clock())}, parts)
             team = opponent
         is_us = team == self.team
 
@@ -722,7 +749,8 @@ class PlayerService:
                 continue
             hit = next((p for p in part.records if p.id == player_id), None)
             if hit is not None:
-                history.append({"year": year, "team": hit.team or team, "classYear": CLASS_NAMES.get(hit.year or 0), "position": hit.position, "number": hit.jersey})
+                history.append({"year": year, "team": hit.team or team, "classYear": hit.year, "position": hit.position, "number": hit.jersey})
+        history = history_classes(history)
 
         ppa_rows = ppa_season_rows(parts["ppaSeason"].records, team) if "ppaSeason" in parts else []
         mine = next((r for r in ppa_rows if r["playerId"] == player_id), None)

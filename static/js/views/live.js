@@ -1,5 +1,6 @@
 // The Live sheet (L1 to L7, L11, L12, L13, X7): the remote-control screen on the event stream.
-// Pregame: the program's cover, notes, weather, and countdown. Live: strip, quarter line, team
+// Pregame (Phase 17 #25): the same sheet as during the game, every value a dash until plays arrive; it
+// never switches the app to itself, and the program's cover and notes stay on the Game program. Live: strip, quarter line, team
 // stats, win probability with the last play's success, leaders, and the remote bar opening
 // everything else in a side sheet. Postgame: the final box, saved to the archive. The delay
 // slider is saved on the device and every panel follows it through the stream.
@@ -8,31 +9,38 @@
 // remote bar are built once per visit, so the crawl, a drag, and a bar scrolled sideways survive
 // every play; the rest is redrawn per frame, and an open side sheet is redrawn in place with its
 // scroll, filter, and sort. A frame that cannot be drawn leaves the last good screen up. The stream
-// has a watchdog, and one function decides the status pill for the strip and the top bar from the
-// stream, the display, and the feed health the server reports (the stream's hello and ping, and
-// /api/live/status every minute).
+// has a watchdog, and one function decides the status pill in the top bar from the stream, the display,
+// and the feed health the server reports (the stream's hello and ping, and /api/live/status every minute).
+// Phase 17 #29: the score strip no longer carries a second copy of the pill; both are pinned, so it showed twice.
 
+import { BOX_COLUMNS } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns
 import { screenLock } from "../awake.js";
 import { isUs, usLabel, usName, usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { delaySlider } from "../ui/delay-slider.js";
-import { DASH, el, fmtPct, fmtStat, fmtTime, isNum, recall, remember, replaceWith, text } from "../ui/dom.js";
+import { DASH, el, flashChanges, fmtDate, fmtPct, fmtStat, fmtTime, isNum, obj, recall, records, remember, replaceWith, snapshotKeys, text } from "../ui/dom.js";
+import { edgesTable } from "../ui/edges.js";
 import { driveList } from "../ui/drive-bar.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
-import { depthBlock, startersBlock } from "../ui/lineups.js";
+import { lineupBlock } from "../ui/lineups_combined.js";
 import { leadersGrid } from "../ui/leaders.js";
 import { weatherRow } from "../ui/matchup-card.js";
+import { crewText, staffParts } from "../ui/game-staff.js";
+import { fillWiki, wikiLink } from "../ui/wiki-links.js";
 import { playLog } from "../ui/play-log.js";
+import { kickWind } from "../ui/wind.js";
 import { openSheet, remoteBar } from "../ui/remote.js";
+import { gameNotesPanel } from "../ui/game-notes.js";
+import { inviteBody, loadInvite } from "./invite.js";
 import { situationGrid } from "../ui/situation.js";
-import { band, note } from "../ui/states.js";
-import { statTable } from "../ui/stat-table.js";
+import { band, note, subhead } from "../ui/states.js";
+import { statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { strip } from "../ui/strip.js";
 import { advancedBoxBlock } from "../ui/depth2.js";
-import { scoresTable } from "../ui/scores.js";
+import { scoresSummary, scoresTable } from "../ui/scores.js";
 import { shotChart } from "../ui/shot-chart.js";
 import { ticker } from "../ui/ticker.js";
-import { quarterLine, teamStatsTable } from "../ui/team-stats.js";
+import { FEED_ROWS, quarterLine, teamStatsTable } from "../ui/team-stats.js";
 import { successRow, winProbabilityChart } from "../ui/wp-chart.js";
 import { getPrefs, savePrefs } from "../prefs.js";
 import { noteBuild } from "../build.js";
@@ -57,17 +65,6 @@ const SYNC_GIVE_UP_MS = 120 * 1000;
 const PLANS_URL = "https://collegefootballdata.com/api-tiers";
 const FEED_STATES = new Set(["idle", "waiting", "ok", "stale", "no_live_key"]);
 
-const BOX_COLUMNS = {
-  passing: [{ key: "name", label: "Passing", kind: "text" }, { key: "C/ATT", label: "C/ATT", kind: "text", sortable: false }, { key: "YDS", label: "Yds" }, { key: "TD", label: "TD" }, { key: "INT", label: "Int" }, { key: "QBR", label: "QBR", format: "1f" }],
-  rushing: [{ key: "name", label: "Rushing", kind: "text" }, { key: "CAR", label: "Car" }, { key: "YDS", label: "Yds" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "TD", label: "TD" }],
-  receiving: [{ key: "name", label: "Receiving", kind: "text" }, { key: "REC", label: "Rec" }, { key: "YDS", label: "Yds" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "TD", label: "TD" }],
-  defensive: [{ key: "name", label: "Defense", kind: "text" }, { key: "TOT", label: "Tkl" }, { key: "SACKS", label: "Sck", format: "1f" }, { key: "TFL", label: "TFL", format: "1f" }, { key: "PD", label: "PD" }],
-  interceptions: [{ key: "name", label: "Interceptions", kind: "text" }, { key: "INT", label: "Int" }, { key: "YDS", label: "Yds" }, { key: "TD", label: "TD" }],
-  kicking: [{ key: "name", label: "Kicking", kind: "text" }, { key: "FG", label: "FG", kind: "text", sortable: false }, { key: "XP", label: "XP", kind: "text", sortable: false }, { key: "PTS", label: "Pts" }],
-  punting: [{ key: "name", label: "Punting", kind: "text" }, { key: "NO", label: "No" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "LONG", label: "Long" }],
-  puntReturns: [{ key: "name", label: "Punt returns", kind: "text" }, { key: "NO", label: "No" }, { key: "YDS", label: "Yds" }, { key: "TD", label: "TD" }],
-  kickReturns: [{ key: "name", label: "Kick returns", kind: "text" }, { key: "NO", label: "No" }, { key: "YDS", label: "Yds" }, { key: "TD", label: "TD" }],
-};
 const LEADER_CATEGORIES = [["passing", "Passing", "YDS"], ["rushing", "Rushing", "YDS"], ["receiving", "Receiving", "YDS"], ["defensive", "Defense", "TOT"]];
 
 /** A player id CFBD sent: its box score and rosters use digit strings ("5132812"), some endpoints numbers. */
@@ -106,15 +103,7 @@ export function madeOf(value) {
 }
 
 /** The value when it is a plain object, else an empty one: every frame is untrusted. */
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
 /** The value when it is a list, with malformed records skipped; anything else is an empty list. */
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object") : [];
-}
-
 // --- pure rules, exported for the tests ----------------------------------------------------------
 
 /** A delay in whole steps of 5 s from 0 to 120, or null when the value is not a number. */
@@ -305,11 +294,10 @@ export function createLiveView({ onStatus } = {}) {
     });
   }
 
-  /** Push the current pill to the strip (in place) and to the top bar. */
+  /** Push the current pill to the top bar. */
   function refreshPill() {
     if (!container) return;
     const next = pillNow();
-    if (state.strip && typeof state.strip.setPill === "function") state.strip.setPill(next);
     const key = `${next.kind}|${next.label}`;
     if (key !== state.pillKey) {
       state.pillKey = key;
@@ -358,9 +346,22 @@ export function createLiveView({ onStatus } = {}) {
   }
 
   function tickerGames(includeUs = false) {
+    const national = state.ticker?.mode !== "mine"; // Phase 16 wave 3 (6A): stars only when the line shows every game
     return records(state.ticker?.games)
       .filter((g) => includeUs || !g.isUs)
-      .map((g) => ({ ...g, detail: g.status === "pre" ? (g.startTimeTbd ? "TBD" : fmtTime(g.kickoff)) : g.detail }));
+      .map((g) => ({ ...g, star: national && g.isMine === true && !g.isUs, detail: g.status === "pre" ? (g.startTimeTbd ? "TBD" : fmtTime(g.kickoff)) : g.detail }));
+  }
+
+  /** "6 live" when games are under way, else what the list holds (L-14). */
+  function scoresHint() {
+    const games = records(state.ticker?.games);
+    const live = games.filter((g) => g.status === "live").length;
+    if (live) return `${live} live`;
+    return state.ticker?.mode === "mine" ? "your teams" : "every FBS game";
+  }
+
+  function tickerEmpty() {
+    return state.ticker?.mode === "mine" ? "None of your other teams play right now." : "No other games right now.";
   }
 
   function tickerLabel() {
@@ -381,11 +382,11 @@ export function createLiveView({ onStatus } = {}) {
     const signature = JSON.stringify([label, games]);
     if (state.tickerNode && signature === state.tickerSig) return;
     if (state.tickerNode && typeof state.tickerNode.setGames === "function") {
-      state.tickerNode.setGames(games, label);
+      state.tickerNode.setGames(games, label, tickerEmpty());
       state.tickerSig = signature;
       return;
     }
-    const next = ticker({ games, id: "live", label });
+    const next = ticker({ games, id: "live", label, emptyText: tickerEmpty() });
     const old = state.tickerNode;
     tickerHost.replaceChildren(next);
     if (old && typeof old.destroy === "function") old.destroy();
@@ -395,8 +396,11 @@ export function createLiveView({ onStatus } = {}) {
 
   function scoresBand() {
     const games = tickerGames(true);
-    const table = scoresTable({ games, emptyText: state.tickerError ? `${state.tickerError}.` : "No FBS games on this week's slate." });
-    return band({ title: "Around the country", collapsible: false, summary: state.ticker?.source === "games" ? "scores from the schedule; live scores show with a Tier 1 or bigger key" : "", body: () => el("div", {}, table, typeof state.ticker?.modeNote === "string" && state.ticker.modeNote ? el("p", { class: "note" }, state.ticker.modeNote) : null, el("p", { class: "note" }, state.ticker?.mode === "mine" ? "Your primary and secondary teams' games. Our line follows your spoiler delay. Switch to every game in Settings." : "Scores only. Our line follows your spoiler delay.")) });
+    // Phase 16 wave 3: one table for the sheet's life, patched each minute so only the changed scores flash
+    if (state.scoresTable) state.scoresTable.update(games);
+    else state.scoresTable = scoresTable({ games, emptyText: state.tickerError ? `${state.tickerError}.` : "No FBS games on this week's slate." });
+    const table = state.scoresTable;
+    return band({ title: "Around the country", collapsible: false, summary: state.ticker?.source === "games" ? "scores from the schedule; live scores show with a Tier 1 or bigger key" : scoresSummary(games), body: () => el("div", {}, table, typeof state.ticker?.modeNote === "string" && state.ticker.modeNote ? el("p", { class: "note" }, state.ticker.modeNote) : null, el("p", { class: "note" }, state.ticker?.mode === "mine" ? "Your primary and secondary teams' games. Our line follows your spoiler delay. Switch to every game in Settings." : "Scores only. Our line follows your spoiler delay.")) });
   }
 
   // --- post-game analytics (L8, L9) --------------------------------------------------------------------
@@ -443,14 +447,14 @@ export function createLiveView({ onStatus } = {}) {
     if (!feed || typeof feed !== "object") return null;
     const us = obj(feed[usTeam()]);
     const them = obj(feed[themSide().name]);
-    const spec = [["Standard downs", "standardDownSuccessRate", "pct"], ["Passing downs", "passingDownSuccessRate", "pct"], ["EPA per play", "epaPerPlay", "+2f"], ["EPA per pass", "epaPerPass", "+2f"], ["EPA per rush", "epaPerRush", "+2f"], ["Explosiveness", "explosiveness", "2f"], ["Points per opportunity", "pointsPerOpportunity", "1f"], ["Scoring opportunities", "scoringOpportunities", "0f"], ["Line yards per rush", "lineYardsPerRush", "1f"], ["Average start", "averageStartYardLine", "0f"], ["Deserve to win", "deserveToWin", "pct"]];
+    const spec = FEED_ROWS; // final pass: one list with the Archive, the Season tables' names
     const rows = spec.map(([label, key, format]) => ({ label, usText: isNum(us[key]) ? fmtStat(us[key], format) : DASH, themText: isNum(them[key]) ? fmtStat(them[key], format) : DASH, has: isNum(us[key]) || isNum(them[key]) })).filter((r) => r.has);
     if (!rows.length) return null;
     return el(
       "div",
       {},
-      el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, "Efficiency, from the live feed"),
-      statTable({ compact: true, columns: [{ key: "label", label: "Per play", kind: "text", sortable: false }, { key: "usText", label: usAbbr(), kind: "text", sortable: false }, { key: "themText", label: themSide().abbr, kind: "text", sortable: false }], rows }),
+      subhead("Efficiency, from the live feed"),
+      statTable({ compact: true, columns: [{ key: "label", label: "Statistic", kind: "text", sortable: false }, { key: "usText", label: usAbbr(), kind: "text", sortable: false }, { key: "themText", label: themSide().abbr, kind: "text", sortable: false }], rows }),
     );
   }
 
@@ -460,7 +464,7 @@ export function createLiveView({ onStatus } = {}) {
     // In the game: CFBD's scoreboard readings, released on the same delay as the plays (Phase 11).
     const live = s.liveWinProbability && Array.isArray(s.liveWinProbability.series) ? s.liveWinProbability.series : [];
     const series = postGame.length ? postGame : live;
-    const chart = winProbabilityChart({ series, homeIsUs: usHome, usAbbr: usAbbr(), pregame, final: s.status === "final" });
+    const chart = winProbabilityChart({ series, homeIsUs: usHome, usAbbr: usAbbr(), pregame, final: s.status === "final", plays: records(s.plays) });
     let why;
     if (postGame.length) why = `${postGame.length} plays from CFBD's post-game model.`;
     else if (live.length && s.status !== "final") why = `${live.length} ${live.length === 1 ? "reading" : "readings"} from CFBD's scoreboard, about one a minute while this sheet is open, ${state.delay} s behind like every panel. The play-by-play chart posts after the final.`;
@@ -480,7 +484,7 @@ export function createLiveView({ onStatus } = {}) {
     const a = state.analytics;
     const p = a?.ppa;
     const columns = [{ key: "name", label: "Player", kind: "text", sub: "position", sortable: false }, { key: "all", label: "PPA/play", format: "+2f", sortable: false }, { key: "pass", label: "Pass", format: "+2f", sortable: false }, { key: "rush", label: "Rush", format: "+2f", sortable: false }];
-    const side = (title, rows, them) => el("div", {}, el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, title), rows.length ? statTable({ compact: true, columns, rows, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) }) : note("No player values yet."));
+    const side = (title, rows, them) => el("div", {}, subhead(title, { team: them ? themSide().name : usTeam(), side: them ? "them" : "us" }), rows.length ? statTable({ compact: true, columns, rows, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) }) : note("No player values yet."));
     let body;
     if (s.status !== "final") body = note("Per-play PPA shows in the play log when the feed carries it. Player values post after the final.");
     else if (!a) body = note(state.analyticsError ? `${state.analyticsError}. Retrying every minute.` : "Loading play value.");
@@ -492,26 +496,45 @@ export function createLiveView({ onStatus } = {}) {
     return [value, band({ title: "Advanced box score", collapsible: false, summary: "by quarter, players' value", body: () => advancedBoxBlock(a.advancedBox, { us: usTeam(), them: themSide().name, usAbbr: usAbbr(), themAbbr: themSide().abbr }) })];
   }
 
+  /**
+   * The live state before the first play (Phase 17 #25): the shape the server's state has at kickoff, with
+   * every value empty, so the pregame sheet is the game sheet showing dashes rather than a second program.
+   */
+  function emptyLive(p) {
+    const g = obj(p.game);
+    const ours = followedTeam(null, p);
+    const theirs = text(obj(p.them).school);
+    const home = g.homeIsUs === false ? theirs : ours;
+    const away = g.homeIsUs === false ? ours : theirs;
+    return {
+      gameId: g.gameId ?? null, mode: "live", status: "pre", home, away,
+      homeScore: null, awayScore: null, period: null, clock: null, possession: null, down: null, distance: null, yardsToGoal: null,
+      homeLineScores: null, awayLineScores: null, boxScore: null, feedStats: null, playerStats: null, playerStatsSource: {}, liveWinProbability: null,
+      plays: [], drives: [], splits: { periods: [], teams: {}, notes: [] }, tendencies: {}, shotChart: {},
+    };
+  }
+
+  function kickoffLabel(g) {
+    if (!g.kickoff) return "Kickoff TBD";
+    return g.startTimeTbd ? `Kickoff ${fmtDate(g.kickoff, "short")}, time TBD` : `Kickoff ${fmtDate(g.kickoff, "short")} ${fmtTime(g.kickoff)}`;
+  }
+
   function pregameParts() {
     const p = state.program;
-    if (!p) {
+    if (!p || !p.game || typeof p.game !== "object") { // final pass: an answer with no game (the season is over) is the same as none
       const failed = Boolean(state.programError);
       const message = failed ? `${text(state.programError)}. The sheet tries again every minute.` : "No game of ours is on the schedule ahead. The sheet checks again every minute.";
       return { top: band({ title: "Live sheet", collapsible: false, state: { status: failed ? "error" : "empty", message }, errorLead: "Could not load the next game." }) };
     }
     const g = obj(p.game);
-    const n = obj(p.notes);
-    const w = obj(p.weather);
-    const availability = records(n.availability);
-    const kickoffText = g.startTimeTbd ? "Time TBD" : fmtTime(g.kickoff);
+    const s = emptyLive(p);
+    const stripEl = stripFor(s, kickoffLabel(g));
     return {
-      top: el("div", {}, cover({ kicker: "Pregame", date: g.kickoff, startTimeTbd: g.startTimeTbd, venue: g.venue, neutralSite: g.neutralSite, tv: g.tv, homeIsUs: g.homeIsUs, us: obj(p.us), them: obj(p.them), line: obj(p.line), pregame: { homeWinProbability: p.pregame?.homeWinProbability }, reveal: false }), gameInfo(p)),
-      middle: el("p", { class: "note" }, `The live sheet opens by itself 1 hour before kickoff, and plays start flowing 30 minutes before. It follows the game ${state.delay} s behind the broadcast; the Delay button changes it and syncs it to your TV.`),
-      bottom: [
-        el("div", { class: "spread spread--2" }, band({ title: "Program notes", collapsible: false, state: { status: "ready" }, body: () => (n.present ? editorial({ byline: { author: n.author, writtenAt: n.writtenAt }, sources: Array.isArray(n.sources) ? n.sources : [], sections: Array.isArray(n.sections) ? n.sections : [] }) : note(n.error ? `${n.error}.` : "No notes for this game yet.")) }), band({ title: "Weather at kickoff", collapsible: false, state: { status: "ready" }, body: () => el("div", { style: { padding: "12px" } }, w.available ? weatherRow({ kickoffText, tempF: w.tempF, windMph: w.windMph, windDir: typeof w.windDir === "string" ? w.windDir : null, sky: w.sky, precipChance: w.precipChance, indoors: Boolean(w.dome), source: w.source }) : weatherRow({ kickoffText, note: w.error || "No forecast yet." })) })),
-        band({ title: "Availability report", collapsible: false, state: { status: "ready" }, body: () => (availability.length ? availabilityTable({ rows: availability, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt }) : note("No availability report for this game yet.")) }),
-        band({ title: "Starting lineups", collapsible: false, state: { status: "ready" }, body: () => startersBlock({ lineups: n.lineups, us: obj(p.us), them: obj(p.them), availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) }),
-      ],
+      top: [stripEl, gameInfo(p)],
+      strip: stripEl,
+      middle: [sheetFor(s), el("p", { class: "note" }, `${kickoffLabel(g)}. The sheet fills in as the game is played, ${state.delay} s behind the broadcast; the Spoiler delay button changes that.`)],
+      bottom: null,
+      items: remoteItems(s),
     };
   }
 
@@ -547,7 +570,7 @@ export function createLiveView({ onStatus } = {}) {
     savePrefs({ delaySeconds: next }).catch((error) => console.warn(`Live sheet: the delay is kept on this device only; the server did not save it: ${error?.message || error}`));
     if (!container) return; // a nudge that settled after the sheet closed is saved, nothing more
     if (state.mode !== "pregame") connect();
-    else render(); // the pregame note repeats the delay
+    else render(); // the pregame line repeats the delay
     loadTicker();
     refreshPill();
   }
@@ -562,21 +585,19 @@ export function createLiveView({ onStatus } = {}) {
     const g = obj(p.game);
     const n = obj(p.notes);
     const w = obj(p.weather);
-    const b = obj(n.broadcast);
     const name = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
-    const venue = name(g.venue);
-    const weather = w.available && isNum(w.tempF) ? `${Math.round(w.tempF)}°F${isNum(w.windMph) ? `, wind ${Math.round(w.windMph)} mph` : ""}${w.dome ? ", indoors" : ""}` : null;
-    const sideline = (Array.isArray(b.sideline) ? b.sideline : []).map(name).filter(Boolean);
-    const voices = [name(b.playByPlay), name(b.analyst), ...sideline.map((s) => `${s} (sideline)`)].filter(Boolean);
-    const network = name(b.network) || name(g.tv);
-    const crew = voices.length ? `${network ? `${network}: ` : ""}${voices.join(", ")}` : null;
-    const staff = (side, label) => {
-      const s = obj(obj(n.coaches)[side]);
-      const parts = [["HC", s.headCoach], ["OC", s.offensiveCoordinator], ["DC", s.defensiveCoordinator]].filter(([, v]) => name(v)).map(([k, v]) => `${k} ${name(v)}`);
-      return parts.length ? el("span", { class: "game-info__staff" }, el("b", {}, label), ` ${parts.join(" · ")}`) : null;
+    const venueName = name(g.venue);
+    const venue = venueName ? wikiLink("stadium", { venue: venueName }, venueName) : null; // Phase 19: the stadium's own page
+    const weatherText = w.available && isNum(w.tempF) ? `${Math.round(w.tempF)}°F${isNum(w.windMph) ? `, wind ${Math.round(w.windMph)} mph` : ""}${w.dome ? ", indoors" : ""}` : null;
+    const weather = weatherText ? el("span", {}, weatherText, " ", kickWind({ windMph: w.available ? w.windMph : null, indoors: w.dome === true })) : null; // Phase 17 #6
+    const network = name(obj(n.broadcast).network) || name(g.tv);
+    const crew = crewText(n, g);
+    const staff = (side, label, school) => {
+      const words = staffParts(n, side, school);
+      return words.length ? el("span", { class: "game-info__staff" }, el("b", {}, label), " ", ...words) : null;
     };
-    const usStaff = staff("us", usAbbr());
-    const themStaff = staff("them", themSide().abbr);
+    const usStaff = staff("us", usAbbr(), usTeam());
+    const themStaff = staff("them", themSide().abbr, themSide().name);
     const missing = [crew ? null : "the TV crew", usStaff || themStaff ? null : "the coaches"].filter(Boolean);
     return el(
       "div",
@@ -589,12 +610,12 @@ export function createLiveView({ onStatus } = {}) {
 
   // --- live and postgame ---------------------------------------------------------------------------
 
-  function stripFor(s) {
+  function stripFor(s, kickoffText = null) {
     const usHome = s.home === usTeam();
     const usPts = usHome ? s.homeScore : s.awayScore;
     const themPts = usHome ? s.awayScore : s.homeScore;
     const possession = s.possession === usTeam() ? "us" : s.possession ? "them" : null;
-    return strip({ us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, pill: pillNow(), sticky: true });
+    return strip({ us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, kickoffText, pill: null, sticky: true });
   }
 
   // --- Phase 12: splits, tendencies, drive summary, fourth down, sync ---------------------------------
@@ -629,12 +650,12 @@ export function createLiveView({ onStatus } = {}) {
     const rows = records(obj(tendencies)[team]).map((r) => ({
       label: text(r.label),
       plays: isNum(r.plays) ? r.plays : 0,
-      passRate: isNum(r.passRate) ? fmtPct(r.passRate) : DASH,
+      runRate: isNum(r.passRate) ? fmtPct(1 - r.passRate) : DASH, // final pass: Run %, as the program's tendencies read
       run: madeOf(r.runSuccess),
       pass: madeOf(r.passSuccess),
     }));
     if (!rows.some((r) => r.plays > 0)) return note("No snaps yet.");
-    return statTable({ compact: true, columns: [{ key: "label", label: "Situation", kind: "text", sortable: false }, { key: "plays", label: "Plays", sortable: false }, { key: "passRate", label: "Pass %", kind: "text", sortable: false }, { key: "run", label: "Run success", kind: "text", sortable: false }, { key: "pass", label: "Pass success", kind: "text", sortable: false }], rows });
+    return statTable({ compact: true, columns: [{ key: "label", label: "Situation", kind: "text", sortable: false }, { key: "plays", label: "Plays", sortable: false }, { key: "runRate", label: "Run %", kind: "text", sortable: false }, { key: "run", label: "Run success", kind: "text", sortable: false }, { key: "pass", label: "Pass success", kind: "text", sortable: false }], rows });
   }
 
   function splitsBand(s) {
@@ -645,8 +666,8 @@ export function createLiveView({ onStatus } = {}) {
     const them = themSide().name;
     if (!has) return band({ title: "Splits", collapsible: false, state: { status: "empty", message: "Splits appear after the first snap." } });
     return [
-      band({ title: "Quarter by quarter", collapsible: false, summary: "from the play log", body: () => el("div", {}, notes.length ? el("ul", { class: "note-list" }, notes.map((n) => el("li", {}, n))) : note("Nothing stands out between the quarters yet."), el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, usWords()), splitsTable(splits, us), el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, text(them)), splitsTable(splits, them)) }),
-      band({ title: "Tendencies by situation", collapsible: false, summary: "run or pass, and success", body: () => el("div", {}, el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, usWords()), tendencyTable(s.tendencies, us), el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, text(them)), tendencyTable(s.tendencies, them), note("Passing downs: 2nd and 8 or more, 3rd or 4th and 5 or more (CFBD's tags when the feed sends them). Success is CFBD's.")) }),
+      band({ title: "Quarter by quarter", collapsible: false, summary: "from the play log", body: () => el("div", {}, notes.length ? el("ul", { class: "note-list" }, notes.map((n) => el("li", {}, n))) : note("Nothing stands out between the quarters yet."), subhead(usWords(), { team: usTeam(), side: "us" }), splitsTable(splits, us), subhead(text(them), { team: them, side: "them" }), splitsTable(splits, them)) }),
+      band({ title: "Tendencies by situation", collapsible: false, summary: "run or pass, and success", body: () => el("div", {}, subhead(usWords(), { team: usTeam(), side: "us" }), tendencyTable(s.tendencies, us), subhead(text(them), { team: them, side: "them" }), tendencyTable(s.tendencies, them), note("Passing downs: 2nd and 8 or more, 3rd or 4th and 5 or more (CFBD's tags when the feed sends them). Success is CFBD's.")) }),
     ];
   }
 
@@ -655,7 +676,7 @@ export function createLiveView({ onStatus } = {}) {
     const us = obj(summary[usTeam()]);
     const them = obj(summary[themSide().name]);
     if (!isNum(us.drives) && !isNum(them.drives)) return null;
-    const spec = [["Finished drives", "drives", "0f"], ["Points on drives", "points", "0f"], ["Points per drive", "pointsPerDrive", "2f"], ["Three-and-outs", "threeAndOuts", "0f"], ["Turnovers", "turnovers", "0f"], ["Scoring chances (1st down at the 40 or closer)", "opportunities", "0f"], ["Points per chance", "pointsPerOpportunity", "2f"]];
+    const spec = [["Finished drives", "drives", "0f"], ["Points on drives", "points", "0f"], ["Points per drive", "pointsPerDrive", "2f"], ["Three-and-outs", "threeAndOuts", "0f"], ["Turnovers", "turnovers", "0f"], ["Scoring chances", "opportunities", "0f"], ["Points per scoring chance", "pointsPerOpportunity", "2f"]];
     const rows = spec.map(([label, key, format]) => ({ label, us: isNum(us[key]) ? fmtStat(us[key], format) : DASH, them: isNum(them[key]) ? fmtStat(them[key], format) : DASH }));
     return statTable({ compact: true, columns: [{ key: "label", label: "Drives", kind: "text", sortable: false }, { key: "us", label: usAbbr(), kind: "text", sortable: false }, { key: "them", label: themSide().abbr, kind: "text", sortable: false }], rows });
   }
@@ -671,7 +692,7 @@ export function createLiveView({ onStatus } = {}) {
     return el(
       "div",
       { class: "fourth-down" },
-      el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, `${offense} ${downText(f.down, f.distance) || "4th down"}, ${text(f.yardsToGoal)} to goal: go or kick?`),
+      subhead(`${offense} ${downText(f.down, f.distance) || "4th down"}, ${text(f.yardsToGoal)} to goal: go or kick?`),
       statTable({ compact: true, columns: [{ key: "option", label: "Choice", kind: "text", sortable: false }, { key: "ep", label: "Expected points", kind: "text", sortable: false }, { key: "note", label: "", kind: "text", sortable: false }], rows }),
       note(`Going for it beats the ${f.best === "fieldGoal" ? "field goal" : "punt"} when the chance to convert is above ${fmtPct(f.breakEven)}. From CFBD's expected points; a conversion counts as gaining exactly the line to gain.`),
     );
@@ -855,30 +876,38 @@ export function createLiveView({ onStatus } = {}) {
       { id: "box", label: "Box score", hint: "both teams", body: () => [band({ title: usWords(), kind: "us", collapsible: false, body: () => boxTables(s, usTeam(), false) }), band({ title: themSide().name, kind: "them", collapsible: false, body: () => boxTables(s, themSide().name, true) })] },
       { id: "drives", label: "Drives", hint: `${isNum(s.counts?.drives) ? s.counts.drives : 0} drives`, body: () => band({ title: "Drives", collapsible: false, body: () => (drives.length ? el("div", {}, driveSummaryTable(s), driveList({ drives, us: usSide(), them: themSide(), currentId: s.currentDriveId ?? null })) : note("Drives appear after kickoff.")) }) },
       { id: "splits", label: "Splits", hint: splitsHint(s), body: () => splitsBand(s) },
-      { id: "plays", label: "Plays", hint: `${isNum(s.counts?.plays) ? s.counts.plays : 0} plays`, body: () => band({ title: "Play by play", collapsible: false, body: () => (plays.length ? playLog({ plays, us: usSide(), them: themSide(), maxHeight: 9999, filter: state.sheet?.filter || "all", onFilter: (id) => { if (state.sheet) state.sheet.filter = id; } }) : note("Plays appear after kickoff.")) }) },
+      { id: "plays", label: "Plays", hint: `${isNum(s.counts?.plays) ? s.counts.plays : 0} plays`, body: () => band({ title: "Play by play", collapsible: false, body: () => (plays.length ? playLog({ plays, us: usSide(), them: themSide(), maxHeight: 9999, freshIds: freshPlays(plays), filter: state.sheet?.filter || "all", onFilter: (id) => { if (state.sheet) state.sheet.filter = id; } }) : note("Plays appear after kickoff.")) }) },
       { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { abbr: usAbbr(), box: usBox }, them: { abbr: themSide().abbr, box: themBox } }) }) },
-      { id: "edges", label: "Edges", hint: "season ranks", body: () => band({ title: "Matchup edges", collapsible: false, body: () => (edges.length ? statTable({ compact: true, sortable: true, columns: [{ key: "label", label: "Matchup", kind: "text", sortable: false }, { key: "usRank", label: `${usSide().abbr} rank`, sortable: false }, { key: "themRank", label: `${themSide().abbr} rank`, sortable: false }, { key: "edge", label: "Edge", format: "+0f", sortable: false }], rows: edges }) : note("Edges appear once both teams have played.")) }) },
+      { id: "edges", label: "Edges", hint: "season ranks", body: () => band({ title: "Matchup edges", collapsible: false, body: () => (edges.length ? edgesTable(edges, { usAbbr: usSide().abbr, themAbbr: themSide().abbr, usTeam: usTeam(), themTeam: themSide().name }) : note("Edges appear once both teams have played.")) }) }, // Phase 16 wave 3 (L-02)
       { id: "weather", label: "Weather", hint: "game site", body: () => band({ title: "Weather", collapsible: false, body: () => el("div", { style: { padding: "12px" } }, weather.available ? weatherRow({ kickoffText: fmtTime(p.game?.kickoff), tempF: weather.tempF, windMph: weather.windMph, windDir: typeof weather.windDir === "string" ? weather.windDir : null, sky: weather.sky, precipChance: weather.precipChance, indoors: Boolean(weather.dome), source: weather.source }) : weatherRow({ kickoffText: fmtTime(p.game?.kickoff), note: weather.error || "No forecast." })) }) },
       { id: "visitors", label: "Visitors", hint: "recruits", body: () => visitorsBand() },
       { id: "injuries", label: "Injuries", hint: "availability", body: () => band({ title: "Availability report", collapsible: false, body: () => (availability.length ? availabilityTable({ rows: availability, source: p.notes?.availabilitySource, updatedAt: p.notes?.availabilityUpdatedAt }) : note("No availability report for this game yet.")) }) },
       // 2026-10-02: who starts and who is behind them, from the notes file's published charts (ui/lineups.js)
-      { id: "lineups", label: "Lineups", hint: "starters, depth", body: () => [band({ title: "Starting lineups", collapsible: false, body: () => startersBlock({ lineups: p.notes?.lineups, us: p.us, them: p.them, availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) }), band({ title: "Depth charts", collapsible: false, body: () => depthBlock({ lineups: p.notes?.lineups, us: p.us, them: p.them, availability }) })] },
-      { id: "scores", label: "Scores", hint: "every FBS game", body: () => scoresBand() },
-      { id: "value", label: "Play value", hint: "PPA", body: () => ppaBand(s) },
+      { id: "lineups", label: "Lineups", hint: "starters, depth", body: () => [band({ title: "Lineups and depth", collapsible: false, body: () => lineupBlock({ lineups: p.notes?.lineups, us: p.us, them: p.them, availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) })] },
+      { id: "scores", label: "Scores", hint: scoresHint(), body: () => scoresBand() },
+      { id: "value", label: "Play value", hint: state.analytics?.ppa?.available ? "PPA" : "after the final", body: () => ppaBand(s) },
     ];
+  }
+
+  /** The plays not seen in the last draw (none on the first draw of a game, so the list doesn't all slide in). */
+  function freshPlays(plays) {
+    const ids = plays.map((p) => p.id).filter((id) => id !== null && id !== undefined);
+    const seen = state.seenPlays;
+    state.seenPlays = new Set(ids);
+    return seen instanceof Set && seen.size ? new Set(ids.filter((id) => !seen.has(id))) : new Set();
   }
 
   function visitorsContent(v) {
     const columns = [{ key: "name", label: "Recruit", kind: "text", sub: "position", sortable: false }, { key: "stars", label: "Stars", sortable: false }, { key: "highSchool", label: "High school", kind: "text", sortable: false }, { key: "status", label: "Status", kind: "text", sortable: false }];
-    const side = (title, rows) => el("div", {}, el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, title), rows.length ? statTable({ compact: true, columns, rows }) : note("No visitors listed."));
-    return band({ title: "Recruits on hand", collapsible: false, body: () => el("div", {}, v.note ? note(text(v.note)) : null, el("div", { class: "twocol" }, side(`Visiting ${usTeam()}`, records(v.home)), side(`Visiting ${text(v.opponent)}`, records(v.away)))) });
+    const side = (title, team, which, rows) => el("div", {}, subhead(title, { team, side: which }), rows.length ? statTable({ compact: true, columns, rows }) : note("No visitors listed."));
+    return band({ title: "Recruits on hand", collapsible: false, body: () => el("div", {}, v.note ? note(text(v.note)) : null, el("div", { class: "twocol" }, side(`Visiting ${usTeam()}`, usTeam(), "us", records(v.home)), side(`Visiting ${text(v.opponent)}`, typeof v.opponent === "string" ? v.opponent : null, "them", records(v.away)))) });
   }
 
   /** Recruits on hand: fetched when the sheet opens, kept ten minutes, never refetched per play. */
   function visitorsBand() {
     const cached = state.visitors;
     if (cached && Date.now() - cached.at < VISITORS_TTL_MS) return visitorsContent(cached.data);
-    const host = band({ title: "Recruits on hand", collapsible: false, state: { status: "loading" } });
+    const host = band({ title: "Recruits on hand", collapsible: false, state: { status: "loading" }, skeleton: () => el("div", { class: "twocol" }, statTableSkeleton(4), statTableSkeleton(4)) });
     fetchJson("/api/recruiting")
       .then((envelope) => {
         const v = obj(envelope?.data?.visitors);
@@ -905,7 +934,21 @@ export function createLiveView({ onStatus } = {}) {
   function openItem(id) {
     const item = state.items.find((i) => i.id === id);
     if (!item || !container) return;
+    const open = state.sheet;
+    if (open?.handle && typeof open.handle.setBody === "function" && open.id !== id) {
+      open.id = id; // Phase 16 wave 3 (L-10): the same sheet, its title and body swapped
+      open.sorts = {};
+      open.filter = "all";
+      state.sheetError = false;
+      state.seenPlays = null; // a play list just opened draws without sliding
+      open.handle.setTitle(item.label);
+      open.handle.setBody(() => safeBody(item));
+      if (state.bar) state.bar.setActive(id);
+      refreshPill();
+      return;
+    }
     closeSheet();
+    state.seenPlays = null;
     const sheet = { id, handle: null, sorts: {}, filter: "all" };
     state.sheet = sheet;
     if (state.bar) state.bar.setActive(id);
@@ -966,12 +1009,36 @@ export function createLiveView({ onStatus } = {}) {
 
   // --- the frame and the render ----------------------------------------------------------------------
 
+  function openNotesSheet() {
+    const gameId = state.live?.gameId ?? state.program?.game?.gameId;
+    const context = () => {
+      const s = state.live;
+      if (!s || typeof s !== "object") return null;
+      const usHome = s.home === usTeam();
+      const us = usHome ? s.homeScore : s.awayScore;
+      const them = usHome ? s.awayScore : s.homeScore;
+      return { period: isNum(s.period) ? s.period : null, clock: typeof s.clock === "string" ? s.clock : s.clock && typeof s.clock === "object" && isNum(s.clock.minutes) ? `${s.clock.minutes}:${String(isNum(s.clock.seconds) ? s.clock.seconds : 0).padStart(2, "0")}` : null, score: isNum(us) && isNum(them) ? `${usAbbr()} ${us}, ${themSide().abbr} ${them}` : null };
+    };
+    openSheet({ title: "My notes", body: () => (gameId ? gameNotesPanel({ gameId, getContext: context }) : el("p", { class: "note" }, "There is no game to write about yet.")) });
+  }
+
+  async function openInviteSheet() {
+    const handle = openSheet({ title: "Invite friends", body: () => el("p", { class: "note" }, "Getting the address…") });
+    try {
+      handle.setBody(inviteBody(await loadInvite()));
+    } catch (error) {
+      handle.setBody(el("p", { class: "note" }, `The address did not load: ${error?.message || "no answer"}.`));
+    }
+  }
+
   function buildFrame() {
     const slot = () => el("div", { style: { display: "contents" } });
     slots = { top: slot(), middle: slot(), bottom: slot() };
     tickerHost = el("div", { class: "live-ticker" });
     state.delayButton = el("button", { class: "btn btn--quiet delay-button", type: "button", "aria-haspopup": "dialog", onclick: () => openDelaySheet() }, delayLabel());
-    frame = el("div", {}, slots.top, el("div", { class: "live-tools" }, state.delayButton), tickerHost, slots.middle, slots.bottom);
+    const notesButton = el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: openNotesSheet }, "My notes");  // Phase 19: your own lines about the game, stamped with the quarter and score
+    const inviteButton = el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: openInviteSheet }, "Invite");  // Phase 18.6: a small QR for a friend beside you
+    frame = el("div", {}, slots.top, el("div", { class: "live-tools" }, state.delayButton, notesButton, inviteButton), tickerHost, slots.middle, slots.bottom);
     updateTicker();
   }
 
@@ -998,13 +1065,20 @@ export function createLiveView({ onStatus } = {}) {
       view.top = el("div", {}, el("p", { class: "note plan-note" }, "Play-by-play during the game shows with a Tier 2 CFBD key. The score, the box score after the final and the rest of the app work on your plan. ", el("a", { href: PLANS_URL, target: "_blank", rel: "noopener" }, "See CFBD's plans")), view.top);
     }
     if (frame.parentNode !== container) container.replaceChildren(frame);
-    frame.className = pregame ? "season" : "";
-    frame.style.gridTemplateColumns = pregame ? "minmax(0, 1fr)" : "";
+    const sheet = Array.isArray(view.items); // the game sheet, live or still empty before kickoff
+    frame.className = sheet ? "" : "season";
+    frame.style.gridTemplateColumns = sheet ? "" : "minmax(0, 1fr)";
+    const gameKey = state.live && typeof state.live === "object" ? state.live.gameId ?? null : null;
+    const before = state.flashReady && state.flashGame === gameKey ? snapshotKeys(frame) : null;
     replaceWith(slots.top, view.top);
     replaceWith(slots.middle, view.middle);
     replaceWith(slots.bottom, view.bottom);
+    fillWiki(frame); // Phase 19: the stadium and the coaches become their Wikipedia pages
+    if (before) flashChanges(before, frame); // Phase 16 wave 3 (L-03): only what changed since the last frame
+    state.flashReady = !pregame;
+    state.flashGame = gameKey;
     state.strip = view.strip || null;
-    if (pregame) {
+    if (!sheet) {
       closeSheet();
       if (state.bar) state.bar.style.display = "none";
     } else {
@@ -1058,6 +1132,7 @@ export function createLiveView({ onStatus } = {}) {
     }
     state.source = source;
     state.helloSeen = false;
+    state.flashReady = false; // a reconnect (a new delay) redraws everything: nothing flashes on its first frame
     state.lastFrameAt = Date.now();
     source.addEventListener("hello", (event) => {
       if (state.source !== source) return;

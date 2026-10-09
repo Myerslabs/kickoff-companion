@@ -1,26 +1,29 @@
 // The matchup sheet (UX-12, Phase 16 NV): any two FBS teams side by side in a side sheet, from
 // GET /api/matchup?away=&home= (the cached all-FBS answers only; no per-school calls). Each team's record,
 // polls, SP+, talent and last five results, the live or final score when the two meet this week, then the
-// two-team table: one row per stat, value and rank chip in one cell, a divider before the second team, the
-// better number bright. Every chip links to its national list with that team's row marked.
+// shared two-team table (ui/two-team.js, final pass): one row per stat grouped by the side of the ball, the
+// value and its rank chip in one cell, the tug-of-war bar between the teams. We sit first whenever we are in
+// the game (every two-team table reads us, then them); between two other teams the away team is first, as the
+// game is said, and the bars take those teams' own colors. Every chip links to its national list with that
+// team's row marked.
 //
-// API (later streams wire it into Scores rows and Newspaper slate cards):
+// API (Scores rows and Newspaper slate cards open it):
 //   openMatchupSheet({ away, home }) -> the openSheet handle plus reload(), or null without two names.
 //   matchupBody(envelope, { onRetry })  the sheet's content, for the tests and the styleguide.
+//   matchupOrder(data)                  { first, second, firstKey, secondKey, joiner, neutral }: who sits first.
+//   sheetTitle(away, home, { homeIsUs, neutralSite })  "Us vs them", "us at them" or "away at home".
 
-import { ageSeconds, fetchJson } from "../views/common.js";
-import { DASH, el, fmtDateTime, fmtStat, isNum, teamLink, teamLogo, text } from "./dom.js";
+import { isUs } from "../identity.js";
+import { ageSeconds, fetchPatient } from "../views/common.js";
+import { rejectReason } from "./colors.js";
+import { DASH, el, fmtDateTime, fmtStat, isNum, obj, records, teamLink, teamLogo, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
 import { band, stateBlock } from "./states.js";
-import { pollBadge, rankChip, rankChipPlaceholder, statTableSkeleton } from "./stat-table.js";
+import { pollBadge, rankChip, statTableSkeleton } from "./stat-table.js";
+import { twoTeamTable } from "./two-team.js";
 
-const FETCH_MS = 20000;
 const NAME_MAX = 60;
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
 
 function name(value) {
   return typeof value === "string" && value.trim() && value.trim().length <= NAME_MAX ? value.trim() : null;
@@ -58,7 +61,7 @@ function teamBlock(team, data, side) {
   const polls = [["AP", t.apRank], ["Coaches", t.coachesRank], ["CFP", t.cfpRank]].filter(([, rank]) => isNum(rank)).map(([poll, rank]) => pollBadge(rank, poll, { href: pollHref(poll, { team: school }), label: school }));
   const facts = [
     el("span", { class: "mx-fact" }, el("small", {}, "Record"), el("b", {}, overall || DASH), conf ? el("small", {}, ` (${conf} ${text(t.conference)})`) : null),
-    el("span", { class: "mx-fact" }, el("small", {}, "SP+"), el("b", {}, fmtStat(sp.rating, "1f")), rankChip(sp.rank, of, { href: nationalHref("rating:sp", { team: school }), label: `${text(school)} SP+` }) || null),
+    el("span", { class: "mx-fact" }, el("small", {}, "SP+"), el("b", {}, fmtStat(sp.rating, "1f")), rankChip(sp.rank, isNum(sp.of) ? sp.of : of, { href: nationalHref("rating:sp", { team: school }), label: `${text(school)} SP+` }) || null),
     el("span", { class: "mx-fact" }, el("small", {}, "Talent"), el("b", {}, fmtStat(talent.talent, "0f")), rankChip(talent.rank, talent.of, { href: nationalHref("rating:talent", { team: school }), label: `${text(school)} talent` }) || null),
   ];
   return el(
@@ -87,52 +90,60 @@ function gameLine(data) {
   return el("p", { class: `mx-game mx-game--${text(g.status)}` }, el("b", {}, line), where ? el("small", {}, where) : null);
 }
 
-function better(row, a, b) {
-  if (!isNum(a) || !isNum(b) || a === b) return [null, null];
-  const awayBetter = row.higherIsBetter === false ? a < b : a > b;
-  return awayBetter ? ["lead", "trail"] : ["trail", "lead"];
+/** Who sits first: we do when we are in the game; between two other teams the away team, as the game is said. */
+export function matchupOrder(data) {
+  const d = obj(data);
+  const away = obj(d.away);
+  const home = obj(d.home);
+  const neutralSite = obj(d.game).neutralSite === true;
+  if (home.isUs === true) return { first: home, second: away, firstKey: "home", secondKey: "away", joiner: "vs", neutral: false };
+  return { first: away, second: home, firstKey: "away", secondKey: "home", joiner: neutralSite ? "vs" : "at", neutral: away.isUs !== true };
 }
 
-function valueCell(row, side, team, extra) {
-  const v = obj(row[side]);
-  const href = nationalHref(row.metric, { team });
-  const chip = rankChip(v.rank, row.of, { href, label: `${text(team)} ${text(row.label)}` });
-  return el("td", { class: `num${extra ? ` ${extra}` : ""}` }, fmtStat(v.value, typeof row.format === "string" ? row.format : "2f"), chip || rankChipPlaceholder());
+function sideOf(value, of) {
+  const s = obj(value);
+  return { value: isNum(s.value) ? s.value : null, rank: s.rank, of: isNum(s.of) ? s.of : of };
 }
 
-function statTable2(data) {
-  const away = obj(data.away);
-  const home = obj(data.home);
-  const rows = (Array.isArray(data.rows) ? data.rows : []).filter((r) => r && typeof r === "object" && !Array.isArray(r));
+function abbrOf(team) {
+  return text(obj(team).abbreviation || name(obj(team).school));
+}
+
+/** The two-team table: the server's groups in order, each row's first team in our slot. */
+function sideBySide(data, order) {
   const groups = [];
-  for (const row of rows) {
-    const group = typeof row.group === "string" && row.group ? row.group : "Stats";
-    if (!groups.length || groups[groups.length - 1][0] !== group) groups.push([group, []]);
-    groups[groups.length - 1][1].push(row);
+  for (const row of records(data.rows)) {
+    const title = typeof row.group === "string" && row.group.trim() ? row.group.trim() : "This season";
+    if (!groups.length || groups[groups.length - 1].title !== title) groups.push({ title, rows: [] });
+    groups[groups.length - 1].rows.push({
+      label: row.label,
+      format: typeof row.format === "string" ? row.format : undefined,
+      higherIsBetter: row.higherIsBetter,
+      metric: row.metric,
+      us: sideOf(row[order.firstKey], row.of),
+      them: sideOf(row[order.secondKey], row.of),
+    });
   }
-  const aSchool = name(away.school);
-  const hSchool = name(home.school);
-  return el(
-    "div",
-    { class: "stat-table-wrap" },
-    el(
-      "table",
-      { class: "stat-table stat-table--compact tt mx-table" },
-      el("caption", { class: "sr-only" }, `${text(aSchool)} and ${text(hSchool)}, side by side`),
-      el("thead", {}, el("tr", {}, el("th", { class: "txt", scope: "col" }, "Statistic"), el("th", { class: "us", scope: "col" }, text(away.abbreviation || aSchool)), el("th", { class: "them tt__them", scope: "col" }, text(home.abbreviation || hSchool)))),
-      groups.map(([group, list]) =>
-        el(
-          "tbody",
-          {},
-          el("tr", { class: "is-parent mx-group" }, el("td", { class: "txt", colspan: "3" }, group)),
-          list.map((row) => {
-            const [a, h] = better(row, obj(row.away).value, obj(row.home).value);
-            return el("tr", {}, el("td", { class: "txt" }, text(row.label)), valueCell(row, "away", aSchool, a), valueCell(row, "home", hSchool, ["tt__them", h].filter(Boolean).join(" ")));
-          }),
-        ),
-      ),
-    ),
-  );
+  return twoTeamTable({
+    groups,
+    usAbbr: abbrOf(order.first),
+    themAbbr: abbrOf(order.second),
+    usTeam: name(order.first.school),
+    themTeam: name(order.second.school),
+    tug: true,
+    labelHead: "This season",
+    caption: `${text(name(order.first.school))} and ${text(name(order.second.school))}, side by side`,
+    className: "mx-table",
+  });
+}
+
+/** Between two other teams the bars wear those teams' colors (a readable one each), never ours and the week's opponent's. */
+function neutralColors(order) {
+  if (!order.neutral) return null;
+  const usable = (team) => [obj(team).color, obj(team).altColor].find((c) => typeof c === "string" && !rejectReason(c, [])) || null;
+  const first = usable(order.first);
+  const second = usable(order.second);
+  return { "--team-us": first || "var(--fog)", "--opp": second || "var(--fog)" };
 }
 
 function partErrors(data) {
@@ -148,26 +159,33 @@ export function matchupBody(envelope, { onRetry } = {}) {
   if (!name(away.school) || !name(home.school)) {
     return stateBlock({ kind: "error", lead: "This matchup could not be loaded.", detail: failed.length ? `${failed.join("; ")}.` : "The server sent no teams.", action: typeof onRetry === "function" ? { label: "Try now", onClick: onRetry } : null });
   }
-  const rows = Array.isArray(data.rows) ? data.rows : [];
+  const rows = records(data.rows);
   const meta = obj(obj(envelope).meta);
+  const order = matchupOrder(data);
   return el(
     "div",
-    { class: "mx" },
-    el("div", { class: "mx-teams" }, teamBlock(away, data, "away"), el("span", { class: "mx-at", "aria-hidden": "true" }, data.game && obj(data.game).neutralSite === true ? "vs" : "at"), teamBlock(home, data, "home")),
+    { class: `mx${order.neutral ? " mx--neutral" : ""}`, style: neutralColors(order) },
+    el("div", { class: "mx-teams" }, teamBlock(order.first, data, "first"), el("span", { class: "mx-at", "aria-hidden": "true" }, order.joiner), teamBlock(order.second, data, "second")),
     gameLine(data),
     band({
       bare: true,
       title: "Side by side",
       collapsible: false,
       state: meta.stale === true ? { status: "stale", ageSeconds: ageSeconds(meta.fetched_at), message: "CFBD is not answering; these are the last numbers the app has." } : { status: "ready" },
-      body: () => (rows.length ? statTable2(data) : stateBlock({ lead: "No season stats for these teams yet.", detail: "They fill in once CFBD publishes this season's numbers." })),
+      body: () => (rows.length ? sideBySide(data, order) : stateBlock({ lead: "No season stats for these teams yet.", detail: "They fill in once CFBD publishes this season's numbers." })),
     }),
     failed.length ? el("p", { class: "note" }, `Part of this sheet did not load (${failed.join("; ")}); the app asks again next time.`) : null,
   );
 }
 
+/** "Us vs them" when we are home or the site is neutral, "us at them" on the road, "away at home" between two other teams. */
+export function sheetTitle(away, home, { homeIsUs = false, neutralSite = false } = {}) {
+  if (homeIsUs) return `${home} vs ${away}`;
+  return `${away} ${neutralSite ? "vs" : "at"} ${home}`;
+}
+
 function loading() {
-  return el("div", { class: "mx" }, el("div", { class: "skel skel--block", style: { height: "150px", margin: 0 } }), statTableSkeleton(10, 3));
+  return el("div", { class: "mx" }, el("div", { class: "skel skel--block", style: { height: "150px", margin: 0 } }), statTableSkeleton(10, 4));
 }
 
 /** Open two teams side by side in a side sheet over the current page. */
@@ -175,24 +193,20 @@ export function openMatchupSheet({ away, home } = {}) {
   const a = name(away);
   const h = name(home);
   if (!a || !h) return null;
-  const handle = openSheet({ title: `${a} at ${h}`, body: loading(), className: "mx-sheet" });
+  const handle = openSheet({ title: sheetTitle(a, h, { homeIsUs: isUs(h) }), body: loading(), className: "mx-sheet" });
   let seq = 0;
   async function load() {
     const mine = ++seq;
-    const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const timer = setTimeout(() => controller?.abort(), FETCH_MS);
     try {
-      const envelope = await fetchJson(`/api/matchup?away=${encodeURIComponent(a)}&home=${encodeURIComponent(h)}`, controller?.signal);
+      const envelope = await fetchPatient(`/api/matchup?away=${encodeURIComponent(a)}&home=${encodeURIComponent(h)}`, { current: () => mine === seq });
       if (mine !== seq) return;
       const data = obj(envelope.data);
-      if (obj(data.game).neutralSite === true) handle.setTitle(`${a} vs ${h}`);
+      handle.setTitle(sheetTitle(a, h, { homeIsUs: obj(data.home).isUs === true, neutralSite: obj(data.game).neutralSite === true }));
       handle.setBody(matchupBody(envelope, { onRetry: load }));
     } catch (error) {
       if (mine !== seq) return;
       const missing = error?.status === 404;
-      handle.setBody(stateBlock({ kind: "error", lead: missing ? "There is no such matchup." : "Could not load this matchup.", detail: error?.name === "AbortError" ? "The server did not answer in 20 s." : `${text(error?.message || "The request failed")}.`, action: missing ? null : { label: "Try now", onClick: () => load() } }));
-    } finally {
-      clearTimeout(timer);
+      handle.setBody(stateBlock({ kind: "error", lead: missing ? "There is no such matchup." : "Could not load this matchup.", detail: error?.name === "AbortError" ? "The server did not answer in time." : `${text(error?.message || "The request failed")}.`, action: missing ? null : { label: "Try now", onClick: () => load() } }));
     }
   }
   load();

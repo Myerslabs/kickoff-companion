@@ -3,7 +3,8 @@
 //
 // Phase 16 (stream PROGRAM; audit LRP-12, P-07, L-06). Frozen API (the Live stream consumes it):
 //   leadersGrid({ categories, usAbbr, themAbbr, onTap, head = true, className })
-//       categories: [{ id, label, us: player, them: player }]
+//       categories: [{ id, label, us: player, them: player, detail }]  (detail: an optional node under the pair,
+//       Phase 17 #17: the Game program's whole line for both leaders)
 //       player: { name, playerId, number, position, headshotUrl, line }
 //       line: a string ("12/20, 180 yds, 2 TD"), or { hero, rest }: hero is the category's key number
 //       ("180 yds", bold chalk) and rest the others in fog ("12/20, 2 TD").
@@ -116,6 +117,7 @@ export function leadersGrid({ categories = [], usAbbr = usLabel(), themAbbr = DA
         el("div", { class: "leader-cat__title" }, text(cat.label)),
         side({ player: cat.us, abbr: us, them: false, onTap: (p) => onTap && onTap(p, "us") }),
         side({ player: cat.them, abbr: them, them: true, onTap: (p) => onTap && onTap(p, "them") }),
+        typeof Node !== "undefined" && cat.detail instanceof Node ? el("div", { class: "leader-cat__detail" }, cat.detail) : null,
       ),
     ),
   );

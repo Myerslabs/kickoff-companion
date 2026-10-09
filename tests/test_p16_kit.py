@@ -160,7 +160,7 @@ scenarios.hooks = async () => {
   // formats: 94 in the top tier, 4 stars; a string is a dash, never a raw value
   assert.equal(text(cells[2]), "94");
   assert.ok(cells[2].className.includes("rating--top"));
-  assert.equal(text(cells[3]), "4★");
+  assert.equal(text(cells[3]), "4-star");
   assert.equal(text(trs[1].querySelectorAll("td")[2]), "–");
   assert.equal(text(trs[1].querySelectorAll("td")[3]), "–");
   // render: its node; null is a dash; a throw falls back to the value and is logged
@@ -191,7 +191,7 @@ scenarios.hooks = async () => {
 };
 
 scenarios.states = async () => {
-  const { band, subhead, stateBlock, backRow, jumpList } = await import(moduleUrl("ui/states.js"));
+  const { band, subhead, stateBlock, backRow, jumpList, sectionChips, loadingSun } = await import(moduleUrl("ui/states.js"));
   installWindow();
   window.location = { hash: "#team=Diner%20Tech" };
   // stateBlock: designed, never raw values, whatever it is handed
@@ -260,6 +260,29 @@ scenarios.states = async () => {
   const none = jumpList(document.createElement("div"));
   none.querySelector("button").click();
   assert.equal(text(none.querySelector(".jump__empty")), "No sections on this page yet.");
+  // Phase 17 #5: the section chips: one per band with an id and a title, short names, a tap unfolds and scrolls
+  const holder = document.createElement("div");
+  const c1 = band({ id: "program-tendencies", title: "Diner Tech tendencies", foldable: true, body: () => "x" });
+  const c2 = band({ id: "program-series", title: "Series", foldable: true, collapsed: true, body: () => "y" });
+  holder.append(c1, c2, band({ title: "No id", body: () => "z" }));
+  const chips = sectionChips(holder);
+  const chipEls = chips.querySelectorAll(".chips-row__chip");
+  assert.deepEqual(chipEls.map(text), ["Tendencies", "Series"]);
+  assert.equal(chipEls[0].getAttribute("title"), "Diner Tech tendencies");
+  const tap = makeEvent("click", { bubbles: true });
+  chipEls[1].dispatchEvent(tap);
+  assert.equal(tap.defaultPrevented, true, "a band id is not a route");
+  assert.equal(folded(c2), "false", "unfolded");
+  assert.ok(c2.scrolledInto && chipEls[1].className.includes("is-current"));
+  clean("section chips", chips);
+  chips.stop();
+  assert.equal(sectionChips(document.createElement("div")).querySelectorAll(".chips-row__chip").length, 0);
+  // Phase 17 #1: the loading sun says what is coming, as a polite status
+  const sun = loadingSun({ detail: "  The game: stats  " });
+  assert.equal(sun.getAttribute("role"), "status");
+  assert.ok(text(sun).includes("Getting the latest") && text(sun).includes("The game: stats"));
+  assert.equal(text(loadingSun({ detail: 7 })), "Getting the latest");
+  clean("sun", sun);
 };
 
 scenarios.errorPanel = async () => {
@@ -710,7 +733,7 @@ def test_each_stream_has_its_anchor_at_the_end_of_components_css() -> None:
 def test_page_check_groups_and_size_flag() -> None:
     from tools import page_check
 
-    assert list(page_check.ROUTE_GROUPS) == ["F", "NV", "SEASON", "PROGRAM", "PEOPLE", "PROFILES", "SCORES", "LIVE", "DS", "MYTEAMS"]  # MYTEAMS: public release Phase 5b
+    assert list(page_check.ROUTE_GROUPS) == ["F", "NV", "SEASON", "PROGRAM", "PEOPLE", "PROFILES", "SCORES", "LIVE", "DS", "FRIENDS", "MYTEAMS"]  # MYTEAMS: public release Phase 5b
     assert page_check.ROUTES == list(dict.fromkeys(r for g in page_check.ROUTE_GROUPS.values() for r in g))
     assert {"season", "program", "live", "ratings", "team={US}"} <= set(page_check.ROUTES)
     # public release Phase 2: routes name the made-up league's teams and games through placeholders

@@ -5,13 +5,9 @@
 // tint, the winner in bold; still tables, no connector lines (design rule 21).
 
 import { usSchool } from "../identity.js";
-import { DASH, el, fmtDate, isNum, teamLink, text } from "./dom.js";
+import { DASH, el, fmtDate, isNum, records, teamLink, text } from "./dom.js";
 import { note } from "./states.js";
 import { statTable } from "./stat-table.js";
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object") : [];
-}
 
 function school(team) {
   const t = team && typeof team === "object" ? team : {};
@@ -89,7 +85,7 @@ export function playoffBlock(p, teamName = usSchool()) {
   if (rankings.length) {
     parts.push(el("div", {}, el("h4", { class: "d2-head" }, `Committee rankings${isNum(data.week) ? `, week ${data.week}` : ""}`), statTable({
       compact: true,
-      columns: [{ key: "rank", label: "Rk", sortable: true }, { key: "school", label: "Team", kind: "text", team: true, sub: "conference" }],
+      columns: [{ key: "rank", label: "CFP rank", sortable: true }, { key: "school", label: "Team", kind: "text", team: true, sub: "conference" }],
       rows: rankings,
       sort: { key: "rank", dir: "ascending" },
       rowClass: (r) => (r.isUs ? "is-us" : null),

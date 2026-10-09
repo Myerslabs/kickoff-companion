@@ -18,6 +18,7 @@ import { usSchool } from "../identity.js";
 import { DASH, el, fmtNum, isNum, recall, remember, text } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band } from "../ui/states.js";
+import { mountFlow, stopFlow } from "../ui/flow.js";
 import { spScatter } from "../ui/scatter.js";
 import { logoLink } from "../ui/team-page.js";
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
@@ -146,7 +147,7 @@ function render(envelope, container, state) {
   const published = data.published && typeof data.published === "object" ? data.published : {};
   const moreColumns = [teamCol, group(rating("core", "CORE")), rankCol("coreRank", "Rk", "core"), group(rating("coreOff", "Off")), rankCol("coreOffRank", "Rk", "coreOffense"), group(rating("coreDef", "Def")), rankCol("coreDefRank", "Rk", "coreDefense"), group(rating("srs", "SRS")), rankCol("srsRank", "Rk", "srs"), group({ key: "adj", label: "Adj EPA", format: "+2f" }), rankCol("adjRank", "Rk", "adjEpa"), group({ key: "adjAllowed", label: "Adj EPA allowed", format: "+2f" }), rankCol("adjAllowedRank", "Rk", "adjEpaAllowed")];
   const conferences = Array.isArray(data.conferences) ? data.conferences.filter((c) => c && typeof c === "object") : [];
-  const confColumns = [{ key: "rank", label: "Rk", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text" }, rating("rating", "SP+"), rating("offense", "Offense"), rating("defense", "Defense"), { key: "specialTeams", label: "Special", format: "2f" }];
+  const confColumns = [{ key: "rank", label: "Rank", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text" }, rating("rating", "SP+"), rating("offense", "Offense"), rating("defense", "Defense"), { key: "specialTeams", label: "Special", format: "2f" }];
   const unpublished = [published.core === false ? "CORE" : null, published.srs === false ? "SRS" : null, published.adjusted === false ? "the opponent-adjusted EPA" : null].filter(Boolean);
   const sideColumns = [teamCol, group(rating("spRating", "SP+")), rankCol("spRank", "Rk", "sp"), group(rating("eloRating", "Elo", 0)), rankCol("eloRank", "Rk", "elo"), group(rating("fpiRating", "FPI")), rankCol("fpiRank", "Rk", "fpi"), group(rating("talent", "Talent", 0)), rankCol("talentRank", "Rk", "talent")];
   const rowClass = (r) => [r.isUs ? "is-us" : null, !r.isUs && r.team === next ? "is-next" : null, !r.isUs && r.team === focus ? "is-focus" : null].filter(Boolean).join(" ") || null;
@@ -168,7 +169,7 @@ function render(envelope, container, state) {
   const page = el(
     "div",
     { class: "page ratings" },
-    el("div", { class: "seg", role: "group", "aria-label": "Scope", style: { justifySelf: "start" } }, buttons),
+    el("div", { class: "seg flow-full", role: "group", "aria-label": "Scope", style: { justifySelf: "start" } }, buttons),
     band({
       id: "ratings-sp",
       title: "SP+",
@@ -210,7 +211,8 @@ function render(envelope, container, state) {
       body: () => el("div", {}, table("ratings-side", sideColumns, sideRows(scoped), { key: "spRank", dir: "ascending" }, "Ratings side by side"), el("p", { class: "note" }, `Elo is a results-only rating, FPI is ESPN's projection, talent is the 247Sports composite of the roster. ${isNum(counts.talent) ? `${fmtNum(counts.talent)} teams have a talent figure.` : ""}`)),
     }),
   );
-  container.replaceChildren(page);
+  state.ui ??= {};
+  mountFlow(state.ui, container, page, { wide: RATINGS_WIDE }); // final pass: the flowing page with its section chips
   // Each box opens on the focus team (the reader's own scroll wins after the first draw: the poller puts it back).
   for (const wrap of page.querySelectorAll(".stat-table-wrap--box")) {
     const th = wrap.querySelector("thead th");
@@ -249,6 +251,8 @@ async function findNext(state) {
   }
 }
 
+const RATINGS_WIDE = ["ratings-sp", "ratings-more", "ratings-side"]; // the eleven-column tables take two columns
+
 export function createRatingsView({ onStatus, arg, params } = {}) {
   const target = ratingTarget(arg);
   const team = typeof params?.team === "string" && params.team.trim() ? params.team.trim() : null;
@@ -266,6 +270,11 @@ export function createRatingsView({ onStatus, arg, params } = {}) {
   view.mount = (target2) => {
     findNext(state);
     mount(target2);
+  };
+  const unmount = view.unmount;
+  view.unmount = () => {
+    stopFlow(state.ui);
+    unmount.call(view);
   };
   view.state = state; // the tests read the sort and scope
   return view;

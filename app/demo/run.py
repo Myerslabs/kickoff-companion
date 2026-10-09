@@ -132,6 +132,10 @@ def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, t
         feeds_transport=httpx.MockTransport(sites.handler),
         weather_transport=httpx.MockTransport(sites.handler),
         logo_transport=httpx.MockTransport(DemoSites.media_handler),
+        wiki_transport=httpx.MockTransport(DemoSites.media_handler),
+        wiki_lookups=False,  # Phase 17 #4: the made-up teams are not on Wikipedia; every header link is a search
+        updates_transport=httpx.MockTransport(DemoSites.media_handler),
+        update_checks=False,  # Phase 16 wave 3: the demo never asks GitHub
     )
     state = application.state
     state.cfbd._clock = clock  # the engine, feeds, weather and every service read the client's clock

@@ -7,11 +7,14 @@ Two steps so typing never costs a call:
    week like a roster). CFBD answers with up to 100 names from every season on record (recorded
    2026-09-27: one surname found players from 2009 on), so this season's FBS players come first and can
    open a player card; former players are listed as such.
+3. Phase 17 (#8): when nothing local matches, up to three close spellings from the same local names
+   (difflib, no call), so "sanches" offers "Sanchez" instead of a dead end.
 """
 
 from __future__ import annotations
 
 import asyncio
+import difflib
 import re
 import unicodedata
 from typing import Any
@@ -30,6 +33,8 @@ MAX_TERM = 40
 TEAM_LIMIT = 8
 PLAYER_LIMIT = 12
 WIDE_LIMIT = 40
+SUGGEST_LIMIT = 3
+SUGGEST_CUTOFF = 0.75
 
 
 def fold(value: Any) -> str:
@@ -62,6 +67,20 @@ def score(term: str, *names: Any) -> int | None:
             continue
         best = s if best is None else min(best, s)
     return best
+
+
+def suggestions(term: str, names: list[Any]) -> list[str]:
+    """Close spellings of `term` among `names` (schools, mascots, players' full and last names): the names
+    themselves, most alike first, no duplicates. Compared folded, so case and accents never matter."""
+    if len(term) < MIN_WIDE:
+        return []
+    by_fold: dict[str, str] = {}
+    for name in names:
+        if isinstance(name, str) and name.strip():
+            by_fold.setdefault(fold(name), name.strip())
+    by_fold.pop("", None)
+    close = difflib.get_close_matches(term, list(by_fold), n=SUGGEST_LIMIT, cutoff=SUGGEST_CUTOFF)
+    return [by_fold[f] for f in close if f != term]
 
 
 class SearchService:
@@ -106,6 +125,14 @@ class SearchService:
                         s = 1
                     if s is not None:
                         players.append(self._player(p.id, full, p.team or owner, p.position, p.jersey, True, fbs, s))
+        suggest: list[str] = []
+        if len(term) >= MIN_LOCAL and not teams and not players:
+            names: list[Any] = [x for t in fbs.values() for x in (t.school, t.mascot)]
+            for name in ("roster", "opponentRoster"):
+                part = parts.get(name)
+                for p in part.records if part else []:
+                    names += [" ".join(x for x in (p.first_name, p.last_name) if x), p.last_name]
+            suggest = suggestions(term, names)
         teams.sort(key=lambda t: (t["_s"], not t["isUs"], t["school"] or ""))
         players.sort(key=lambda p: (p["_s"], not p["isUs"], p["name"] or ""))
 
@@ -137,6 +164,7 @@ class SearchService:
             "players": players[:PLAYER_LIMIT],
             "wide": wide_rows if wide else None,
             "wideNote": wide_note,
+            "suggest": suggest,
             "opponent": opponent,
             "minLocal": MIN_LOCAL,
             "minWide": MIN_WIDE,

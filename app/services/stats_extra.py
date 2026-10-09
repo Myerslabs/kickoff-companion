@@ -53,6 +53,76 @@ def blue_chip(classes: dict[int, list[Recruit]]) -> dict[str, Any]:
     return {"ratio": round(blue / signees, 3) if signees else None, "blueChips": blue, "signees": signees, "classes": per_class, "threshold": 0.5}
 
 
+def star_counts(classes: dict[int, list[Recruit]]) -> dict[str, Any]:
+    """Phase 17 #36: the signees of the same last four classes as the blue-chip ratio, counted by stars (5 to 1),
+    with the average of the rated ones. A signee with no star rating counts in `unrated`."""
+    counts = {str(n): 0 for n in range(5, 0, -1)}
+    rated: list[int] = []
+    unrated = 0
+    for year in sorted(classes)[-BLUE_CHIP_CLASSES:]:
+        for r in classes.get(year, []):
+            if not isinstance(r, Recruit):
+                continue
+            stars = r.stars if isinstance(r.stars, int) and not isinstance(r.stars, bool) else None
+            if stars is None or not 1 <= stars <= 5:
+                unrated += 1
+                continue
+            counts[str(stars)] += 1
+            rated.append(stars)
+    return {"counts": counts, "average": round(sum(rated) / len(rated), 2) if rated else None, "rated": len(rated), "unrated": unrated}
+
+
+# Phase 17 #24: recruiting by side of the ball, from the position each signee was recruited at (247's codes as
+# CFBD sends them). ATH (an athlete with no position yet) and the specialists are counted apart.
+OFFENSE_POSITIONS = frozenset({"QB", "PRO", "DUAL", "RB", "APB", "FB", "WR", "TE", "OT", "IOL", "OL", "OG", "C"})
+DEFENSE_POSITIONS = frozenset({"DL", "DT", "SDE", "WDE", "DE", "EDGE", "LB", "ILB", "OLB", "CB", "S", "SAF", "DB"})
+SPECIALIST_POSITIONS = frozenset({"K", "P", "LS"})
+
+
+def side_of(position: Any) -> str | None:
+    """"offense", "defense", "specialist", "athlete" (ATH), or None for a position the app doesn't know."""
+    code = position.strip().upper() if isinstance(position, str) else ""
+    if code in OFFENSE_POSITIONS:
+        return "offense"
+    if code in DEFENSE_POSITIONS:
+        return "defense"
+    if code in SPECIALIST_POSITIONS:
+        return "specialist"
+    if code == "ATH":
+        return "athlete"
+    return None
+
+
+def recruit_sides(classes: dict[int, list[Recruit]]) -> dict[str, Any]:
+    """Phase 17 #24: the last four classes (the blue-chip window) split into offense and defense: star counts,
+    average stars, blue-chip ratio and average rating for each side, with the athletes, specialists and
+    unknown positions counted apart."""
+    by_side: dict[str, list[Recruit]] = {"offense": [], "defense": []}
+    apart = {"athlete": 0, "specialist": 0, "unknown": 0}
+    for year in sorted(classes)[-BLUE_CHIP_CLASSES:]:
+        for r in classes.get(year, []):
+            if not isinstance(r, Recruit):
+                continue
+            side = side_of(r.position)
+            if side in by_side:
+                by_side[side].append(r)
+            else:
+                apart[side or "unknown"] += 1
+    out: dict[str, Any] = {}
+    for side, signees in by_side.items():
+        counts = star_counts({0: signees})
+        stars = [r.stars for r in signees if isinstance(r.stars, int) and not isinstance(r.stars, bool) and 1 <= r.stars <= 5]
+        ratings = [x for x in (num(r.rating) for r in signees) if x is not None and 0 < x <= 1]
+        out[side] = {
+            **counts,
+            "signees": len(signees),
+            "blueChipRatio": round(sum(1 for s in stars if s >= BLUE_CHIP_STARS) / len(signees), 3) if signees else None,
+            "averageRating": round(sum(ratings) / len(ratings), 4) if ratings else None,
+        }
+    out["apart"] = apart
+    return out
+
+
 def recruit_block(recruit: Recruit | None) -> dict[str, Any] | None:
     if recruit is None:
         return None

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from app.cache import DataKind
@@ -50,27 +50,30 @@ from app.cfbd.models import (
     Venue,
 )
 from app.config import Settings
-from app.feeds import FeedStore, merge_headlines
+from app.feeds import FeedStore, SeasonArchive, merge_headlines
 from app.services import context16, gamekeys
 from app.services.analytics import player_rows, season_average, team_game_rows
+from app.services.classes import class_fields
 from app.services.depth2 import adjusted_matchup, advanced_box, portal_index, tendencies, transfer_for
+from app.services.leader_lines import RankIndex, game_totals, leader_detail
 from app.services.lineup_stats import attach_lineup_stats
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches  # Phase 16 NV: the extra-call lists' keys and ranks
 from app.services.notes import load_notes
 from app.services.offday import common_opponents
+from app.services.paper import paper_weeks
 from app.services.parts import Assembled, Part, PartFetcher, assemble, calendar_slot, statuses
-from app.services.players import BOARDS, board_entries, lines_from
+from app.services.players import BOARDS, CATEGORIES, board_entries, fbs_lines, lines_from
 from app.services.profiles import PROFILE_ROWS, advanced_rows, profiles_for
 from app.services.ratings import fbs_set
-from app.services.stats_extra import RankTable, blue_chip, ppa_season_rows, returning_block, sp_tables, talent_lookup, usage_rows
+from app.services.season import standings_rows
+from app.services.season_notes import SeasonNotes
+from app.services.stats_extra import RankTable, blue_chip, ppa_season_rows, recruit_sides, returning_block, sp_tables, star_counts, talent_lookup, usage_rows
 from app.weather import NwsClient
 
 log = logging.getLogger("kickoff.program")
 
 POLL_NAMES = {"AP Top 25": "AP", "Coaches Poll": "Coaches", "Playoff Committee Rankings": "CFP"}
-CLASS_NAMES = {1: "FR", 2: "SO", 3: "JR", 4: "SR", 5: "GR"}
-OPEN_BEFORE_KICKOFF = timedelta(hours=1)
 SATURDAY = 5
 SIDE_BY_SIDE = [("passing", "YDS", "Passing yards"), ("rushing", "YDS", "Rushing yards"), ("receiving", "YDS", "Receiving yards"), ("defensive", "TOT", "Tackles"), ("defensive", "SACKS", "Sacks")]
 
@@ -110,6 +113,37 @@ def _split(value: Any) -> tuple[int | None, int | None]:
     return None, None
 
 
+
+def box_sides(teams_part: Part | None, players_part: Part | None, game: Game) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, list[dict[str, Any]]]]]:
+    """One game's team box ({school: totals}) and player lines ({school: {category: rows}}) from the
+    /games/teams and /games/players answers (a week-keyed answer can hold other games; only this one is read)."""
+    box = next((b for b in (teams_part.records if teams_part else []) if b.id == game.id), None)
+    sides: dict[str, dict[str, Any]] = {}
+    for side in (box.teams if box else []):
+        stats = {s.category: s.stat for s in side.stats}
+        third, fourth, pens = _split(stats.get("thirdDownEff")), _split(stats.get("fourthDownEff")), _split(stats.get("totalPenaltiesYards"))
+        comp = stats.get("completionAttempts")
+        sides[side.team or ""] = {
+            "team": side.team, "points": side.points,
+            "totalYards": _scalar(stats.get("totalYards")), "netPassingYards": _scalar(stats.get("netPassingYards")), "rushingYards": _scalar(stats.get("rushingYards")),
+            "firstDowns": _scalar(stats.get("firstDowns")), "thirdDown": {"made": third[0], "of": third[1]}, "fourthDown": {"made": fourth[0], "of": fourth[1]},
+            "turnovers": _scalar(stats.get("turnovers")), "penalties": {"count": pens[0], "yards": pens[1]}, "possessionTime": stats.get("possessionTime"),
+            "raw": {k: (v if isinstance(v, str) else _scalar(v)) for k, v in stats.items()}, "completionAttempts": comp,
+        }
+    players: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    pbox = next((b for b in (players_part.records if players_part else []) if b.id == game.id), None)
+    for side in (pbox.teams if pbox else []):
+        categories: dict[str, list[dict[str, Any]]] = {}
+        for category in side.categories:
+            rows: dict[str, dict[str, Any]] = {}
+            for stat_type in category.types:
+                for athlete in stat_type.athletes:
+                    row = rows.setdefault(athlete.id, {"playerId": athlete.id, "name": athlete.name, "stats": {}})
+                    row["stats"][stat_type.name] = _scalar(athlete.stat)
+            categories[category.name] = list(rows.values())
+        players[side.team or ""] = categories
+    return sides, players
+
 class ProgramService:
     def __init__(self, client: CfbdClient, settings: Settings, feeds: FeedStore, weather: NwsClient) -> None:
         self.client = client
@@ -117,6 +151,8 @@ class ProgramService:
         self.feeds = feeds
         self.weather = weather
         self.fetcher = PartFetcher(client, 4)
+        self.archive = SeasonArchive(settings.data_dir)  # Phase 17 #26: every headline this season
+        self.season_notes = SeasonNotes(settings.data_dir, settings.season)  # Phase 17 Part 3a: coaches, staffs, ages
 
     @property
     def year(self) -> int:
@@ -146,8 +182,11 @@ class ProgramService:
     # --- shared lookups -------------------------------------------------------------------------
 
     def _teams(self, part: Part) -> dict[str, dict[str, Any]]:
+        return self._teams_from(part.records)
+
+    def _teams_from(self, records: list[Any]) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
-        for t in part.records:
+        for t in records:
             if not t.school:
                 continue
             out[t.school] = {"school": t.school, "abbreviation": t.abbreviation, "mascot": t.mascot, "conference": t.conference, "color": t.color, "altColor": t.alternate_color, **logo_fields(t.id, t.logos)}  # Phase 16: local logo URLs
@@ -182,6 +221,16 @@ class ProgramService:
                 out[short] = {r.school: r.rank for r in poll.ranks if r.rank is not None}
         return out, latest.week
 
+    @staticmethod
+    def _team_standings(parts: dict[str, Part], teams: dict[str, dict[str, Any]], ranks: dict[str, dict[str, int]], school: str) -> dict[str, Any] | None:
+        """The standings of the team's own conference from /records (every team, already fetched). None for an
+        independent or a team /records doesn't list."""
+        rec = next((r for r in parts["records"].records if r.team == school), None)
+        conference = rec.conference if rec is not None else None
+        if not conference or conference.strip().lower() in ("fbs independents", "independent", "independents"):
+            return None
+        return {"conference": conference, "rows": standings_rows(parts["records"].records, teams, ranks.get("AP", {}), conference, school)}
+
     def _team_block(self, name: str | None, teams: dict[str, dict[str, Any]], records: dict[str, TeamRecords], ranks: dict[str, dict[str, int]]) -> dict[str, Any]:
         rec = records.get(name or "")
         return {
@@ -215,9 +264,10 @@ class ProgramService:
         parts = await self._core()
         game = self._pick_game(parts["schedule"].records, game_id)
         if game is None:
-            if game_id is not None:
-                return None
-            data = {"season": self.year, "game": None, "picker": [], "parts": statuses(parts, self.client._clock())}
+            if game_id is not None and parts["schedule"].ok:
+                return None  # a real miss: the id is not on our schedule
+            # No schedule at all (CFBD down, the quota, the breaker): the answer carries the part's error, never a 404
+            data = {"season": self.year, "gameId": game_id, "game": None, "picker": [], "parts": statuses(parts, self.client._clock())}
             return assemble(data, parts)
         home_is_us = game.home_team == self.team
         opponent = game.away_team if home_is_us else game.home_team
@@ -281,6 +331,7 @@ class ProgramService:
             them_top = board_entries(opp_lines, board)[:1]
             side_by_side.append({
                 "label": label,
+                "category": category,  # Phase 17 #17: matches the whole lines from /api/program/<id>/leaders
                 "stat": stat,
                 "format": board.format,
                 "us": {"playerId": us_top[0].player_id, "player": us_top[0].player, "position": us_top[0].position, "value": us_top[0].stats.get(stat), "headshotUrl": f"/media/headshot/{us_top[0].player_id}"} if us_top else None,
@@ -306,7 +357,7 @@ class ProgramService:
                 "neutralSite": bool(game.neutral_site),
                 "conferenceGame": game.conference_game,
                 "venue": game.venue,
-                "venueDetail": {"city": venue.city, "state": venue.state, "capacity": venue.capacity, "grass": venue.grass, "dome": venue.dome, "timezone": venue.timezone} if venue else None,
+                "venueDetail": {"name": venue.name, "city": venue.city, "state": venue.state, "capacity": venue.capacity, "grass": venue.grass, "dome": venue.dome, "timezone": venue.timezone} if venue else None,
                 "tv": tv,
                 "usPoints": game.home_points if home_is_us else game.away_points,
                 "themPoints": game.away_points if home_is_us else game.home_points,
@@ -329,7 +380,7 @@ class ProgramService:
             "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None) if "advancedBox" in parts else None,
             "leaders": side_by_side,
             "series": series,
-            "notes": self._notes_block(notes, notes_error, us_lines, opp_lines),
+            "notes": self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent),
             "final": final,
             "ppa": self._ppa_block(parts, opponent, us_week, them_week, us_last, them_last),
             "commonOpponents": common_opponents(parts["games"].records, self.team, opponent),  # Phase 15
@@ -406,6 +457,9 @@ class ProgramService:
         return {
             "school": school,
             "blueChip": extra.bluechip_block(blue_chip(classes), school) if classes else None,
+            "stars": star_counts(classes) if classes else None,  # Phase 17 #36: the same signees by stars
+            "sides": recruit_sides(classes) if classes else None,  # Phase 17 #24: offense and defense apart
+            "costs": self._cost_total(school),  # Phase 17 Part 3b: the rumored roster total, for the two-team table
             "talent": talent.get(school),
             "talentOf": len(talent) or None,
             "returning": extra.returning_block(returning_block(parts[f"returning_{prefix}"].records, school), school) if f"returning_{prefix}" in parts else None,
@@ -490,34 +544,186 @@ class ProgramService:
             "coaches": notes.coaches.model_dump() if notes.coaches else None,  # and both coaching staffs, from the notes
         }
 
+    def _cost_total(self, school: str | None) -> dict[str, Any] | None:
+        row = self.season_notes.costs_for(school)
+        if not row or row.get("totalUsd") is None:
+            return None
+        return {"totalUsd": row.get("totalUsd"), "note": row.get("note"), "asOf": row.get("asOf"), "savedAt": row.get("savedAt")}
+
+    def _staff(self, school: str) -> dict[str, Any] | None:
+        coaches = self.season_notes.coaches_for(school)
+        pre = self.season_notes.preseason_for(school)
+        full = [m.model_dump(exclude_none=True) for m in pre.staff] if pre else []
+        if not coaches and not full:
+            return None
+        return {
+            "headCoach": (coaches or {}).get("headCoach"),
+            "offensiveCoordinator": (coaches or {}).get("offensiveCoordinator"),
+            "defensiveCoordinator": (coaches or {}).get("defensiveCoordinator"),
+            "savedAt": (coaches or {}).get("savedAt"),
+            "full": full,
+        }
+
+    def _with_season_coaches(self, block: dict[str, Any], opponent: str | None) -> dict[str, Any]:
+        """Phase 17 Part 3a: each side's head coach and coordinators from the season's coaches batch where the game's
+        own notes name none (the notes are newer, so a name they give always stands)."""
+        coaches = block.get("coaches") if isinstance(block.get("coaches"), dict) else {}
+        filled = False
+        out = dict(coaches)
+        for side, school in (("us", self.team), ("them", opponent)):
+            season = self.season_notes.coaches_for(school)
+            if not season:
+                continue
+            have = dict(out.get(side) or {})
+            for key in ("headCoach", "offensiveCoordinator", "defensiveCoordinator"):
+                if not have.get(key) and season.get(key):
+                    have[key] = season[key]
+                    filled = True
+            have.setdefault("team", school)
+            out[side] = have
+        if filled:
+            out.setdefault("source", "The season's coaches load")
+            return {**block, "coaches": out}
+        return block
+
     def _final_box(self, parts: dict[str, Part], game: Game, opponent: str | None) -> dict[str, Any]:
-        teams_part, players_part = parts.get("boxTeams"), parts.get("boxPlayers")
-        box = next((b for b in (teams_part.records if teams_part else []) if b.id == game.id), None)
-        sides: dict[str, dict[str, Any]] = {}
-        for side in (box.teams if box else []):
-            stats = {s.category: s.stat for s in side.stats}
-            third, fourth, pens = _split(stats.get("thirdDownEff")), _split(stats.get("fourthDownEff")), _split(stats.get("totalPenaltiesYards"))
-            comp = stats.get("completionAttempts")
-            sides[side.team or ""] = {
-                "team": side.team, "points": side.points,
-                "totalYards": _scalar(stats.get("totalYards")), "netPassingYards": _scalar(stats.get("netPassingYards")), "rushingYards": _scalar(stats.get("rushingYards")),
-                "firstDowns": _scalar(stats.get("firstDowns")), "thirdDown": {"made": third[0], "of": third[1]}, "fourthDown": {"made": fourth[0], "of": fourth[1]},
-                "turnovers": _scalar(stats.get("turnovers")), "penalties": {"count": pens[0], "yards": pens[1]}, "possessionTime": stats.get("possessionTime"),
-                "raw": {k: (v if isinstance(v, str) else _scalar(v)) for k, v in stats.items()}, "completionAttempts": comp,
-            }
-        players: dict[str, dict[str, list[dict[str, Any]]]] = {}
-        pbox = next((b for b in (players_part.records if players_part else []) if b.id == game.id), None)
-        for side in (pbox.teams if pbox else []):
-            categories: dict[str, list[dict[str, Any]]] = {}
-            for category in side.categories:
-                rows: dict[str, dict[str, Any]] = {}
-                for stat_type in category.types:
-                    for athlete in stat_type.athletes:
-                        row = rows.setdefault(athlete.id, {"playerId": athlete.id, "name": athlete.name, "stats": {}})
-                        row["stats"][stat_type.name] = _scalar(athlete.stat)
-                categories[category.name] = list(rows.values())
-            players[side.team or ""] = categories
+        sides, players = box_sides(parts.get("boxTeams"), parts.get("boxPlayers"), game)
         return {"us": sides.get(self.team), "them": sides.get(opponent or ""), "players": {"us": players.get(self.team, {}), "them": players.get(opponent or "", {})}, "available": bool(sides)}
+
+    async def fbs_teams(self) -> list[Team]:
+        """CFBD's FBS teams this season (cached), for the season prompts' conferences and primary teams."""
+        return [t for t in (await self._core())["teams"].records if isinstance(t, Team)]
+
+    async def team_meta(self) -> dict[str, dict[str, Any]]:
+        """Every FBS team's school, mascot and conference from /teams/fbs (cached), for the Wikipedia lookups."""
+        return self._teams((await self._core())["teams"])
+
+    # --- Phase 17 #17: the leaders side by side, the whole line --------------------------------------
+
+    async def leaders(self, game_id: int | None) -> Assembled | None:
+        """The program's leaders with each one's whole line: every stat of the category with national and
+        conference ranks (from the national pulls the Leaders page caches), and the line over conference games
+        only (each conference game's /games/players box, cached for good: ours share the program's keys, so a
+        week costs the opponent's new games at most). Loaded by the band on its own, so the program stays fast."""
+        parts = await self._core()
+        game = self._pick_game(parts["schedule"].records, game_id)
+        if game is None:
+            if parts["schedule"].ok:
+                return None
+            return assemble({"gameId": game_id, "game": None, "parts": statuses(parts, self.client._clock())}, parts)
+        opponent = game.away_team if game.home_team == self.team else game.home_team
+        teams = self._teams(parts["teams"])
+        conference_of = {school: meta["conference"] for school, meta in teams.items() if isinstance(meta.get("conference"), str) and meta["conference"]}
+
+        def conference_games(team: str | None, pool: list[Game]) -> list[Game]:
+            if not team:
+                return []
+            seen: set[int] = set()
+            out = []
+            for g in sorted(pool, key=gamekeys.order):
+                if g.id in seen or not g.completed or g.conference_game is not True or team not in (g.home_team, g.away_team) or g.week is None:
+                    continue
+                seen.add(g.id)
+                out.append(g)
+            return out
+
+        ours = conference_games(self.team, parts["schedule"].records)
+        theirs = conference_games(opponent, parts["games"].records)
+        fetches = [
+            self._f("playersTeam", "/stats/player/season", {"year": self.year, "team": self.team}, PlayerStat, DataKind.SEASON_STATS),
+            *([self._f("playersOpponent", "/stats/player/season", {"year": self.year, "team": opponent}, PlayerStat, DataKind.SEASON_STATS)] if opponent else []),
+            *(self._f(f"national_{c}", "/stats/player/season", {"year": self.year, "category": c}, PlayerStat, DataKind.SEASON_STATS) for c in CATEGORIES if c in ("passing", "rushing", "receiving", "defensive")),
+            *(self._f(f"confBox_us_{g.id}", "/games/players", gamekeys.box_params(g, self.year, self.team), GamePlayerStats, DataKind.FINISHED_GAME) for g in ours),
+            *(self._f(f"confBox_them_{g.id}", "/games/players", gamekeys.box_params(g, self.year, opponent), GamePlayerStats, DataKind.FINISHED_GAME) for g in theirs if opponent),
+        ]
+        for part in await asyncio.gather(*fetches):
+            parts[part.name] = part
+        fbs = fbs_set(parts["teams"].records)
+        national = {c: fbs_lines(parts[f"national_{c}"].records, fbs) for c in ("passing", "rushing", "receiving", "defensive") if f"national_{c}" in parts}
+        index = RankIndex(national, conference_of)
+        boxes = lambda side, games: [b for g in games for b in (parts[f"confBox_{side}_{g.id}"].records if f"confBox_{side}_{g.id}" in parts else []) if b.id == g.id]  # noqa: E731 - read twice below
+        conf_us = game_totals(boxes("us", ours))
+        conf_them = game_totals(boxes("them", theirs))
+        us_lines = lines_from(parts["playersTeam"].records)
+        opp_lines = lines_from(parts["playersOpponent"].records) if "playersOpponent" in parts else {}
+
+        def side(lines: dict[tuple[str, str], Any], board: Any, conf: dict[tuple[str, str], dict[str, float]]) -> dict[str, Any] | None:
+            top = board_entries(lines, board)[:1]
+            if not top:
+                return None
+            line = top[0]
+            in_conf = conf.get((line.player_id, board.category))
+            return {
+                "playerId": line.player_id,
+                "player": line.player,
+                "position": line.position,
+                "value": line.stats.get(board.stat),
+                "headshotUrl": f"/media/headshot/{line.player_id}",
+                "detail": leader_detail(line, board.category, index),
+                "conferenceGames": {"stats": in_conf} if in_conf else None,
+            }
+
+        categories = []
+        for category, stat, label in SIDE_BY_SIDE:
+            board = next(b for b in BOARDS if b.category == category and b.stat == stat)
+            categories.append({"label": label, "category": category, "stat": stat, "format": board.format, "us": side(us_lines, board, conf_us), "them": side(opp_lines, board, conf_them)})
+        data = {
+            "gameId": game.id,
+            "categories": categories,
+            "conferenceGames": {
+                "us": {"games": len(ours), "conference": conference_of.get(self.team)},
+                "them": {"games": len(theirs), "conference": conference_of.get(opponent or "")},
+            },
+            "parts": statuses(parts, self.client._clock()),
+        }
+        return assemble(data, parts)
+
+    # --- Phase 17 #2: the box score of any game this season ----------------------------------------
+
+    async def box(self, game_id: int) -> Assembled | None:
+        """Any game of this season by id: the header from the season's game list (already cached), and once it
+        is final the team and player box from /games/teams and /games/players, cached for good (a final box
+        does not change). Our own games use the program's cache keys. None when the id is not a game this season."""
+        parts = await self._core()
+        game = next((g for g in [*parts["games"].records, *parts["schedule"].records] if g.id == game_id), None)
+        if game is None:
+            if parts["games"].ok:
+                return None
+            return assemble({"gameId": game_id, "game": None, "parts": statuses(parts, self.client._clock())}, parts)
+        home, away = game.home_team or "", game.away_team or ""
+        if game.completed and home:
+            keyed = self.team if self.team in (home, away) else home  # our games share the program's cache keys
+            boxes = await asyncio.gather(
+                self._f("boxTeams", "/games/teams", gamekeys.box_params(game, self.year, keyed), GameTeamStats, DataKind.FINISHED_GAME),
+                self._f("boxPlayers", "/games/players", gamekeys.box_params(game, self.year, keyed), GamePlayerStats, DataKind.FINISHED_GAME),
+            )
+            for part in boxes:
+                parts[part.name] = part
+        teams = self._teams(parts["teams"])
+        records = {r.team: r for r in parts["records"].records}
+        ranks, _ = self._poll_ranks(parts["rankings"])
+        sides, players = box_sides(parts.get("boxTeams"), parts.get("boxPlayers"), game)
+        kickoff_local = self._local(game.start_date)
+        data = {
+            "season": self.year,
+            "game": {
+                "gameId": game.id,
+                "week": game.week,
+                "postseason": gamekeys.label(game),
+                "kickoff": game.start_date,
+                "kickoffLocal": kickoff_local.isoformat() if kickoff_local else None,
+                "completed": bool(game.completed),
+                "neutralSite": bool(game.neutral_site),
+                "conferenceGame": game.conference_game,
+                "venue": game.venue,
+                "isOurs": self.team in (home, away),
+            },
+            "home": {**self._team_block(home or None, teams, records, ranks), "points": game.home_points, "lineScores": game.home_line_scores},
+            "away": {**self._team_block(away or None, teams, records, ranks), "points": game.away_points, "lineScores": game.away_line_scores},
+            "final": {"home": sides.get(home), "away": sides.get(away), "players": {"home": players.get(home, {}), "away": players.get(away, {})}, "available": bool(sides)},
+            "parts": statuses(parts, self.client._clock()),
+        }
+        return assemble(data, parts)
 
     # --- the newspaper (N1 to N4) -------------------------------------------------------------------
 
@@ -530,11 +736,9 @@ class ProgramService:
         game = todays[0] if todays else None
         next_game = self._pick_game(games, None)
         game_day = game is not None
-        kickoff_local = self._local(game.start_date) if game else None
-        opens_here = bool(game_day and kickoff_local and now_local < kickoff_local - OPEN_BEFORE_KICKOFF and not game.completed)
-
-        # Phase 12: a Saturday in the regular season we do not play (a bye) still gets the
-        # slate, from CFBD's calendar week, and the app opens here all that day.
+        # Phase 12: a Saturday in the regular season we do not play (a bye) still gets the slate, from CFBD's
+        # calendar week. (Phase 17 #32: the app always opens on the Game program, so the paper no longer says
+        # whether it opens here.)
         slate_week = game.week if game_day else None
         slate_type = (game.season_type or "regular") if game_day else "regular"
         bye = False
@@ -549,7 +753,6 @@ class ProgramService:
             elif slot is not None and now_local.weekday() == SATURDAY:
                 slate_week, slate_type = slot
                 bye = True
-                opens_here = True
 
         slate: list[dict[str, Any]] = []
         if slate_week is not None:
@@ -568,6 +771,16 @@ class ProgramService:
 
         feed_results = await self.feeds.all()
         now = self.client._clock()
+        # Phase 17 #26: the season's headlines by game week, with a topic and the players each names. The rosters
+        # are ours and the next opponent's (both kept a week, as on the program); a failed one only names fewer.
+        roster_parts = [await self._f("roster", "/roster", {"team": self.team, "year": self.year}, RosterPlayer, DataKind.ROSTER)]
+        next_opponent = (next_game.away_team if next_game.home_team == self.team else next_game.home_team) if next_game else None
+        if next_opponent:
+            roster_parts.append(await self._f("opponentRoster", "/roster", {"team": next_opponent, "year": self.year}, RosterPlayer, DataKind.ROSTER))
+        for part in roster_parts:
+            parts[part.name] = part
+        rosters = [(self.team, parts["roster"].records)] + ([(next_opponent, parts["opponentRoster"].records)] if "opponentRoster" in parts else [])
+        weeks = paper_weeks(self.archive.add(self.year, feed_results), games, self.team, tz=self.settings.tzinfo, rosters=rosters)
         data = {
             "season": self.year,
             "today": today.isoformat(),
@@ -575,13 +788,13 @@ class ProgramService:
             "slateDay": slate_week is not None,
             "byeWeek": bye,
             "slateWeek": slate_week,
-            "opensHere": opens_here,
             "kickoff": game.start_date if game else None,
             "gameId": game.id if game else None,
             "nextGame": {"gameId": next_game.id, "date": next_game.start_date, "opponent": next_game.away_team if next_game.home_team == self.team else next_game.home_team} if next_game else None,
             "slate": slate,
             "slateNote": None if slate_week is not None else "The slate shows on Saturdays in the season. Headlines are here every day.",
             "news": merge_headlines(feed_results),
+            "weeks": weeks,
             "feeds": {r.feed.id: {"name": r.feed.name, **r.status(now)} for r in feed_results},
             "parts": statuses(parts, now),
         }
@@ -614,6 +827,36 @@ class ProgramService:
         lines = {b.id: b for b in parts["weekLines"].records}
         wp = {p.game_id: p for p in parts["weekPregame"].records}
         media = {m.id: m.outlet for m in parts["weekMedia"].records if (m.media_type or "").lower() == "tv" and m.outlet}
+        # Final pass (N2): points and yards a game with their national ranks for both teams, and the biggest edge of the
+        # matchup, from the same profiles every page ranks with (no extra call: the stats are already in the core parts)
+        profiles = profiles_for(parts["stats"].records, parts["games"].records, parts["schedule"].records, self.settings.conference, self.team) if parts["stats"].ok else None
+        card_specs = [spec for spec in PROFILE_ROWS if spec[2] in ("ppg", "ypg")]
+
+        def card_rows(team: str | None) -> list[dict[str, Any]] | None:
+            if profiles is None or not team:
+                return None
+            rows = []
+            for spec in card_specs:
+                row = profiles.row(team, *spec)
+                if row.get("value") is None:
+                    continue
+                rows.append({"key": spec[2], "label": spec[1], "value": row.get("value"), "format": spec[4], "rank": row.get("nationalRank"), "of": row.get("nationalOf"), "metric": f"profile:{spec[2]}"})
+            return rows or None
+
+        def biggest_edge(home: str | None, away: str | None) -> dict[str, Any] | None:
+            if profiles is None or not home or not away:
+                return None
+            try:
+                edges = profiles.edges(home, away)  # "us" is the home team here
+            except Exception:  # noqa: BLE001 - a slate card never fails the paper over one pairing; logged by the caller
+                log.exception("No edge for %s at %s", away, home)
+                return None
+            if not edges:
+                return None
+            top = edges[0]
+            unit = str(top.get("label") or "").split(":")[0].strip()
+            return {"stat": unit, "side": top.get("side"), "edge": top.get("edge"), "homeRank": top.get("usRank"), "awayRank": top.get("themRank")}
+
         out = []
         for g in parts["weekGames"].records:
             local = self._local(g.start_date)
@@ -632,6 +875,8 @@ class ProgramService:
                 "line": {"spread": line.spread, "formatted": line.formatted_spread, "overUnder": line.over_under} if line else None,
                 "homeWinProbability": wp[g.id].home_win_probability if g.id in wp else None,
                 "watch": None if self.team in (g.home_team, g.away_team) else watch,  # "next": our next opponent plays; "future": a later one
+                "stats": {"home": card_rows(g.home_team), "away": card_rows(g.away_team)},  # N2 (final pass)
+                "edge": biggest_edge(g.home_team, g.away_team),
             })
         out.sort(key=lambda s: (not s["isUs"], {"next": 0, "future": 1}.get(s.get("watch") or "", 2), s.get("kickoff") or ""))
         return out
@@ -676,8 +921,10 @@ class ProgramService:
             schedule.append({"gameId": g.id, "week": g.week, "postseason": gamekeys.label(g), "date": g.start_date, "startTimeTbd": bool(g.start_time_tbd), "opponent": {**teams.get(opponent or "", {}), "school": opponent, "apRank": ranks.get("AP", {}).get(opponent or "")}, "homeAway": "neutral" if g.neutral_site else ("home" if home else "away"), "completed": bool(g.completed), "result": result, "usPoints": us, "themPoints": them, "tv": tv.get(g.id), "venue": g.venue})
         roster = []
         transfers = portal_index(parts["portal"].records, school) if "portal" in parts else {}
+        today = self.client._clock().astimezone(self.settings.tzinfo).date()
         for p in parts["teamRoster"].records:
-            roster.append({"transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": " ".join(x for x in (p.first_name, p.last_name) if x) or None, "position": p.position, "classYear": CLASS_NAMES.get(p.year or 0), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}"})
+            age, born = self.season_notes.age(school, " ".join(x for x in (p.first_name, p.last_name) if x), today)  # Phase 17 #38
+            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": " ".join(x for x in (p.first_name, p.last_name) if x) or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}"})
         roster.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"] or ""))
         coaches = []
         for c in parts["coaches"].records:
@@ -694,6 +941,9 @@ class ProgramService:
             "schedule": schedule,
             "roster": roster,
             "coaches": coaches,
+            "standings": self._team_standings(parts, teams, ranks, school),
+            "staff": self._staff(school),  # Phase 17 Part 3a: coordinators for every team, the full staff for primaries
+            "costs": self.season_notes.costs_for(school),  # Phase 17 Part 3b: rumored roster costs  # Phase 17 #2: the conference record chip opens these
             "series": self._series(parts["series"].records, school) if "series" in parts else None,
             "recruiting": self._team_recruiting(parts, school, "team"),
             "playValue": {"players": ppa_season_rows(parts["ppaSeason_team"].records, school, 10)[:10] if "ppaSeason_team" in parts else [], "usage": usage_rows(parts["usage_team"].records, school)[:10] if "usage_team" in parts else []},

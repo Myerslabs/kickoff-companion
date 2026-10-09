@@ -15,7 +15,7 @@
 
 import { usLabel, usSchool } from "../identity.js";
 import { weekCell } from "./weeks.js";
-import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, teamLink, text } from "./dom.js";
+import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, records, teamLink, text } from "./dom.js";
 import { metricLink, nationalHref, pollHref } from "./national-link.js";
 import { note } from "./states.js";
 import { pollBadge, rankChip, statTable } from "./stat-table.js";
@@ -25,10 +25,6 @@ const h4 = (label) => el("h4", { class: "d2-head" }, label);
 /** A value in its format, or a dash. */
 function show(value, format) {
   return isNum(value) ? fmtStat(value, format || "2f") : DASH;
-}
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((r) => r && typeof r === "object") : [];
 }
 
 /** Rows grouped by their `group`, in first-seen order. Exported for the tests. */
@@ -42,8 +38,10 @@ export function groupRows(rows) {
   return groups;
 }
 
-/** A value column: the number right-aligned in the stat face with its national chip in the same cell (G3-02). */
-export function valueColumn({ label = "Value", team, year, rankKey = "nationalRank", ofKey = "nationalOf", key = "value" } = {}) {
+/** A value column: the number right-aligned in the stat face with its national chip in the same cell (G3-02).
+ *  Phase 17 #27: the header names both ("Value, FBS rank"). */
+export const VALUE_RANK_LABEL = "Value, FBS rank";
+export function valueColumn({ label = VALUE_RANK_LABEL, team, year, rankKey = "nationalRank", ofKey = "nationalOf", key = "value" } = {}) {
   return {
     key,
     label,
@@ -144,7 +142,7 @@ export function advancedPaired(rows, { team } = {}) {
 import { twoTeamTable as programTwoTeam } from "./two-team.js";
 import { subhead as programSubhead } from "./states.js";
 
-export function matchupGroups(usRows, themRows, { usAbbr = usLabel(), themAbbr = DASH, usTeam, themTeam, ladder = false } = {}) {
+export function matchupGroups(usRows, themRows, { usAbbr = usLabel(), themAbbr = DASH, usTeam, themTeam, ladder = false, tug = false } = {}) {
   const them = new Map(records(themRows).map((r) => [r.key, r]));
   const joined = records(usRows).map((r) => {
     const t = them.get(r.key) || {};
@@ -155,16 +153,16 @@ export function matchupGroups(usRows, themRows, { usAbbr = usLabel(), themAbbr =
   return el(
     "div",
     { class: "d2" },
-    programTwoTeam({ groups, usAbbr, themAbbr, usTeam, themTeam, ladder, caption: "Advanced matchup" }),
+    programTwoTeam({ groups, usAbbr, themAbbr, usTeam, themTeam, ladder, tug, caption: "Advanced matchup" }),
     note("Each team's own season, with its national rank among FBS teams: 1 is the best on that measure, whichever way the number runs. Tap a rank for the national list."),
   );
 }
 
-export function adjustedMatchup(rows, { usAbbr = usLabel(), themAbbr = DASH, usTeam, themTeam, ladder = false } = {}) {
+export function adjustedMatchup(rows, { usAbbr = usLabel(), themAbbr = DASH, usTeam, themTeam, ladder = false, tug = false } = {}) {
   const list = records(rows);
   if (!list.some((r) => isNum(r.us) || isNum(r.them))) return note("CFBD has not published opponent-adjusted numbers for this season yet; they appear here when it does.");
   const shaped = list.map((r) => ({ label: r.label, format: r.format, metric: r.metric, higherIsBetter: r.higherIsBetter, us: { value: r.us, rank: r.usRank, of: r.of }, them: { value: r.them, rank: r.themRank, of: r.of } }));
-  return el("div", {}, programTwoTeam({ rows: shaped, usAbbr, themAbbr, usTeam, themTeam, ladder, labelHead: "Adjusted for opponents", caption: "Adjusted for opponents" }), note("CFBD's WEPA: EPA and success rate weighted for the strength of the opponents faced."));
+  return el("div", {}, programTwoTeam({ rows: shaped, usAbbr, themAbbr, usTeam, themTeam, ladder, tug, labelHead: "Adjusted for opponents", caption: "Adjusted for opponents" }), note("CFBD's WEPA: EPA and success rate weighted for the strength of the opponents faced."));
 }
 
 // --- the résumé -----------------------------------------------------------------------------------------
@@ -214,7 +212,7 @@ const madeOf = (s) => (s && isNum(s.made) && isNum(s.of) && s.of > 0 ? `${s.made
 const LANES = [["left", "Left"], ["middle", "Middle"], ["right", "Right"]];
 
 function rateText(value) {
-  return isNum(value) ? fmtPct(value) : DASH;
+  return isNum(value) ? fmtPct(value, 1) : DASH;
 }
 
 function countOf(value) {
@@ -351,7 +349,7 @@ export function advancedBoxBlock(box, { us = usSchool(), them = null, usAbbr = u
     pair("Havoc, secondary", (t) => t.havoc?.db, "pct"),
     pair("Average start, yards to goal", (t) => t.fieldPosition?.averageStart, "1f"),
     pair("Scoring chances", (t) => t.scoring?.opportunities, "0f"),
-    pair("Points per chance", (t) => t.scoring?.pointsPerOpportunity, "2f"),
+    pair("Points per scoring chance", (t) => t.scoring?.pointsPerOpportunity, "2f"),
   ];
   const players = records(box.players).map((p) => ({ ...p, side: p.team === us ? usAbbr : themAbbr }));
   const playerColumns = [{ key: "player", label: "Player", kind: "text", sub: "position" }, { key: "side", label: "Team", kind: "text" }, { key: "ppa", label: "PPA/play", format: "+2f" }, { key: "passPpa", label: "Pass", format: "+2f" }, { key: "rushPpa", label: "Rush", format: "+2f" }, { key: "totalPpa", label: "Total PPA", format: "+1f" }, { key: "usage", label: "Usage", format: "pct" }];

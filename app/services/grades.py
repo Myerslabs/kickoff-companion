@@ -199,7 +199,10 @@ def team_games(games: Iterable[Game]) -> dict[str, int]:
 
 
 def _percentiles(values: dict[str, float], higher: bool) -> dict[str, float]:
-    """Mid-rank percentile, 0 to 100, best = highest; one value alone is the middle."""
+    """Mid-rank percentile, 0 to 100, best = highest; one value alone is the middle. Phase 17 (owner 2026-10-07): when
+    higher is better, the players tied at the lowest value (most often zero: no interceptions, no passes defended)
+    rank below everyone above them, at the bottom of the tie, instead of in its middle; a crowd at zero put 0
+    interceptions near the 42nd percentile."""
     ordered = sorted(values.values())
     n = len(ordered)
     out: dict[str, float] = {}
@@ -211,6 +214,8 @@ def _percentiles(values: dict[str, float], higher: bool) -> dict[str, float]:
         below = bisect.bisect_left(ordered, value)
         equal = bisect.bisect_right(ordered, value) - below
         share = (below + 0.5 * equal) / n
+        if higher and below == 0 and equal < n:  # the floor, with someone above it: the bottom, not the middle
+            share = 0.0
         out[pid] = round(100 * (share if higher else 1 - share), 1)
     return out
 

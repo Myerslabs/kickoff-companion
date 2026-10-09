@@ -21,8 +21,19 @@ export function noteBuild(id) {
   return true;
 }
 
+let restartAnnounced = false;
+
+/** Phase 16 wave 3: the server's own code changed on disk (meta.restartNeeded); one "kickoff:restart-needed" event. */
+export function noteRestart(flag) {
+  if (flag !== true || restartAnnounced) return false;
+  restartAnnounced = true;
+  if (typeof document !== "undefined" && typeof CustomEvent === "function") document.dispatchEvent(new CustomEvent("kickoff:restart-needed"));
+  return true;
+}
+
 /** For the tests: forget what was seen. */
 export function resetBuild() {
   first = null;
   announced = false;
+  restartAnnounced = false;
 }

@@ -24,12 +24,14 @@ from app.services.context16 import POLL_NAMES, _r, elo_path, form_for, form_tabl
 from app.services.logos import logo_fields
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
 from app.services.profiles import PROFILE_ROWS, Profiles, advanced_rows
+from app.services.stats_extra import sp_tables, talent_lookup
 
 log = logging.getLogger("kickoff.matchup")
 
 NAME_LIMIT = 60
 SLATE_WINDOW = timedelta(days=7)  # a game between the two within a week of now is "on this week's slate"
 ADVANCED_GROUP = "Overall"  # the sheet keeps CFBD's headline efficiency rows; the program shows the rest
+SIDE_GROUPS = {"offense": "Offense", "defense": "Defense", "both": "Both sides"}  # final pass: the sheet groups by side, like the matchup card
 
 
 class UnknownTeam(LookupError):
@@ -102,20 +104,25 @@ def talent_ranks(records: list[TeamTalent]) -> dict[str, dict[str, Any]]:
 
 
 def two_team_rows(profiles: Profiles, advanced: list[AdvancedSeasonStat], away: str, home: str) -> list[dict[str, Any]]:
-    """One row per stat with both teams' value and national rank: the per-game profile, then CFBD's
-    headline efficiency rows."""
-    rows = []
-    for spec in PROFILE_ROWS:
-        a, h = profiles.row(away, *spec), profiles.row(home, *spec)
-        rows.append({"group": "Per game", "side": spec[0], "label": spec[1], "key": spec[2], "metric": f"profile:{spec[2]}", "format": spec[4], "higherIsBetter": spec[3], "of": a.get("nationalOf") or h.get("nationalOf"),
-                     "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
+    """One row per stat with both teams' value and national rank, grouped by the side of the ball (final pass,
+    sides-3: the old "Per game" group held rates and a season total): each side's per-game profile rows, then
+    CFBD's headline efficiency rows for that side."""
     away_adv = {r["key"]: r for r in advanced_rows(advanced, away)}
-    for h in advanced_rows(advanced, home):
-        if h.get("group") != ADVANCED_GROUP:
-            continue
-        a = away_adv.get(h["key"], {})
-        rows.append({"group": "Efficiency", "side": h["side"], "label": h["label"], "key": h["key"], "metric": h.get("metric") or f"advanced:{h['key']}", "format": h["format"], "higherIsBetter": h["higherIsBetter"], "of": h.get("nationalOf"),
-                     "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
+    home_adv = [r for r in advanced_rows(advanced, home) if r.get("group") == ADVANCED_GROUP]
+    rows = []
+    for side, group in SIDE_GROUPS.items():
+        for spec in PROFILE_ROWS:
+            if spec[0] != side:
+                continue
+            a, h = profiles.row(away, *spec), profiles.row(home, *spec)
+            rows.append({"group": group, "side": side, "label": spec[1], "key": spec[2], "metric": f"profile:{spec[2]}", "format": spec[4], "higherIsBetter": spec[3], "of": a.get("nationalOf") or h.get("nationalOf"),
+                         "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
+        for h in home_adv:
+            if h.get("side") != side:
+                continue
+            a = away_adv.get(h["key"], {})
+            rows.append({"group": group, "side": side, "label": h["label"], "key": h["key"], "metric": h.get("metric") or f"advanced:{h['key']}", "format": h["format"], "higherIsBetter": h["higherIsBetter"], "of": a.get("nationalOf") or h.get("nationalOf"),
+                         "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
     return rows
 
 
@@ -169,7 +176,10 @@ class MatchupService:
         ranks, poll_week = latest_ranks(parts["rankings"].records)
         records = {r.team: r for r in parts["records"].records if isinstance(r, TeamRecords)}
         sp = {r.team: r for r in parts["sp"].records if isinstance(r, TeamSP) and r.team}
-        talent = talent_ranks(parts["talent"].records)
+        # final pass (sides-9, sides-10, backend-pages-9): SP+ and talent ranked over the FBS field with the program's rating tables
+        fbs = {t.school for t in teams_part.records if isinstance(t, Team) and t.school} or None
+        sp_table = sp_tables([r for r in parts["sp"].records if isinstance(r, TeamSP)], fbs)["sp"]
+        talent = talent_lookup([r for r in parts["talent"].records if isinstance(r, TeamTalent)], fbs)
         form = form_table(parts["games"].records)
         meta = {t.school: t for t in teams_part.records if isinstance(t, Team) and t.school}
 
@@ -181,7 +191,7 @@ class MatchupService:
                 "isUs": school == self.settings.team,
                 "record": _record(rec.total) if rec else None, "conferenceRecord": _record(rec.conference_games) if rec else None,
                 "apRank": ranks.get("AP", {}).get(school), "coachesRank": ranks.get("Coaches", {}).get(school), "cfpRank": ranks.get("CFP", {}).get(school),
-                "sp": {"rating": _r(rating.rating, 1), "rank": whole(rating.ranking),
+                "sp": {"rating": _r(rating.rating, 1), "rank": sp_table.rank(school) or whole(rating.ranking), "of": sp_table.of or None,
                        "offense": {"rating": _r(rating.offense.rating, 1) if rating.offense else None, "rank": whole(rating.offense.ranking) if rating.offense else None},
                        "defense": {"rating": _r(rating.defense.rating, 1) if rating.defense else None, "rank": whole(rating.defense.ranking) if rating.defense else None}} if rating else None,
                 "talent": talent.get(school),

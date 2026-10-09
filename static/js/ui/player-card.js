@@ -11,12 +11,15 @@
 //           one heading style (cardHeading, the DS-14 sub-heading with .player-card__h).
 //   LRP-11  a thin top edge (the accent for ours, --opp for others), the team as a link in the bio line,
 //           History's Team column and the transfer school as links.
-//   LRP-13  the star line reads "★★★★☆ 94 · #123 nat": the rating on the 0-100 scale in its tier color, the
-//           recruit rank as a chip (it links to the recruit list once the row carries its list key).
+//   LRP-13  the star line reads (four stars of five) "Recruit rating 94 · #123 nationally": the rating on the 0-100 scale in its
+//           tier color, the recruit rank as a chip (it links to the recruit list once the row carries its list key).
+//           Phase 17 (owner 2026-10-07: "what are these numbers?"): both are labelled as recruiting numbers, so the
+//           rating is never read as a second stat grade beside the Grade tab.
 //   GX-13   (restrained) a 96x28 sparkline beside each Stats heading that has a trend, latest value labelled;
 //           a 96 px headshot on navy with no color band.
 
-import { DASH, el, fmtNum, fmtStat, isNum, layerZ, playerFace, rating100, ratingTier, retireLayer, starCount, syncPageLock, teamLink, text } from "./dom.js";
+import { icon } from "./icons.js";
+import { DASH, el, fmtDate, fmtNum, fmtStat, isNum, layerZ, playerFace, rating100, ratingTier, retireLayer, starCount, swipeToClose, syncPageLock, teamLink, text } from "./dom.js";
 import { nationalHref } from "./national-link.js";
 import { sparkline } from "./sparkline.js";
 import { subhead } from "./states.js";
@@ -46,7 +49,7 @@ function face(player, them) {
   return el("div", { class: `player-card__face${them ? " player-card__face--them" : ""}` }, playerFace(player, { them, abbr: str(player.teamAbbr) || undefined, size: 96 }));
 }
 
-/** "★★★★☆ 94 · #123 nat", or null when the player has no stars on record. */
+/** Four stars of five, then "Recruit rating 94 · #123 nationally", or null when the player has no stars on record. */
 function starLine(player) {
   const count = starCount(player.stars);
   if (count === null) return null;
@@ -56,15 +59,15 @@ function starLine(player) {
   return el(
     "div",
     { class: "player-card__stars" },
-    el("span", { class: "stars", title: `${count}-star recruit` }, "★".repeat(count), "☆".repeat(5 - count)),
+    el("span", { class: "stars", title: `${count}-star recruit`, role: "img", "aria-label": `${count}-star recruit` }, Array.from({ length: 5 }, (_, i) => icon(i < count ? "star" : "star-empty"))),
     score !== null || chip
       ? el(
           "span",
           { class: "player-card__rating" },
-          score !== null ? el("span", { class: `rating${tier ? ` rating--${tier}` : ""}`, title: "247 composite rating" }, String(score)) : null,
+          score !== null ? [el("span", { class: "player-card__rating-label" }, "Recruit rating "), el("span", { class: `rating${tier ? ` rating--${tier}` : ""}`, title: "247Sports composite rating out of high school, 0 to 100" }, String(score))] : null,
           score !== null && chip ? " · " : null,
           chip,
-          chip ? " nat" : null,
+          chip ? " nationally" : null,
         )
       : null,
   );
@@ -139,10 +142,10 @@ function tabbed(panels, selected) {
   return el("div", { class: "player-card__tabbed" }, el("div", { class: "player-card__tabs", role: "tablist" }, buttons), bodies);
 }
 
-/** "From Baylor, 3★ in the portal, 0.8900, entered Jan 4, 2026, immediate" from the portal record, or null (Phase 13). Exported for the tests. */
+/** "From Baylor, 3-star in the portal, 0.8900, entered Jan 4, 2026, immediate" from the portal record, or null (Phase 13). Exported for the tests. */
 export function transferText(transfer) {
   if (!transfer || typeof transfer !== "object" || typeof transfer.from !== "string" || !transfer.from) return null;
-  const parts = [`From ${transfer.from}`, isNum(transfer.stars) && transfer.stars > 0 ? `${transfer.stars}★ in the portal` : null, isNum(transfer.rating) ? Number(transfer.rating).toFixed(4) : null, typeof transfer.date === "string" && transfer.date ? `entered ${transfer.date}` : null, typeof transfer.eligibility === "string" && transfer.eligibility ? text(transfer.eligibility).toLowerCase() : null];
+  const parts = [`From ${transfer.from}`, isNum(transfer.stars) && transfer.stars > 0 ? `${transfer.stars}-star in the portal` : null, isNum(transfer.rating) ? Number(transfer.rating).toFixed(4) : null, typeof transfer.date === "string" && transfer.date ? `entered ${transfer.date}` : null, typeof transfer.eligibility === "string" && transfer.eligibility ? text(transfer.eligibility).toLowerCase() : null];
   return parts.filter(Boolean).join(", ");
 }
 
@@ -152,7 +155,7 @@ function transferFact(transfer) {
   if (!transfer || typeof transfer !== "object" || !from) return null;
   const score = rating100(transfer.rating);
   const rest = [
-    isNum(transfer.stars) && transfer.stars > 0 ? `${transfer.stars}★ in the portal` : null,
+    isNum(transfer.stars) && transfer.stars > 0 ? `${transfer.stars}-star in the portal` : null,
     score !== null ? `rated ${score}` : null,
     typeof transfer.date === "string" && transfer.date ? `entered ${transfer.date}` : null,
     typeof transfer.eligibility === "string" && transfer.eligibility ? text(transfer.eligibility).toLowerCase() : null,
@@ -198,10 +201,12 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
   const p = player && typeof player === "object" ? player : {};
   const stats = Array.isArray(seasonStats) ? seasonStats.filter((r) => r && typeof r === "object") : [];
   const log = Array.isArray(gameLog) ? gameLog.filter((r) => r && typeof r === "object") : [];
-  const past = Array.isArray(history) ? history.filter((r) => r && typeof r === "object") : [];
+  const yearOf = (r) => (isNum(Number(r.year)) ? Number(r.year) : -Infinity);
+  const past = (Array.isArray(history) ? history.filter((r) => r && typeof r === "object") : []).sort((a, b) => yearOf(b) - yearOf(a)); // newest first (owner, 2026-10-08)
   const recruit = recruitText(p.recruit, p.position);
   const transfer = transferFact(p.transfer);
   const facts = [
+    ...(isNum(p.age) ? [["Age", `${p.age}${typeof p.born === "string" && p.born ? ` (born ${fmtDate(p.born, "long")})` : ""}`]] : []), // Phase 17 #38: from the preseason load
     ["Height, weight", `${fmtHeight(p.height)}, ${isNum(p.weight) ? `${p.weight} lb` : DASH}`],
     ["Hometown", text(p.hometown)],
     ["High school", text(p.highSchool)],
@@ -228,19 +233,24 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
   const historyPanel = loading
     ? skeletonPanel()
     : past.length
-      ? statTable({
-          compact: true,
-          sortable: false,
-          columns: [
-            { key: "year", label: "Year", kind: "text" },
-            { key: "team", label: "Team", kind: "text", team: true },
-            { key: "classYear", label: "Class", kind: "text" },
-            { key: "position", label: "Pos", kind: "text" },
-            { key: "number", label: "No." },
-          ],
-          rows: past,
-        })
-      : el("p", { class: "note" }, "No roster history for this player. Earlier seasons come from one roster call per year.");
+      ? el(
+          "div",
+          {},
+          statTable({
+            compact: true,
+            sortable: false,
+            columns: [
+              { key: "year", label: "Year", kind: "text" },
+              { key: "team", label: "Team", kind: "text", team: true },
+              { key: "classYear", label: "Class", kind: "text" },
+              { key: "position", label: "Pos", kind: "text" },
+              { key: "number", label: "No." },
+            ],
+            rows: past,
+          }),
+          past.length > 1 ? el("p", { class: "note" }, "Earlier classes count back a year a season from the latest one; a redshirt year does not show.") : null,
+        )
+      : el("p", { class: "note" }, "No roster history for this player yet.");
 
   const name = `${isNum(p.number) ? `#${p.number} ` : ""}${text(p.name)}`;
   return el(
@@ -316,6 +326,7 @@ export function openPlayerCard(props) {
   };
   let article = playerCard({ ...props, onClose: close });
   layer.append(el("div", { class: "card-layer__scrim", onclick: close }), article);
+  swipeToClose(article, close); // Phase 16 wave 3 (2B): a swipe right closes the card
   document.body.append(layer);
   document.addEventListener("keydown", onKey);
   document.addEventListener("kickoff:route", close); // bug 10: a link inside the card changes the page under it

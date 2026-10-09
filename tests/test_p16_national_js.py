@@ -355,7 +355,7 @@ scenarios.bars = async () => {
   const list = nationalListBody({ data: { ...data, rows: [...data.rows, { rank: 6, team: "Kansas", conference: "Big 12", value: 5.0 }] } });
   clean("list with bars", list);
   const heads = list.querySelectorAll("thead th").map((th) => text(th));
-  assert.deepEqual(heads, ["Rk", "Team", "Value", "Pctl"]);
+  assert.deepEqual(heads, ["FBS rank", "Team", "Value", "Pctl"]);
   assert.ok(list.querySelector(".nat-strip"));
   assert.ok(list.querySelectorAll(".nat-bar").length >= 5);
   const players = nationalListBody({ data: playerList() });
@@ -372,7 +372,7 @@ function matchupData() {
     home: { school: "Swampwater Tech", abbreviation: "SWT", isUs: true, record: { wins: 3, losses: 0 }, sp: { rating: 19.4, rank: 13 }, talent: { talent: 891, rank: 10, of: 138 }, form: [] },
     rows: [
       { group: "Per game", side: "offense", label: "Yards per play", key: "ypp", metric: "profile:ypp", format: "1f", higherIsBetter: true, of: 138, away: { value: 6.4, rank: 57 }, home: { value: 8.0, rank: 5 } },
-      { group: "Per game", side: "defense", label: "Opp yards per play", key: "ypp_d", metric: "profile:ypp_d", format: "1f", higherIsBetter: false, of: 138, away: { value: 5.6, rank: 80 }, home: { value: 4.5, rank: 20 } },
+      { group: "Per game", side: "defense", label: "Yards allowed per play", key: "ypp_d", metric: "profile:ypp_d", format: "1f", higherIsBetter: false, of: 138, away: { value: 5.6, rank: 80 }, home: { value: 4.5, rank: 20 } },
     ],
     game: { status: "scheduled", kickoff: "2026-09-26T23:30:00Z", startTimeTbd: false, venue: "Swampwater Tech Memorial Stadium", neutralSite: false, homePoints: null, awayPoints: null },
     pollWeek: 5,
@@ -388,11 +388,17 @@ scenarios.matchup = async () => {
   assert.ok(table && table.className.includes("tt"), "the two-team table pattern");
   const chips = good.querySelectorAll(".mx-table a.rank-chip--link");
   assert.equal(chips.length, 4);
-  assert.equal(chips[0].getAttribute("href"), "#national=profile%3Aypp?team=Diner%20Tech");
-  assert.equal(chips[1].getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech");
-  const cells = table.querySelectorAll("tbody tr")[1].querySelectorAll("td");
-  assert.ok(cells[1].className.includes("trail") && cells[2].className.includes("lead") && cells[2].className.includes("tt__them"), "the better number is bright; lower is better on defense rows");
-  assert.equal(text(cells[1]), "6.4#57");
+  // final pass: we sit first whenever we are in the game (here we are the home team)
+  assert.equal(chips[0].getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech");
+  assert.equal(chips[1].getAttribute("href"), "#national=profile%3Aypp?team=Diner%20Tech");
+  assert.deepEqual([...table.querySelectorAll("thead th")].map(text), ["This season", "SWT", "Edge", "MISS"]);
+  assert.deepEqual([...table.querySelectorAll("tbody tr.tt__group")].map(text), ["Per game"], "the server's groups, in order");
+  const cells = table.querySelectorAll("tbody tr:not(.tt__group)")[1].querySelectorAll("td");
+  assert.ok(cells[1].className.includes("lead") && cells[3].className.includes("trail") && cells[3].className.includes("tt__them"), "the better number is bright; lower is better on defense rows");
+  assert.ok(text(cells[1]).includes("4.5") && text(cells[1]).includes("#20"), text(cells[1]));
+  assert.ok(cells[2].querySelector(".tug__bar--us"), "the tug bar leans our way");
+  assert.ok(text(good.querySelector(".mx-at")) === "vs" && good.querySelector(".mx-team").className.includes("mx-team--us"), "we are first and host the game");
+  assert.ok(!good.className.includes("mx--neutral"));
   assert.ok(good.querySelector(".mx-team--us"));
   assert.ok(text(good).includes("Kickoff"));
   assert.ok(good.querySelectorAll(".poll-badge--link").length === 2);
@@ -412,7 +418,17 @@ scenarios.matchup = async () => {
   const damaged = matchupBody({ data: bad, meta: { stale: true, fetched_at: new Date(now - 7200 * 1000).toISOString() } });
   const t = clean("damaged matchup", damaged);
   assert.ok(t.includes("Part of this sheet did not load") && t.includes("Updated 2.0 h ago"));
-  assert.equal(damaged.querySelectorAll(".mx-table tbody tr:not(.mx-group)").length, 3, "junk rows dropped, the rest drawn");
+  assert.equal(damaged.querySelectorAll(".mx-table tbody tr:not(.tt__group)").length, 3, "junk rows dropped, the rest drawn");
+  // two other teams: the away team first, "at", and the bars in their own colors
+  const others = matchupData();
+  others.home.isUs = false;
+  others.away.color = "#ff8800";
+  others.home.color = "#44aaff";
+  const theirs = matchupBody({ data: others, meta: {} });
+  assert.ok(theirs.className.includes("mx--neutral") && text(theirs.querySelector(".mx-at")) === "at");
+  assert.equal(theirs.style["--team-us"], "#ff8800");
+  assert.equal(theirs.style["--opp"], "#44aaff");
+  assert.equal(text(theirs.querySelector(".mx-table thead th.us")), "MISS");
   for (const payload of [null, {}, { data: null }, { data: { away: null, home: { school: "Swampwater Tech" }, parts: { teams: { status: "error", error: "down" } } } }, { data: { away: { school: "x".repeat(80) }, home: { school: "Swampwater Tech" } } }]) {
     const node = matchupBody(payload, { onRetry: () => {} });
     clean("empty matchup", node);
@@ -485,6 +501,26 @@ scenarios.search = async () => {
   await advance(10);
   assert.ok(clean("failed search", results).includes("Search failed: offline"));
   assert.equal(results.getAttribute("aria-busy"), null);
+  // Phase 17 #8: an empty box explains search and offers examples; a near miss offers "Did you mean"
+  input.value = "";
+  input.dispatchEvent(makeEvent("input"));
+  await advance(300);
+  const help = clean("search help", results);
+  assert.ok(help.includes("Find a team or a player.") && help.includes("jersey number") && help.includes("Search every player"), help);
+  assert.ok(results.querySelectorAll(".search__try-btn").length >= 1);
+  let asked = null;
+  route("/api/search", (url) => {
+    asked = url;
+    return envelope({ teams: [], players: [], suggest: ["Ole Player", "", null, 5], opponent: "Diner Tech" });
+  });
+  results.querySelector(".search__try-btn").click();
+  await advance(10);
+  assert.ok(asked && asked.includes("q="), "an example runs a search");
+  const did = results.querySelectorAll(".search__try-btn").map((x) => text(x));
+  assert.deepEqual(did, ["Ole Player"], "only real names are offered");
+  assert.ok(text(results).includes("Did you mean"));
+  results.querySelector(".search__try-btn").click();
+  assert.equal(input.value, "Ole Player", "a suggestion fills the box and searches");
   close();
 };
 

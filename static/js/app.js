@@ -2,9 +2,9 @@
 // and the views built so far: Season (Phase 3), Leaders, Roster, Recruiting (Phase 4),
 // Newspaper, Game program, team pages (Phase 5), the Live sheet (Phase 7), and the radio (Phase 8),
 // which lives in the shell so audio survives view changes. Views that arrive later say so.
-// Opening rule: from an hour before our kickoff to the end of the game window the app opens
-// on the Live sheet (the server's window.liveView; plays start flowing half an hour before
-// kickoff); earlier on a game day, on the Newspaper; otherwise on Season.
+// Opening rule (Phase 17 #32): the app always opens on the Game program, game day included; it never
+// switches itself to the Live sheet. While our game is under way (the server's window.inProgress) the
+// Live sheet's tab carries a LIVE marker (#25), checked once a minute.
 //
 // Phase 16 (stream F) router contract:
 //   Routes are "#<id>=<arg>?<query>" (parseRoute in ui/national-link.js); the query is part of the route's
@@ -19,7 +19,7 @@
 
 import { confLabel, loadIdentity, ours, usLabel, usSchool } from "./identity.js";
 import { installClientLog } from "./client-log.js";
-import { applyTextScale, applyTheme, loadPrefs, prefsMeta } from "./prefs.js";
+import { applyTextScale, applyTheme, getPrefs, loadPrefs, prefsMeta } from "./prefs.js";
 import { loadRadioSources, mountRadio } from "./radio.js";
 import { el, isNum } from "./ui/dom.js";
 import { keepScreenOn } from "./wake.js";
@@ -44,6 +44,16 @@ import { createNationalView } from "./views/national.js";
 import { createMyTeamsView } from "./views/myteams.js";
 import { createSettingsView } from "./views/settings.js";
 import { createTeamView, openTeam } from "./views/team.js";
+import { createBoxView } from "./views/box.js";
+import { installCvd } from "./ui/cvd.js";
+import { startGuestMode } from "./ui/guest.js";
+import { installSpoiler } from "./ui/spoiler.js";
+import { maybeShowReadiness } from "./ui/readiness.js";
+import { createBoardView } from "./views/board.js";
+import { createInviteView } from "./views/invite.js";
+import { createPreseasonView } from "./views/preseason.js";
+import { createReviewView } from "./views/review.js";
+import { restartFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
 
 const BUILT = {
@@ -53,7 +63,9 @@ const BUILT = {
   recruiting: (opts, arg, focus, params) => createRecruitingView({ ...opts, arg, params }),
   newspaper: (opts) => createNewspaperView(opts),
   program: (opts, arg, focus) => createProgramView({ ...opts, gameId: arg && /^\d+$/.test(arg) ? arg : null, focus }),
-  team: (opts, arg) => createTeamView({ ...opts, school: arg }),
+  team: (opts, arg, focus, params) => createTeamView({ ...opts, school: arg, params }),
+  box: (opts, arg) => createBoxView({ ...opts, gameId: arg }),
+  preseason: (opts) => createPreseasonView(opts), // Phase 17 Part 3a: the season loads and each primary team's preseason // Phase 17 #2: any game's box score, from a W or L square
   live: (opts) => createLiveView(opts),
   archive: (opts, arg) => createArchiveView({ ...opts, gameId: arg }),
   settings: (opts) => createSettingsView(opts),
@@ -61,6 +73,9 @@ const BUILT = {
   glossary: (opts, arg) => createGlossaryView({ ...opts, focusId: arg }),
   national: (opts, arg, focus, params) => createNationalView({ ...opts, arg, params }), // Phase 16 NV: a chip's list as a page
   myteams: (opts) => createMyTeamsView(opts), // public release Phase 5b
+  invite: (opts) => createInviteView(opts), // Phase 18.6: the QR code for friends
+  review: (opts) => createReviewView(opts), // Phase 19: the season told from the schedule
+  board: (opts) => createBoardView(opts), // Phase 18.6: the Live sheet made for a wall
 };
 
 const LATER = {
@@ -69,7 +84,7 @@ const LATER = {
 };
 
 const VALID = new Set([...Object.keys(BUILT), ...Object.keys(LATER), "radio", "injuries"]);
-const NO_TAB = new Set(["team"]); // a team page belongs to no tab (DS-03)
+const NO_TAB = new Set(["team", "box", "invite", "board"]); // a team page and a box score belong to no tab (DS-03)
 const KEEP_TAB = new Set(["national"]); // a list keeps the tab it was opened from
 
 /** "#program=401856699" -> { id: "program", arg: "401856699" }; "#team=Kansas%20State" -> { id: "team", arg: "Kansas State" } */
@@ -99,32 +114,36 @@ function laterView(id) {
   return el("div", { class: "page" }, band({ id: `later-${id}`, title, collapsible: false, state: { status: "empty", message } }));
 }
 
-/**
- * Whether the /api/live/status data says the app should open on the Live sheet: from an hour
- * before kickoff (window.liveView), or whenever the poll window is open (a server from before
- * Phase 10a sends only window.open).
- */
-export function opensOnLive(statusData) {
-  const gameWindow = statusData && typeof statusData === "object" ? statusData.window : null;
-  if (!gameWindow || typeof gameWindow !== "object") return false;
-  return gameWindow.liveView === true || gameWindow.open === true;
+/** Whether the /api/live/status data says our game is under way: the LIVE marker on the Live sheet's tab. */
+export function gameIsLive(statusData) {
+  const data = statusData && typeof statusData === "object" ? statusData : null;
+  const gameWindow = data && data.window && typeof data.window === "object" ? data.window : null;
+  return Boolean(gameWindow) && gameWindow.inProgress === true && data.mode !== "replay";
 }
 
-async function openingView() {
-  // No hash: an hour before kickoff through the game the Live sheet, a game-day morning the Newspaper, otherwise Season.
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
-  try {
-    const live = await fetchJson("/api/live/status", controller.signal);
-    if (opensOnLive(live?.data)) return "live";
-    const envelope = await fetchJson("/api/newspaper", controller.signal);
-    return envelope?.data?.opensHere ? "newspaper" : "season";
-  } catch (error) {
-    console.warn("Could not choose the opening view; opening Season.", error?.message || error);
-    return "season";
-  } finally {
-    clearTimeout(timeout);
-  }
+const LIVE_CHECK_MS = 60000;
+
+/** Keep the LIVE marker current: once now, then every minute and whenever the page comes back into view. */
+function watchLiveGame(page) {
+  let busy = false;
+  const check = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      const delay = Number(getPrefs()?.delaySeconds); // the marker goes by what a sheet this far behind has seen
+      const envelope = await fetchJson(`/api/live/status?delay=${Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : 0}`);
+      page.setLive(gameIsLive(envelope?.data));
+    } catch (error) {
+      console.warn("Could not check for a live game; the LIVE marker keeps its last state.", error?.message || error);
+    } finally {
+      busy = false;
+    }
+  };
+  check();
+  setInterval(check, LIVE_CHECK_MS);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") check();
+  });
 }
 
 /**
@@ -146,8 +165,22 @@ function watchForUpdates(page) {
     );
     page.root.insertBefore(banner, page.main);
   });
+  // Phase 16 wave 3: the server's own code changed on disk (an update was pulled): only a restart brings it in
+  let restartOffered = false;
+  document.addEventListener("kickoff:restart-needed", () => {
+    if (restartOffered) return;
+    restartOffered = true;
+    const said = el("span", { class: "note", role: "status" }, "");
+    const button = el("button", { class: "btn", type: "button", onclick: async () => {
+      button.disabled = true;
+      await restartFlow({ say: (words) => { said.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
+      button.disabled = false;
+    } }, "Restart the server");
+    const banner = el("div", { class: "update-banner", role: "status" }, el("span", {}, "The server's code was updated. Restart it to use the new version."), button, said);
+    page.root.insertBefore(banner, page.main);
+  });
   document.addEventListener("visibilitychange", () => {
-    if (pending && document.visibilityState === "visible" && window.location.hash !== "#live") window.location.reload();
+    if (pending && document.visibilityState === "visible" && !["#live", "#board"].includes(window.location.hash)) window.location.reload(); // the board is the live view on a wall: the banner only
   });
 }
 
@@ -207,7 +240,7 @@ async function start() {
   document.querySelector('meta[name="apple-mobile-web-app-title"]')?.setAttribute("content", ours().name || "Kickoff"); // the home-screen label on iOS
   const initial = parseHash();
   const page = shell({
-    current: initial ? initial.id : "season",
+    current: initial ? initial.id : "program",
     status: { kind: "quiet", label: "Loading" },
     onNavigate: (id) => {
       if (window.location.hash !== `#${id}`) window.location.hash = id;
@@ -227,6 +260,7 @@ async function start() {
   loadRadioSources();
   warmPrimaries();
   watchForUpdates(page);
+  watchLiveGame(page);
   keepScreenOn();
   rememberScroll();
 
@@ -329,6 +363,7 @@ async function start() {
     else if (restore?.pending) restore = null;
   });
   document.addEventListener("kickoff:rendered", putBack);
+  document.addEventListener("kickoff:retry", () => refreshCurrent()); // Phase 16 wave 3 (DS-12): the status card's Retry now
   // Phase 16 NV: a linked rank chip or poll badge opens its list in a side sheet over this page (never a route
   // change, so the Live sheet stays mounted); the sheet's 'Full page' link is the #national route.
   installNationalLinks(document);
@@ -354,11 +389,14 @@ async function start() {
       openTeam(link.dataset.team);
     }
   });
+  installCvd(); // Phase 19: this device's color-blind friendly colors
+  installSpoiler(); // Phase 19: this device's spoiler switch
+  startGuestMode(); // Phase 18.6: a guest's page says it is view-only
+  setTimeout(() => maybeShowReadiness(), 4000); // Phase 18.3: once per server start per device, only when something is not loaded
   if (initial) show(initial);
   else {
-    const id = await openingView();
-    window.location.hash = id;
-    show({ id, arg: null });
+    window.location.hash = "program"; // Phase 17 #32: the Game program is home
+    show({ id: "program", arg: null });
   }
 }
 

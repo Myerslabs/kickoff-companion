@@ -6,7 +6,8 @@ import { DASH, el, fmtPct, isNum, text } from "./dom.js";
 
 const W = 600;
 const H = 120;
-const PAD = { top: 6, right: 6, bottom: 16, left: 6 };
+const QUARTER = 900; // seconds in a quarter
+const OT_SLOT = 300; // each overtime period gets a third of a quarter on the axis
 
 function svgEl(tag, attrs = {}, ...children) {
   const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -15,42 +16,114 @@ function svgEl(tag, attrs = {}, ...children) {
   return node;
 }
 
-/** Turn the source series into our probability per play, dropping malformed points. */
-export function usSeries(series, homeIsUs) {
+/** Our probability per point with the point it came from, malformed points dropped. */
+function usPoints(series, homeIsUs) {
   if (!Array.isArray(series)) return [];
   return series
-    .map((point) => (point && isNum(point.homeWp) ? (homeIsUs ? point.homeWp : 1 - point.homeWp) : null))
-    .filter((v) => isNum(v))
-    .map((v) => Math.min(1, Math.max(0, v)));
+    .filter((point) => point && typeof point === "object" && isNum(point.homeWp))
+    .map((point) => ({ point, v: Math.min(1, Math.max(0, homeIsUs ? point.homeWp : 1 - point.homeWp)) }));
+}
+
+/** Turn the source series into our probability per play, dropping malformed points. */
+export function usSeries(series, homeIsUs) {
+  return usPoints(series, homeIsUs).map((p) => p.v);
+}
+
+/** Seconds of game time gone at a period and a clock ({minutes, seconds} or "M:SS"); null when either is missing. */
+export function gameSeconds(period, clock) {
+  if (!isNum(period) || period < 1) return null;
+  let left = null;
+  if (clock && typeof clock === "object" && isNum(clock.minutes) && isNum(clock.seconds)) left = clock.minutes * 60 + clock.seconds;
+  else if (typeof clock === "string" && /^\d{1,2}:\d{2}$/.test(clock.trim())) {
+    const [m, sec] = clock.trim().split(":").map(Number);
+    left = m * 60 + sec;
+  }
+  if (period > 4) return 4 * QUARTER + (period - 5) * OT_SLOT + OT_SLOT / 2; // overtime has no game clock: the middle of its slot
+  if (!isNum(left)) return null;
+  return (period - 1) * QUARTER + Math.min(QUARTER, Math.max(0, QUARTER - left));
 }
 
 /**
- * winProbabilityChart({ series: [{play, homeWp}], homeIsUs, usAbbr, pregame, final })
- * `pregame` is our chance at kickoff (0 to 1) when known.
+ * The time of each point: its own period and clock (the scoreboard readings), else the play it names (CFBD's
+ * post-game model carries a play id). Times never run backwards. Null when too few points have a time; the chart
+ * then spaces the points evenly without quarter ticks.
  */
-export function winProbabilityChart({ series = [], homeIsUs = true, usAbbr = usLabel(), pregame, final = false }) {
-  const values = usSeries(series, homeIsUs);
+function timesFor(points, plays) {
+  const byId = new Map();
+  for (const play of Array.isArray(plays) ? plays : []) if (play && typeof play === "object" && play.id !== null && play.id !== undefined) byId.set(String(play.id), play);
+  let known = 0;
+  let last = 0;
+  const times = points.map(({ point }) => {
+    let t = gameSeconds(point.period, point.clock);
+    if (t === null && point.playId !== null && point.playId !== undefined) {
+      const play = byId.get(String(point.playId));
+      if (play) t = gameSeconds(play.period, play.clock);
+    }
+    if (t === null) return null;
+    known += 1;
+    last = Math.max(last, t);
+    return last;
+  });
+  if (points.length < 2 || known < points.length * 0.6) return null;
+  let prev = 0; // a point with no time sits with the one before it
+  return times.map((t) => (t === null ? prev : (prev = t)));
+}
+
+/** How many overtime periods the times reach. */
+function overtimes(times) {
+  const last = times.length ? times[times.length - 1] : 0;
+  return last > 4 * QUARTER ? Math.ceil((last - 4 * QUARTER) / OT_SLOT) : 0;
+}
+
+/** Where period i (0-based) starts, in seconds of game time. */
+const periodStart = (i) => (i <= 4 ? i * QUARTER : 4 * QUARTER + (i - 4) * OT_SLOT);
+
+/**
+ * winProbabilityChart({ series: [{homeWp, period?, clock?, playId?}], homeIsUs, usAbbr, pregame, final, plays })
+ * `pregame` is our chance at kickoff (0 to 1) when known. `plays` lets the post-game series find each play's time.
+ * Phase 16 wave 3 (owner pick 5B): drawn on game time with a tick at each quarter, the labels an HTML caption at
+ * the body's size, one line and no shading.
+ */
+export function winProbabilityChart({ series = [], homeIsUs = true, usAbbr = usLabel(), pregame, final = false, plays = null }) {
+  const points = usPoints(series, homeIsUs);
+  const values = points.map((p) => p.v);
   const current = values.length ? values[values.length - 1] : null;
-  const innerW = W - PAD.left - PAD.right;
-  const innerH = H - PAD.top - PAD.bottom;
-  const x = (i) => PAD.left + (values.length > 1 ? (i / (values.length - 1)) * innerW : innerW / 2);
-  const y = (v) => PAD.top + (1 - v) * innerH;
+  const times = timesFor(points, plays);
+  const ot = times ? overtimes(times) : 0;
+  const periods = 4 + ot;
+  const span = periodStart(periods);
+  const fx = (i) => (times ? times[i] / span : values.length > 1 ? i / (values.length - 1) : 0.5); // 0 to 1 across
+  const y = (v) => (1 - v) * H;
 
-  const path = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
-  const area = values.length ? `${path} L${x(values.length - 1).toFixed(1)},${y(0).toFixed(1)} L${x(0).toFixed(1)},${y(0).toFixed(1)} Z` : "";
-
+  const path = values.map((v, i) => `${i === 0 ? "M" : "L"}${(fx(i) * W).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+  const ticks = times ? Array.from({ length: periods - 1 }, (_, i) => {
+    const at = ((periodStart(i + 1) / span) * W).toFixed(1);
+    return svgEl("line", { class: "wp__tick", x1: at, x2: at, y1: 0, y2: H });
+  }) : [];
   const svg = svgEl(
     "svg",
-    { class: "wp__svg", viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": `Win probability for ${usAbbr}, ${values.length} plays` },
-    svgEl("rect", { class: "wp__frame", x: PAD.left, y: PAD.top, width: innerW, height: innerH }),
-    svgEl("line", { class: "wp__mid", x1: PAD.left, x2: PAD.left + innerW, y1: y(0.5), y2: y(0.5) }),
-    values.length ? svgEl("path", { class: "wp__area", d: area }) : null,
+    { class: "wp__svg", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", "aria-hidden": "true", focusable: "false" },
+    svgEl("rect", { class: "wp__frame", x: 0, y: 0, width: W, height: H }),
+    ticks,
+    svgEl("line", { class: "wp__mid", x1: 0, x2: W, y1: y(0.5), y2: y(0.5) }),
     values.length ? svgEl("path", { class: "wp__line", d: path }) : null,
-    values.length ? svgEl("circle", { class: "wp__dot", cx: x(values.length - 1), cy: y(current), r: 3 }) : null,
-    svgEl("text", { class: "wp__axis", x: PAD.left, y: H - 4 }, "Kickoff"),
-    svgEl("text", { class: "wp__axis", x: PAD.left + innerW, y: H - 4, "text-anchor": "end" }, final ? "Final" : "Now"),
-    svgEl("text", { class: "wp__axis", x: PAD.left + 4, y: y(0.5) - 3 }, "50%"),
   );
+  const dot = values.length ? el("span", { class: "wp__dot", style: { left: `${(fx(values.length - 1) * 100).toFixed(2)}%`, top: `${((1 - current) * 100).toFixed(2)}%` } }) : null;
+
+  // The caption: a label under each quarter on game time, else Kickoff and Now (or Final) at the ends.
+  const caption = times
+    ? el(
+        "div",
+        { class: "wp__caption", "aria-hidden": "true" },
+        Array.from({ length: periods }, (_, i) => {
+          const from = periodStart(i) / span;
+          const to = periodStart(i + 1) / span;
+          const name = i < 4 ? `Q${i + 1}` : ot === 1 ? "OT" : `${i - 3}OT`;
+          return el("span", { class: "wp__cap", style: { left: `${(from * 100).toFixed(2)}%`, width: `${((to - from) * 100).toFixed(2)}%` } }, name);
+        }),
+      )
+    : el("div", { class: "wp__caption wp__caption--ends", "aria-hidden": "true" }, el("span", {}, "Kickoff"), el("span", {}, final ? "Final" : "Now"));
+  const summary = `Win probability for ${text(usAbbr)}${times ? " by game time" : ""}, ${values.length} ${values.length === 1 ? "reading" : "readings"}${isNum(current) ? `, ${final ? "final" : "now"} ${fmtPct(current)}` : ""}`;
 
   return el(
     "div",
@@ -61,7 +134,8 @@ export function winProbabilityChart({ series = [], homeIsUs = true, usAbbr = usL
       el("div", { class: "wp__now" }, isNum(current) ? fmtPct(current) : DASH, el("small", {}, `${text(usAbbr)} ${final ? "final" : "to win"}`)),
       isNum(pregame) ? el("div", { class: "wp__pre" }, "At kickoff ", el("b", {}, fmtPct(pregame))) : null,
     ),
-    svg,
+    el("div", { class: "wp__plot", role: "img", "aria-label": summary }, svg, dot, el("span", { class: "wp__half", "aria-hidden": "true" }, "50%")),
+    caption,
   );
 }
 
@@ -98,9 +172,9 @@ export function successRow({ play, offenseAbbr, us, them, source } = {}) {
   const verdict = playSuccess(play);
   const verdictEl =
     verdict === true
-      ? el("span", { class: "verdict verdict--yes" }, "✓ Success")
+      ? el("span", { class: "verdict verdict--yes" }, "Success") // Phase 16 wave 3: the mark is drawn by CSS, not a font glyph
       : verdict === false
-        ? el("span", { class: "verdict verdict--no" }, "✗ Failed")
+        ? el("span", { class: "verdict verdict--no" }, "Failed")
         : el("span", { class: "verdict verdict--na" }, "Not judged");
   const rateEl = (side, kind) =>
     el(

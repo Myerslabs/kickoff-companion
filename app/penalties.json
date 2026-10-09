@@ -1,0 +1,293 @@
+{
+  "source": {
+    "title": "2026 NCAA Football Rules Book",
+    "url": "https://ncaaorg.s3.amazonaws.com/championships/sports/football/rules/PRMFB_RulesBook.pdf",
+    "home": "https://www.ncaa.org/championships/playing-rules/football-playing-rules/",
+    "checked": "2026-10-07",
+    "note": "Rule numbers and pages from the rules book's Appendix G, Summary of Penalties, and the article headings (PDF pages, the file's own numbering). Explanations are ours, in plain words."
+  },
+  "penalties": [
+    {
+      "key": "false-start",
+      "name": "False start",
+      "aliases": ["false start", "encroachment offense", "simulating start of play"],
+      "what": "An offensive player moved before the snap in a way that looks like the play is starting: a lineman jumping, or anyone faking the snap count.",
+      "calls": [{ "who": "Offense", "result": "5 yards, the play never happens", "rule": "7-1-3", "page": 85 }]
+    },
+    {
+      "key": "offside",
+      "name": "Offside",
+      "aliases": ["offside", "offsides", "defensive offside", "offside defense", "encroachment", "neutral zone infraction"],
+      "what": "A defender was across the line of scrimmage, or touched an offensive player, when the ball was snapped. If the offense moved first, the flag is a false start instead.",
+      "calls": [{ "who": "Defense", "result": "5 yards", "rule": "7-1-5", "page": 86 }]
+    },
+    {
+      "key": "delay-of-game",
+      "name": "Delay of game",
+      "aliases": ["delay of game", "illegal delay of the game", "delay"],
+      "what": "The offense didn't snap the ball before the play clock (40 or 25 seconds) ran out, or a team held up the game some other way.",
+      "calls": [{ "who": "Either team", "result": "5 yards", "rule": "3-4-2", "page": 65 }]
+    },
+    {
+      "key": "illegal-formation",
+      "name": "Illegal formation",
+      "aliases": ["illegal formation", "illegal procedure"],
+      "what": "The offense lined up wrong at the snap: fewer than seven players on the line, or a player not clearly on the line or in the backfield.",
+      "calls": [{ "who": "Offense", "result": "5 yards", "rule": "7-1-4", "page": 85 }]
+    },
+    {
+      "key": "illegal-motion",
+      "name": "Illegal motion",
+      "aliases": ["illegal motion", "illegal motion at snap", "offensive player illegally in motion"],
+      "what": "One offensive player may be moving at the snap, but only sideways or backward. Moving toward the line, or two players moving, is a foul.",
+      "calls": [{ "who": "Offense", "result": "5 yards", "rule": "7-1-4", "page": 85 }]
+    },
+    {
+      "key": "illegal-shift",
+      "name": "Illegal shift",
+      "aliases": ["illegal shift"],
+      "what": "After players changed position before the snap, the offense didn't hold still for a full second before the ball was snapped.",
+      "calls": [{ "who": "Offense", "result": "5 yards", "rule": "7-1-4", "page": 85 }]
+    },
+    {
+      "key": "illegal-snap",
+      "name": "Illegal snap",
+      "aliases": ["illegal snap"],
+      "what": "The snap wasn't made correctly: the center lifted, moved or faked the ball before snapping it.",
+      "calls": [{ "who": "Offense", "result": "5 yards", "rule": "7-1-1", "page": 84 }]
+    },
+    {
+      "key": "illegal-substitution",
+      "name": "Illegal substitution",
+      "aliases": ["illegal substitution", "substitution infraction"],
+      "what": "A substitution broke the rules: a player entered or left at the wrong time, or the offense subbed in a way that kept the defense from matching up.",
+      "calls": [{ "who": "Either team", "result": "5 yards", "rule": "3-5-2", "page": 67 }]
+    },
+    {
+      "key": "too-many-players",
+      "name": "Too many players",
+      "aliases": ["12 men in formation", "12 players", "too many men", "too many players", "more than eleven players", "illegal participation"],
+      "what": "A team had twelve or more players in the formation or in the play.",
+      "calls": [{ "who": "Either team", "result": "5 yards", "rule": "3-5-3", "page": 68 }]
+    },
+    {
+      "key": "holding",
+      "name": "Holding",
+      "aliases": ["holding", "offensive holding", "defensive holding", "holding offense", "holding defense"],
+      "what": "A player grabbed or hooked an opponent to stop him, instead of blocking him with hands and body. Most often a lineman pulling a pass rusher down.",
+      "calls": [
+        { "who": "Offense", "result": "10 yards", "rule": "9-3-3", "page": 111 },
+        { "who": "Defense", "result": "10 yards and an automatic first down", "rule": "9-3-4", "page": 112 }
+      ]
+    },
+    {
+      "key": "illegal-use-of-hands",
+      "name": "Illegal use of hands",
+      "aliases": ["illegal use of hands", "illegal hands to the face", "hands to the face"],
+      "what": "A player shoved or struck an opponent with his hands in a way the rules don't allow, often hands to the face or helmet.",
+      "calls": [
+        { "who": "Offense", "result": "10 yards", "rule": "9-3-3", "page": 111 },
+        { "who": "Defense", "result": "10 yards and an automatic first down", "rule": "9-3-4", "page": 112 }
+      ]
+    },
+    {
+      "key": "block-in-back",
+      "name": "Illegal block in the back",
+      "aliases": ["illegal block in back", "illegal block in the back", "block in the back", "illegal block"],
+      "what": "A player blocked an opponent from behind, above the waist. Common on punt and kick returns.",
+      "calls": [
+        { "who": "Offense or return team", "result": "10 yards", "rule": "9-3-3", "page": 111 },
+        { "who": "Defense", "result": "10 yards", "rule": "9-3-4", "page": 112 }
+      ]
+    },
+    {
+      "key": "pass-interference",
+      "name": "Pass interference",
+      "aliases": ["pass interference", "defensive pass interference", "offensive pass interference"],
+      "what": "While a catchable pass was in the air, a player blocked, pushed or grabbed an opponent to keep him from catching it.",
+      "calls": [
+        { "who": "Offense", "result": "10 yards", "rule": "7-3-8", "page": 90 },
+        { "who": "Defense", "result": "Ball at the spot of the foul if that's under 15 yards, else 15 yards; an automatic first down", "rule": "7-3-8", "page": 90 }
+      ]
+    },
+    {
+      "key": "ineligible-downfield",
+      "name": "Ineligible receiver downfield",
+      "aliases": ["ineligible downfield on pass", "ineligible receiver downfield", "ineligible downfield", "illegal man downfield"],
+      "what": "An offensive lineman was more than three yards past the line before a forward pass was thrown across it.",
+      "calls": [{ "who": "Offense", "result": "5 yards", "rule": "7-3-10", "page": 92 }]
+    },
+    {
+      "key": "illegal-forward-pass",
+      "name": "Illegal forward pass",
+      "aliases": ["illegal forward pass", "illegal pass"],
+      "what": "A forward pass broke the rules: thrown from past the line of scrimmage, or a second forward pass on the same play.",
+      "calls": [{ "who": "Offense", "result": "5 yards and a loss of down", "rule": "7-3-2", "page": 89 }]
+    },
+    {
+      "key": "intentional-grounding",
+      "name": "Intentional grounding",
+      "aliases": ["intentional grounding", "intentionally grounding forward pass", "grounding"],
+      "what": "The passer threw the ball away to avoid a sack without a receiver nearby, while still inside the tackles or without reaching the line of scrimmage.",
+      "calls": [{ "who": "Offense", "result": "Loss of down at the spot of the foul", "rule": "7-3-2", "page": 89 }]
+    },
+    {
+      "key": "illegal-touching",
+      "name": "Illegal touching of a pass",
+      "aliases": ["illegal touch-pass", "illegal touch pass", "illegal touching", "forward pass illegally touched"],
+      "what": "A player who wasn't allowed to catch a pass touched it first: an ineligible lineman, or a receiver who'd gone out of bounds and came back.",
+      "calls": [{ "who": "Offense", "result": "5 yards and a loss of down", "rule": "7-3-11", "page": 92 }]
+    },
+    {
+      "key": "personal-foul",
+      "name": "Personal foul",
+      "aliases": ["personal foul"],
+      "what": "The general name for a dangerous hit: a late hit, a hit on a player out of the play, a blow to the head. The play-by-play often names only the category.",
+      "calls": [
+        { "who": "Offense", "result": "15 yards", "rule": "9-1", "page": 100 },
+        { "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1", "page": 100 }
+      ]
+    },
+    {
+      "key": "unnecessary-roughness",
+      "name": "Unnecessary roughness",
+      "aliases": ["unnecessary roughness", "unr"],
+      "what": "A hit the play didn't call for: after the whistle, on a player out of bounds, or on someone clearly out of the play.",
+      "calls": [
+        { "who": "Offense", "result": "15 yards", "rule": "9-1-12", "page": 106 },
+        { "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-12", "page": 106 }
+      ]
+    },
+    {
+      "key": "late-hit",
+      "name": "Late hit",
+      "aliases": ["late hit", "late hit out of bounds", "late hit/action out of bounds"],
+      "what": "A player was hit after the play was over or after he'd gone out of bounds.",
+      "calls": [
+        { "who": "Offense", "result": "15 yards", "rule": "9-1-7", "page": 104 },
+        { "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-7", "page": 104 }
+      ]
+    },
+    {
+      "key": "face-mask",
+      "name": "Face mask",
+      "aliases": ["face mask", "facemask", "face mask 15 yards", "grasping the face mask"],
+      "what": "A player grabbed and twisted, turned or pulled an opponent's face mask or helmet opening.",
+      "calls": [
+        { "who": "Offense", "result": "15 yards", "rule": "9-1-8", "page": 104 },
+        { "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-8", "page": 104 }
+      ]
+    },
+    {
+      "key": "targeting",
+      "name": "Targeting",
+      "aliases": ["targeting"],
+      "what": "A player hit an opponent with the crown of his helmet, or hit a defenseless player in the head or neck. The replay booth reviews every call. The player is disqualified, and for a foul in the second half he also misses the first half of the next game.",
+      "calls": [
+        { "who": "Crown of the helmet", "result": "15 yards, an automatic first down, and the player is disqualified", "rule": "9-1-3", "page": 101 },
+        { "who": "Defenseless player", "result": "15 yards, an automatic first down, and the player is disqualified", "rule": "9-1-4", "page": 101 }
+      ]
+    },
+    {
+      "key": "roughing-the-passer",
+      "name": "Roughing the passer",
+      "aliases": ["roughing the passer", "roughing passer"],
+      "what": "A defender hit the quarterback after the ball was clearly gone, or hit him low, or in the head.",
+      "calls": [{ "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-9", "page": 104 }]
+    },
+    {
+      "key": "roughing-the-kicker",
+      "name": "Roughing the kicker",
+      "aliases": ["roughing the kicker", "roughing kicker", "roughing the holder"],
+      "what": "A defender who didn't touch the kick slammed into the punter, kicker or holder. Worse than running into him: the hit could hurt him.",
+      "calls": [{ "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-16", "page": 106 }]
+    },
+    {
+      "key": "running-into-the-kicker",
+      "name": "Running into the kicker",
+      "aliases": ["running into the kicker", "running into kicker", "running into the holder"],
+      "what": "A defender bumped the kicker or holder after the kick without touching the ball. Lighter contact than roughing the kicker.",
+      "calls": [{ "who": "Defense", "result": "5 yards, no automatic first down", "rule": "9-1-16", "page": 106 }]
+    },
+    {
+      "key": "kick-catch-interference",
+      "name": "Kick catch interference",
+      "aliases": ["kick catch interference", "kick-catch interference", "fair catch interference", "interference with opportunity to catch a kick"],
+      "what": "A player on the kicking team got in the way of the returner while he was trying to catch a punt or kickoff.",
+      "calls": [{ "who": "Kicking team", "result": "15 yards", "rule": "6-4-1", "page": 80 }]
+    },
+    {
+      "key": "horse-collar",
+      "name": "Horse-collar tackle",
+      "aliases": ["horse collar", "horse-collar", "horse collar tackle", "horse-collar tackle"],
+      "what": "A tackler grabbed the inside back or side of the runner's collar or shoulder pads and pulled him down.",
+      "calls": [{ "who": "Defense", "result": "15 yards and an automatic first down", "rule": "9-1-15", "page": 106 }]
+    },
+    {
+      "key": "block-below-waist",
+      "name": "Block below the waist",
+      "aliases": ["block below waist", "block below the waist", "illegal block below the waist"],
+      "what": "A block on an opponent's legs where the rules don't allow it, such as from the side or behind, or away from the line.",
+      "calls": [{ "who": "Either team", "result": "15 yards", "rule": "9-1-6", "page": 103 }]
+    },
+    {
+      "key": "chop-block",
+      "name": "Chop block",
+      "aliases": ["chop block", "chop blocking"],
+      "what": "Two blockers took on one defender at once, one high and one at the knees. It's banned because it wrecks knees.",
+      "calls": [{ "who": "Offense", "result": "15 yards", "rule": "9-1-10", "page": 105 }]
+    },
+    {
+      "key": "clipping",
+      "name": "Clipping",
+      "aliases": ["clipping"],
+      "what": "A block from behind at or below the waist.",
+      "calls": [{ "who": "Either team", "result": "15 yards", "rule": "9-1-5", "page": 103 }]
+    },
+    {
+      "key": "blind-side-block",
+      "name": "Illegal blind-side block",
+      "aliases": ["illegal blindside block", "illegal blind-side block", "blindside block", "blind side block"],
+      "what": "A player threw a hard block with forcible contact on an opponent who didn't see it coming, moving toward his own end line.",
+      "calls": [{ "who": "Either team", "result": "15 yards", "rule": "9-1-18", "page": 107 }]
+    },
+    {
+      "key": "tripping",
+      "name": "Tripping",
+      "aliases": ["tripping", "striking"],
+      "what": "A player tripped an opponent with his leg or foot, or struck him with a fist, forearm or knee.",
+      "calls": [{ "who": "Either team", "result": "15 yards", "rule": "9-1-2", "page": 100 }]
+    },
+    {
+      "key": "leaping",
+      "name": "Leaping or hurdling",
+      "aliases": ["leaping", "leverage", "hurdling"],
+      "what": "On a kick, a defender ran and jumped over the line to block it, or used a teammate to climb. On any play, a player hurdled an opponent who was still on his feet.",
+      "calls": [
+        { "who": "Leaping on a kick", "result": "15 yards", "rule": "9-1-11", "page": 105 },
+        { "who": "Hurdling", "result": "15 yards", "rule": "9-1-13", "page": 106 }
+      ]
+    },
+    {
+      "key": "unsportsmanlike-conduct",
+      "name": "Unsportsmanlike conduct",
+      "aliases": ["unsportsmanlike conduct", "unsportsmanlike", "uns", "taunting", "excessive celebration"],
+      "what": "Behavior the rules ban outside of contact: taunting, baiting an opponent, a celebration aimed at someone. Two in one game and the player is ejected.",
+      "calls": [{ "who": "Either team", "result": "15 yards", "rule": "9-2-1", "page": 107 }]
+    },
+    {
+      "key": "sideline-interference",
+      "name": "Sideline interference",
+      "aliases": ["sideline interference", "game administration interference", "sideline warning"],
+      "what": "Coaches or players were out of the team area along the sideline and got in the officials' way. The first time is a warning.",
+      "calls": [{ "who": "Either team", "result": "A warning, then 5 yards, then 15 yards", "rule": "9-2-5", "page": 110 }]
+    },
+    {
+      "key": "fighting",
+      "name": "Fighting",
+      "aliases": ["fighting"],
+      "what": "A player threw a punch or tried to fight an opponent.",
+      "calls": [{ "who": "Either team", "result": "15 yards and the player is ejected", "rule": "9-5-1", "page": 114 }]
+    }
+  ]
+}

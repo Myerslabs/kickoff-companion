@@ -8,8 +8,12 @@
 //   scheduleList({ games, nextGameId, onSelect, context, spOf })
 //       onSelect(game) makes a row a button with a trailing chevron; without it the row is plain text and
 //       promises no tap (other teams' schedules, the flyout). Ranked opponents carry a poll badge. With
-//       context: true a second line shows the opponent's SP+ rank (a chip linked to Ratings) and the win
-//       chance: CFBD's postgame win expectancy once played, an Elo estimate (marked "est.") before.
+//       context: true a second line shows the opponent's SP+ rank (a chip linked to Ratings) and, before the
+//       game, the win chance (an Elo estimate marked "est."); a played game shows its result only (Phase 17).
+//       Phase 17 #37 (owner 2026-10-07: "Add the teams bye week into the schedules, so we know where it is"): a
+//       regular-season week with no game between the team's first and last regular-season weeks draws as a Bye
+//       row in its place, with the Saturday it falls on when the games around it have dates. Nothing to tap.
+//   withByes(games)  the games with {bye: true, week, date} rows put in the gaps (exported for the tests).
 //   gameHref(game)  where one of our schedule rows goes: '#archive=<id>' for a finished game the app archived,
 //       else '#program=<id>'; null without a game id.
 //   ratingsHref(key, team)  '#ratings=<key>?team=<school>': the Ratings page sorted on key, the team marked.
@@ -70,10 +74,14 @@ function pct(value) {
   return isNum(value) && value >= 0 && value <= 1 ? `${Math.round(value * 100)}%` : null;
 }
 
-/** The second line of a row: the opponent's SP+ rank and the win chance (GX-08). Null when neither is known. */
+/**
+ * The second line of a row: the opponent's SP+ rank and, before the game only, the win chance (GX-08).
+ * A played game has its result, so it shows no chance (Phase 17, #33). Null when nothing is known.
+ */
 function contextLine(game, spOf) {
   const sp = game.opponentSp && typeof game.opponentSp === "object" ? game.opponentSp : null;
-  const win = game.winPct && typeof game.winPct === "object" ? game.winPct : null;
+  const played = game.completed === true;
+  const win = !played && game.winPct && typeof game.winPct === "object" ? game.winPct : null;
   const opp = school(game.opponent?.school);
   const chip = sp && isNum(sp.rank) ? rankChip(sp.rank, isNum(spOf) ? spOf : null, { href: ratingsHref("sp", opp), label: `${opp || "Opponent"} SP+` }) : null;
   const value = pct(win?.value);
@@ -83,23 +91,63 @@ function contextLine(game, spOf) {
     "div",
     { class: "sched__ctx" },
     el("span", { class: "sched__ctx-sp" }, el("span", { class: "sched__ctx-label" }, "Opp SP+"), chip || el("span", { class: "sched__ctx-none" }, "–")),
-    el(
-      "span",
-      { class: "sched__ctx-win", title: value ? (estimate ? `An estimate from ${text(win?.source)}` : "CFBD's postgame win expectancy: how often a team that played that way wins") : null },
-      el("span", { class: "sched__ctx-label" }, "Win"),
-      el("b", { "data-k": `win:${text(game.gameId)}` }, value || "–"),
-      value && estimate ? el("span", { class: "sched__est" }, "est.") : null,
-    ),
+    played
+      ? null
+      : el(
+          "span",
+          { class: "sched__ctx-win", title: value && estimate ? `An estimate from ${text(win?.source)}` : null },
+          el("span", { class: "sched__ctx-label" }, "Win"),
+          el("b", { "data-k": `win:${text(game.gameId)}` }, value || "–"),
+          value && estimate ? el("span", { class: "sched__est" }, "est.") : null,
+        ),
   );
 }
 
 /** scheduleList({ games, nextGameId, onSelect, context, spOf }) games from the season overview */
-export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null } = {}) {
+function regularWeek(game) {
+  return !game.postseason && !game.playoffRound && game.seasonType !== "postseason" && Number.isInteger(game.week) && game.week >= 0 && game.week <= 20 ? game.week : null;
+}
+
+/** The Saturday of a bye, from the game before it (whole weeks later), or null without a usable date. */
+function byeDate(before, weeksLater) {
+  const at = before && typeof before.date === "string" && before.date ? new Date(before.date) : null;
+  if (!at || Number.isNaN(at.getTime())) return null;
+  const day = new Date(at.getTime() + weeksLater * 7 * 86400000);
+  return day.toISOString();
+}
+
+export function withByes(games) {
   const list = (Array.isArray(games) ? games : []).filter((g) => g && typeof g === "object");
+  const out = [];
+  let last = null; // the last regular-season game placed
+  for (const game of list) {
+    const week = regularWeek(game);
+    if (week !== null && last !== null && week > regularWeek(last) + 1 && week - regularWeek(last) <= 4) {
+      for (let w = regularWeek(last) + 1; w < week; w += 1) out.push({ bye: true, week: w, date: byeDate(last, w - regularWeek(last)) });
+    }
+    if (week !== null && (last === null || week >= regularWeek(last))) last = game;
+    out.push(game);
+  }
+  return out;
+}
+
+function byeRow(row) {
+  return el(
+    "li",
+    { class: "sched__game sched__game--bye", "aria-label": `Week ${row.week}: bye, no game` },
+    el("span", { class: "sched__wk" }, weekShort({ week: row.week })),
+    el("div", { class: "sched__opp" }, el("span", { class: "sched__bye" }, "Bye"), el("small", {}, "No game this week")),
+    el("span", { class: "sched__res" }, row.date ? el("small", {}, fmtDate(row.date, "short")) : null),
+  );
+}
+
+export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null } = {}) {
+  const list = withByes(games);
   return el(
     "ul",
     { class: "sched" },
     list.map((game) => {
+      if (game.bye === true) return byeRow(game);
       const prefix = game.homeAway === "away" ? "at " : "vs ";
       const isNext = game.gameId === nextGameId;
       const tappable = typeof onSelect === "function";

@@ -274,6 +274,8 @@ class LiveEngine:
         self._backoff = 0
         self._halftime = False
         self._final_seen = False
+        self._final_seen_at: datetime | None = None  # final pass: the LIVE marker and the ticker hold until the delayed sheet has it
+        self._last_closed: GameWindow | None = None
         self._done_games: set[int] = set()  # finals seen this run: the cached schedule may still say not completed
         self._last_box_poll: datetime | None = None
         self._success_at: datetime | None = None  # the last parsed /live/plays answer in this window
@@ -470,8 +472,22 @@ class LiveEngine:
             "checkedAt": _iso(now),
         }
 
-    def _window_status(self, window: GameWindow, now: datetime) -> dict[str, Any]:
+    def final_released(self, now: datetime, delay_seconds: float = 0.0) -> bool:
+        """Whether a sheet `delay_seconds` behind has shown the final yet. A final with no time stamp (a restart, a
+        test that set the flag by hand) counts as shown."""
+        if self._final_seen_at is None:
+            return self._final_seen
+        return (now - self._final_seen_at).total_seconds() >= delay_seconds
+
+    def has_events(self, game_id: int) -> bool:
+        return self.store.count(self.store_key(game_id)) > 0
+
+    def _window_status(self, window: GameWindow, now: datetime, delay_seconds: float = 0.0) -> dict[str, Any]:
         live_view_at = window.kickoff - LIVE_VIEW_BEFORE
+        # Final pass: the marker goes by the delayed sheet, not the feed. A final the feed has seen but a sheet
+        # `delay_seconds` behind has not keeps the game in progress until that sheet shows it.
+        released = self.final_released(now, delay_seconds)
+        in_progress = window.kickoff <= now and not released and (window.contains(now) or self._final_seen_at is not None)
         return {
             "gameId": window.game_id,
             "kickoff": window.kickoff.isoformat(),
@@ -480,18 +496,23 @@ class LiveEngine:
             "open": window.contains(now),
             "liveView": live_view_at <= now <= window.closes_at,
             "liveViewAt": live_view_at.isoformat(),
+            # Phase 17 #25: our game is under way (kicked off, window open, no final yet): the top bar's LIVE marker
+            "inProgress": in_progress,
             "extended": window.closes_at > window.kickoff + WINDOW_AFTER,
         }
 
-    def status(self) -> dict[str, Any]:
+    def status(self, delay_seconds: float = 0.0) -> dict[str, Any]:
         window = self.window
         now = self._clock()
+        # A window that closed on the final is still "in progress" for a sheet that has not reached the final yet.
+        held = window is None and self._last_closed is not None and self._final_seen_at is not None and not self.final_released(now, delay_seconds)
+        shown = window if window is not None else (self._last_closed if held else None)
         return {
             "mode": self.mode,
             "gameId": self.current_game_id,
             "home": self.home,
             "away": self.away,
-            "window": self._window_status(window, now) if window else None,
+            "window": self._window_status(shown, now, delay_seconds) if shown else None,
             "feed": self.feed_health(now),
             "clientsConnected": self.clients_connected(),
             "livePlaysAvailable": bool(self.client.capabilities.live_plays),
@@ -654,6 +675,8 @@ class LiveEngine:
         self._backoff = 0
         self._halftime = False
         self._final_seen = False
+        self._final_seen_at = None
+        self._last_closed = None
         self._last_box_poll = None
         self._reset_feed()
         self._probes = set()
@@ -696,6 +719,7 @@ class LiveEngine:
             log.info("Live window for game %s closed", window.game_id)
             if self._final_seen or self.store.count_kind(window.game_id, "play"):
                 self._done_games.add(window.game_id)  # a window with no play and no final (a moved kickoff) may open again
+            self._last_closed = window
             self.window = None
             self._final_seen = False
             self._halftime = False
@@ -789,6 +813,7 @@ class LiveEngine:
             stored += await self.poll_box(window, final=final)
         if final and not self._final_seen:
             self._final_seen = True
+            self._final_seen_at = self._clock()
             win_probability = await self.fetch_win_probability(window.game_id)
             await asyncio.to_thread(self.write_archive, window, win_probability)
         return stored

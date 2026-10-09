@@ -12,8 +12,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import sys
 import threading
 import time
+from pathlib import Path
 
 from app.config import STATIC_DIR
 
@@ -43,6 +45,50 @@ def _static_stamp() -> str:
     return digest.hexdigest()
 
 
+APP_DIR = Path(__file__).resolve().parent
+
+
+def _code_stamp() -> str:
+    """The server's own code: every .py and .json under app/, by path, size and modification time."""
+    digest = hashlib.sha1(usedforsecurity=False)
+    try:
+        for root, dirs, files in os.walk(APP_DIR):
+            dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+            for name in sorted(files):
+                if not name.endswith((".py", ".json")):
+                    continue
+                path = os.path.join(root, name)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    continue
+                digest.update(f"{os.path.relpath(path, APP_DIR)}|{stat.st_size}|{stat.st_mtime_ns};".encode())
+    except OSError as exc:
+        log.warning("Could not read the app folder for the code stamp: %s", exc)
+    return digest.hexdigest()
+
+
+CODE_AT_START = _code_stamp()
+_code_cached: tuple[float, bool] | None = None
+
+
+def code_changed() -> bool:
+    """Phase 16 wave 3: True when the server's Python code on disk differs from what this process started with (an
+    update was pulled while it ran), so a page can offer the restart. Never in the packaged program, whose code is
+    inside it. Checked at most every STAMP_SECONDS."""
+    global _code_cached
+    if getattr(sys, "frozen", False):
+        return False
+    now = time.monotonic()
+    with _lock:
+        if _code_cached is not None and now - _code_cached[0] < STAMP_SECONDS:
+            return _code_cached[1]
+    value = _code_stamp() != CODE_AT_START
+    with _lock:
+        _code_cached = (now, value)
+    return value
+
+
 def build_id() -> str:
     global _cached
     now = time.monotonic()
@@ -57,6 +103,7 @@ def build_id() -> str:
 
 def reset() -> None:
     """Forget the cached id (tests that change files under static/)."""
-    global _cached
+    global _cached, _code_cached
     with _lock:
         _cached = None
+        _code_cached = None

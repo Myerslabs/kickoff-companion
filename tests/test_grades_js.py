@@ -43,7 +43,7 @@ scenarios.ui = async () => {
   });
   const t = clean("block", good);
   assert.ok(t.includes("76") && t.includes("Very good") && t.includes("#20 of 144 FBS quarterbacks"), t.slice(0, 200));
-  assert.ok(t.includes("9.1") && t.includes("67%") && t.includes("no number"));
+  assert.ok(t.includes("9.1") && t.includes("66.7%") && t.includes("no number"));
   assert.ok(t.includes("31.4 passes a game (14.0 needed"));
   assert.equal(good.querySelectorAll("tbody tr").length, 4, "junk parts are skipped, the rest drawn");
   const missing = gradeBlock({ grade: null, reason: "Offensive linemen have no individual stats in CFBD's data, so they get no stat grade." });
@@ -59,6 +59,10 @@ scenarios.ui = async () => {
   const rows = table.querySelectorAll("tbody tr");
   assert.equal(rows.length, 2);
   assert.ok(rows[0].className.includes("is-us"));
+  // Phase 17 #22: no word column repeating the number; the word is in the chip's title; the rank says what it ranks
+  assert.ok(!text(rows[0]).includes("Very good"), text(rows[0]));
+  assert.ok(rows[0].querySelector(".grade-chip").getAttribute("title").includes("Very good"));
+  assert.ok(text(table.querySelector("thead")).includes("Pos. rank"));
 };
 """
 

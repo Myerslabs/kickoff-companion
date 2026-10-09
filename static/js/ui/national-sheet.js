@@ -21,19 +21,14 @@
 //   summaryText(data), listTitle(data), centerRow(root, { scroller })   exported for the view and the tests.
 
 import { usSchool } from "../identity.js";
-import { ageSeconds, fetchJson } from "../views/common.js";
-import { DASH, el, fmtNum, frag, isNum, teamLink, text } from "./dom.js";
+import { ageSeconds, fetchPatient } from "../views/common.js";
+import { DASH, el, fmtNum, frag, isNum, obj, teamLink, text } from "./dom.js";
 import { barCell, barScale, distributionStrip, pctlText, percentile } from "./national-bars.js"; // GX-04 (owner look)
-import { isListHref, isMetric, nationalHref, nationalRoute, parseRoute, pollsPageHref } from "./national-link.js";
+import { isListHref, isMetric, nationalHref, nationalRoute, parseRoute, pollName, pollsPageHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
 import { band, stateBlock } from "./states.js";
 import { pollBadge, statTable, statTableSkeleton } from "./stat-table.js";
 
-const FETCH_MS = 20000;
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
 
 function list(value) {
   return Array.isArray(value) ? value.filter((r) => r && typeof r === "object" && !Array.isArray(r)) : [];
@@ -185,10 +180,12 @@ function valueHead(d) {
 export function listColumns(d, scale = null) {
   const player = d.unit === "player";
   const poll = d.family === "poll";
+  // final pass: a rank column is headed by its population (FBS rank, <Conf> rank, <Poll> rank), never Rk or Nat
+  const rankHead = poll ? `${pollName(d.key) || "Poll"} rank` : d.scope === "conference" ? `${typeof d.conference === "string" && d.conference ? d.conference : "Conf"} rank` : "FBS rank";
   const columns = [
     poll
-      ? { key: "rank", label: "Rk", stick: true, tieKey: "team", render: (r) => pollBadge(r.rank, d.key, { showPoll: false }) || DASH }
-      : { key: "rank", label: "Rk", kind: "rank", of: isNum(d.of) ? d.of : undefined, tie: "tied", stick: true, tieKey: player ? "player" : "team" },
+      ? { key: "rank", label: rankHead, stick: true, tieKey: "team", render: (r) => pollBadge(r.rank, d.key, { showPoll: false }) || DASH }
+      : { key: "rank", label: rankHead, kind: "rank", of: isNum(d.of) ? d.of : undefined, tie: "tied", stick: true, tieKey: player ? "player" : "team" },
     { key: player ? "player" : "team", label: player ? "Player" : "Team", kind: "text", stick: true, render: player ? playerCell : teamCell },
   ];
   const format = typeof d.format === "string" && d.format !== "rank" ? d.format : "2f";
@@ -196,7 +193,7 @@ export function listColumns(d, scale = null) {
   if (d.family === "recruit") columns.push({ key: "stars", label: "Stars", format: "stars" });
   if (scale && !poll) columns.push({ key: "pctl", label: "Pctl", render: (r) => pctlText(r.pctl) });
   if (poll) columns.push({ key: "firstPlaceVotes", label: "1st", format: "0f" });
-  if (d.scope === "conference") columns.push({ key: "nationalRank", label: "Nat", kind: "rank" });
+  if (d.scope === "conference") columns.push({ key: "nationalRank", label: "FBS rank", kind: "rank" });
   return columns;
 }
 
@@ -312,7 +309,7 @@ function loadingBody() {
 }
 
 function errorMessage(error) {
-  if (error?.name === "AbortError") return "The server did not answer in 20 s.";
+  if (error?.name === "AbortError") return "The server did not answer in time.";
   if (error?.status === 404) return `${text(error.message)}`;
   return `${text(error?.message || "The request failed")}.`;
 }
@@ -329,10 +326,8 @@ export function openNationalSheet(input) {
   async function load() {
     const mine = ++seq;
     full.setAttribute("href", fullHref(want));
-    const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const timer = setTimeout(() => controller?.abort(), FETCH_MS);
     try {
-      const envelope = await fetchJson(nationalApiUrl(want), controller?.signal);
+      const envelope = await fetchPatient(nationalApiUrl(want), { current: () => mine === seq });
       if (mine !== seq) return;
       const data = obj(envelope.data);
       handle.setTitle(listTitle(data));
@@ -352,8 +347,6 @@ export function openNationalSheet(input) {
     } catch (error) {
       if (mine !== seq) return;
       handle.setBody(stateBlock({ kind: "error", lead: error?.status === 404 ? "There is no such list." : "Could not load this list.", detail: errorMessage(error), action: error?.status === 404 ? null : { label: "Try now", onClick: () => load() } }));
-    } finally {
-      clearTimeout(timer);
     }
   }
 

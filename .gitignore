@@ -5,6 +5,7 @@
 # recordings, feeds, weather, headshots, settings). Backed up, never committed.
 # The notes example and README are part of the app, so they stay tracked.
 logs/
+backups/
 data/*
 !data/notes/
 data/notes/*

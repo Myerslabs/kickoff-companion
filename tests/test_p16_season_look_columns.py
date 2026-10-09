@@ -1,6 +1,6 @@
-"""Phase 16, stream SEASON, owner look G3-03: the Season columns rebalanced. Advanced is its own band in the
-right column as one paired Offense | Defense table, Trends its own band under Polls on the left, and the
-profile band has no nested pseudo-bands. Dropping the G3-03 commit drops this file with it."""
+"""Phase 16, stream SEASON, owner look G3-03: Advanced is its own band as one paired Offense | Defense table,
+Trends its own band, and the profile band has no nested pseudo-bands. Phase 17 (#7, #28): the three fixed
+columns became one flowing page, so this checks the bands' reading order instead."""
 
 from __future__ import annotations
 
@@ -27,12 +27,12 @@ scenarios.columns = async () => {
   const view = createSeasonView({});
   view.mount(main);
   await settle();
-  const cols = main.querySelector(".season").childNodes.filter((n) => n.className === "season__col" || n.className === "season__guide");
-  assert.equal(cols.length, 3);
-  const ids = (col) => col.querySelectorAll("section.band").map((b) => b.getAttribute("id")).filter(Boolean);
-  assert.deepEqual(ids(cols[0]), ["season-schedule", "season-polls", "season-trends"], "Trends under Polls (polls stay under the schedule)");
-  assert.deepEqual(ids(cols[1]), ["season-profile", "season-last"]);
-  assert.deepEqual(ids(cols[2]), ["season-standings", "season-ratings", "season-resume", "season-advanced"]);
+  // Phase 17 #7, #28: one flowing page instead of three fixed columns; the bands in reading order, the profile
+  // and the advanced tables marked to span two columns on a wide page
+  const page = main.querySelector(".page.season");
+  assert.ok(page && page.className.includes("flow"));
+  const ids = page.querySelectorAll("section.band").map((b) => b.getAttribute("id")).filter(Boolean);
+  assert.deepEqual(ids.slice(0, 9), ["season-schedule", "season-profile", "season-standings", "season-polls", "season-ratings", "season-last", "season-resume", "season-trends", "season-advanced"]);
   const profile = main.querySelector("#season-profile");
   assert.equal(profile.querySelectorAll(".band").length, 0, "no band nested inside the profile band");
   assert.deepEqual(profile.querySelectorAll("h3.subhead").map(text), ["Offense", "Defense"]);
@@ -40,7 +40,7 @@ scenarios.columns = async () => {
   const adv = main.querySelector("#season-advanced");
   assert.equal(adv.querySelectorAll("table").length, 1);
   const row = adv.querySelectorAll("tbody tr").find((tr) => text(tr).startsWith("Success rate"));
-  assert.ok(text(row).includes("49%") && text(row).includes("39%"), text(row));
+  assert.ok(text(row).includes("48.6%") && text(row).includes("39.1%"), text(row));
   assert.equal(row.querySelectorAll("a.rank-chip--link").length, 2);
   assert.ok(adv.querySelectorAll("tr.is-parent").map((tr) => text(tr.querySelector("td"))).includes("Tempo"), "areas are group rows");
   const oneSided = adv.querySelectorAll("tbody tr").find((tr) => text(tr).startsWith("Run rate"));

@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Any
 
 from app.cfbd.models import Drive, GamePlayerStats, GameTeamStats, LiveGame, LiveGameTeam, Play, ScoreboardGame
+from app.live.penalties import penalties_in
 
 EXPLOSIVE_RUSH = 10
 EXPLOSIVE_PASS = 20
@@ -208,6 +209,7 @@ def play_from_finished(play: Play, home: str | None, away: str | None) -> dict[s
         "awayScore": away_score,
         "wallclock": play.wallclock,
         "flags": flags,
+        "penalties": penalties_in(play.play_text),  # Phase 17 #21: the fouls named in the text, for the rule panel
         "success": play_success(play.down, play.distance, play.yards_gained, play.play_type, play.scoring),
     }
 
@@ -337,6 +339,7 @@ def events_from_live(game: LiveGame, received_at: datetime) -> list[LiveEvent]:
                         "awayScore": play.away_score,
                         "wallclock": play.wall_clock,
                         "flags": flags,
+                        "penalties": penalties_in(play.play_text),  # Phase 17 #21
                         "success": feed_success(play.success, play.play_type),  # CFBD's own flag (C3); no local fallback on the live feed
                         "garbageTime": play.garbage_time,
                         "rushPass": play.rush_pass,  # the feed's own tags (Phase 12 tendencies)

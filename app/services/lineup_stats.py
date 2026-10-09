@@ -56,10 +56,10 @@ def _fmt(value: float, fmt: str) -> str:
     return f"{value:.0f}" if value.is_integer() else f"{value:.1f}"
 
 
-def _detail(key: str, value: float) -> str:
-    if key == "PCT":
+def _detail(key: str, value: float, category: str = "") -> str:
+    if key == "PCT":  # PCT is completions on a passing line and field goals made on a kicking line (Phase 11 item 8)
         pct = value * 100 if value <= 1 else value
-        return f"{pct:.0f}% completions"
+        return f"{pct:.0f}% {'field goals' if category == 'kicking' else 'completions'}"
     return f"{_fmt(value, '1f' if not value.is_integer() else '0f')} {key}"
 
 
@@ -91,7 +91,7 @@ def chips_for(by_category: dict[str, Line]) -> list[str]:
         v = _num(line.stats.get(key))
         if v is None or v == 0:
             continue
-        chips.append(_detail(key, v))
+        chips.append(_detail(key, v, category))
         if len(chips) >= 4:
             break
     if spec is DEFENSE and len(chips) < 4:

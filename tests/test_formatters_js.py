@@ -52,7 +52,7 @@ for (const bad of BAD) {
 assert.equal(dom.fmtNum(59, 0), "59");
 assert.equal(dom.fmtNum(8.04, 1), "8.0");
 assert.equal(dom.fmtPct(0.74), "74%");
-assert.equal(dom.fmtStat(0.46, "pct"), "46%");
+assert.equal(dom.fmtStat(0.46, "pct"), "46.0%");
 assert.equal(dom.fmtStat(0.241, "+2f"), "+0.24");
 assert.equal(dom.fmtStat(-6, "+0f"), "−6"); // a true minus sign, by design
 assert.equal(dom.text(0), "0");
@@ -85,8 +85,8 @@ for (const bad of [...BAD, "0.93", "4", -1, 0]) {
 assert.equal(dom.fmtStat(0.9379, "rating100"), "94");
 assert.equal(dom.fmtStat(88, "rating100"), "88");
 assert.equal(dom.fmtStat(250, "rating100"), DASH);
-assert.equal(dom.fmtStat(4, "stars"), "4★");
-assert.equal(dom.fmtStat(3.6, "stars"), "4★");
+assert.equal(dom.fmtStat(4, "stars"), "4-star");
+assert.equal(dom.fmtStat(3.6, "stars"), "4-star");
 assert.equal(dom.fmtStat(6, "stars"), DASH);
 assert.equal(dom.ratingTier(dom.rating100(0.9379)), "top");
 assert.equal(dom.ratingTier(dom.rating100(0.85)), "good");

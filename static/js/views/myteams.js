@@ -4,7 +4,7 @@
 // The list reads answers other pages already cache, so it costs no call of its own once they have loaded.
 // With a free key only the home team shows, with a note on what a Tier 2 key adds.
 
-import { DASH, el, fmtDate, isNum } from "../ui/dom.js";
+import { DASH, el, fmtDate, isNum, obj, str } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band, note } from "../ui/states.js";
 import { logoLink } from "../ui/team-page.js";
@@ -15,14 +15,6 @@ import { combinedState, errorPanel, poller, recordText } from "./common.js";
 
 const ROLE_LABEL = { home: "Home team", primary: "Primary", secondary: "Secondary" };
 const PLANS_URL = "https://collegefootballdata.com/api-tiers";
-
-function obj(value) {
-  return value && typeof value === "object" ? value : {};
-}
-
-function str(value) {
-  return typeof value === "string" && value.trim() ? value.trim() : null;
-}
 
 /** "W 31-14 vs Opponent" or "L 10-17 at Opponent"; a dash when there is no finished game. */
 export function lastText(game) {

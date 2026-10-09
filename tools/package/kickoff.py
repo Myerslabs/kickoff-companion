@@ -7,6 +7,7 @@ PyInstaller builds this file (tools/package/kickoff.spec, run by tools/package/b
 from __future__ import annotations
 
 import logging
+import os
 import sys
 import traceback
 
@@ -30,5 +31,6 @@ def run() -> int:
 
 if __name__ == "__main__":
     code = run()
-    pause_before_closing(code)
+    if not os.environ.get("KICKOFF_NO_PAUSE"):  # Phase 16 wave 3: the tray starts the program in a hidden window
+        pause_before_closing(code)
     sys.exit(code)

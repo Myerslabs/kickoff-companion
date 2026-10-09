@@ -24,6 +24,10 @@ def _mark_program(result: Assembled, request: Request) -> None:
     if isinstance(game, dict):
         game["archived"] = game.get("gameId") in archived
     mark_archived(result.data.get("picker"), archived)
+    for side in ("us", "them"):  # Phase 17 #2: a form square of ours opens the Archive when it holds the game
+        block = result.data.get(side)
+        if isinstance(block, dict):
+            mark_archived(block.get("form"), archived)
 
 
 @router.get("/api/program/next")
@@ -45,6 +49,30 @@ async def program_game(game_id: str, request: Request) -> Any:
     if result is None:
         return error_response(404, "not_found", "That game is not on our schedule.")
     _mark_program(result, request)
+    return respond(result)
+
+
+@router.get("/api/program/{game_id}/leaders")
+async def program_leaders(game_id: str, request: Request) -> Any:
+    """Phase 17 #17: the leaders side by side with each one's whole line, ranks and conference-game line."""
+    service: ProgramService = request.app.state.program
+    if not (game_id.isdigit() and len(game_id) <= 12) and game_id != "next":
+        return error_response(404, "not_found", "No game with that id.")
+    result = await service.leaders(None if game_id == "next" else int(game_id))
+    if result is None:
+        return error_response(404, "not_found", "That game is not on our schedule.")
+    return respond(result)
+
+
+@router.get("/api/box/{game_id}")
+async def box_score(game_id: str, request: Request) -> Any:
+    """Phase 17 #2: the box score of any game this season (a W or L square on a cover opens it)."""
+    service: ProgramService = request.app.state.program
+    if not game_id.isdigit() or len(game_id) > 12:
+        return error_response(404, "not_found", "No game with that id.")
+    result = await service.box(int(game_id))
+    if result is None:
+        return error_response(404, "not_found", "No game with that id this season.")
     return respond(result)
 
 

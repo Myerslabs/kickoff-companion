@@ -145,3 +145,15 @@ def test_every_fbs_roster_looks_like_a_real_one():
         assert 2 <= mix["QB"] <= 9 and mix["LB"] <= 18 and mix["PK"] >= 1 and mix["P"] >= 1, (team.school, dict(mix))
         assert mix["OL"] >= 10 and mix["DL"] >= 8 and mix["WR"] >= 8, (team.school, dict(mix))
 
+
+
+def test_a_crowd_at_zero_ranks_at_the_bottom_not_the_middle():
+    """Phase 17 (owner 2026-10-07): 0 interceptions sat near the 42nd percentile because most players tie at zero."""
+    from app.services.grades import _percentiles
+
+    values = {str(i): 0.0 for i in range(6)} | {"6": 1.0, "7": 2.0, "8": 2.0, "9": 3.0}
+    p = _percentiles(values, higher=True)
+    assert p["0"] == 0.0 and p["6"] == 65.0 and p["7"] == p["8"] == 80.0 and p["9"] == 95.0
+    assert set(_percentiles({"a": 0.0, "b": 0.0}, higher=True).values()) == {50.0}, "all tied: the middle"
+    low = _percentiles({"a": 0.0, "b": 0.0, "c": 5.0}, higher=False)
+    assert low["a"] == low["b"] == 66.7 and low["c"] == 16.7, "lower is better keeps the mid-rank"

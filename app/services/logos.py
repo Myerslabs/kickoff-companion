@@ -25,6 +25,8 @@ from typing import Any
 
 import httpx
 
+from app.httpcap import ResponseTooLarge, get_capped
+
 log = logging.getLogger("kickoff.logos")
 
 LOGO_URL = "https://cdn.collegefootballdata.com/{folder}/{size}/{id}.png"
@@ -154,7 +156,12 @@ class LogoStore:
         problem = ""
         for attempt in range(1, ATTEMPTS + 1):
             try:
-                response = await self._http.get(url)
+                response = await get_capped(self._http, url, MAX_BYTES)
+            except ResponseTooLarge:
+                self.failures = 0
+                self._remember_miss(stem, f"larger than {MAX_BYTES} bytes")
+                self.stats["misses"] += 1
+                return Logo(None, False, "upstream did not return a usable PNG")
             except httpx.HTTPError as exc:
                 response, problem = None, exc.__class__.__name__
             else:

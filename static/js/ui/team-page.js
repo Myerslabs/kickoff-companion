@@ -16,10 +16,12 @@
 //   formSquares(form, { limit = 5 })  GX-17: the last results as small squares, a letter on a tinted fill,
 //       newest on the right; null when there is no finished game.
 
+import { icon } from "./icons.js";
 import { el, fmtNum, fmtStat, isNum, teamLink, teamLogo, text } from "./dom.js";
 import { valueColumn } from "./depth2.js";
 import { metricLink, nationalHref } from "./national-link.js";
 import { rankChip, statTable } from "./stat-table.js";
+import { fillWiki, wikiLink } from "./wiki-links.js";
 
 function recordText(record) {
   if (!record || !isNum(record.wins) || !isNum(record.losses)) return null;
@@ -88,12 +90,12 @@ export function teamHeader({ team = {}, season, location, facts = [], tabs = [],
     el(
       "div",
       { class: "team-head__top" },
-      teamLogo(t, { size: 72, lazy: false, className: "team-head__logo" }),
+      wikiLink("football", { team: t.school }, teamLogo(t, { size: 72, lazy: false, className: "team-head__logo" })), // Phase 17 #4
       el(
         "div",
         {},
         el("div", { class: "team-head__conf" }, [season, t.conference].filter(Boolean).map(text).join(" ")),
-        el("div", { class: "team-head__name" }, `${isNum(t.apRank) ? `#${t.apRank} ` : ""}${text(t.school)}`),
+        el("div", { class: "team-head__name" }, isNum(t.apRank) ? `#${t.apRank} ` : null, t.school ? wikiLink("school", { team: t.school }, text(t.school)) : text(null)),
         el("div", { class: "team-head__rec" }, rec ? `${rec}${confRec ? ` (${confRec})` : ""}` : "–", squares ? el("span", { class: "team-head__form" }, el("span", { class: "team-head__form-label" }, "Last 5"), squares) : null),
       ),
       facts.length ? el("dl", { class: "team-head__facts" }, facts.filter((f) => f && typeof f === "object").map((fact) => [el("dt", {}, text(fact.label)), el("dd", {}, factValue(fact))])) : null,
@@ -106,6 +108,7 @@ export function teamHeader({ team = {}, season, location, facts = [], tabs = [],
       tabs.length ? el("div", { class: "team-head__tabs", role: "tablist" }, tabButtons) : null,
     ),
   );
+  fillWiki(root);
   return { root, setTab };
 }
 
@@ -132,7 +135,7 @@ export function tiles(items = []) {
   );
 }
 
-const TILE_KEYS = [["ppg", "Points per game"], ["ypg", "Yards per game"], ["opp_ppg", "Opp points per game"], ["ypg_d", "Opp yards per game"]];
+const TILE_KEYS = [["ppg", "Points per game"], ["ypg", "Yards per game"], ["opp_ppg", "Points allowed per game"], ["ypg_d", "Yards allowed per game"]];
 
 function rowsOf(rows) {
   return (Array.isArray(rows) ? rows : []).filter((row) => row && typeof row === "object");
@@ -158,7 +161,7 @@ export function profileTable(rows, side, { team, conferenceLabel = "Conf" } = {}
       columns: [
         { key: "label", label: "Statistic", kind: "text" },
         valueColumn({ team }),
-        { key: "conferenceRank", label: text(conferenceLabel), kind: "rank", of: "conferenceOf", dim: true, link: metricLink({ team, scope: "conference" }) },
+        { key: "conferenceRank", label: `${text(conferenceLabel)} rank`, kind: "rank", of: "conferenceOf", dim: true, link: metricLink({ team, scope: "conference" }) }, // Phase 17 #27: a rank, and says so
       ],
       rows: list,
       caption: `${side} profile`,
@@ -176,7 +179,7 @@ export function starStrip({ counts = {}, average, note } = {}) {
     "div",
     { class: "starstrip", role: "group", "aria-label": "Recruiting stars" },
     levels.map((level) => el("div", { class: "starstrip__cell" }, el("span", { class: `starstrip__n${level === "5" || level === "4" ? " starstrip__n--hot" : ""}` }, isNum(counts[level]) ? counts[level] : 0), el("span", { class: "starstrip__label" }, `${level}-star`))),
-    el("div", { class: "starstrip__cell" }, el("span", { class: "starstrip__label" }, "Avg"), el("span", { class: "starstrip__n" }, isNum(average) ? fmtNum(average, 2) : "–"), el("span", { class: "stars", "aria-hidden": "true" }, "★")),
+    el("div", { class: "starstrip__cell" }, el("span", { class: "starstrip__label" }, "Avg"), el("span", { class: "starstrip__n" }, isNum(average) ? fmtNum(average, 2) : "–"), el("span", { class: "stars", "aria-hidden": "true" }, icon("star"))),
     note ? el("div", { class: "starstrip__note" }, note) : null,
   );
 }

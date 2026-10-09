@@ -15,8 +15,8 @@ is already up). Switching off unregisters and removes it. The tray icon is Windo
 command goes through `runner`, so tests and demo mode never touch the real system.
 
 The packaged program (public release Phase 10, `program` set): shortcuts, the service and the agent run the
-program itself with `--login` instead of a start script, and the tray switch is not offered (the tray script
-starts `python -m app`)."""
+program itself with `--login` instead of a start script. Phase 16 wave 3: on Windows the tray switch is offered there
+too; its shortcuts run the bundled tools\tray.ps1 with -Program, which starts the program hidden behind the icon."""
 
 from __future__ import annotations
 
@@ -123,8 +123,10 @@ class Launcher:
         home: str | Path | None = None,
         program: str | Path | None = None,
         static_dir: str | Path | None = None,
+        install_root: str | Path | None = None,
     ) -> None:
         self.project_root = Path(project_root)
+        self.install_root = Path(install_root) if install_root else self.project_root  # .env, data and logs (the tray's -Root)
         self.program = Path(program) if program else None  # the packaged program, which starts itself
         self.static_dir = Path(static_dir) if static_dir else self.project_root / "static"  # the icon for the Linux launcher
         self.platform = platform
@@ -141,8 +143,13 @@ class Launcher:
         return self.system in ("linux", "mac")
 
     @property
+    def tray_script(self) -> Path:
+        """tools\tray.ps1: in the project folder, or bundled beside the program's static folder."""
+        return (self.static_dir.parent if self.program else self.project_root) / "tools" / "tray.ps1"
+
+    @property
     def tray_supported(self) -> bool:
-        return self.system == "windows" and self.program is None  # the tray script starts python -m app, not the packaged program
+        return self.system == "windows" and (self.program is None or self.tray_script.is_file())
 
     @property
     def script_path(self) -> Path:
@@ -258,7 +265,11 @@ class Launcher:
         return None
 
     def _lnk_script(self, target: Path, tray: bool, *, login: bool = False) -> str:
-        if self.program:  # the packaged program runs itself (no tray there)
+        if self.program and tray and self.tray_scripts_ok():  # Phase 16 wave 3: the program behind the tray icon
+            exe = "powershell.exe"
+            arguments = f"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{self.tray_script}\" -Program \"{self.program}\" -Root \"{self.install_root}\"" + (" -Login" if login else "")
+            workdir = str(self.install_root)
+        elif self.program:  # the packaged program runs itself
             exe, arguments, workdir = str(self.program), ("--login" if login else ""), str(self.program.parent)
         else:
             exe = "powershell.exe"
@@ -272,6 +283,9 @@ class Launcher:
             f"$s.Description = {_ps_quote(DESCRIPTION)}; "
             f"$s.Save()"
         )
+
+    def tray_scripts_ok(self) -> bool:
+        return self.tray_script.is_file()
 
     def unit_text(self) -> str:
         """The systemd user unit: start.sh in service mode, restarted if it fails."""

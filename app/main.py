@@ -7,8 +7,10 @@ import asyncio
 import logging
 import mimetypes
 import sys
+from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, Request
@@ -23,23 +25,37 @@ from app import APP_NAME, BUILD_PHASE, __version__, restart
 from app import shutdown as shutdown_signal
 from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, players, program, radio, ratings, season, setup, ticker, welcome
 from app.api import demo as demo_api
+from app.api import gamenotes as gamenotes_api
+from app.api import host as host_api
 from app.api import matchup as matchup_api  # Phase 16 BX
+from app.api import rules as rules_api  # Phase 17 #21
 from app.api import search as search_api
+from app.api import season_notes as season_notes_api  # Phase 17 Part 3a
+from app.api import server as server_api  # Phase 16 wave 3: restart from the app
 from app.api import settings as settings_api
+from app.api import wiki as wiki_api  # Phase 17 #4
 from app.api.envelope import error_response
 from app.api.health import format_duration
 from app.cfbd.client import CfbdClient
 from app.config import PROJECT_ROOT, STATIC_DIR, Settings, SettingsError, load_settings
 from app.db import Database, database_path
 from app.feeds import FeedStore, team_feeds, team_matcher
+from app.guests import GuestGuard
+from app.headers import SecurityHeaders
+from app.limits import BodyLimit, RateLimit
 from app.live.engine import LiveEngine
 from app.logging_setup import LOG_FILE_NAME, configure_logging
+from app.maintenance import Maintenance
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
+from app.origin_guard import HostGuard, OriginGuard
 from app.paths import ROOTS
+from app.schedule_setup import build_schedule
 from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
 from app.services.connect import print_qr
+from app.services.gamenotes import GameNotes
 from app.services.grades import GradeService
+from app.services.host import HostAccess
 from app.services.identity import IdentityService
 from app.services.launcher import Launcher
 from app.services.logos import LogoStore
@@ -48,16 +64,21 @@ from app.services.mdns import Announcer
 from app.services.media import HeadshotStore
 from app.services.myteams import MyTeamsService
 from app.services.national import NationalService
-from app.services.notes_task import NotesRunner
+from app.services.notes_task import NotesRunner, scratch_dir
 from app.services.players import PlayerService
 from app.services.prefs import PrefsStore
 from app.services.program import ProgramService
 from app.services.ratings import RatingsService
+from app.services.screens import BoardLauncher
 from app.services.search import SearchService
 from app.services.season import SeasonService
+from app.services.season_notes import SeasonNotes
+from app.services.season_task import SeasonRunner
 from app.services.ticker import TickerService
+from app.services.updates import UpdateChecker
 from app.tls import TlsState
 from app.weather import NwsClient
+from app.wiki import WikiClient
 
 CERT_RECHECK_SECONDS = 6 * 3600
 QUOTA_CHECK_SECONDS = 5 * 60
@@ -191,6 +212,29 @@ async def _prewarm_published(app: FastAPI) -> None:
             log.exception("Prewarm of published data failed. Will try again in %d minutes.", PREWARM_SECONDS // 60)
 
 
+WARM_DELAY_SECONDS = 20
+WARM_PATHS = ("/api/season/overview", "/api/program/next", "/api/ticker", "/api/newspaper")
+
+
+async def _startup_warm(app: FastAPI) -> None:
+    """Phase 18.2: the first page a device opens after a restart used to wait for a few dozen CFBD calls. Ask for the
+    opening pages once, here, a little after the start, so they are cached when the first device arrives. The pages
+    go through the same routes and so the same quota guard; a failure is a log line, never a problem."""
+    try:
+        await asyncio.sleep(WARM_DELAY_SECONDS)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost", timeout=300) as client:
+            for path in WARM_PATHS:
+                try:
+                    response = await client.get(path)
+                    log.info("Startup warm-up %s: HTTP %s", path, response.status_code)
+                except httpx.HTTPError as exc:
+                    log.warning("Startup warm-up %s failed: %s", path, exc.__class__.__name__)
+    except asyncio.CancelledError:
+        raise
+    except Exception:  # noqa: BLE001 - warming is a courtesy; the log has the traceback
+        log.exception("Startup warm-up failed")
+
+
 def _describe_key(cfbd: CfbdClient) -> str:
     caps = cfbd.capabilities
     quota = cfbd.quota.status(datetime.now(timezone.utc))
@@ -240,6 +284,8 @@ async def lifespan(app: FastAPI):
             await app.state.logos.aclose()
             await app.state.feeds.aclose()
             await app.state.weather.aclose()
+            await app.state.wiki.aclose()
+            await app.state.updates.aclose()
             app.state.db.close()
             log.info("%s stopped (setup mode)", APP_NAME)
         return
@@ -274,12 +320,21 @@ async def lifespan(app: FastAPI):
     quota_watch = asyncio.create_task(_watch_quota(app))
     prewarm = asyncio.create_task(_prewarm_published(app))
     app.state.live.start_background()
+    app.state.maintenance.start()
+    app.state.claude_schedule.start()
+    warm = asyncio.create_task(_startup_warm(app))
     log.info("Live engine watching the schedule; polls every %d s inside a game window while a client is connected", settings.live_poll_seconds)
     try:
         yield {"tls": tls, "https": settings.https}
     finally:
+        warm.cancel()
+        with suppress(asyncio.CancelledError):
+            await warm
+        await app.state.claude_schedule.stop()
+        await app.state.maintenance.stop()
         await app.state.live.stop_background()
         await app.state.notes.stop()
+        await app.state.season_runner.stop()
         await app.state.mdns.stop()
         await app.state.myteams.close()
         for task in (recheck, quota_watch, prewarm):
@@ -293,6 +348,8 @@ async def lifespan(app: FastAPI):
         await app.state.logos.aclose()
         await app.state.feeds.aclose()
         await app.state.weather.aclose()
+        await app.state.wiki.aclose()
+        await app.state.updates.aclose()
         app.state.db.close()
         uptime = (datetime.now(timezone.utc) - app.state.started_at).total_seconds()
         log.info("%s stopped after %s", APP_NAME, format_duration(uptime))
@@ -306,6 +363,11 @@ def create_app(
     feeds_transport: httpx.AsyncBaseTransport | None = None,
     weather_transport: httpx.AsyncBaseTransport | None = None,
     logo_transport: httpx.AsyncBaseTransport | None = None,
+    wiki_transport: httpx.AsyncBaseTransport | None = None,
+    wiki_lookups: bool = True,
+    updates_transport: httpx.AsyncBaseTransport | None = None,
+    update_checks: bool = True,
+    cfbd_sleep: Callable[[float], Any] | None = None,
 ) -> FastAPI:
     """Build the app. With no settings, loads and validates .env; a bad .env exits with a message.
 
@@ -339,7 +401,7 @@ def create_app(
             tls = None
 
     db = Database(database_path(settings.data_dir))
-    cfbd = CfbdClient(settings, db, transport=cfbd_transport)
+    cfbd = CfbdClient(settings, db, transport=cfbd_transport, **({"sleep": cfbd_sleep} if cfbd_sleep is not None else {}))  # tests pass a sleep that does not wait
 
     app = FastAPI(
         title=APP_NAME, version=__version__, lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None
@@ -355,6 +417,8 @@ def create_app(
     app.state.identity = IdentityService(cfbd, settings)
     app.state.identity.on_change(lambda who: app.state.feeds.configure(team_feeds(who.school, who.mascot, settings.team_feed_url or None), team_matcher(who.school, who.mascot, who.rivals)))
     app.state.weather = NwsClient(settings.data_dir, transport=weather_transport, user_agent=agent, clock=lambda: cfbd._clock())
+    app.state.updates = UpdateChecker(settings.data_dir, transport=updates_transport, user_agent=agent, clock=lambda: cfbd._clock(), enabled=lambda: bool(getattr(app.state.prefs.prefs, "updateCheck", True)) and update_checks)  # Phase 16 wave 3
+    app.state.wiki = WikiClient(settings.data_dir, transport=wiki_transport, user_agent=agent, clock=lambda: cfbd._clock(), lookups=wiki_lookups)  # Phase 17 #4
     app.state.program = ProgramService(cfbd, settings, app.state.feeds, app.state.weather)
     app.state.live = LiveEngine(cfbd, settings, db)
     shutdown_signal.reset()
@@ -370,19 +434,39 @@ def create_app(
     app.state.myteams = MyTeamsService(cfbd, settings, app.state.prefs, app.state.program, app.state.ratings.fetcher)  # public release Phase 5b
     app.state.matchup = MatchupService(cfbd, settings)  # Phase 16 BX: UX-12
     app.state.archive = ArchiveService(settings.data_dir, app.state.analytics, app.state.program, settings.team)
-    app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR)  # the packaged program starts itself at login
+    app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR, install_root=ROOTS.install)  # the packaged program starts itself at login
     app.state.mdns = Announcer(settings.mdns_host, settings.port)  # public release Phase 4: kickoff.local
+    app.state.season_notes = SeasonNotes(settings.data_dir, settings.season)  # Phase 17 Part 3a
+    app.state.season_runner = SeasonRunner(settings.log_dir, cwd=scratch_dir(settings.data_dir))
     app.state.notes = NotesRunner(settings.data_dir, settings.log_dir, who=lambda: app.state.identity.current, season=settings.season, tz=settings.tzinfo)
     app.state.headshots = HeadshotStore(settings.data_dir, transport=media_transport, user_agent=f"{APP_NAME.replace(' ', '')}/{__version__} (personal second screen)")
     app.state.logos = LogoStore(settings.data_dir, transport=logo_transport or media_transport, user_agent=agent)  # Phase 16: logos served from our own route
+    app.state.maintenance = Maintenance(  # Phase 18.2: keep-awake, nightly backup, packed recordings, the archive's second look
+        data_dir=settings.data_dir,
+        backup_dir=settings.backup_dir or settings.data_dir.parent / "backups",
+        keep=settings.backup_keep,
+        window_open=lambda: app.state.live.window_open(),
+        backups_enabled=lambda: app.state.prefs.prefs.backups,
+        refresh_archive=lambda now: app.state.archive.refresh_finished(now),
+    )
+    app.state.gamenotes = GameNotes(settings.data_dir)  # Phase 19: your own notes during a game
+    app.state.host_access = HostAccess(settings.data_dir)  # Phase 18.6: guests are view-only once a PIN is set
+    app.state.board = BoardLauncher(settings.data_dir)  # Phase 18.6: the game-day board on a chosen monitor
+    app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week, off until switched on
     app.state.started_at = datetime.now(timezone.utc)
     app.state.demo_mode = False  # public release Phase 9b: app/demo/run.py serve_embedded sets these for the demo
     app.state.home_data_dir = settings.data_dir
     app.state.home_configured = not settings.setup_needed
 
     app.add_middleware(SetupGate, active=settings.setup_needed)
+    app.add_middleware(GuestGuard)  # Phase 18.6: a device that is not the host can look and not change
+    app.add_middleware(RateLimit)  # Phase 18.1: costly requests (S6, S7)
+    app.add_middleware(BodyLimit)  # Phase 18.1: no body large enough to fill memory (S8)
+    app.add_middleware(SecurityHeaders)  # final pass: never framed by another site, no type sniffing
+    app.add_middleware(OriginGuard)  # Phase 16 wave 3: no change request from another site's page
     app.add_middleware(PlainHttpRedirect, https=settings.https, legacy_tls=tls is not None and not settings.https)
     app.add_middleware(StaticCacheHeaders)
+    app.add_middleware(HostGuard, names=lambda: {n for n in (settings.lan_hostname, settings.mdns_host) if n})  # Phase 18.1: DNS rebinding (S2); added last, so it runs first
     app.include_router(health.router)
     app.include_router(setup.router)
     app.include_router(welcome.router)
@@ -405,11 +489,22 @@ def create_app(
     app.include_router(grades.router)  # public release Phase 7
     app.include_router(search_api.router)
     app.include_router(matchup_api.router)  # Phase 16 BX
+    app.include_router(rules_api.router)  # Phase 17 #21: the penalty book
+    app.include_router(wiki_api.router)  # Phase 17 #4: Wikipedia links for the big headers
+    app.include_router(season_notes_api.router)  # Phase 17 Part 3a: the preseason and coaches prompts
+    app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app
+    app.include_router(gamenotes_api.router)  # Phase 19
+    app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen
     app.include_router(client_log.router)
 
     @app.get("/", include_in_schema=False)
     async def index() -> FileResponse:
         return FileResponse(STATIC_DIR / "index.html", media_type="text/html", headers={"Cache-Control": "no-cache"})
+
+    @app.get("/portal", include_in_schema=False)
+    async def portal_page() -> FileResponse:
+        """Phase 18.6: the one-button page a venue's sign-in screen can show (docs/07-FRIENDS-AND-THE-BIG-SCREEN.md)."""
+        return FileResponse(STATIC_DIR / "portal.html", media_type="text/html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/status", include_in_schema=False)
     async def status_page() -> FileResponse:

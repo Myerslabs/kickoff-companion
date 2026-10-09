@@ -7,6 +7,7 @@
 // Every value from the server is guarded and written with textContent; the key is never shown back.
 
 import { stateName } from "./us-states.js";
+import { str } from "./ui/dom.js";
 
 const DASH = "–";
 const $ = (id) => document.getElementById(id);
@@ -49,7 +50,6 @@ const els = {
 const MAX_PRIMARIES = 4;
 const state = { info: null, teams: [], conferences: [], states: [], team: null, primaries: [], tickerMode: "national", liked: { teams: [], conferences: [], states: [] } };
 
-const str = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
 const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const hex = (value) => (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : null);
 const fmt = (value) => (num(value) === null ? DASH : num(value).toLocaleString());

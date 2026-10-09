@@ -39,6 +39,7 @@ def wp_series(records: list[PlayWinProbability]) -> list[dict[str, Any]]:
         rows.append(
             {
                 "play": record.play_number if isinstance(record.play_number, int) else None,
+                "playId": record.play_id if isinstance(record.play_id, str) and record.play_id else None,  # Phase 16 wave 3: the chart finds the play's time
                 "homeWp": round(wp, 4),
                 "homeScore": record.home_score,
                 "awayScore": record.away_score,

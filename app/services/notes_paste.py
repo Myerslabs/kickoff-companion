@@ -12,24 +12,21 @@ into any AI chat that can search the web, pastes the answer back, sees a preview
   is refused.
 
 The Claude Code button (app/services/notes_task.py) uses the same prompt and reads the tool's answer the same
-way, so both paths save through save_notes()."""
+way, so both paths save through save_notes(). Phase 17 Part 3: finding and validating the JSON lives in
+app/services/answers.py, shared with the season prompts."""
 
 from __future__ import annotations
 
 import contextlib
 import json
 import logging
-import os
 import re
-import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
-
-from app.cfbd import models as cfbd_models
+from app.services.answers import atomic_write, json_objects, keys_score, read_json
 from app.services.notes import NotesFile, notes_path
 
 log = logging.getLogger("kickoff.notes")
@@ -176,35 +173,13 @@ def write_template(data_dir: Path, text: str | None) -> None:
 
 # --- reading an answer -----------------------------------------------------------------------------------
 
-FENCE = re.compile(r"```(?:json|JSON)?\s*\n(.*?)```", re.DOTALL)
-TRAILING_COMMA = re.compile(r",(\s*[}\]])")
+NOTES_KEYS = ("sections", "availability", "visitors", "lineups", "schemes", "sources", "gameId")
+_score = keys_score(NOTES_KEYS)
 
 
 def _objects(text: str) -> list[Any]:
-    """Every JSON object the text holds: inside code fences first, then anywhere a "{" starts one."""
-    decoder = json.JSONDecoder()
-    found: list[Any] = []
-    candidates = [m.group(1) for m in FENCE.finditer(text)] + [text]
-    for chunk in candidates:
-        for attempt in dict.fromkeys((chunk, TRAILING_COMMA.sub(r"\1", chunk))):
-            index = attempt.find("{")
-            while index != -1:
-                try:
-                    value, end = decoder.raw_decode(attempt, index)
-                except ValueError:
-                    index = attempt.find("{", index + 1)
-                    continue
-                if isinstance(value, dict):
-                    found.append(value)
-                index = attempt.find("{", end)
-        if any(_score(obj) for obj in found):
-            return found  # a fenced block that holds notes wins over the rest of the text
-    return found
-
-
-def _score(obj: dict[str, Any]) -> int:
-    keys = {"sections", "availability", "visitors", "lineups", "schemes", "sources", "gameId"}
-    return len(keys & set(obj))
+    """Every JSON object the text holds, the fenced ones first (app/services/answers.py)."""
+    return json_objects(text, _score)
 
 
 @dataclass
@@ -226,38 +201,13 @@ def _count(raw: Any) -> int:
 
 def read_answer(text: Any, game_id: int, *, now: datetime | None = None) -> Reading:
     """Read a pasted answer for one game. Never raises."""
-    if not isinstance(text, str) or not text.strip():
-        return Reading(None, error="Paste the AI's answer first.")
-    if len(text) > MAX_PASTE:
-        return Reading(None, error=f"That is {len(text):,} characters; a notes answer is far shorter. Paste only the answer.")
-    objects = _objects(text.lstrip("﻿"))
-    if not objects:
-        return Reading(None, error="No JSON object in the answer. Ask the chat to answer with the JSON block only, then paste it again.")
-    raw = max(objects, key=_score)
-    if _score(raw) == 0:
-        return Reading(None, error="The JSON in the answer is not notes: it has none of sections, availability, visitors, lineups, schemes or sources.")
-    problems: list[str] = []
-    warnings: list[str] = []
-    raw = dict(raw)
-    notes: NotesFile | None = None
-    token = cfbd_models._dropped.set(problems)  # the notes models drop bad rows through the same collector as CFBD's
-    try:
-        for _ in range(len(raw) + 1):  # a top-level field of the wrong type is left out, never the whole answer
-            problems.clear()  # each attempt notes its own dropped rows
-            try:
-                notes = NotesFile.model_validate(raw)
-                break
-            except ValidationError as exc:
-                first = exc.errors()[0] if exc.errors() else {}
-                key = (first.get("loc") or (None,))[0]
-                if not isinstance(key, str) or key not in raw:
-                    return Reading(None, error=f"The notes could not be read: {first.get('msg', 'invalid')}.")
-                del raw[key]
-                warnings.append(f'"{key}" could not be read ({first.get("msg", "invalid")}) and was left out.')
-    finally:
-        cfbd_models._dropped.reset(token)
-    if notes is None:
-        return Reading(None, error="The notes could not be read.")
+    parsed = read_json(text, NotesFile, _score, max_chars=MAX_PASTE, what="notes", keys_text="sections, availability, visitors, lineups, schemes or sources")
+    if parsed.value is None:
+        return Reading(None, error=parsed.error)
+    notes: NotesFile = parsed.value
+    raw = parsed.raw
+    problems = parsed.problems
+    warnings = [w for w in parsed.warnings if not w.endswith(f"(first: {problems[0]}).")] if problems else list(parsed.warnings)
     asked = raw.get("gameId")
     if isinstance(asked, int) and not isinstance(asked, bool) and asked not in (0, game_id):
         warnings.append(f"The answer is for game {asked}, not this game ({game_id}). Saving puts it on this game.")
@@ -298,17 +248,7 @@ def read_answer(text: Any, game_id: int, *, now: datetime | None = None) -> Read
 # --- saving ------------------------------------------------------------------------------------------------
 
 
-def _atomic_write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(prefix=f".{path.stem}-", suffix=".tmp", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
-            handle.write(text)
-        os.replace(tmp, path)
-    except OSError:
-        with contextlib.suppress(OSError):
-            os.unlink(tmp)
-        raise
+_atomic_write = atomic_write  # the old name, kept for the callers that import it
 
 
 def save_notes(data_dir: Path, game_id: int, notes: NotesFile) -> Path:
@@ -317,3 +257,52 @@ def save_notes(data_dir: Path, game_id: int, notes: NotesFile) -> Path:
     _atomic_write(path, json.dumps(notes.model_dump(exclude_none=True), indent=2, ensure_ascii=False) + "\n")
     log.info("Notes saved for game %s (%s)", game_id, notes.author or "no author")
     return path
+
+
+# --- the injury-only run (Phase 18.7) -----------------------------------------------------------------------------
+
+INJURY_PROMPT = """You are updating only the injury and availability report for one game of a second-screen app that follows {team} ({team_name}, {conference}).
+
+The game: {away} at {home}, kickoff {kickoff} (the app's game id is {game_id}, season {season}). The opponent is {opponent}.
+
+Search the web for the newest {conference} availability report for this game, or the latest injury news if the conference publishes none, for both teams. Answer with ONE JSON object in a single ```json code block, nothing else, in exactly this shape:
+
+{{"gameId": {game_id}, "author": "assistant name", "writtenAt": "UTC time", "availability": [{{"name": "Player Name", "position": "WR", "status": "Questionable", "note": "ankle"}}], "availabilitySource": "Where it was published", "availabilityUpdatedAt": "UTC time of the report", "sources": [{{"label": "Conference availability report", "url": "https://..."}}]}}
+
+One row per player with name, position, status (Out, Doubtful, Questionable, Probable, Available or Game-time decision) and a short note. If no report or injury news is published yet, answer with "availability" as an empty list. Never invent a player or a status. Valid JSON only: no comments, no trailing commas.
+"""
+
+
+def build_injury_prompt(who: Any, game: dict[str, Any], season: int | None, tz: Any = None) -> str:
+    values = prompt_values(who, game, season, tz)
+    return INJURY_PROMPT.format(**{k: values[k] for k in ("team", "team_name", "conference", "season", "game_id", "home", "away", "opponent", "kickoff")})
+
+
+class NotesUnreadable(ValueError):
+    """An existing notes file that cannot be parsed: never overwritten by a partial update."""
+
+
+def merge_availability(data_dir: Path, game_id: int, update: NotesFile) -> bool:
+    """Put a fresh injury report into the game's notes without touching the rest (the written notes, depth charts,
+    visitors). With no notes file yet, a small one is created. Returns True when the report differs from before."""
+    path = notes_path(Path(data_dir), game_id)
+    current: NotesFile | None = None
+    if path.exists():
+        # Final pass: a notes file that exists but cannot be read is never replaced by an injury stub (that lost a
+        # whole week's notes to one stray character). The run fails with the reason instead.
+        try:
+            current = NotesFile.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as error:
+            log.error("Availability not merged: the notes file for game %s cannot be read (%s); fix or remove %s first", game_id, error, path)
+            raise NotesUnreadable(f"the notes file for game {game_id} could not be read ({error}); fix or remove it, then run again") from error
+    before = [a.model_dump(exclude_none=True) for a in current.availability] if current else []
+    merged = current if current is not None else NotesFile(gameId=game_id, author=update.author, writtenAt=update.writtenAt)
+    merged.availability = update.availability
+    merged.availabilitySource = update.availabilitySource or merged.availabilitySource
+    merged.availabilityUpdatedAt = update.availabilityUpdatedAt or update.writtenAt or merged.availabilityUpdatedAt
+    known = {s.url for s in merged.sources if s.url}
+    merged.sources = [*merged.sources, *[s for s in update.sources if s.url and s.url not in known]]
+    _atomic_write(path, json.dumps(merged.model_dump(exclude_none=True), indent=2, ensure_ascii=False) + "\n")
+    after = [a.model_dump(exclude_none=True) for a in merged.availability]
+    log.info("Availability saved for game %s: %d rows%s", game_id, len(after), "" if after != before else " (unchanged)")
+    return after != before

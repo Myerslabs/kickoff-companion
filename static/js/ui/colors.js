@@ -5,11 +5,11 @@
 
 import { ours } from "../identity.js";
 
-const DEFAULT_PANEL = "#121C44";
-const CHALK = "#F2F4FA";
-const GROUND = "#0A1230";
-const NEUTRAL = "#6F7BA6";
-const NEUTRAL_ALT = "#9BA6CC";
+const DEFAULT_PANEL = "#1C1F26"; // Phase 17 #34: the charcoal panel
+const CHALK = "#ECEEF2";
+const GROUND = "#14161B";
+const NEUTRAL = "#7C8494";
+const NEUTRAL_ALT = "#9AA1AE";
 const MIN_CONTRAST = 3;
 const MIN_HUE_GAP = 20;
 

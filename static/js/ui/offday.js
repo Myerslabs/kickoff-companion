@@ -1,16 +1,12 @@
 // Context tables for the days between games (Phase 15): this season beside last, the road ahead,
 // common opponents, and both teams' last season on the program. Tables only, every column guarded.
 
-import { DASH, el, fmtDate, fmtStat, isNum, teamLink, text } from "./dom.js";
+import { DASH, el, fmtDate, fmtStat, isNum, records, teamLink, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { note } from "./states.js";
 import { pollBadge, statTable } from "./stat-table.js";
 import { weekCell } from "./weeks.js";
 import { logoLink } from "./team-page.js";
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object") : [];
-}
 
 const SIDE_TITLES = { offense: "Offense", defense: "Defense", both: "Overall" };
 const h4 = (label) => el("h4", { class: "d2-head" }, label);
@@ -47,7 +43,7 @@ export function lastSeasonBlock(rows, year, thisYear, { team } = {}) {
     last: r.last?.value,
     lastRank: r.last?.rank,
     lastOf: r.last?.of,
-    change: r.better === true ? "▲ better" : r.better === false ? "▼ worse" : DASH,
+    change: r.better === true ? "Better" : r.better === false ? "Worse" : DASH, // Phase 16 wave 3: words, no font arrows
   }));
   const sides = [...new Set(shaped.map((r) => r.side))];
   return el(
@@ -146,7 +142,7 @@ export function commonOpponentsBlock(rows, usName, themName) {
 // import block never meet this.)
 import { twoTeamTable as programTwoTeam } from "./two-team.js";
 
-export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, ladder = false } = {}) {
+export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, ladder = false, tug = false } = {}) {
   const d = data && typeof data === "object" ? data : {};
   const list = records(d.rows);
   if (!list.some((r) => isNum(r.us?.value) || isNum(r.them?.value))) return note(`${text(d.year)} numbers could not be loaded yet.`);
@@ -155,5 +151,5 @@ export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, la
     title: SIDE_TITLES[side] || text(side),
     rows: list.filter((r) => r.side === side).map((r) => ({ label: r.label, format: r.format, higherIsBetter: r.higherIsBetter, metric: r.metric, metricYear: r.metricYear ?? d.year, us: { value: r.us?.value, rank: r.us?.rank, of: r.us?.of }, them: { value: r.them?.value, rank: r.them?.rank, of: r.them?.of } })),
   }));
-  return el("div", { class: "d2" }, programTwoTeam({ groups, usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, ladder, caption: `${text(d.year)} season, both teams` }));
+  return el("div", { class: "d2" }, programTwoTeam({ groups, usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, ladder, tug, tug, caption: `${text(d.year)} season, both teams` }));
 }

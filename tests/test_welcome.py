@@ -195,9 +195,16 @@ def test_the_restart_signal_ends_a_real_server_and_run_server_says_so(tmp_path: 
     codes: list[int] = []
     thread = threading.Thread(target=lambda: codes.append(run_server(settings)), daemon=True)
     thread.start()
-    time.sleep(3)
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:  # a loaded machine (the parallel run) can take far longer than 3 seconds to listen
+        try:
+            socket.create_connection(("127.0.0.1", port), timeout=1).close()
+            break
+        except OSError:
+            time.sleep(0.2)
+    time.sleep(0.5)
     restart.request("test")
-    thread.join(20)
+    thread.join(60)
     shutdown_logging()
     restart.reset()
     assert codes == [restart.RESTART]

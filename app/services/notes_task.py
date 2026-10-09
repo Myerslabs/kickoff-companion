@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -24,6 +25,15 @@ log = logging.getLogger("kickoff.notes")
 LOG_TAIL_LINES = 40
 MAX_RUN_SECONDS = 20 * 60
 ALLOWED_TOOLS = "WebSearch,WebFetch"  # the tool researches and answers; the app writes the file
+
+
+def scratch_dir(data_dir: Path) -> Path:
+    """An empty folder for the tool to run in (Phase 18.1): it starts with nothing around it to read, not the project.
+    Final pass: under the system's temp folder, never under the install, so a checkout's own CLAUDE.md (a parent of
+    data/) is not read into every run; `data_dir` only names the folder."""
+    path = Path(tempfile.gettempdir()) / "kickoff-companion" / f"ai-scratch-{abs(hash(str(Path(data_dir).resolve()))) % 100000:05d}"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _now() -> datetime:
@@ -53,6 +63,9 @@ class NotesRunner:
         self.warnings: list[str] = []
         self.saved = False
         self.command: str | None = None
+        self.mode = "full"  # "full" notes, or "injuries" only (Phase 18.7: merges the report into the notes already there)
+        self.changed: bool | None = None  # did the saved answer differ from what was there
+        self.model: str | None = None  # CLAUDE_LOOKUP_MODEL from .env for the small runs; None: the tool's own default
 
     # --- the prompt ------------------------------------------------------------------------------------
 
@@ -60,8 +73,10 @@ class NotesRunner:
     def prompt_path(self) -> Path:
         return notes_paste.prompt_path(self.data_dir)
 
-    def build_prompt(self, game: dict[str, Any]) -> str:
+    def build_prompt(self, game: dict[str, Any], mode: str = "full") -> str:
         who = self.who() if callable(self.who) else None
+        if mode == "injuries":
+            return notes_paste.build_injury_prompt(who, game, self.season, self.tz)
         return notes_paste.build_prompt(self.data_dir, who, game, self.season, self.tz)
 
     # --- the command ------------------------------------------------------------------------------------
@@ -103,6 +118,8 @@ class NotesRunner:
             "startedAt": _iso(self.started_at),
             "finishedAt": _iso(self.finished_at),
             "exitCode": self.exit_code,
+            "mode": self.mode,
+            "changed": self.changed,
             "error": self.error,
             "warnings": list(self.warnings),
             "fileWritten": bool(written and self.saved),
@@ -110,7 +127,7 @@ class NotesRunner:
             "promptFile": str(self.prompt_path),
         }
 
-    async def start(self, game: dict[str, Any], command: str) -> dict[str, Any]:
+    async def start(self, game: dict[str, Any], command: str, mode: str = "full", model: str | None = None) -> dict[str, Any]:
         """Start one run. Refused while another runs or when the command is missing."""
         game_id = game.get("gameId")
         if not isinstance(game_id, int):
@@ -121,7 +138,10 @@ class NotesRunner:
         if resolved is None:
             self.error = f"{command!r} was not found. Install Claude Code's command-line tool, or set its full path in Settings."
             return self.status(command)
-        prompt = self.build_prompt(game)
+        prompt = self.build_prompt(game, mode)
+        self.mode = mode
+        self.model = model if mode == "injuries" else None
+        self.changed = None
         self.game_id = game_id
         self.started_at = _now()
         self.finished_at = None
@@ -136,6 +156,8 @@ class NotesRunner:
 
     async def _run(self, executable: str, prompt: str, game_id: int) -> None:
         args = [executable, "-p", prompt, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]
+        if self.model:
+            args += ["--model", self.model]
         log.info("Notes task started for game %s with %s", game_id, executable)
         header = f"# notes task for game {game_id}, started {_iso(self.started_at)}\n"
         path = self.log_path(game_id)
@@ -143,7 +165,7 @@ class NotesRunner:
             with path.open("w", encoding="utf-8") as handle:
                 handle.write(header)
                 handle.flush()
-                self.process = await asyncio.create_subprocess_exec(*args, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(self.data_dir.parent))
+                self.process = await asyncio.create_subprocess_exec(*args, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(scratch_dir(self.data_dir)))
                 try:
                     self.exit_code = await asyncio.wait_for(self.process.wait(), timeout=MAX_RUN_SECONDS)
                 except TimeoutError:
@@ -175,7 +197,13 @@ class NotesRunner:
             self.error = f"the tool finished but its answer had no usable notes: {reading.error} See the log."
             return
         try:
-            notes_paste.save_notes(self.data_dir, game_id, reading.notes)
+            if self.mode == "injuries":
+                self.changed = notes_paste.merge_availability(self.data_dir, game_id, reading.notes)
+            else:
+                notes_paste.save_notes(self.data_dir, game_id, reading.notes)
+        except notes_paste.NotesUnreadable as exc:
+            self.error = f"the injury report was not merged: {exc}"
+            return
         except OSError as exc:
             self.error = f"the notes could not be saved: {exc}"
             return

@@ -655,7 +655,7 @@ def test_the_matchup_sheet_costs_nothing_once_the_season_page_has_loaded(app, cl
     ypg = {t: round(v["totalYards"] / v["games"], 3) for t, v in stats.items() if v.get("games") and "totalYards" in v}
     assert len(data["rows"]) == 26 + 6 and rows["ypg"]["home"] == {"value": ypg[US], "rank": 1 + sum(v > ypg[US] for v in ypg.values())}
     assert rows["ypg"]["away"]["rank"] == 1 + sum(v > ypg["Diner Tech"] for v in ypg.values()) and rows["ypg"]["of"] == len(ypg)
-    assert rows["offense_success_rate"]["group"] == "Efficiency" and rows["offense_success_rate"]["home"]["rank"]
+    assert rows["offense_success_rate"]["group"] == "Offense" and rows["offense_success_rate"]["home"]["rank"]
     assert data["game"]["gameId"] == NEXT_GAME and data["game"]["status"] == "scheduled" and data["game"]["homePoints"] is None
     assert data["parts"]["teams"]["status"] == "ok" and "NaN" not in json.dumps(body)
 

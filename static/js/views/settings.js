@@ -4,9 +4,18 @@
 // Public release Phase 5b: the score ticker (every game, or my teams with a Tier 2 key), radio stations
 // for any team (add, remove, find the broadcast, request it), and the primary and secondary teams.
 // Public release Phase 6: the notes prompt the Game program copies for an AI chat, editable here.
+// Phase 17 #31 (owner pick: Steam's settings): the sections listed on the left (a chip row on a phone), the
+// options grouped as Game day, Display, and Start and the server; one row per setting, its name and grey help on
+// the left and the switch or picker on the right; switches instead of checkboxes; a green "saved" line.
 
-import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, text } from "../ui/dom.js";
-import { band, note } from "../ui/states.js";
+import { cvdOn, setCvd } from "../ui/cvd.js";
+import { promptPaste } from "../ui/prompt-paste.js";
+import { readinessBand } from "../ui/readiness.js";
+import { setSpoiler, spoilerOn } from "../ui/spoiler.js";
+import { restartFlow } from "../ui/restart.js";
+import { fetchJson } from "./common.js";
+import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, text } from "../ui/dom.js";
+import { band, note, revealBand, subhead } from "../ui/states.js";
 import { statTable } from "../ui/stat-table.js";
 import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
 import { radioHelpBlock, reloadRadioSources } from "../radio.js";
@@ -19,8 +28,6 @@ const KINDS = [
   { value: "embed", label: "Station player (shown in the app)" },
   { value: "link", label: "Link (opens a tab)" },
 ];
-const str = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
-
 function row(label, control, help) {
   return el("div", { class: "setting" }, el("div", { class: "setting__label" }, label, help ? el("small", {}, help) : null), el("div", { class: "setting__control" }, control));
 }
@@ -33,8 +40,9 @@ function select(options, value, onChange, ariaLabel) {
   );
 }
 
+/** An on/off switch (a checkbox drawn as a switch, so it keeps the keyboard and the screen reader's checkbox). */
 function toggle(checked, onChange, ariaLabel) {
-  return el("label", { class: "setting__toggle" }, el("input", { type: "checkbox", checked: checked ? true : null, "aria-label": ariaLabel, onchange: (event) => onChange(event.target.checked) }), el("span", {}, checked ? "On" : "Off"));
+  return el("label", { class: "setting__toggle" }, el("input", { type: "checkbox", role: "switch", class: "switch", checked: checked ? true : null, "aria-label": ariaLabel, onchange: (event) => onChange(event.target.checked) }), el("span", { class: "sr-only" }, checked ? "On" : "Off"));
 }
 
 /** What the Desktop icon starts: the packaged program itself (public release Phase 10), else the start script. */
@@ -59,12 +67,12 @@ export function createSettingsView({ onStatus } = {}) {
 
   async function change(patch, label) {
     saved.textContent = `Saving ${label}…`;
-    saved.classList.remove("note--error");
+    saved.classList.remove("note--error", "setting__saved--ok");
     try {
       const envelope = await savePrefs(patch);
       const problem = envelope?.errors?.find((e) => e.code === "autostart_failed");
       saved.textContent = problem ? `${label} saved, but: ${problem.message}` : `${label} saved.`;
-      if (problem) saved.classList.add("note--error");
+      saved.classList.add(problem ? "note--error" : "setting__saved--ok");
       render();
     } catch (error) {
       saved.textContent = `${label} was not saved: ${error?.message || "unknown error"}.`;
@@ -88,49 +96,66 @@ export function createSettingsView({ onStatus } = {}) {
     button.disabled = false;
   }
 
-  function optionsBand() {
+  /** The three option sections share their inputs (built per draw from the saved prefs). */
+  function optionRows() {
     const p = getPrefs();
     const meta = prefsMeta() || {};
     const sources = Array.isArray(meta.radioSources) ? meta.radioSources.filter((s) => s && typeof s.id === "string") : [];
     const tier2 = meta.plan?.likedAllowed === true;
     const delayValue = el("b", {}, `${p.delaySeconds} s`);
     const slider = el("input", { type: "range", min: "0", max: "120", step: "5", value: String(p.delaySeconds), "aria-label": "Spoiler delay in seconds", oninput: (event) => { delayValue.textContent = `${event.target.value} s`; }, onchange: (event) => change({ delaySeconds: Number(event.target.value) }, "Spoiler delay") });
-    const notesInput = el("input", { type: "text", class: "setting__text", value: p.notesCommand || "claude", "aria-label": "Notes command", spellcheck: "false", onchange: (event) => change({ notesCommand: event.target.value }, "Notes command") });
     const shortcutButton = el("button", { class: "btn", type: "button", onclick: (event) => makeShortcut(event.currentTarget) }, "Create a Desktop icon");
     const auto = meta.autoStart || {};
     const notes = meta.notes || {};
-    return band({
-      id: "settings-options",
-      title: "Options",
-      collapsible: false,
-      summary: "saved on the server for every device",
-      state: { status: "ready" },
-      body: () =>
-        el(
-          "div",
-          { class: "settings" },
-          prefsError() ? note(`${prefsError()}. Showing defaults.`, { kind: "error", lead: "Settings could not be loaded." }) : null,
-          meta.prefsError ? note(`${meta.prefsError}.`, { kind: "error", lead: "Settings file problem." }) : null,
-          row("Spoiler delay", el("div", { class: "setting__slider" }, slider, delayValue), "Every live panel and our line in the ticker run this far behind the broadcast. Audio cannot be delayed."),
-          row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Game program uses first. Add stations for any team under Radio stations below."),
-          row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams on the setup page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
-          row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme")),
-          row("Text size", select(TEXT_SIZES.map((s) => ({ value: s.id, label: `${s.label} (${Math.round(s.scale * 100)}%)` })), textSize(), (value) => {
-            const size = setTextSize(value);
-            saved.classList.remove("note--error");
-            saved.textContent = `Text size ${size.label.toLowerCase()} on this device.`;
-          }, "Text size"), "This device only, so the couch tablet and the desk screen can differ. Saved in this browser."),
-          row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the Live sheet also keeps the screen on while plays come in."),
-          row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "Stat names with a dotted underline explain themselves when tapped. The Glossary in the menu lists every one."),
-          row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The live sheet streams regardless."),
-          row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
-          row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
-          auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The start script hides its window behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start.") : null,
-          row("Desktop icon", shortcutButton, iconText(auto)),
-          row("Notes command", notesInput, notes.commandFound ? `Found: ${notes.commandPath}. The Game program also offers to write the notes with it.` : "Optional. Where Claude Code's command-line tool is installed on the server computer, the Game program also offers to write the notes with it. Copy and paste works without it."),
-          saved,
-        ),
-    });
+    return {
+      problems: [
+        prefsError() ? note(`${prefsError()}. Showing defaults.`, { kind: "error", lead: "Settings could not be loaded." }) : null,
+        meta.prefsError ? note(`${meta.prefsError}.`, { kind: "error", lead: "Settings file problem." }) : null,
+      ],
+      gameday: [
+        row("Spoiler delay", el("div", { class: "setting__slider" }, slider, delayValue), "Every live panel and our line in the ticker run this far behind the broadcast. Audio cannot be delayed."),
+        row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the Live sheet also keeps the screen on while plays come in."),
+        row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Game program uses first. Add stations for any team under Radio stations."),
+        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams on the setup page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
+      ],
+      display: [
+        row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme"), "Charcoal or light; the team's colors mark what is ours either way."),
+        row("Text size", select(TEXT_SIZES.map((s) => ({ value: s.id, label: `${s.label} (${Math.round(s.scale * 100)}%)` })), textSize(), (value) => {
+          const size = setTextSize(value);
+          saved.classList.remove("note--error");
+          saved.classList.add("setting__saved--ok");
+          saved.textContent = `Text size ${size.label.toLowerCase()} on this device.`;
+        }, "Text size"), "This device only, so the couch tablet and the desk screen can differ. Saved in this browser."),
+        row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "Stat names with a dotted underline explain themselves when tapped. The Glossary in the menu lists every one."),
+        row("Color-blind friendly colors", toggle(cvdOn(), (value) => setCvd(value), "Color-blind friendly colors"), "Blue and orange instead of green and red, and a shape on every rank chip (up for the top quarter, a dot for the middle, down for the bottom). Only this device."),
+        row("Spoiler mode", toggle(spoilerOn(), (value) => setSpoiler(value), "Spoiler mode"), "For a recorded game: this device hides the scores, results, win chance and plays until you tap them. Only this device; the host and other devices are not affected."),
+        row("Announcer", toggle(p.announcer !== false, (value) => change({ announcer: value }, "Announcer"), "Announcer"), "A little announcer in a headset calls out each section's stat line the first time it scrolls into view. Nothing moves when the device asks for reduced motion."),
+        row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The live sheet streams regardless."),
+      ],
+      start: [
+        row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
+        row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
+        auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The server's window hides behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start from the Desktop icon or at login.") : null,
+        row("Desktop icon", shortcutButton, iconText(auto)),
+        row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
+        row("Restart the server", restartControl(), "Starts the server over in the same window, for a changed setting or an update pulled while it runs. The page reloads when it's back, usually 10 to 20 seconds."),
+        row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "Once a day the server asks GitHub whether a newer release is out and says so under About. It never downloads anything by itself."),
+        row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Game program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt. To use it, install it, or set CLAUDE_COMMAND in the .env file to its full path."),
+      ],
+    };
+  }
+
+  function backupText(h) {
+    const hk = h && typeof h === "object" ? h : {};
+    const awake = hk.keepAwake && hk.keepAwake.supported === true ? "The computer is kept awake while a game is on." : "Turn off this computer's sleep timer on game days: keeping it awake is not supported here.";
+    if (hk.enabled === false) return `Off. ${awake}`;
+    const last = typeof hk.last === "string" ? `Last backup ${fmtDateTime(hk.last)}.` : "No backup yet; the first one is made soon after the server starts.";
+    const problem = typeof hk.error === "string" && hk.error ? ` Problem: ${hk.error}` : "";
+    return `Each night a zip of the Archive, notes and settings goes to ${text(hk.folder)}; the newest ${isNum(hk.keep) ? hk.keep : 7} are kept. ${last}${problem} ${awake}`;
+  }
+
+  function section(id, title, rows, summary = null) {
+    return band({ id, title, collapsible: false, summary, state: { status: "ready" }, body: () => el("div", { class: "settings" }, rows) });
   }
 
   function quotaBand() {
@@ -244,12 +269,13 @@ export function createSettingsView({ onStatus } = {}) {
     });
   }
 
-  // --- the notes prompt (public release Phase 6) ------------------------------------------------------
-  const prompt = { status: "loading", data: null, error: null, message: "" };
-  let drawn = false; // the prompt answer may come back before the settings: it draws only once they have
+  // --- the prompts (Phase 19, owner 2026-10-08: "I don't want the prompt text to be visible. You can't edit it since it has
+  // to go into the program"). Each prompt is a card with Copy the prompt and Paste the answer; the text is never shown and
+  // there is no template editor. The same buttons sit on the Game program and the Preseason page.
+  let drawn = false; // kept: the settings page draws only once its own settings have loaded
 
-  async function promptCall(method, body) {
-    const response = await fetch("/api/notes/template", { method, cache: "no-store", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  async function api(url, options = {}) {
+    const response = await fetch(url, { cache: "no-store", headers: { "Content-Type": "application/json" }, ...options });
     let envelope = null;
     try {
       envelope = await response.json();
@@ -257,62 +283,203 @@ export function createSettingsView({ onStatus } = {}) {
       envelope = null;
     }
     if (!response.ok) throw new Error(envelope?.errors?.[0]?.message || `The server answered ${response.status}`);
-    return envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+    return envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
   }
 
-  async function loadPrompt() {
+  function promptCard({ id, title, intro, getPrompt, saveAnswer }) {
+    return {
+      load() {},
+      view: () => band({ id, title, collapsible: true, foldable: true, summary: "copy and paste", state: { status: "ready" }, body: () => el("div", { class: "settings" }, el("p", { class: "note" }, intro), promptPaste({ label: title, getPrompt, saveAnswer })) }),
+    };
+  }
+
+  let notesGame = null; // the game the notes prompt was written for, so a pasted answer saves to the same one
+  const prompts = [
+    promptCard({
+      id: "settings-notes-prompt",
+      title: "Notes prompt",
+      intro: "This week's notes for the next game: the program notes, injury report, depth charts, TV crew and coaches. Copy the prompt into an AI chat that can search the web, copy its whole answer, and tap Paste the answer.",
+      getPrompt: async () => {
+        const data = await api("/api/notes/prompt");
+        notesGame = data.gameId;
+        return data.prompt;
+      },
+      saveAnswer: async (value) => {
+        if (!notesGame) notesGame = (await api("/api/notes/prompt")).gameId;
+        return api("/api/notes/save", { method: "POST", body: JSON.stringify({ gameId: notesGame, text: value }) });
+      },
+    }),
+    promptCard({
+      id: "settings-coaches-prompt",
+      title: "Coaches prompt",
+      intro: "Every FBS team's head coach and offensive and defensive coordinators, all conferences in one paste. The Season prompt asks for these too; use this one to refresh only the coaches.",
+      getPrompt: async () => (await api("/api/season-notes/prompt?kind=coaches&key=all")).prompt,
+      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "coaches", key: "all", text: value }) }),
+    }),
+    promptCard({
+      id: "settings-costs-prompt",
+      title: "Roster costs prompt",
+      intro: "Rumored roster costs from a shallow search: every team's total, and your primary teams' positions and players, all conferences in one paste.",
+      getPrompt: async () => (await api("/api/season-notes/prompt?kind=costs&key=all")).prompt,
+      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "costs", key: "all", text: value }) }),
+    }),
+    promptCard({
+      id: "settings-season-prompt",
+      title: "Season prompt",
+      intro: "The whole season in one paste: your primary teams' deep preseason look and every FBS team's head coach and coordinators. The coaches and the roster costs have their own prompts below.",
+      getPrompt: async () => (await api("/api/season-notes/prompt?kind=season&key=all")).prompt,
+      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "season", key: "all", text: value }) }),
+    }),
+  ];
+
+  // --- Phase 16 wave 3: restart from here, and the update check ----------------------------------------
+  function restartControl() {
+    const said = el("span", { class: "note", role: "status" }, "");
+    const sure = el("span", { class: "restart__confirm", hidden: "" },
+      el("button", { class: "btn btn--primary", type: "button", onclick: async (event) => {
+        event.currentTarget.disabled = true;
+        await restartFlow({ say: (words) => { said.textContent = words; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
+      } }, "Restart now"),
+      " ",
+      el("button", { class: "btn", type: "button", onclick: () => { sure.setAttribute("hidden", ""); start.removeAttribute("hidden"); said.textContent = ""; } }, "Cancel"),
+    );
+    const start = el("button", { class: "btn", type: "button", onclick: () => { start.setAttribute("hidden", ""); sure.removeAttribute("hidden"); said.textContent = "Every device's page reloads once it's back."; } }, "Restart the server");
+    return el("div", { class: "restart" }, start, sure, " ", said);
+  }
+
+  const update = { data: null, error: null, checking: false };
+  async function loadUpdate(force = false) {
+    update.checking = true;
+    if (drawn) render();
     try {
-      prompt.data = await promptCall("GET");
-      prompt.status = prompt.data && typeof prompt.data.template === "string" ? "ready" : "error";
-      prompt.error = prompt.status === "error" ? "The server sent no prompt" : null;
+      const envelope = await fetchJson(`/api/updates${force ? "?force=1" : ""}`);
+      update.data = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+      update.error = null;
     } catch (error) {
-      prompt.status = "error";
-      prompt.error = error?.message || "The prompt did not load";
+      update.error = error?.message || "The update check didn't answer";
     }
+    update.checking = false;
     if (drawn) render();
   }
 
-  async function savePrompt(method, body, label) {
-    prompt.message = `${label}…`;
-    render();
-    try {
-      prompt.data = await promptCall(method, body);
-      prompt.message = `${label}: done.`;
-    } catch (error) {
-      prompt.message = `${label} failed: ${error?.message || "unknown error"}.`;
+  function updateLine() {
+    const u = update.data && typeof update.data === "object" ? update.data : null;
+    const again = el("button", { class: "btn btn--quiet", type: "button", disabled: update.checking ? true : null, onclick: () => loadUpdate(true) }, update.checking ? "Checking…" : "Check now");
+    if (update.error) return el("p", { class: "note" }, `Update check: ${update.error}. `, again);
+    if (!u) return el("p", { class: "note" }, "Update check: not asked yet. ", again);
+    if (u.enabled === false) return el("p", { class: "note" }, `You run version ${text(u.current)}. Checking for updates is off (Start and the server).`);
+    const when = typeof u.checkedAt === "string" ? ` Checked ${fmtDate(u.checkedAt, "short")}.` : "";
+    if (u.newer) {
+      const link = typeof u.url === "string" && u.url.startsWith("https://github.com/") ? el("a", { href: u.url, target: "_blank", rel: "noopener" }, "What's new and how to update") : null;
+      return el("p", { class: "about__update about__update--new" }, el("strong", {}, `Version ${text(u.latest)} is out`), ` (you run ${text(u.current)}${u.prerelease ? "; it's a pre-release" : ""}). `, link, `${when} `, again);
     }
-    render();
+    return el("p", { class: "note" }, `You run version ${text(u.current)}, the newest${u.latest ? "" : " the app knows of"}.${u.error ? ` ${u.error}` : when} `, again);
   }
 
-  function promptBand() {
-    const d = prompt.data && typeof prompt.data === "object" ? prompt.data : {};
-    const placeholders = (Array.isArray(d.placeholders) ? d.placeholders : []).filter((p) => typeof p === "string").map((p) => `{${p}}`);
-    const box = el("textarea", { class: "input notes-paste__prompt settings__prompt", rows: "14", spellcheck: "false", maxlength: String(isNum(d.maxChars) ? d.maxChars : 20000), "aria-label": "The notes prompt" });
-    box.value = typeof d.template === "string" ? d.template : "";
-    return band({
-      id: "settings-notes-prompt",
-      title: "Notes prompt",
-      collapsible: false,
-      foldable: true,
-      summary: prompt.status === "ready" ? (d.custom ? "edited" : "the default") : "",
-      state: prompt.status === "loading" ? { status: "loading" } : prompt.status === "error" ? { status: "error", message: `${prompt.error}.` } : { status: "ready" },
-      body: () =>
-        el(
-          "div",
-          { class: "settings" },
-          el("p", { class: "note" }, "The Game program copies this prompt, filled in for the game, for you to paste into an AI chat; Claude Code on the server gets the same one. Words in braces are filled in for each game: ", placeholders.join(" "), ". {shape} is the notes layout the answer must follow, so keep it."),
-          box,
-          el(
-            "p",
-            { class: "settings__actions" },
-            el("button", { class: "btn btn--primary", type: "button", onclick: () => savePrompt("PUT", { template: box.value }, "Saving the prompt") }, "Save the prompt"),
-            " ",
-            el("button", { class: "btn", type: "button", disabled: d.custom ? null : true, onclick: () => savePrompt("DELETE", null, "Back to the default") }, "Back to the default"),
-          ),
-          prompt.message ? el("p", { class: "note", role: "status" }, prompt.message) : null,
-          typeof d.file === "string" && d.file ? el("p", { class: "note" }, `An edited prompt is kept in ${d.file}.`) : null,
+  function claudeBand() {
+    // Phase 18.7: Claude Code runs the game-week prompts by itself, a few times a week, at the hours each source publishes.
+    const slot = el("div", {}, el("p", { class: "note" }, "Checking…"));
+    const when = (iso) => (typeof iso === "string" ? fmtDateTime(iso) : DASH);
+    async function draw() {
+      let s = {};
+      try {
+        s = (await fetchJson("/api/claude-schedule"))?.data || {};
+      } catch (error) {
+        slot.replaceChildren(el("p", { class: "note" }, `Could not read the schedule: ${text(error?.message || "no answer")}.`));
+        return;
+      }
+      const p = getPrefs();
+      const next = (Array.isArray(s.next) ? s.next : []).filter((n) => n && typeof n === "object");
+      const recent = (Array.isArray(s.recent) ? s.recent : []).filter((r) => r && typeof r === "object");
+      slot.replaceChildren(...[
+        el("div", { class: "settings" },
+          row("Run the prompts by themselves", toggle(p.scheduledRuns === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? "About three runs a game week (Monday's notes, then the first and the final availability report) and a few a year (the season load, the coaches, the roster costs). Nothing runs after the game. Each run uses your Claude plan like the buttons do." : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it."),
         ),
-    });
+        s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
+        s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
+        next.length ? el("div", {}, subhead("Next"), el("ul", { class: "plain-list" }, next.map((n) => el("li", {}, el("b", {}, text(n.label)), ` from ${when(n.at)}${p.scheduledRuns === true ? "" : " (off)"}`)))) : el("p", { class: "note" }, "Nothing is planned: no game this week and no season run due."),
+        recent.length ? el("div", {}, subhead("Lately"), el("ul", { class: "plain-list" }, recent.map((r) => el("li", {}, `${text(r.key)}: ${r.skipped ? "skipped, " + r.skipped : r.ok ? (r.changed === true ? "done, new information" : r.changed === false ? "done, nothing new" : "done") : "failed" + (typeof r.error === "string" ? ` (${r.error})` : "")} · ${when(r.finishedAt)}`)))) : null,
+      ].filter(Boolean));  // replaceChildren would write a null as the word "null"
+    }
+    draw();
+    return band({ id: "settings-claude", title: "Claude on a schedule", collapsible: false, summary: "", state: { status: "ready" }, body: () => slot });
+  }
+
+  function friendsBand() {
+    // Phase 18.6: the host PIN that makes guests view-only, and the game-day board on a monitor of the server computer.
+    const slot = el("div", { class: "settings" }, el("p", { class: "note" }, "Checking…"));
+    const send = async (url, body, method = "POST") => {
+      const response = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
+      let envelope = null;
+      try {
+        envelope = await response.json();
+      } catch {
+        envelope = null;
+      }
+      if (!response.ok) throw new Error(envelope?.errors?.[0]?.message || `The server answered ${response.status}`);
+      return envelope?.data || {};
+    };
+    async function draw() {
+      let host = {};
+      let screens = {};
+      try {
+        host = (await fetchJson("/api/host"))?.data || {};
+        screens = (await fetchJson("/api/board/screens"))?.data || {};
+      } catch (error) {
+        slot.replaceChildren(el("p", { class: "note" }, `Could not read these settings: ${text(error?.message || "no answer")}.`));
+        return;
+      }
+      const said = el("p", { class: "note", role: "status" }, "");
+      const pin = el("input", { class: "setting__text", type: "password", inputmode: "numeric", autocomplete: "off", maxlength: "8", "aria-label": "New host PIN", placeholder: "4 to 8 digits" });
+      const mayEdit = host.isHost === true;
+      const setPin = el("button", { class: "btn", type: "button", disabled: mayEdit && (host.pinSet || host.serverComputer) ? null : true, onclick: async () => {
+        try {
+          await send("/api/host/pin", { pin: pin.value });
+          said.textContent = "Saved. Other devices are now view-only.";
+          pin.value = "";
+          draw();
+        } catch (error) {
+          said.textContent = error?.message || "Not saved.";
+        }
+      } }, host.pinSet ? "Change the PIN" : "Set the PIN");
+      const removePin = host.pinSet ? el("button", { class: "btn btn--quiet", type: "button", disabled: mayEdit ? null : true, onclick: async () => {
+        try {
+          await send("/api/host", undefined, "DELETE");
+          said.textContent = "Removed. Every device can change settings again.";
+          draw();
+        } catch (error) {
+          said.textContent = error?.message || "Not removed.";
+        }
+      } }, "Remove the PIN") : null;
+      const list = Array.isArray(screens.screens) ? screens.screens : [];
+      const pick = el("select", { class: "setting__select", "aria-label": "Screen for the board" }, list.length ? list.map((s) => el("option", { value: String(s.index) }, text(s.name))) : [el("option", { value: "" }, "The default screen")]);
+      const boardSaid = el("p", { class: "note", role: "status" }, "");
+      const open = el("button", { class: "btn btn--primary", type: "button", disabled: screens.serverComputer === true && screens.browser === true ? null : true, onclick: async () => {
+        try {
+          const r = await send("/api/board/open", { screen: pick.value === "" ? null : Number(pick.value) });
+          boardSaid.textContent = r.screen ? `Opened on ${r.screen}. Press Alt+F4 on it, or Close, to leave.` : "Opened. Press Alt+F4 on it, or Close, to leave.";
+        } catch (error) {
+          boardSaid.textContent = error?.message || "It did not open.";
+        }
+      } }, "Open the board there");
+      const close = el("button", { class: "btn btn--quiet", type: "button", disabled: screens.serverComputer === true ? null : true, onclick: async () => {
+        try {
+          await send("/api/board/close", {});
+          boardSaid.textContent = "Closed.";
+        } catch (error) {
+          boardSaid.textContent = error?.message || "It did not close.";
+        }
+      } }, "Close the board");
+      slot.replaceChildren(
+        row("Host PIN", el("div", { class: "setting__stack" }, pin, setPin, removePin), host.pinSet ? "A PIN is set: other devices are view-only. Your own tablet signs in once with it (the \"I'm the host\" link at the top). This computer is always the host." : "No PIN yet, so every device that joins can change settings. Set one (from this computer) to make guests view-only."),
+        row("Invite friends", el("a", { class: "btn", href: "#invite" }, "Show the QR code"), "A full-screen QR code by IP number, and a guide for watching away from home."),
+        row("Big screen", el("div", { class: "setting__stack" }, pick, open, close), screens.serverComputer === true ? (screens.browser === true ? "Opens the game-day board full screen on the monitor you pick (Edge or Chrome, kiosk mode). Alt+F4 on it leaves." : "No Edge or Chrome was found on this computer, so the board cannot open itself. Open the address /#board in any browser, full screen.") : "Open the board from the server computer; this device cannot start a window there. You can still open #board in any browser, even to cast it."),
+        said,
+        boardSaid,
+      );
+    }
+    draw();
+    return band({ id: "settings-friends", title: "Friends and the big screen", collapsible: false, summary: "", state: { status: "ready" }, body: () => slot });
   }
 
   function aboutBand() {
@@ -362,6 +529,7 @@ export function createSettingsView({ onStatus } = {}) {
         el("p", { class: "about__link" }, el("a", { href: repo, target: "_blank", rel: "noopener" }, repo), " ", copy, said),
         box,
         filesLine,
+        updateLine(),
         el("p", { class: "note" }, el("a", { href: dataUrl, target: "_blank", rel: "noopener" }, text(a.dataCredit || "Data provided by CollegeFootballData.com")), ". Not affiliated with any school, conference, the NCAA or CollegeFootballData.com."),
       ),
     });
@@ -369,15 +537,46 @@ export function createSettingsView({ onStatus } = {}) {
 
   function render() {
     if (!container) return;
-    container.replaceChildren(el("div", { class: "season", style: { gridTemplateColumns: "minmax(0, 1fr)" } }, optionsBand(), radioBand(), promptBand(), el("div", { class: "spread spread--2" }, quotaBand(), serverBand()), aboutBand()));
+    const o = optionRows();
+    const sections = [
+      section("settings-gameday", "Game day", [...o.problems, ...o.gameday], "saved on the server for every device"),
+      readinessBand(),
+      section("settings-display", "Display", o.display),
+      section("settings-start", "Start and the server", o.start),
+      claudeBand(),
+      friendsBand(),
+      radioBand(),
+      ...prompts.map((p) => p.view()),
+      quotaBand(),
+      serverBand(),
+      aboutBand(),
+    ];
+    const nav = el(
+      "nav",
+      { class: "settings-nav", "aria-label": "Settings sections" },
+      sections.map((b) => {
+        const title = b.querySelector?.(".band__title")?.textContent || "";
+        const id = b.getAttribute?.("id");
+        if (!id || !title) return null;
+        const link = el("a", { class: "settings-nav__item", href: `#${id}` }, title);
+        link.addEventListener("click", (event) => {
+          event.preventDefault(); // a section id is not a route
+          revealBand(b);
+          for (const a of nav.querySelectorAll(".settings-nav__item")) a.classList.toggle("is-current", a === link);
+        });
+        return link;
+      }),
+    );
+    container.replaceChildren(el("div", { class: "page settings-page" }, nav, el("div", { class: "settings-main" }, saved, ...sections)));
   }
 
   return {
     async mount(target) {
       container = target;
-      container.replaceChildren(el("div", { class: "season", style: { gridTemplateColumns: "minmax(0, 1fr)" } }, band({ title: "Settings", collapsible: false, state: { status: "loading" } })));
+      container.replaceChildren(el("div", { class: "page settings-page" }, el("div", { class: "settings-main" }, band({ title: "Settings", collapsible: false, state: { status: "loading" } }))));
       setStatus("quiet", "Loading");
-      loadPrompt();
+      for (const p of prompts) p.load();
+      loadUpdate();
       await loadPrefs(true);
       setStatus(prefsError() ? "offline" : "quiet", prefsError() ? "Offline" : "Settings");
       drawn = true;

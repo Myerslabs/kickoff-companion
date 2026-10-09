@@ -20,8 +20,8 @@ from app.api.envelope import envelope, error_response
 from app.cache import DataKind
 from app.cfbd.models import Game
 from app.services import notes_paste
+from app.services.notes import notes_path
 from app.services.notes_task import NotesRunner
-from app.services.prefs import PrefsStore
 
 router = APIRouter(tags=["notes"])
 
@@ -30,36 +30,37 @@ class RunRequest(BaseModel):
     gameId: int | None = Field(default=None, gt=0)
 
 
-async def _game(request: Request, game_id: int | None) -> Game | None:
-    """A game on our schedule (the Game program's cached key), or the next one when no id is given."""
+async def _game(request: Request, game_id: int | None) -> tuple[Game | None, bool]:
+    """A game on our schedule (the Game program's cached key), or the next one when no id is given, and whether the
+    schedule itself could be read (when it could not, a missing game is CFBD's outage, not a wrong id)."""
     program = request.app.state.program
     schedule = await program.fetcher.fetch("schedule", "/games", {"year": program.year, "team": program.team}, Game, DataKind.SCHEDULE)
-    return program._pick_game(schedule.records, game_id)
+    return program._pick_game(schedule.records, game_id), bool(schedule.ok)
 
 
 def _game_dict(game: Game) -> dict[str, Any]:
     return {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": game.start_date}
 
 
-def _not_on_schedule(game_id: int | None) -> Any:
+def _not_on_schedule(game_id: int | None, schedule_ok: bool = True) -> Any:
+    if not schedule_ok:
+        return error_response(503, "upstream", "The schedule could not be read from CFBD, so the game cannot be checked. Try again in a minute.")
     return error_response(404, "not_found", "That game is not on our schedule." if game_id else "No upcoming game on our schedule.")
 
 
 @router.get("/api/notes/run")
 async def notes_status(request: Request) -> Any:
     runner: NotesRunner = request.app.state.notes
-    prefs: PrefsStore = request.app.state.prefs
-    return envelope(runner.status(prefs.prefs.notesCommand), source="live")
+    return envelope(runner.status(request.app.state.settings.claude_command), source="live")
 
 
 @router.post("/api/notes/run")
 async def notes_start(body: RunRequest, request: Request) -> Any:
     runner: NotesRunner = request.app.state.notes
-    prefs: PrefsStore = request.app.state.prefs
-    game = await _game(request, body.gameId)
+    game, ok = await _game(request, body.gameId)
     if game is None:
-        return _not_on_schedule(body.gameId)
-    status = await runner.start(_game_dict(game), prefs.prefs.notesCommand)
+        return _not_on_schedule(body.gameId, ok)
+    status = await runner.start(_game_dict(game), request.app.state.settings.claude_command)
     if status.get("error") and not status.get("running"):
         return envelope(status, source="live", errors=[{"code": "notes_not_started", "message": status["error"]}])
     return envelope(status, source="live")
@@ -70,13 +71,14 @@ async def notes_start(body: RunRequest, request: Request) -> Any:
 
 @router.get("/api/notes/prompt")
 async def notes_prompt(request: Request, gameId: int | None = None) -> Any:  # noqa: N803 - the query name the page sends
-    game = await _game(request, gameId if gameId and gameId > 0 else None)
+    game, ok = await _game(request, gameId if gameId and gameId > 0 else None)
     if game is None:
-        return _not_on_schedule(gameId)
+        return _not_on_schedule(gameId, ok)
     runner: NotesRunner = request.app.state.notes
     _template, custom = notes_paste.read_template(request.app.state.settings.data_dir)
     prompt = runner.build_prompt(_game_dict(game))
-    return envelope({**_game_dict(game), "prompt": prompt, "custom": custom, "chars": len(prompt)}, source="live")
+    path = notes_path(request.app.state.settings.data_dir, game.id)  # Phase 17 #12: the path chip copies this
+    return envelope({**_game_dict(game), "prompt": prompt, "custom": custom, "chars": len(prompt), "path": str(path)}, source="live")
 
 
 class PasteRequest(BaseModel):
@@ -86,17 +88,17 @@ class PasteRequest(BaseModel):
 
 @router.post("/api/notes/preview")
 async def notes_preview(body: PasteRequest, request: Request) -> Any:
-    game = await _game(request, body.gameId)
+    game, ok = await _game(request, body.gameId)
     if game is None:
-        return _not_on_schedule(body.gameId)
+        return _not_on_schedule(body.gameId, ok)
     return envelope(notes_paste.read_answer(body.text, game.id).as_dict(), source="live")
 
 
 @router.post("/api/notes/save")
 async def notes_save(body: PasteRequest, request: Request) -> Any:
-    game = await _game(request, body.gameId)
+    game, ok = await _game(request, body.gameId)
     if game is None:
-        return _not_on_schedule(body.gameId)
+        return _not_on_schedule(body.gameId, ok)
     reading = notes_paste.read_answer(body.text, game.id)
     if reading.notes is None:
         return error_response(422, "notes_unreadable", reading.error or "The answer has no usable notes.")

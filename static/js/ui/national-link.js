@@ -22,7 +22,7 @@
 
 export const ROUTE_IDS = new Set([
   "season", "leaders", "roster", "recruiting", "newspaper", "program", "team", "live", "archive",
-  "settings", "ratings", "glossary", "national", "radio", "injuries",
+  "settings", "ratings", "glossary", "national", "radio", "injuries", "box", "preseason",
 ]);
 
 export const METRIC_RE = /^[a-z]+:[A-Za-z0-9_:]+$/;

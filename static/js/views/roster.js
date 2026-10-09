@@ -8,9 +8,11 @@
 // Below it: the sortable roster table with the position picker, the star strip, and the impact
 // players. Row tap anywhere opens the player card.
 //
+// Phase 17 #35 (owner screenshots, 2026-10-07): a Roster breakdown band first: positions down, the five classes
+// across with totals, each player a name chip with our stat grade; then the star strip (#36) under it.
 // Phase 16 (stream PEOPLE): the position picker is a visible select in the table band's body (LRP-03, bug 6),
 // the table scrolls in a box of min(70vh, 720px) so its header stays on screen, and its sort survives the
-// hourly refresh and a position change; stars read 4★ (LRP-13); the recruit rank is a chip that opens the
+// hourly refresh and a position change; stars read 4-star (LRP-13); the recruit rank is a chip that opens the
 // recruit list once a row carries its list key (recruitMetric, from stream NV); the impact cards' stat chips
 // use the plain labels (LRP-06); one sub-heading style (DS-14); the .page container (DS-06).
 // The depth chart (LRP-09): six unit columns from 1100 px (three from 700, two below), every row with its
@@ -23,12 +25,15 @@ import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, recall, remember, text } from
 import { nationalHref } from "../ui/national-link.js";
 import { recruitHref } from "../ui/player-card.js";
 import { band, note, subhead } from "../ui/states.js";
+import { mountFlow, stopFlow } from "../ui/flow.js";
 import { plainChip } from "../ui/stat-labels.js";
 import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { impactCard, impactSkeleton, starStrip } from "../ui/team-page.js";
 import { combinedState, errorPanel, partState, poller } from "./common.js";
 import { openPlayer } from "./player.js";
 import { GRADE_NOTE, gradeChip, gradeValue } from "../ui/grade.js";
+import { rosterGrid } from "../ui/roster-grid.js";
+import { costsBand } from "../ui/roster-costs.js";
 
 // The unit columns and the cards in each, with their labels. CFBD's roster says PK for kickers; a
 // DB with no CB or S label gets its own card under the secondary; anything else lands in the last column.
@@ -67,8 +72,9 @@ const SORTS = [
   { id: "name", label: "Name", value: (p) => String(p.lastName || p.name || "").toLowerCase(), dir: 1, show: (p) => (ratingScore(p) !== null ? String(ratingScore(p)) : DASH), tier: (p) => ratingTier(ratingScore(p)) },
   { id: "class", label: "Class", value: (p) => CLASS_ORDER[String(p.classYear || "").toUpperCase()] ?? 9, dir: 1, show: (p) => text(p.classYear) },
   { id: "height", label: "Height", value: (p) => (isNum(p.height) ? p.height : -1), dir: -1, show: (p) => text(p.heightText) },
+  { id: "age", label: "Age", value: (p) => (isNum(p.age) ? p.age : -1), dir: -1, show: (p) => (isNum(p.age) ? String(p.age) : DASH) },
   { id: "weight", label: "Weight", value: (p) => (isNum(p.weight) ? p.weight : -1), dir: -1, show: (p) => (isNum(p.weight) ? String(p.weight) : DASH) },
-  { id: "stars", label: "Stars", value: (p) => (isNum(p.stars) ? p.stars : -1), dir: -1, show: (p) => (isNum(p.stars) ? `${p.stars}★` : DASH) },
+  { id: "stars", label: "Stars", value: (p) => (isNum(p.stars) ? p.stars : -1), dir: -1, show: (p) => (isNum(p.stars) ? `${p.stars}-star` : DASH) },
   { id: "recruit", label: "Recruit rank", value: (p) => (isNum(p.recruitRank) ? p.recruitRank : Infinity), dir: 1, show: (p) => (isNum(p.recruitRank) ? `#${p.recruitRank}` : DASH), chip: (p) => rankChip(p.recruitRank, null, { href: recruitHref(p), label: `Recruit rank, ${text(p.name)}` }) },
   { id: "ppa", label: "PPA per play", value: (p) => (isNum(p.ppaPerPlay) ? p.ppaPerPlay : -Infinity), dir: -1, show: (p) => (isNum(p.ppaPerPlay) ? fmtStat(p.ppaPerPlay, "+2f") : DASH) },
   { id: "usage", label: "Usage", value: (p) => (isNum(p.usageShare) ? p.usageShare : -1), dir: -1, show: (p) => (isNum(p.usageShare) ? fmtStat(p.usageShare, "pct") : DASH) },
@@ -78,8 +84,8 @@ const SORT_KEY = (pos) => `roster:sort:${pos}`;
 function shortName(p) {
   const first = typeof p.firstName === "string" ? p.firstName.trim() : "";
   const last = typeof p.lastName === "string" ? p.lastName.trim() : "";
-  if (first && last) return `${first[0]}. ${last}`;
-  return text(p.name);
+  if (first && last) return `${first[0]}. ${last}${p.redshirt === true ? " (RS)" : ""}`;
+  return `${text(p.name)}${p.redshirt === true ? " (RS)" : ""}`;
 }
 
 function sortedPlayers(players, sort) {
@@ -181,9 +187,10 @@ export function blueChipNote(bc) {
 function tableColumns() {
   const cols = [
     { key: "number", label: "No." },
-    { key: "name", label: "Player", kind: "text" },
+    { key: "name", label: "Player", kind: "text", render: (row) => `${text(row.name)}${row.redshirt === true ? " (RS)" : ""}` },
     { key: "position", label: "Pos", kind: "text" },
     { key: "classYear", label: "Class", kind: "text" },
+    { key: "age", label: "Age" }, // Phase 17 #38: from the preseason load's birthdates
     { key: "heightText", label: "Ht", kind: "text", sortable: false },
     { key: "weight", label: "Wt" },
     { key: "hometown", label: "Hometown", kind: "text" },
@@ -229,10 +236,20 @@ function render(envelope, container, state) {
   };
   renderTable();
 
-  container.replaceChildren(
-    el(
+  const page = el(
       "div",
       { class: "page roster" },
+      band({
+        id: "roster-breakdown",
+        title: "Roster breakdown",
+        collapsible: false,
+        foldable: true,
+        summary: `${players.length} players by position and class`,
+        state: partState(parts.roster, players.length > 0),
+        emptyText: "The roster loads the first time the app opens.",
+        body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average }), rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), el("p", { class: "note" }, "The number is our stat grade (100 is the best, 50 the middle at the position); linemen and long snappers have none. Tap a player for the card.")),
+      }),
+      costsBand(data.costs, { id: "roster-costs" }), // Phase 17 Part 3b: rumored, from the Preseason page's load
       band({
         id: "roster-depth",
         title: `${typeof data.team === "string" && data.team.trim() ? data.team.trim() : typeof data.team?.school === "string" && data.team.school.trim() ? data.team.school.trim() : usSchool()} depth chart`,
@@ -264,13 +281,16 @@ function render(envelope, container, state) {
         body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average, note: `${rated} of ${players.length} players have a CFBD recruiting record. Walk-ons and older transfers have none.` }), blueChipNote(data.blueChip)),
       }),
       band({ id: "roster-impact", title: "Impact players", collapsible: false, foldable: true, summary: "season leaders, offense then defense", state: partState(parts.team, (impact.offense || []).length + (impact.defense || []).length > 0), emptyText: "Impact players appear after the first game.", body: () => el("div", { class: "roster-impact" }, subhead("Offense"), impactGrid("offense"), subhead("Defense"), impactGrid("defense")) }),
-    ),
   );
+  state.ui ??= {};
+  mountFlow(state.ui, container, page, { wide: ROSTER_WIDE }); // final pass: the flowing page with its section chips
 }
 
+const ROSTER_WIDE = ["roster-breakdown", "roster-depth", "roster-table"]; // the grids and the sortable table take two columns
+
 export function createRosterView({ onStatus } = {}) {
-  const state = { position: "", sort: null }; // kept across the hourly refresh (LRP-03)
-  return poller({
+  const state = { position: "", sort: null, ui: {} }; // kept across the hourly refresh (LRP-03)
+  const view = poller({
     url: "/api/roster",
     refreshMs: 60 * 60 * 1000,
     onStatus,
@@ -286,6 +306,7 @@ export function createRosterView({ onStatus } = {}) {
         band({ title: "Impact players", collapsible: false, state: { status: "loading" }, skeleton: () => impactSkeleton(6) }),
       ),
   });
+  return { ...view, unmount() { stopFlow(state.ui); view.unmount(); } };
 }
 
 export { fmtNum };

@@ -33,8 +33,8 @@ def profile_rows() -> list[dict[str, Any]]:
     return [
         {"side": "offense", "label": "Points per game", "key": "ppg", "metric": "profile:ppg", "value": 31.4, "format": "1f", "nationalRank": 12, "nationalOf": 136, "conferenceRank": 3, "conferenceOf": 16},
         {"side": "offense", "label": "Yards per game", "key": "ypg", "metric": "profile:ypg", "value": 412.0, "format": "0f", "nationalRank": 20, "nationalOf": 136, "conferenceRank": 5, "conferenceOf": 16},
-        {"side": "defense", "label": "Opp points per game", "key": "opp_ppg", "metric": "profile:opp_ppg", "value": 18.2, "format": "1f", "nationalRank": 30, "nationalOf": 136, "conferenceRank": 4, "conferenceOf": 16},
-        {"side": "defense", "label": "Opp yards per game", "key": "ypg_d", "value": 330.0, "format": "0f", "nationalRank": 41, "nationalOf": 136, "conferenceRank": None, "conferenceOf": 16},
+        {"side": "defense", "label": "Points allowed per game", "key": "opp_ppg", "metric": "profile:opp_ppg", "value": 18.2, "format": "1f", "nationalRank": 30, "nationalOf": 136, "conferenceRank": 4, "conferenceOf": 16},
+        {"side": "defense", "label": "Yards allowed per game", "key": "ypg_d", "value": 330.0, "format": "0f", "nationalRank": 41, "nationalOf": 136, "conferenceRank": None, "conferenceOf": 16},
     ]
 
 
@@ -87,7 +87,7 @@ def season_payload() -> dict[str, Any]:
         "resume": {"expectedWins": 1.98, "gamesCounted": 3, "wins": 2, "losses": 1, "luck": 0.02, "sosPlayed": {"rating": 12.3, "rank": 41, "of": 138, "metric": "rating:sosPlayed"}, "remaining": {"games": [], "averageSp": 15.6, "rankAmongPlayed": 1, "of": 4}, "polls": [{"week": 3, "seasonType": "regular", "ap": 22, "coaches": None}, {"week": 4, "seasonType": "regular", "ap": 18, "coaches": 20}]},
         "lastSeason": {"year": 2025, "rows": [
             {"side": "offense", "label": "Points per game", "key": "ppg", "metric": "profile:ppg", "metricYear": 2025, "format": "1f", "now": {"value": 31.4, "rank": 12, "of": 136, "year": 2026}, "last": {"value": 24.0, "rank": 70, "of": 134, "year": 2025}, "better": True},
-            {"side": "defense", "label": "Opp points per game", "key": "opp_ppg", "format": "1f", "now": {"value": 18.2, "rank": 30, "of": 136}, "last": {"value": 25.0, "rank": 80, "of": 134}, "better": True},
+            {"side": "defense", "label": "Points allowed per game", "key": "opp_ppg", "format": "1f", "now": {"value": 18.2, "rank": 30, "of": 136}, "last": {"value": 25.0, "rank": 80, "of": 134}, "better": True},
         ]},
         "roadAhead": [{"gameId": 1003, "week": 3, "date": "2026-09-27T23:30:00.000Z", "site": "Home", "opponent": "Diner Tech", "record": "3-0", "apRank": 8, "sp": 15.2, "spRank": 20, "spOf": 138, "spMetric": "rating:sp", "lastThree": [{"result": "W", "score": "41-38", "opponent": "Louisville"}, {"result": "L", "score": "10-13"}]}],
         "playoff": {"week": 14, "metric": "poll:CFP", "usRank": None, "rankings": [{"rank": 1, "school": "Texas", "conference": "Biscuit Belt", "isUs": False}], "rounds": [
@@ -221,9 +221,9 @@ scenarios.seasonLinks = async () => {
   assert.ok(link(nationalHref("rating:sosPlayed", { team: "Swampwater Tech" })).length === 1, "the résumé's schedule strength is a chip");
   assert.ok(link(nationalHref("rating:sp", { team: "Diner Tech" })).length === 1, "road-ahead SP+ links the opponent's row");
   // no metric: a plain chip (never a guessed link)
-  const ypgd = [...all(main, "#season-profile .prof tr")].find((tr) => text(tr).startsWith("Opp yards per game"));
+  const ypgd = [...all(main, "#season-profile .prof tr")].find((tr) => text(tr).startsWith("Yards allowed per game"));
   assert.ok(ypgd.querySelector("span.rank-chip") && !ypgd.querySelector("a.rank-chip--link"), "the row without a metric keeps a plain chip");
-  assert.ok(![...all(main, ".tiles a.rank-chip--link")].some((a) => (a.getAttribute("aria-label") || "").startsWith("Opp yards per game")), "nor is its tile");
+  assert.ok(![...all(main, ".tiles a.rank-chip--link")].some((a) => (a.getAttribute("aria-label") || "").startsWith("Yards allowed per game")), "nor is its tile");
   // a row with no rank keeps an invisible chip so its value lines up
   assert.ok(all(main, ".prof .rank-chip--placeholder").length >= 1);
   // poll ranks are poll badges linked to the poll
@@ -246,6 +246,9 @@ scenarios.seasonLinks = async () => {
   // GX-08: the opponent's SP+ chip and the win chance, the estimate marked
   assert.ok(t.includes("Opp SP+") && text(rows[2]).includes("25%") && text(rows[2]).includes("est."));
   assert.ok(!text(rows[0]).includes("est."));
+  // Phase 17 #33: a played game shows its result, never a win chance
+  assert.ok(!text(rows[0]).includes("99%") && !rows[0].querySelector(".sched__ctx-win") && !rows[1].querySelector(".sched__ctx-win"));
+  assert.ok(rows[0].querySelector(".sched__ctx-sp"));
   // G3-07: playoff sides with their seeds and the winner are team links
   const playoff = main.querySelector("#season-playoff");
   assert.ok([...all(playoff, "td button.team-link")].map((b) => b.dataset.team).includes("Clemson"));
@@ -261,7 +264,10 @@ scenarios.seasonLinks = async () => {
   // the next opponent is marked and remembered for Ratings; the jump list is a page row
   assert.ok(main.querySelector("#season-standings tr.is-next"));
   assert.deepEqual(JSON.parse(localStorage.getItem("kickoff:next-opponent")), { school: "Diner Tech", gameId: 1003 });
-  assert.ok(main.querySelector(".season__top .jump__button") && !main.querySelector(".band__head .jump"));
+  // Phase 17 #5: the sections are a chip row pinned above the page, one chip per band, never on a band head
+  const chips = main.querySelector("nav.chips-row");
+  assert.ok(chips && chips.nextSibling === main.querySelector(".page.season") && !main.querySelector(".band__head .chips-row"));
+  assert.ok(chips.querySelectorAll(".chips-row__chip").map((c) => text(c)).includes("Schedule"));
   view.unmount();
 };
 
@@ -352,7 +358,7 @@ scenarios.teamPage = async () => {
   assert.ok([...all(main, "a.rank-chip--link")].some((a) => a.getAttribute("href") === "#national=profile%3Appg?team=Swampwater%20Tech&scope=conference"));
   assert.ok([...all(main, "a.rank-chip--link")].some((a) => a.getAttribute("href") === "#national=rating%3Atalent?team=Swampwater%20Tech"));
   main.querySelector('button[data-tab="schedule"]').click();
-  const rows = [...all(main, "li.sched__game")];
+  const rows = [...all(main, "li.sched__game")].filter((li) => !li.className.includes("sched__game--bye")); // Phase 17 #37: a bye row sits in the gap
   assert.equal(rows.length, 2);
   assert.ok(rows.every((li) => li.getAttribute("role") === "button"), "Swampwater Tech's own games open");
   assert.equal(rows[0].getAttribute("data-href"), "#archive=1001");
@@ -368,7 +374,7 @@ scenarios.flyout = async () => {
   await settle();
   const sheet = document.body.querySelector(".side-sheet") || document.body;
   const t = clean("flyout", sheet);
-  const rows = [...all(sheet, "li.sched__game")];
+  const rows = [...all(sheet, "li.sched__game")].filter((li) => !li.className.includes("sched__game--bye"));
   assert.equal(rows.length, 2);
   assert.ok(rows.every((li) => !li.hasAttribute("role") && !li.hasAttribute("tabindex")), "another team's schedule promises no tap");
   assert.ok(!t.includes("›"));

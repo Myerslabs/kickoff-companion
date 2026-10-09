@@ -2,6 +2,9 @@
 // Polls /api/health and renders four states: loading (skeletons), live, stale (last good
 // data with its age), and offline (never loaded). Every field is guarded: missing renders as a dash.
 
+import { restartFlow } from "./ui/restart.js";
+import { obj } from "./ui/dom.js";
+
 const REFRESH_MS = 15000;
 const FETCH_TIMEOUT_MS = 8000;
 const DASH = "–";
@@ -27,10 +30,6 @@ function text(value) {
   if (typeof value === "boolean") return value ? "yes" : "no";
   const s = String(value).trim();
   return s === "" ? DASH : s;
-}
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function duration(seconds) {
@@ -373,6 +372,18 @@ async function tick() {
 }
 
 els.refresh.addEventListener("click", () => { void tick(); });
+
+// Phase 16 wave 3: restart the server from here too, with one confirm (and a second during our game)
+const restartButton = document.getElementById("restart");
+const restartSaid = document.getElementById("restart-said");
+if (restartButton) {
+  restartButton.addEventListener("click", async () => {
+    if (!window.confirm("Restart the server? Every device's page reloads once it's back (10 to 20 seconds).")) return;
+    restartButton.disabled = true;
+    await restartFlow({ say: (words) => { if (restartSaid) restartSaid.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds. Restart anyway?") });
+    restartButton.disabled = false;
+  });
+}
 document.addEventListener("visibilitychange", () => { if (!document.hidden) void tick(); });
 setInterval(() => { void tick(); }, REFRESH_MS);
 setInterval(updateStatusLine, 1000);

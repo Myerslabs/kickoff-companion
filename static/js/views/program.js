@@ -7,23 +7,33 @@ import { weekCell, weekLong } from "../ui/weeks.js";
 import { cover, coverSkeleton } from "../ui/cover.js";
 import { DASH, el, flashChanges, fmtDate, fmtNum, fmtPct, fmtStat, fmtTime, isNum, replaceWith, snapshotKeys, text } from "../ui/dom.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
-import { depthBlock, lineupSummary, startersBlock } from "../ui/lineups.js";
+import { hasLineups, lineupSummary } from "../ui/lineups.js";
+import { lineupBlock } from "../ui/lineups_combined.js";
 import { matchupCard, venueLine, weatherRow } from "../ui/matchup-card.js";
+import { crewText, staffLine } from "../ui/game-staff.js";
+import { flow } from "../ui/flow.js";
+import { starStrip } from "../ui/team-page.js";
 import { scheduleList } from "../ui/schedule.js";
-import { backRow, band, jumpList, note, stateBlock, subhead } from "../ui/states.js";
+import { backRow, band, note, revealBand, sectionChips, stateBlock, subhead } from "../ui/states.js";
+import { BOX_COLUMNS } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns, with QBR and the returns
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { trendRow } from "../ui/sparkline.js";
 import { applyOpponentColors } from "../ui/colors.js";
 import { twoTeamTable } from "../ui/two-team.js";
 import { nationalHref } from "../ui/national-link.js";
-import { edgesSummary, edgesTable } from "../ui/edges.js";
+import { edgesSummary } from "../ui/edges.js";
+import { tapeTable } from "../ui/tape.js";
 import { leadersGrid, statLine } from "../ui/leaders.js";
-import { quarterLine, teamStatsTable } from "../ui/team-stats.js";
+import { leaderLines } from "../ui/leader-lines.js";
+import { quarterLine, teamStatRows, teamStatsTable } from "../ui/team-stats.js";
 import { loadRadioSources, radioHelpBlock, radioSnapshot, startRadio, stateText, stopRadio, subscribeRadio } from "../radio.js";
 import { pollMs } from "../prefs.js";
+import { gameNotesPanel } from "../ui/game-notes.js";
+import { printButton } from "../ui/print.js";
+import { newsDigest, newsSkeleton } from "../ui/news.js";
 import { notesPaste } from "../ui/notes-paste.js";
 import { GRADE_NOTE, gradedTable } from "../ui/grade.js";
-import { errorPanel, fetchJson, partState, poller } from "./common.js";
+import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common.js";
 import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
 import { commonOpponentsBlock, lastSeasonTwoTeam } from "../ui/offday.js";
@@ -52,7 +62,7 @@ function advancedBand(data) {
     summary: "line play, havoc, finishing, downs",
     state: partState(data.parts?.advanced, Array.isArray(adv.us) && adv.us.length > 0),
     emptyText: "Advanced stats appear once both teams have played.",
-    body: () => el("div", {}, matchupGroups(adv.us, adv.them, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, ladder: true }), subhead("Adjusted for the opponents each team has faced"), adjustedMatchup(data.adjusted, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, ladder: true })),
+    body: () => el("div", {}, matchupGroups(adv.us, adv.them, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true }), subhead("Adjusted for the opponents each team has faced"), adjustedMatchup(data.adjusted, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true })),
   });
 }
 
@@ -84,14 +94,6 @@ function advancedBoxBand(data) {
   });
 }
 
-const BOX_COLUMNS = {
-  passing: [{ key: "name", label: "Passing", kind: "text" }, { key: "C/ATT", label: "C/ATT", kind: "text", sortable: false }, { key: "YDS", label: "Yds" }, { key: "TD", label: "TD" }, { key: "INT", label: "Int" }],
-  rushing: [{ key: "name", label: "Rushing", kind: "text" }, { key: "CAR", label: "Car" }, { key: "YDS", label: "Yds" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "TD", label: "TD" }],
-  receiving: [{ key: "name", label: "Receiving", kind: "text" }, { key: "REC", label: "Rec" }, { key: "YDS", label: "Yds" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "TD", label: "TD" }],
-  defensive: [{ key: "name", label: "Defense", kind: "text" }, { key: "TOT", label: "Tkl" }, { key: "SACKS", label: "Sck", format: "1f" }, { key: "TFL", label: "TFL", format: "1f" }, { key: "PD", label: "PD" }],
-  kicking: [{ key: "name", label: "Kicking", kind: "text" }, { key: "FG", label: "FG", kind: "text", sortable: false }, { key: "XP", label: "XP", kind: "text", sortable: false }, { key: "PTS", label: "Pts" }],
-  punting: [{ key: "name", label: "Punting", kind: "text" }, { key: "NO", label: "No" }, { key: "AVG", label: "Avg", format: "1f" }, { key: "LONG", label: "Long" }],
-};
 
 function weatherFromData(w, game, { label } = {}) {
   if (!w || typeof w !== "object") return weatherRow({ note: "No forecast yet.", label });
@@ -134,6 +136,8 @@ function coverProps(data, { reveal = false } = {}) {
     venue: g.venue,
     neutralSite: g.neutralSite,
     tv: g.tv,
+    crew: crewText(data.notes, g), // Phase 17 #2: the announcers from the notes, beside the network
+    details: staffLine(data.notes, { usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them), usSchool: data.us?.school || usSchool(), themSchool: data.them?.school }),
     homeIsUs: g.homeIsUs,
     us: data.us || {},
     them: data.them || {},
@@ -235,10 +239,8 @@ function notesBand(data) {
       return el(
         "div",
         { class: "notes-empty" },
-        stateBlock({ lead: "No notes for this game yet.", detail: "Ask an AI chat for them: copy the prompt, paste the answer back, check it and save. It takes a few minutes." }),
-        notesPaste({ gameId: data.game?.gameId }),
+        notesPaste({ gameId: data.game?.gameId }), // Phase 17 #12: one line, two copy buttons, the box, one Save
         notesTaskControl(data.game?.gameId),
-        el("p", { class: "notes-empty__path" }, `Or by hand: data/notes/${id}.json, shaped like data/notes/_example.json.`),
       );
     }
     const records = (value) => (Array.isArray(value) ? value.filter((r) => r && typeof r === "object") : []);
@@ -255,6 +257,31 @@ function notesBand(data) {
   return band({ id: "program-notes", title: "Program notes", collapsible: true, foldable: true, summary: n.present ? `by ${text(n.author)}` : "not written yet", state: { status: "ready" }, body });
 }
 
+/**
+ * The empty state of a band filled from the game's notes (Phase 17 #13): what is missing, where it comes from,
+ * and an "Add notes" button that unfolds the Program notes band and scrolls to it.
+ */
+function notesNeeded(lead, detail) {
+  return stateBlock({
+    lead,
+    detail,
+    action: {
+      label: "Add notes",
+      onClick: (event) => {
+        const page = event?.currentTarget?.closest?.(".page") || document;
+        const notes = page.querySelector("#program-notes");
+        if (notes) revealBand(notes);
+      },
+    },
+  });
+}
+
+function myNotesBand(data) {
+  const gameId = data.game?.gameId;
+  if (!isNum(gameId)) return null;
+  return band({ id: "program-mynotes", title: "My notes", collapsible: true, foldable: true, collapsed: true, summary: "your own lines", state: { status: "ready" }, body: () => gameNotesPanel({ gameId }) });
+}
+
 function availabilityBand(data) {
   const n = data.notes && typeof data.notes === "object" ? data.notes : {};
   const rows = Array.isArray(n.availability) ? n.availability.filter((r) => r && typeof r === "object") : [];
@@ -265,35 +292,26 @@ function availabilityBand(data) {
     foldable: true,
     summary: rows.length ? `${rows.length} listed` : "",
     state: { status: "ready" },
-    body: () => (rows.length ? availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt }) : note(`No availability report for this game yet. The pre-game notes read the ${confLabel()} availability report where the conference publishes one; or add it to the notes file.`)),
+    body: () => (rows.length ? availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt }) : notesNeeded("No availability report for this game yet.", `It comes with the game's notes, from the ${confLabel()} availability report when the conference publishes one.`)),
   });
 }
 
-/** 2026-10-02: the starting lineups from the notes file's published depth charts (ui/lineups.js). */
+/**
+ * Lineups and depth in one band (Phase 19, owner 2026-10-08): the starter at every slot with his season chips, the depth behind
+ * him in the last column, the starters' experience on top, our unit beside theirs. It replaces the two bands of 2026-10-02.
+ */
 function lineupsBand(data) {
   const n = data.notes && typeof data.notes === "object" ? data.notes : {};
   return band({
     id: "program-lineups",
-    title: "Starting lineups",
+    title: "Lineups and depth",
     collapsible: true,
     foldable: true,
     summary: lineupSummary(n.lineups) || "",
     state: { status: "ready" },
-    body: () => startersBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }),
-  });
-}
-
-/** The full depth charts, folded by default: the starters band above says who starts. */
-function depthBand(data) {
-  const n = data.notes && typeof data.notes === "object" ? data.notes : {};
-  return band({
-    id: "program-depth",
-    title: "Depth charts",
-    collapsible: true,
-    collapsed: true,
-    summary: lineupSummary(n.lineups) || "",
-    state: { status: "ready" },
-    body: () => depthBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability }),
+    body: () => (hasLineups(n.lineups)
+      ? lineupBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) })
+      : notesNeeded("No lineups for this game yet.", "They come with the game's notes, from both teams' published depth charts.")),
   });
 }
 
@@ -309,7 +327,7 @@ export function abbrOf(team, fallback = "–") {
   return fallback;
 }
 
-const CARD_ROWS = [["offense", "ppg", "Points per game"], ["offense", "ypg", "Yards per game"], ["offense", "ypp", "Yards per play"], ["offense", "pass_ypg", "Pass yards per game"], ["offense", "rush_ypg", "Rush yards per game"], ["offense", "third", "Third down"], ["defense", "opp_ppg", "Opp points per game"], ["defense", "ypg_d", "Opp yards per game"], ["defense", "ypp_d", "Opp yards per play"], ["defense", "pass_ypg_d", "Opp pass yards per game"], ["defense", "rush_ypg_d", "Opp rush yards per game"], ["defense", "third_d", "Opp third down"]];
+const CARD_ROWS = [["offense", "ppg", "Points per game"], ["offense", "ypg", "Yards per game"], ["offense", "ypp", "Yards per play"], ["offense", "pass_ypg", "Pass yards per game"], ["offense", "rush_ypg", "Rush yards per game"], ["offense", "third", "Third down"], ["defense", "opp_ppg", "Points allowed per game"], ["defense", "ypg_d", "Yards allowed per game"], ["defense", "ypp_d", "Yards allowed per play"], ["defense", "pass_ypg_d", "Pass yards allowed per game"], ["defense", "rush_ypg_d", "Rush yards allowed per game"], ["defense", "third_d", "Third down allowed"]];
 
 function matchup(data) {
   const them = data.them || {};
@@ -319,7 +337,9 @@ function matchup(data) {
   const tags = [];
   if (data.game?.postseason) tags.push({ label: text(data.game.playoffRound || data.game.postseason || "Bowl game") });
   else if (data.game?.conferenceGame) tags.push({ label: `${confLabel()} game` });
-  if (isNum(them.sp?.rank)) tags.push({ label: `SP+ #${them.sp.rank}`, href: nationalHref(typeof them.sp.metric === "string" ? them.sp.metric : "rating:sp", { team: them.school }), rank: them.sp.rank, of: them.sp.of, name: "SP+" });
+  const teamTags = [];
+  if (isNum(them.sp?.rank)) teamTags.push({ label: `SP+ #${them.sp.rank}`, href: nationalHref(typeof them.sp.metric === "string" ? them.sp.metric : "rating:sp", { team: them.school }), rank: them.sp.rank, of: them.sp.of, name: "SP+" });
+  const ours = typeof data.us?.school === "string" && data.us.school.trim() ? data.us.school.trim() : usSchool();
   const rows = CARD_ROWS.map(([side, key, label]) => {
     const u = profileRow(usRows, key);
     const t = profileRow(themRows, key);
@@ -328,10 +348,12 @@ function matchup(data) {
   return matchupCard({
     us: { ...(data.us || {}), abbreviation: abbrOf(data.us, usLabel()) },
     them: { ...them, abbreviation: abbrOf(them) },
+    kicker: `${text(ours)}'s opponent`, // Phase 17 #9: the program speaks from our side
+    teamTags,
     tags,
     schemes,
     rows,
-    foot: schemes ? null : el("p", { class: "note", style: { textAlign: "center", padding: "0" } }, "Scheme labels come from the notes file once it is written."),
+    foot: schemes ? null : el("p", { class: "note", style: { textAlign: "center", padding: "0" } }, "Each side's offensive and defensive scheme shows once the game's notes are added."),
   });
 }
 
@@ -422,7 +444,7 @@ function ppaBand(data) {
     ["overall", "passing", "rushing"].map((key) => ({ label: `${label}, ${key}`, format: "+2f", higherIsBetter: side === "offense", us: { value: p.season?.us?.[side]?.[key] }, them: { value: p.season?.them?.[side]?.[key] } })),
   );
   const gameCols = [{ key: "week", label: "Wk", sortable: false, dim: true }, { key: "opponent", label: "Opponent", kind: "text", sortable: false, team: true }, { key: "offOverall", label: "Off", format: "+2f", sortable: false }, { key: "offPass", label: "Pass", format: "+2f", sortable: false }, { key: "offRush", label: "Rush", format: "+2f", sortable: false }, { key: "defOverall", label: "Def", format: "+2f", sortable: false }, { key: "defPass", label: "Pass", format: "+2f", sortable: false }, { key: "defRush", label: "Rush", format: "+2f", sortable: false }];
-  const gameRows = (rows) => (Array.isArray(rows) ? rows.filter((g) => g && typeof g === "object") : []).map((g) => ({ week: weekCell(g), opponent: g.opponent, offOverall: g.offense?.overall, offPass: g.offense?.passing, offRush: g.offense?.rushing, defOverall: g.defense?.overall, defPass: g.defense?.passing, defRush: g.defense?.rushing }));
+  const gameRows = (rows) => (Array.isArray(rows) ? rows.filter((g) => g && typeof g === "object").reverse() : []).map((g) => ({ week: weekCell(g), opponent: g.opponent, offOverall: g.offense?.overall, offPass: g.offense?.passing, offRush: g.offense?.rushing, defOverall: g.defense?.overall, defPass: g.defense?.passing, defRush: g.defense?.rushing }));
   const playerCols = [{ key: "name", label: "Player", kind: "text", sub: "position", sortable: false }, { key: "all", label: "PPA/play", format: "+2f", sortable: false }, { key: "pass", label: "Pass", format: "+2f", sortable: false }, { key: "rush", label: "Rush", format: "+2f", sortable: false }];
   const h3 = (t, school, side) => subhead(t, school ? { team: school, side } : {});
   const players = (title, rows, them) => el("div", {}, h3(title, them ? data.them?.school : data.us?.school || usSchool(), them ? "them" : "us"), rows.length ? statTable({ compact: true, columns: playerCols, rows, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) }) : note("No player values yet."));
@@ -443,7 +465,7 @@ function ppaBand(data) {
         note("Predicted points added per play. Positive is good for an offense; negative is good for a defense."),
         ppaTrends(p, data),
         h3("Season, per play"),
-        twoTeamTable({ rows: seasonRows, usAbbr, themAbbr, labelHead: "PPA per play", caption: "Season PPA per play, both teams" }),
+        twoTeamTable({ rows: seasonRows, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true, labelHead: "PPA per play", caption: "Season PPA per play, both teams" }),
         el("div", { class: "twocol" }, players(`${text(data.us?.school)} season leaders, PPA per play`, Array.isArray(p.seasonLeaders?.us) ? p.seasonLeaders.us : [], false), players(`${text(data.them?.school)} season leaders, PPA per play`, Array.isArray(p.seasonLeaders?.them) ? p.seasonLeaders.them : [], true)),
         games(`${text(data.us?.school)} by game`, gameRows(p.games?.us)),
         games(`${text(data.them?.school)} by game`, gameRows(p.games?.them), true),
@@ -453,6 +475,69 @@ function ppaBand(data) {
 }
 
 /** Talent and recruiting, side by side: talent composite with rank, blue-chip ratio, returning production. */
+/** Phase 17 #36: each team's signees in the blue-chip classes by stars, our strip then theirs. */
+/**
+ * Phase 17 #36, #24: each team's signees of the last four classes by stars, offense and defense apart (owner:
+ * "Separate this into offense and defense for recruiting"): one compact table, a row per team and side. A server
+ * without the split draws each team's one strip as before.
+ */
+export function starsPair(us, them, usAbbr, themAbbr) {
+  const levels = ["5", "4", "3", "2", "1"];
+  const tables = [];
+  const split = (team) => ["offense", "defense"].some((key) => objOf(objOf(objOf(team).sides)[key]).counts && typeof objOf(objOf(objOf(team).sides)[key]).counts === "object");
+  const anySplit = split(us) || split(them); // none: an older server, each team's one strip below
+  for (const [team, abbr, side] of [[objOf(us), usAbbr, "us"], [objOf(them), themAbbr, "them"]]) {
+    const sides = objOf(team.sides);
+    const rows = ["offense", "defense"].map((key) => ({ who: key[0].toUpperCase() + key.slice(1), s: objOf(sides[key]) })).filter((r) => r.s.counts && typeof r.s.counts === "object");
+    const whole = objOf(team.stars);
+    if (anySplit && !rows.length && whole.counts && typeof whole.counts === "object") rows.push({ who: "All", s: { counts: whole.counts, average: whole.average } }); // an older answer has no offense and defense split
+    if (!rows.length) continue;
+    tables.push(
+      el(
+        "table",
+        { class: `stat-table stat-table--compact stars-split__table stars-split__table--${side}` },
+        el("caption", {}, `${text(abbr)} signees by stars, last four classes`),
+        el("thead", {}, el("tr", {}, el("th", { scope: "col" }, ""), levels.map((l) => el("th", { scope: "col" }, `${l}-star`)), el("th", { scope: "col" }, "Avg stars"))),
+        el(
+          "tbody",
+          {},
+          rows.map((r) =>
+            el(
+              "tr",
+              { class: side === "us" ? "is-us" : "is-next" },
+              el("th", { scope: "row" }, r.who, isNum(r.s.signees) ? el("small", {}, ` ${r.s.signees}`) : null),
+              levels.map((l) => el("td", { class: l === "5" || l === "4" ? "stars-split__hot" : null }, isNum(r.s.counts[l]) ? String(r.s.counts[l]) : "0")),
+              el("td", {}, isNum(r.s.average) ? fmtNum(r.s.average, 2) : DASH),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  if (tables.length) return el("div", { class: "stars-split" }, tables); // our table at the left hand, theirs at the right (Phase 18.4)
+  const strip = (team, abbr, side) => {
+    const s = objOf(objOf(team).stars);
+    if (!s.counts || typeof s.counts !== "object") return null;
+    return el("div", { class: `stars-pair__team stars-pair__team--${side}` }, el("div", { class: "stars-pair__who" }, `${text(abbr)} signees, last four classes`), starStrip({ counts: s.counts, average: s.average }));
+  };
+  const a = strip(us, usAbbr, "us");
+  const b = strip(them, themAbbr, "them");
+  return a || b ? el("div", { class: "stars-pair" }, a, b) : null;
+}
+
+/** "Athletes (ATH) and specialists aren't in either side: SWT 6, OPP 4." Null when there are none to mention. */
+function apartNote(us, them, usAbbr, themAbbr) {
+  const n = (t) => {
+    const a = objOf(objOf(objOf(t).sides).apart);
+    const total = [a.athlete, a.specialist, a.unknown].filter(isNum).reduce((x, y) => x + y, 0);
+    return isNum(a.athlete) || isNum(a.specialist) ? total : null;
+  };
+  const u = n(us);
+  const t = n(them);
+  if (!u && !t) return null;
+  return el("p", { class: "note" }, `Athletes not yet given a position (ATH), kickers, punters and snappers count on neither side: ${text(usAbbr)} ${isNum(u) ? u : 0}, ${text(themAbbr)} ${isNum(t) ? t : 0}.`);
+}
+
 function recruitingBand(data) {
   const r = objOf(data.recruiting);
   const us = objOf(r.us);
@@ -474,6 +559,11 @@ function recruitingBand(data) {
   const rows = [
     { label: "Talent composite", format: "0f", higherIsBetter: true, metric: us.talent?.metric || them.talent?.metric || "rating:talent", us: { value: us.talent?.talent, rank: us.talent?.rank, of: us.talent?.of ?? us.talentOf }, them: { value: them.talent?.talent, rank: them.talent?.rank, of: them.talent?.of ?? them.talentOf } },
     pair("Blue-chip ratio", blueChip, "pct"),
+    pair("Blue-chip ratio, offense", (t) => ({ value: objOf(objOf(t.sides).offense).blueChipRatio }), "pct"),
+    pair("Blue-chip ratio, defense", (t) => ({ value: objOf(objOf(t.sides).defense).blueChipRatio }), "pct"),
+    pair("Average rating, offense", (t) => ({ value: objOf(objOf(t.sides).offense).averageRating }), "4f"),
+    pair("Average rating, defense", (t) => ({ value: objOf(objOf(t.sides).defense).averageRating }), "4f"),
+    pair("Roster cost (rumored)", (t) => ({ value: objOf(t.costs).totalUsd }), "usd"), // Phase 17 Part 3b
     pair("Returning production", returning("percentPPA"), "pct"),
     pair("Returning passing", returning("percentPassing"), "pct"),
     pair("Returning receiving", returning("percentReceiving"), "pct"),
@@ -488,62 +578,32 @@ function recruitingBand(data) {
     summary: isNum(us.blueChip?.ratio) && isNum(them.blueChip?.ratio) ? `blue chips ${usAbbr} ${pct(us.blueChip.ratio)}, ${themAbbr} ${pct(them.blueChip.ratio)}` : "talent, blue chips, returning production",
     state: partState(data.parts?.talent, has),
     emptyText: "Talent and recruiting figures appear once CFBD has them for both teams.",
-    body: () => el("div", {}, twoTeamTable({ rows, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, caption: "Talent and recruiting, both teams" }), el("p", { class: "note" }, "Talent is the 247Sports composite of the roster. Blue-chip ratio is four- and five-star signees over all signees in the last four classes; 50% is the line every champion since 2011 has cleared. Returning production is the share of last season's predicted points added that is back.")),
+    body: () => el("div", {}, twoTeamTable({ rows, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true, caption: "Talent and recruiting, both teams" }), starsPair(us, them, usAbbr, themAbbr), apartNote(us, them, usAbbr, themAbbr), el("p", { class: "note" }, "Talent is the 247Sports composite of the roster. Blue-chip ratio is four- and five-star signees over all signees in the last four classes; 50% is the line every champion since 2011 has cleared. Offense and defense split the same signees by the position they were recruited at; the average rating is 247's composite, from 0 to 1. Returning production is the share of last season's predicted points added that is back.")),
   });
 }
 
 /** "SWT better in 14 of 24": who has the better number, from the rows in hand (P-11 item 4). */
-function tapeSummary(rows, usAbbr, themAbbr) {
-  let us = 0;
-  let judged = 0;
-  for (const row of rows) {
-    const a = row.us?.value;
-    const b = row.them?.value;
-    if (!isNum(a) || !isNum(b) || typeof row.higherIsBetter !== "boolean") continue;
-    judged += 1;
-    if (a !== b && (row.higherIsBetter ? a > b : a < b)) us += 1;
-  }
-  return judged ? `${usAbbr} better in ${us} of ${judged}` : `${usAbbr} and ${themAbbr}`;
-}
-
 function tapeBand(data) {
-  const us = listOf(data.profile?.us);
-  const them = listOf(data.profile?.them);
-  const themBy = Object.fromEntries(them.map((r) => [r.key, r]));
+  // Owner pick (2026-10-09): both matchups of a stat in one row with a tug bar each, the rank chips in their own
+  // headed columns; the three biggest edges per side marked (spec P3). Biggest edges, the same pairings, folded in.
+  const edges = Array.isArray(data.edges) ? data.edges : [];
   const usAbbr = abbrOf(data.us, usLabel());
   const themAbbr = abbrOf(data.them);
-  const rows = us.map((row) => {
-    const other = themBy[row.key] || {};
-    return { label: row.label, side: row.side, format: row.format || other.format, metric: row.metric || other.metric || (row.key ? `profile:${row.key}` : null), higherIsBetter: typeof row.higherIsBetter === "boolean" ? row.higherIsBetter : other.higherIsBetter, us: { value: row.value, rank: row.nationalRank, of: row.nationalOf }, them: { value: other.value, rank: other.nationalRank, of: other.nationalOf } };
-  });
-  const has = rows.some((r) => isNum(r.us.value));
-  const table = (side) => twoTeamTable({ rows: rows.filter((r) => r.side === side || (side === "offense" && r.side === "both")), usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, underline: true, caption: `${side === "offense" ? "Offense" : "Defense"}, both teams` });
   return band({
     id: "program-tape",
     title: "Tale of the tape",
     collapsible: true,
     foldable: true,
-    summary: tapeSummary(rows, usAbbr, themAbbr),
-    state: partState(data.parts?.stats, has),
-    emptyText: "The comparison appears once both teams have played.",
-    // P-11 (owner look): Offense | Defense side by side, about a dozen rows each, so the spread balances by construction
-    body: () => el("div", { class: "tt-pair" }, el("div", {}, subhead("Offense"), table("offense")), el("div", {}, subhead("Defense"), table("defense"))),
-  });
-}
-
-function edgesBand(data) {
-  const edges = Array.isArray(data.edges) ? data.edges : [];
-  const usAbbr = abbrOf(data.us, usLabel());
-  const themAbbr = abbrOf(data.them);
-  return band({
-    id: "program-edges",
-    title: "Biggest edges",
-    collapsible: true,
-    foldable: true,
     summary: edgesSummary(edges, { usAbbr, themAbbr }),
     state: partState(data.parts?.stats, edges.length > 0),
-    emptyText: "Edges appear once both teams have played.",
-    body: () => el("div", {}, edgesTable(edges, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school }), note(`Each unit's national rank against the unit it faces. The edge is the gap in ranks; positive favors ${usName()}.`)),
+    emptyText: "The matchup appears once both teams have played.",
+    body: () =>
+      el(
+        "div",
+        {},
+        tapeTable(edges, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school }),
+        note("Each unit's national rank against the unit it faces: our offense against their defense on the left, their offense against our defense on the right. The bar leans to the side with the better rank, longer for a bigger gap; the three biggest edges on each side are marked. Who scores or allows more as a team is on the matchup card above."),
+      ),
   });
 }
 
@@ -582,19 +642,48 @@ function watchBand(data) {
   return host;
 }
 
+/**
+ * Phase 17 #17: the leaders draw at once from the program's own answer; then /api/program/<id>/leaders adds each
+ * leader's whole line with national and conference ranks and the line over conference games (it can take a
+ * moment the first time a week's conference games are read, so it loads on its own).
+ */
 function leadersBand(data) {
   const leaders = (Array.isArray(data.leaders) ? data.leaders : []).filter((l) => l && typeof l === "object");
-  const categories = leaders.map((cat) => ({ id: `${text(cat.stat)}-${text(cat.label)}`, label: cat.label, us: programLeader(cat.us, cat), them: programLeader(cat.them, cat) }));
-  return band({
-    id: "program-leaders",
-    title: "Leaders side by side",
-    collapsible: true,
-    foldable: true,
-    summary: "season totals",
-    state: partState(data.parts?.playersTeam, categories.some((l) => l.us || l.them)),
-    emptyText: "Leaders appear after the first game.",
-    body: () => leadersGrid({ categories, usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them), className: "leaders--program", onTap: (player, side) => (player?.playerId ? openPlayer(player.playerId, { ...player, isUs: side === "us" }) : null) }),
-  });
+  const usAbbr = abbrOf(data.us, usLabel());
+  const themAbbr = abbrOf(data.them);
+  const host = el("div", { class: "flow-wide" }); // the whole lines need the room of two columns
+  const draw = (extra) => {
+    const detailed = new Map((Array.isArray(extra?.categories) ? extra.categories : []).filter((c) => c && typeof c === "object").map((c) => [`${c.category}:${c.stat}`, c]));
+    const confGames = objOf(extra?.conferenceGames);
+    const categories = leaders.map((cat) => {
+      const more = detailed.get(`${cat.category || ""}:${cat.stat}`) || [...detailed.values()].find((c) => c.label === cat.label) || null;
+      return {
+        id: `${text(cat.stat)}-${text(cat.label)}`,
+        label: cat.label,
+        us: programLeader(cat.us, cat),
+        them: programLeader(cat.them, cat),
+        detail: more ? leaderLines(more, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, usConfGames: objOf(confGames.us).games, themConfGames: objOf(confGames.them).games }) : null,
+      };
+    });
+    host.replaceChildren(band({
+      id: "program-leaders",
+      title: "Leaders side by side",
+      collapsible: true,
+      foldable: true,
+      summary: detailed.size ? "season and conference games, with ranks" : "season totals",
+      state: partState(data.parts?.playersTeam, categories.some((l) => l.us || l.them)),
+      emptyText: "Leaders appear after the first game.",
+      body: () => el("div", {}, leadersGrid({ categories, usAbbr, themAbbr, className: "leaders--program", onTap: (player, side) => (player?.playerId ? openPlayer(player.playerId, { ...player, isUs: side === "us" }) : null) }), extra?.error ? el("p", { class: "note" }, `The whole lines did not load: ${text(extra.error)}.`) : detailed.size ? el("p", { class: "note" }, "Each rank is among FBS players and among the players of the leader's own conference. Conference games count only games against conference teams.") : null),
+    }));
+  };
+  draw(null);
+  const id = data.game?.gameId;
+  if (leaders.length && (isNum(id) || /^\d{1,12}$/.test(String(id ?? "")))) {
+    fetchJson(`/api/program/${encodeURIComponent(String(id))}/leaders`)
+      .then((envelope) => draw(envelope?.data && typeof envelope.data === "object" ? envelope.data : null))
+      .catch((error) => draw({ error: error?.message || "no answer" }));
+  }
+  return host;
 }
 
 /** Phase 15: teams both sides have played this season. */
@@ -626,7 +715,7 @@ function lastSeasonBand(data) {
     summary: "both teams, national ranks",
     state: partState(data.parts?.lastStats, has),
     emptyText: "Last season's numbers appear once CFBD answers.",
-    body: () => lastSeasonTwoTeam(last, abbrOf(data.us, usLabel()), abbrOf(data.them), { usTeam: data.us?.school, themTeam: data.them?.school, ladder: true }),
+    body: () => lastSeasonTwoTeam(last, abbrOf(data.us, usLabel()), abbrOf(data.them), { usTeam: data.us?.school, themTeam: data.them?.school, tug: true }),
   });
 }
 
@@ -691,7 +780,7 @@ function finalBand(data) {
     title: "Final box",
     collapsible: true,
     foldable: true,
-    summary: `${usAbbr} ${text(data.game.usPoints)}, ${themAbbr} ${text(data.game.themPoints)}`,
+    summary: el("span", { class: "score-words" }, `${usAbbr} ${text(data.game.usPoints)}, ${themAbbr} ${text(data.game.themPoints)}`),
     state: partState(data.parts?.boxTeams, Boolean(f?.available)),
     emptyText: "The box score arrives once CFBD finishes the game.",
     body: () =>
@@ -699,7 +788,7 @@ function finalBand(data) {
         "div",
         {},
         quarterLine({ us: { abbr: usAbbr, scores: data.game.usLineScores, total: data.game.usPoints }, them: { abbr: themAbbr, scores: data.game.themLineScores, total: data.game.themPoints } }),
-        teamStatsTable({ us: { abbr: usAbbr, box: f?.us || {} }, them: { abbr: themAbbr, box: f?.them || {} } }),
+        teamStatsTable({ us: { abbr: usAbbr }, them: { abbr: themAbbr }, rows: teamStatRows(f?.us || {}, f?.them || {}).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${usAbbr} and ${themAbbr}` }), // final pass: rows CFBD's box never has (plays, drives, success) go, as on the Box page
         el("div", { class: "twocol" }, el("div", {}, subhead(data.us?.school || usSchool(), { team: data.us?.school || usSchool(), side: "us" }), tables("us", false)), el("div", {}, subhead(data.them?.school, { team: data.them?.school, side: "them" }), tables("them", true))),
       ),
   });
@@ -743,21 +832,37 @@ function finishedWeatherBand(data) {
  * the tape, edges and leaders, and the season context. A finished game puts its Final box and Advanced box
  * score right after the weather and moves the radio below them.
  */
+/** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
+ *  from the Newspaper's feeds, loaded on their own so the program itself stays fast. */
+function headlinesBand() {
+  const host = el("div", {}, newsSkeleton(4));
+  fetchPatient("/api/newspaper")
+    .then((envelope) => {
+      const items = Array.isArray(envelope?.data?.news) ? envelope.data.news.slice(0, 12) : [];
+      host.replaceChildren(items.length ? newsDigest({ items }) : note(`No ${usName()} headlines in the feeds yet. They appear as the feeds publish.`));
+    })
+    .catch((error) => host.replaceChildren(note(`${text(error?.message || error)}. The band tries again with the next refresh.`, { kind: "error" })));
+  return band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: "from the news feeds", body: () => host });
+}
+
 function sections(data) {
   const done = Boolean(data.game?.completed);
   const context = [
     notesBand(data),
+    headlinesBand(), // final pass: the headlines, on the program too (N4)
+    myNotesBand(data), // Phase 19: your own notes about this game
     availabilityBand(data),
     lineupsBand(data),
-    depthBand(data),
     tapeBand(data),
-    el("div", { class: "spread spread--2" }, edgesBand(data), leadersBand(data)),
+    leadersBand(data),
     watchBand(data),
     advancedBand(data),
     tendenciesBand(data),
     ppaBand(data),
-    el("div", { class: "spread spread--2" }, recruitingBand(data), commonBand(data)),
-    el("div", { class: "spread spread--2" }, lastSeasonBand(data), seriesBand(data)),
+    recruitingBand(data),
+    commonBand(data),
+    lastSeasonBand(data),
+    seriesBand(data),
     pickerBand(data),
   ];
   if (done) return [finishedWeatherBand(data), finalBand(data), advancedBoxBand(data), radioBand(), matchup(data), ...context];
@@ -789,22 +894,39 @@ function resetOpponentColors() {
   }
 }
 
+/** The program's bands that span two columns on a wide page (owner pick 2026-10-07: the big side-by-side tables). */
+const PROGRAM_WIDE = ["program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
+
 function render(envelope, container, state) {
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
   const back = state.gameId ? backRow({ label: "Back", fallback: "#program" }) : null; // DS-03: a sub-route gets a way back
   if (!data.game || typeof data.game !== "object") {
-    container.replaceChildren(el("div", { class: "page program-page" }, back, band({ title: "Game program", collapsible: false, state: { status: "empty", message: "No games on the schedule yet." } })));
+    const sched = data.parts && typeof data.parts === "object" ? data.parts.schedule : null; // final pass: CFBD down reads as an error, not an empty schedule
+    const state = sched && sched.status === "error" ? { status: "error", message: `${text(sched.error)}. The app keeps retrying.` } : { status: "empty", message: "No games on the schedule yet." };
+    container.replaceChildren(el("div", { class: "page program-page" }, back, band({ title: "Game program", collapsible: false, state, errorLead: "Could not load the schedule." })));
     return;
   }
   const before = snapshotKeys(container); // the line, the total and the weather flash when a refresh changes them (P-10)
   const page = el("div", { class: "page program-page" });
   // UX-11: 'On this page' under the cover (in its foot, so the weather stays directly under the cover)
-  const coverEl = cover({ ...coverProps(data, { reveal: !state.revealed }), extra: jumpList(page, { label: "On this page" }) });
+  const coverEl = cover({ ...coverProps(data, { reveal: !state.revealed }) });
   state.revealed = true; // the reveal plays once per visit, not on every refresh (P-10 item 2)
   state.cover = coverEl;
   useOpponentColors(data.them);
-  page.append(...[back, coverEl, ...sections(data)].filter(Boolean));
-  container.replaceChildren(page);
+  const tools = el("div", { class: "program-tools flow-full" }, printButton()); // Phase 19: print the program
+  page.append(...[back, tools, coverEl, ...sections(data)].filter(Boolean));
+  if (back) back.classList.add("flow-full");
+  coverEl.classList.add("flow-full");
+  if (state.flow) state.flow.stop();
+  if (state.chips) state.chips.stop();
+  // Phase 17 #5: the sections as a pinned row of chips above the page (a pinned row inside the grid would only
+  // stay pinned within its own grid cell)
+  state.chips = sectionChips(page);
+  state.chips.refresh();
+  container.replaceChildren(state.chips, page);
+  // Phase 17 #7, #28: bands pack into 1 to 4 columns by width; the cover and the weather span the top, the big
+  // tables span two columns once there are three or more
+  state.flow = flow(page, { full: ["program-weather"], wide: PROGRAM_WIDE });
   flashChanges(before, container, { className: "flash" });
   if (state.focus) {
     const target = document.getElementById(state.focus);
@@ -822,14 +944,14 @@ function loadingPage(state) {
     coverSkeleton(),
     el("div", { class: "band program-weather" }, el("div", { class: "skel", style: { width: "min(420px, 80%)", height: "20px", margin: "8px auto" } })),
     band({ title: "Radio", collapsible: false, state: { status: "loading" }, skeleton: () => el("div", { class: "skel skel--row" }) }),
-    band({ title: "This week's matchup", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(12, 3) }),
+    band({ title: `${text(usSchool())}'s opponent`, collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(12, 3) }),
   );
 }
 
 const TICK_MS = 30000;
 
 export function createProgramView({ onStatus, gameId = null, focus = null } = {}) {
-  const state = { gameId, focus, revealed: false, cover: null };
+  const state = { gameId, focus, revealed: false, cover: null, flow: null, chips: null };
   let view = null;
   let ticker = null;
   const stopTicking = () => {
@@ -859,6 +981,7 @@ export function createProgramView({ onStatus, gameId = null, focus = null } = {}
       },
       renderError: (message, container, retry) => container.replaceChildren(errorPanel("Game program", message, retry)),
       renderLoading: () => loadingPage(state),
+      loadingDetail: "The game: stats, lineups, weather and the notes",
     });
   return {
     mount(target) {
@@ -874,6 +997,10 @@ export function createProgramView({ onStatus, gameId = null, focus = null } = {}
       view?.unmount();
       view = null;
       state.cover = null;
+      state.flow?.stop(); // the layout's observers go with the page
+      state.flow = null;
+      state.chips?.stop();
+      state.chips = null;
     },
     open(id) {
       openProgram(id);

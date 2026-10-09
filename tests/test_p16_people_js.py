@@ -252,7 +252,7 @@ scenarios.leadersGap = async () => {
   localStorage.setItem("leaders:scope", JSON.stringify("opponent"));
   const vs = await mountView(createLeadersView);
   const heads = vs.main.querySelectorAll("#leaders-passing-YDS thead th").map((th) => text(th));
-  assert.deepEqual(heads, ["#", "SWT", "YDS", "GRID", "YDS"]);
+  assert.deepEqual(heads, ["#", "SWT", "Yds", "GRID", "Yds"]);
   const first = vs.main.querySelector("#leaders-passing-YDS tbody tr");
   assert.ok(first.querySelectorAll("td")[3].className.includes("col-div"), "a divider before the opponent");
   assert.ok(first.querySelectorAll("td")[4].querySelector(".rank-chip"), "the opponent's value carries its chip");
@@ -291,9 +291,9 @@ scenarios.rosterTable = async () => {
   sel2.dispatchEvent(makeEvent("change", { bubbles: true }));
   assert.equal(band2.querySelectorAll("thead th").find((th) => text(th) === "Wt").getAttribute("aria-sort"), "descending");
   assert.equal(band2.querySelectorAll("tbody tr").length, 2);
-  // stars as 4★, the recruit rank a chip (a link once the row carries its list key)
+  // stars as 4-star, the recruit rank a chip (a link once the row carries its list key)
   const cells = band2.querySelectorAll("tbody tr")[0].querySelectorAll("td").map((td) => text(td));
-  assert.ok(cells.includes("4★"), cells.join("|"));
+  assert.ok(cells.includes("4-star"), cells.join("|"));
   assert.ok(band2.querySelector('tbody a.rank-chip--link[href="#national=recruit%3A2024"]'), "the recruit chip links once recruitMetric is there");
   // impact chips read plain labels; sub-headings are the DS-14 subhead
   const impact = main.querySelector("#roster-impact");
@@ -376,7 +376,7 @@ scenarios.cardLoading = async () => {
   assert.ok(!card.className.includes("is-loading"));
   assert.equal(text(card.querySelector('.player-card__tabs [aria-selected="true"]')), "Game log", "the tab the reader picked stays");
   const full = clean("loaded card", card);
-  assert.ok(full.includes("94 · #123 nat"), "star line 94 · #123 nat");
+  assert.ok(full.includes("Recruit rating 94 · #123 nationally"), "star line: both recruiting numbers labelled (Phase 17)");
   assert.ok(full.includes("2024 class, as ATH"), "the Recruit fact is cut to class and position");
   assert.ok(card.querySelector('.player-card__bio button.team-link[data-team="Swampwater Tech"]'), "the team in the bio line links");
   assert.ok(card.querySelector('.player-card__facts button.team-link[data-team="Georgia Tech"]'), "the transfer school links");
@@ -398,12 +398,12 @@ scenarios.gameLog = async () => {
   const rows = log.querySelector("tbody").querySelectorAll("tr");
   assert.equal(rows.length, 3);
   for (const tr of rows) assert.ok(tr.querySelectorAll("td")[1].querySelector('button.team-link'), "each opponent cell is a team link");
-  assert.equal(text(rows[2].querySelectorAll("td")[1]), "at Diner Tech");
-  assert.equal(text(rows[0].querySelectorAll("td")[1]), "vs Swampwater Tech Atlantic");
-  assert.ok(rows[2].querySelector(".gl-result--l"));
-  assert.ok(rows[0].querySelector(".gl-result--w"));
+  assert.equal(text(rows[0].querySelectorAll("td")[1]), "at Diner Tech", "the latest game is first");
+  assert.equal(text(rows[2].querySelectorAll("td")[1]), "vs Swampwater Tech Atlantic");
+  assert.ok(rows[0].querySelector(".gl-result--l"));
+  assert.ok(rows[2].querySelector(".gl-result--w"));
   // box-score PCT (100.0) reads 100%, not 10000%
-  assert.ok(text(log).includes("100%") && !text(log).includes("10000"));
+  assert.ok(text(log).includes("100.0%") && !text(log).includes("10000"));
   // Play value: numbers as numbers, the by-game row with the right at/vs
   const pv = card.querySelector('[aria-label="Play value"]');
   assert.ok(pv.querySelectorAll("tbody td:not(.txt)").length > 0, "numeric cells");
@@ -443,7 +443,7 @@ scenarios.recruiting = async () => {
   assert.ok(cls.scrolledInto, "#recruiting=national scrolls to the class");
   const commits = cls.querySelector("table");
   const cells = commits.querySelector("tbody tr").querySelectorAll("td").map((td) => text(td));
-  assert.ok(cells.includes("4★"), cells.join("|"));
+  assert.ok(cells.includes("4-star"), cells.join("|"));
   assert.ok(cells.includes("97"), `rating as 0-100: ${cells.join("|")}`);
   assert.equal(commits.querySelectorAll("tbody a.rank-chip--link").length, 1, "only the commit with a list key links");
   const visitors = main.querySelector("#recruiting-visitors");
@@ -452,7 +452,7 @@ scenarios.recruiting = async () => {
   assert.ok(!summary.includes("526000600"), "never the game id");
   assert.ok(visitors.querySelector('h3.subhead button.team-link[data-team="Silver Dollar"]'), "the visitors' sub-heading links the team");
   const where = main.querySelector("#recruiting-where");
-  assert.deepEqual(where.querySelectorAll("thead th").map((th) => text(th)), ["State", "Commits", "Avg rating", "5★ / 4★ / 3★"]);
+  assert.deepEqual(where.querySelectorAll("thead th").map((th) => text(th)), ["State", "Commits", "Avg rating", "5-, 4-, 3-star"]);
   assert.ok(text(where).includes("In-state (FL): 2 of 3 commits, 67%."));
   clean("recruiting", main);
   // the next class, by route: no rank yet, one commit without a state

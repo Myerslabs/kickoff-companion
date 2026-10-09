@@ -12,12 +12,18 @@
 //   errorPanel(title, message, retry)  one full-width band in its error state: what failed, when the app
 //       tries again, and a quiet 'Try now' inside the band.
 
-import { noteBuild } from "../build.js";
+import { noteBuild, noteRestart } from "../build.js";
 import { pollMs } from "../prefs.js";
 import { DASH, el, isNum, restoreScroll, scrollState, text } from "../ui/dom.js";
-import { band, stateBlock } from "../ui/states.js";
+import { band, loadingSun, stateBlock } from "../ui/states.js";
 
 export const FETCH_TIMEOUT_MS = 20000;
+// A page the server is still gathering (a cold cache after a restart: the Game program alone makes a few dozen
+// CFBD calls) is not an error. The server keeps working after the browser stops waiting, and its per-request locks
+// make an asked-again request wait for the same calls (no extra quota), so the page keeps asking, showing that it
+// is still loading, for up to SLOW_TRIES rounds of FETCH_TIMEOUT_MS before it says it could not load.
+export const SLOW_TRIES = 9;
+const SLOW_DETAIL = "Still gathering this page. The first load after the server starts can take a minute or two; it keeps working.";
 
 export function ageSeconds(iso) {
   if (!iso) return null;
@@ -45,15 +51,34 @@ export function combinedState(parts, has) {
   return partState(list[0], has);
 }
 
+/** A signal that aborts after `ms` with a TimeoutError (not an AbortError, which callers read as a cancellation). */
+export function timeoutSignal(ms = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const reason = typeof DOMException === "function" ? new DOMException(`No answer from the server after ${Math.round(ms / 1000)} s.`, "TimeoutError") : new Error("timeout");
+  const timer = setTimeout(() => controller.abort(reason), ms);
+  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+}
+
 export async function fetchJson(url, signal) {
-  const response = await fetch(url, { signal, headers: { Accept: "application/json" } });
+  // Final pass (CLAUDE.md rule 4): no request waits for ever. A caller's own signal rules; without one the request
+  // gives up after FETCH_TIMEOUT_MS, so a dead server shows as an error instead of a page that never settles.
+  const own = signal ? null : timeoutSignal();
+  let response;
+  try {
+    response = await fetch(url, { signal: signal || own.signal, headers: { Accept: "application/json" } });
+  } finally {
+    if (own) own.clear();
+  }
   let body = null;
   try {
     body = await response.json();
   } catch {
     body = null;
   }
-  if (body && typeof body === "object") noteBuild(body.meta?.build); // Phase 12: the tablet learns of a new build
+  if (body && typeof body === "object") {
+    noteBuild(body.meta?.build); // Phase 12: the tablet learns of a new build
+    noteRestart(body.meta?.restartNeeded); // Phase 16 wave 3: the server's code changed; a restart brings it in
+  }
   if (!response.ok || !body || typeof body !== "object") {
     const message = body?.errors?.[0]?.message || `HTTP ${response.status}`;
     const error = new Error(message);
@@ -63,19 +88,66 @@ export async function fetchJson(url, signal) {
   return body;
 }
 
-/** { kind, label } for the top-bar pill from an envelope. */
+/**
+ * One request that waits like a page does (Phase 18.2): a sheet or panel that opens on a cold server gets the same
+ * patience as a page, asking again after each FETCH_TIMEOUT_MS round, up to `tries` rounds, instead of giving up at 20 s.
+ * `current()` lets a caller drop the wait when a newer request replaced this one (it then throws an AbortError).
+ */
+export async function fetchPatient(url, { tries = SLOW_TRIES, current = () => true } = {}) {
+  for (let round = 1; ; round += 1) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      return await fetchJson(url, controller.signal);
+    } catch (error) {
+      const timedOut = error?.name === "AbortError";
+      if (!timedOut || round >= tries || !current()) throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+/** "just now", "4 min ago", "2 h ago" for an age in seconds; null when unknown. */
+export function agoText(seconds) {
+  if (!isNum(seconds) || seconds < 0) return null;
+  if (seconds < 60) return "just now";
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+  return `${Math.round(seconds / 3600)} h ago`;
+}
+
+/**
+ * { kind, label, detail } for the top-bar pill from an envelope. Phase 16 wave 3 (DS-12): fresh data is a quiet
+ * "Updated 3 min ago" (not a green Current that says nothing); `detail` is the status card's sentence.
+ */
 export function statusFor(envelope) {
   const meta = envelope?.meta || {};
   const age = ageSeconds(meta.fetched_at);
+  const ago = agoText(age);
   const failed = Array.isArray(envelope?.errors) ? envelope.errors.filter((e) => e.code === "part_unavailable") : [];
-  if (meta.stale) return { kind: "stale", label: `Stale ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min` };
-  if (failed.length) return { kind: "stale", label: `${failed.length} part${failed.length > 1 ? "s" : ""} failed` };
-  return { kind: "live", label: "Current" };
+  if (meta.stale) return { kind: "stale", label: `Stale ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min`, detail: `CFBD did not answer, so this page shows the server's last good copy${ago ? `, fetched ${ago}` : ""}. The app tries again on its own.` };
+  if (failed.length) return { kind: "stale", label: `${failed.length} part${failed.length > 1 ? "s" : ""} failed`, detail: `${failed.length === 1 ? "One part" : `${failed.length} parts`} of this page could not load and ${failed.length === 1 ? "says" : "say"} so where ${failed.length === 1 ? "it sits" : "they sit"}; the rest is current. The app tries again on its own.` };
+  // `updatedAt` lets the top bar keep the words true between refreshes ("just now" becomes "5 min ago").
+  return { kind: "quiet", label: ago ? `Updated ${ago}` : "Updated", updatedAt: isNum(age) ? Date.now() - age * 1000 : null, detail: "This page's data came fresh from the app's server on the last refresh. It refreshes on its own." };
+}
+
+/** The pill when the server is up but slower than FETCH_TIMEOUT_MS: never "Offline". */
+export function slowStatus(last) {
+  const age = ageSeconds(last?.meta?.fetched_at);
+  if (!last) return { kind: "quiet", label: "Still loading", detail: SLOW_DETAIL };
+  return { kind: "stale", label: `Slow, showing ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old`, detail: "The server is taking longer than usual to refresh this page, so it shows the last copy it had. The app keeps trying." };
+}
+
+/** The pill when the server answered with an error (not offline: it answered). */
+export function serverErrorStatus(last, message) {
+  const detail = `The server answered with an error (${text(message)}). The app tries again on its own; the server's log has the details.`;
+  return last ? { kind: "stale", label: "Server error, showing last copy", detail } : { kind: "stale", label: "Server error", detail };
 }
 
 export function offlineStatus(last) {
   const age = ageSeconds(last?.meta?.fetched_at);
-  return last ? { kind: "offline", label: `Offline, showing ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old` } : { kind: "offline", label: "Offline" };
+  const detail = "This device could not reach the app's server. Check that the server computer is on and on the same Wi-Fi; the app keeps trying.";
+  return last ? { kind: "offline", label: `Offline, showing ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old`, detail } : { kind: "offline", label: "Offline", detail };
 }
 
 export function recordText(record) {
@@ -111,13 +183,14 @@ function signature(envelope) {
  * A polling view: fetches `url`, keeps the last good envelope, renders through `render(envelope)`
  * or `renderError(message)`, and reports status through `onStatus`. Returns { mount, refresh, unmount }.
  */
-export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading }) {
+export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading, loadingDetail = null }) {
   let container = null;
   let last = null;
   let lastAt = 0;
   let timer = null;
   let inFlight = null;
   let drawn = null; // the signature of what the page shows now; null when it shows a skeleton or an error
+  let slowTries = 0; // rounds in a row that timed out before the first answer
   const setStatus = (status) => {
     if (typeof onStatus === "function") onStatus(status);
   };
@@ -148,24 +221,40 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
     if (inFlight) return inFlight;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    if (!last) setStatus({ kind: "quiet", label: "Loading" });
+    if (!last && !slowTries) setStatus({ kind: "quiet", label: "Loading" }); // an ask-again keeps saying Still loading
     inFlight = (async () => {
       try {
         const envelope = await fetchJson(url, controller.signal);
+        slowTries = 0;
         last = envelope;
         lastAt = Date.now();
         keep(url, envelope);
         draw(envelope);
         setStatus(statusFor(envelope));
       } catch (error) {
-        const message = error?.name === "AbortError" ? "The server did not answer in 20 s" : error?.message || "Request failed";
+        const timedOut = error?.name === "AbortError";
+        const answered = isNum(error?.status); // the server sent an HTTP error: it is up
+        if (timedOut && !last && container && slowTries < SLOW_TRIES) {
+          // Still gathering: keep the loading screen, say so, and ask again at once.
+          slowTries += 1;
+          const detail = container.querySelector?.(".loading-sun__detail");
+          if (detail) detail.textContent = SLOW_DETAIL;
+          else container.querySelector?.(".loading-sun__words")?.append(el("p", { class: "loading-sun__detail" }, SLOW_DETAIL));
+          setStatus(slowStatus(null));
+          setTimeout(() => {
+            if (container) refresh();
+          }, 0);
+          return;
+        }
+        const message = timedOut ? `The server did not answer in ${Math.round((FETCH_TIMEOUT_MS * (slowTries + 1)) / 1000)} s` : error?.message || "Request failed";
+        slowTries = 0;
         if (last) {
           draw(last);
         } else if (container) {
           drawn = null;
           renderError(message, container, refresh);
         }
-        setStatus(offlineStatus(last));
+        setStatus(timedOut ? (last ? slowStatus(last) : { kind: "stale", label: "Server slow", detail: "The server has not finished gathering this page. Try now, or open the server status page; its log says what it is waiting on." }) : answered ? serverErrorStatus(last, message) : offlineStatus(last));
       } finally {
         clearTimeout(timeout);
         inFlight = null;
@@ -191,7 +280,7 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
         draw(cached.envelope);
         setStatus(statusFor(cached.envelope));
       } else {
-        container.replaceChildren(renderLoading());
+        container.replaceChildren(loadingSun({ detail: loadingDetail }), renderLoading()); // Phase 17 #1: the sun above the outlines
       }
       refresh();
       timer = setInterval(refresh, refreshMs);

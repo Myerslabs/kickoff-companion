@@ -8,7 +8,9 @@
 //   twoTeamTable({ rows, usAbbr, themAbbr, groups, better = true, usTeam, themTeam, year, ladder = false,
 //                  underline = false, labelHead = "Statistic", caption, extra, className })  -> .stat-table-wrap
 //       row: { label, sub, format, higherIsBetter, leads, metric, metricYear, rowClass,
-//              us: { value, text, rank, of, tie, metric, href }, them: { ...the same } }
+//              us: { value, text, rank, of, tie, metric, href, conf }, them: { ...the same } }
+//         conf      (final pass, the leader lines) { rank, of, href, conference }: a second chip tagged "Conf" beside
+//                   the national one, outside it with the tug bar; its own tap target.
 //         text      shown instead of fmtStat(value, format); value still decides who leads.
 //         leads     "us" | "them" | "even" overrides the comparison (edges, where the two values are different stats).
 //         metric    the national list key (row-wide, or per side); usTeam/themTeam highlight the team, and
@@ -18,6 +20,10 @@
 //       ladder: a 0-100 national percentile track per row (GX-05): our dot and an opponent ring.
 //       underline: a 3px percentile underline inside each value cell (GX-11).
 //       extra: [{ head, cell(row) -> node|text, className }] columns after the opponent's (the edges table).
+//       tug (Phase 17 #14, owner pick 2026-10-07): a tug-of-war bar between the two teams instead of the Better
+//                 column. The cells bracket it, mirrored: our chip and value pressed against its left end, the
+//                 opponent's value and chip against its right; the bar leans to the leader in that team's color,
+//                 longer for a bigger gap in national rank (row.edge when the row has one). No underline with it.
 //   twoTeamLeader(row)            "us" | "them" | "even", or null when nothing can be compared.
 //   percentile(rank, of)          0 (last) to 100 (first) from a national rank, or null. Ranks already run
 //                                 best-first whichever way the stat runs, so a lower-is-better stat needs no flip.
@@ -25,19 +31,11 @@
 //                                 "SP+ #13"), offered to "kickoff:rank-link" first like a chip.
 
 import { usLabel } from "../identity.js";
-import { DASH, el, fmtStat, isNum, text } from "./dom.js";
+import { DASH, el, fmtStat, isNum, obj, records, text } from "./dom.js";
 import { nationalHref } from "./national-link.js";
 import { rankChip, rankChipPlaceholder } from "./stat-table.js";
 
 const SIDES = ["us", "them"];
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-}
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
-}
 
 function isHash(href) {
   return typeof href === "string" && href.startsWith("#") && href.length > 1;
@@ -137,13 +135,55 @@ function sideCell(row, side, lead, opts) {
   if (lead === side) cls.push("lead");
   else if (lead === "us" || lead === "them") cls.push("trail");
   if (chip && href) cls.push("tt__cell--link");
+  const value = el("span", { class: "tt__val" }, valueText(row, side));
+  const mark = chip || (opts.placeholders[side] ? rankChipPlaceholder() : null);
+  const conf = confMark(row, side);
+  // with the tug bar the cells bracket it: our chips outside, our value against the bar; the opponent mirrored
+  const inside = opts.tug && side === "us" ? [conf, mark, value] : [value, mark, conf];
   return el(
     "td",
     { class: cls.join(" ") },
-    el("span", { class: "tt__val" }, valueText(row, side)),
-    chip || (opts.placeholders[side] ? rankChipPlaceholder() : null),
-    opts.underline ? underlineBar(percentile(s.rank, s.of), side) : null,
+    ...inside,
+    opts.underline && !opts.tug ? underlineBar(percentile(s.rank, s.of), side) : null,
   );
+}
+
+/** The conference rank chip with its "Conf" tag, or null when the side has none (or a damaged one). */
+function confMark(row, side) {
+  const c = obj(obj(row[side]).conf);
+  if (!isNum(c.rank)) return null;
+  const where = typeof c.conference === "string" && c.conference.trim() ? c.conference.trim() : "the conference";
+  const chip = rankChip(c.rank, c.of, { href: isHash(c.href) ? c.href : null, label: `${text(row.label)}, rank in ${where}` });
+  return chip ? el("span", { class: "tt__conf", title: `Rank in ${where}` }, chip, el("small", {}, "Conf")) : null;
+}
+
+/** How far the bar leans, as a share of its half (0.12 to 1): the gap in national rank over the field size. */
+export function tugShare(row) {
+  const r = obj(row);
+  const of = isNum(obj(r.us).of) ? obj(r.us).of : obj(r.them).of;
+  const gap = isNum(r.edge) ? Math.abs(r.edge) : isNum(obj(r.us).rank) && isNum(obj(r.them).rank) ? Math.abs(obj(r.us).rank - obj(r.them).rank) : null;
+  if (gap === null || !isNum(of) || of <= 1) return 0.35; // a leader with no ranks to measure: a middling lean
+  return Math.max(0.12, Math.min(1, gap / (of / 2)));
+}
+
+function tugCell(row, lead, opts) {
+  const td = el("td", { class: "tt__tug" });
+  const track = el("span", { class: "tug", role: "img" }, el("span", { class: "tug__mid" }));
+  if (lead === "us" || lead === "them") {
+    const share = tugShare(row);
+    track.append(el("span", { class: `tug__bar tug__bar--${lead}`, style: { width: `${Math.round(share * 50)}%` } }));
+    const gap = isNum(row.edge) ? Math.abs(row.edge) : isNum(obj(row.us).rank) && isNum(obj(row.them).rank) ? Math.abs(obj(row.us).rank - obj(row.them).rank) : null;
+    const who = lead === "us" ? text(opts.usAbbr) : text(opts.themAbbr);
+    const says = `${who} has the edge${gap !== null ? `, ${gap} national ranks apart` : ""}`;
+    track.setAttribute("aria-label", says);
+    track.setAttribute("title", says);
+  } else {
+    const says = lead === "even" ? "Even" : "No edge to show";
+    track.setAttribute("aria-label", says);
+    track.setAttribute("title", says);
+  }
+  td.append(track);
+  return td;
 }
 
 function betterCell(lead, opts) {
@@ -169,6 +209,7 @@ function bodyRow(row, opts) {
     { class: typeof row.rowClass === "string" && row.rowClass ? row.rowClass : null },
     el("td", { class: "txt tt__label" }, text(row.label), typeof row.sub === "string" && row.sub.trim() ? el("small", {}, row.sub.trim()) : null),
     sideCell(row, "us", lead, opts),
+    opts.tug ? tugCell(row, lead, opts) : null,
     sideCell(row, "them", lead, opts),
     opts.ladder ? ladderCell(row, opts) : null,
     opts.extra.map((column) => extraCell(column, row)),
@@ -199,15 +240,16 @@ function watchFit(wrap, table) {
   requestAnimationFrame(first);
 }
 
-export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups, better = true, usTeam, themTeam, year, ladder = false, underline = false, labelHead = "Statistic", caption, extra, className } = {}) {
+export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups, better = true, usTeam, themTeam, year, ladder = false, underline = false, tug = false, labelHead = "Statistic", caption, extra, className } = {}) {
   const sets = Array.isArray(groups)
     ? records(groups).map((g) => ({ title: g.title, note: g.note, rows: records(g.rows) }))
     : [{ title: null, note: null, rows: records(rows) }];
   const all = sets.flatMap((s) => s.rows);
   const placeholders = Object.fromEntries(SIDES.map((side) => [side, all.some((r) => isNum(obj(r[side]).rank))]));
   const extras = (Array.isArray(extra) ? extra : []).filter((c) => c && typeof c.cell === "function");
-  const opts = { usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, year, better: better !== false, ladder: Boolean(ladder), underline: Boolean(underline), extra: extras, placeholders };
-  const width = 3 + (opts.ladder ? 1 : 0) + extras.length + (opts.better ? 1 : 0);
+  const withTug = tug === true;
+  const opts = { usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, year, better: better !== false && !withTug, ladder: Boolean(ladder), underline: Boolean(underline), tug: withTug, extra: extras, placeholders };
+  const width = 3 + (opts.tug ? 1 : 0) + (opts.ladder ? 1 : 0) + extras.length + (opts.better ? 1 : 0);
 
   const head = el(
     "thead",
@@ -217,6 +259,7 @@ export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups
       {},
       el("th", { class: "txt", scope: "col" }, text(labelHead)),
       el("th", { class: "us", scope: "col" }, opts.usAbbr),
+      opts.tug ? el("th", { class: "tt__tug", scope: "col" }, "Edge") : null,
       el("th", { class: "them tt__them", scope: "col" }, opts.themAbbr),
       opts.ladder ? el("th", { class: "tt__ladder", scope: "col", title: "National percentile, 0 to 100: the dot is " + opts.usAbbr + ", the ring " + opts.themAbbr }, el("span", { class: "ladder-head" }, el("span", {}, "0"), el("span", {}, "Percentile"), el("span", {}, "100"))) : null,
       extras.map((column) => el("th", { class: column.headClass || null, scope: "col" }, text(column.head))),
@@ -232,7 +275,7 @@ export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups
       set.rows.length === 0 ? el("tr", {}, el("td", { class: "txt", colspan: String(width) }, "No rows.")) : null,
     ),
   );
-  const table = el("table", { class: `stat-table stat-table--compact tt${opts.ladder ? " tt--ladder" : ""}${opts.underline ? " tt--underline" : ""}` }, caption ? el("caption", { class: "sr-only" }, text(caption)) : null, head, bodies);
+  const table = el("table", { class: `stat-table stat-table--compact tt${opts.ladder ? " tt--ladder" : ""}${opts.underline && !opts.tug ? " tt--underline" : ""}${opts.tug ? " tt--tug" : ""}` }, caption ? el("caption", { class: "sr-only" }, text(caption)) : null, head, bodies);
   const wrap = el("div", { class: `stat-table-wrap tt-wrap${className ? ` ${className}` : ""}` }, table);
   watchFit(wrap, table);
   return wrap;

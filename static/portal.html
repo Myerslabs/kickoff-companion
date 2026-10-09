@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Open the game - Kickoff Companion</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/app.css">
+  <style>
+    .portal { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; text-align: center; }
+    .portal__card { max-width: 420px; display: grid; gap: 18px; }
+    .portal__go { font-size: 1.4rem; padding: 18px 28px; min-height: 64px; }
+    .portal__note { color: var(--fog, #9aa3b2); font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+  <main class="portal">
+    <div class="portal__card">
+      <h1 class="wordmark">Kickoff <em>Companion</em></h1>
+      <p>You are on the game-day Wi-Fi. Open the second screen for the game: the live score, the plays and the box score.</p>
+      <a id="go" class="btn btn--primary portal__go" href="/">Open the game</a>
+      <p class="portal__note">If this page is a small sign-in window, tap the button, then choose "Open in browser" so the game keeps running.</p>
+    </div>
+  </main>
+  <script>
+    // Opened from the sign-in sheet, the button must point at the address that reached this page.
+    document.getElementById("go").href = window.location.origin + "/";
+  </script>
+</body>
+</html>

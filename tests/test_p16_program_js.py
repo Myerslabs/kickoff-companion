@@ -33,7 +33,7 @@ def profile(value: float, rank: int | None, key: str, side: str, label: str, hig
 
 def payload(**game: object) -> dict:
     """A small /api/program answer in the real shape (checked against the simulator's on 2026-09-28)."""
-    g = {"gameId": 526000600, "week": 3, "postseason": None, "playoffRound": None, "kickoff": "2026-09-26T19:30:00.000Z", "startTimeTbd": False, "completed": False, "homeIsUs": False, "neutralSite": False, "conferenceGame": True, "venue": "Silver Dollar Field", "venueDetail": {"city": "Silver Dollar", "state": "AL", "capacity": 87451, "grass": True, "dome": False, "elevationFt": 660, "elevationM": 201.2, "yearBuilt": 1939, "recordAtVenue": {"venue": "Silver Dollar Field", "wins": 3, "losses": 5, "ties": 0, "games": 8}}, "tv": "ESPN", "usPoints": None, "themPoints": None, "usLineScores": None, "themLineScores": None, "archived": False}
+    g = {"gameId": 526000600, "week": 3, "postseason": None, "playoffRound": None, "kickoff": "2026-09-26T19:30:00.000Z", "startTimeTbd": False, "completed": False, "homeIsUs": False, "neutralSite": False, "conferenceGame": True, "venue": "Silver Dollar Field", "venueDetail": {"name": "Silver Dollar Field", "city": "Silver Dollar", "state": "AL", "capacity": 87451, "grass": True, "dome": False, "elevationFt": 660, "elevationM": 201.2, "yearBuilt": 1939, "recordAtVenue": {"venue": "Silver Dollar Field", "opponent": "Silver Dollar", "gamesWithoutVenue": 2, "wins": 3, "losses": 5, "ties": 0, "games": 8}}, "tv": "ESPN", "usPoints": None, "themPoints": None, "usLineScores": None, "themLineScores": None, "archived": False}
     g.update(game)
     return {
         "season": 2026,
@@ -44,8 +44,8 @@ def payload(**game: object) -> dict:
         "pregame": {"homeWinProbability": 0.38, "usWinProbability": 0.62},
         "weather": {"available": True, "source": "National Weather Service", "tempF": 87.0, "windMph": 8.0, "windDir": "W", "sky": "Mostly Sunny", "precipChance": 6.0, "dome": False, "radarUrl": "https://forecast.weather.gov/MapClick.php?lat=32.6&lon=-85.49"},
         "profile": {
-            "us": [profile(59.0, 1, "ppg", "offense", "Points per game"), profile(8.0, 5, "ypp", "offense", "Yards per play"), profile(12.0, 1, "opp_ppg", "defense", "Opp points per game", False), profile(4.5, 30, "ypp_d", "defense", "Opp yards per play", False)],
-            "them": [profile(30.0, 40, "ppg", "offense", "Points per game"), profile(8.0, 5, "ypp", "offense", "Yards per play"), profile(20.0, None, "opp_ppg", "defense", "Opp points per game", False), profile(4.9, 57, "ypp_d", "defense", "Opp yards per play", False)],
+            "us": [profile(59.0, 1, "ppg", "offense", "Points per game"), profile(8.0, 5, "ypp", "offense", "Yards per play"), profile(12.0, 1, "opp_ppg", "defense", "Points allowed per game", False), profile(4.5, 30, "ypp_d", "defense", "Yards allowed per play", False)],
+            "them": [profile(30.0, 40, "ppg", "offense", "Points per game"), profile(8.0, 5, "ypp", "offense", "Yards per play"), profile(20.0, None, "opp_ppg", "defense", "Points allowed per game", False), profile(4.9, 57, "ypp_d", "defense", "Yards allowed per play", False)],
         },
         "edges": [
             {"label": "Passing: Swampwater Tech offense vs Silver Dollar defense", "side": "offense", "usRank": 24, "themRank": 119, "of": 138, "themOf": 138, "edge": 95, "usValue": 298.333, "themValue": 252.0, "format": "0f", "usFormat": "0f", "themFormat": "0f", "usKey": "pass_ypg", "themKey": "pass_ypg_d", "usMetric": "profile:pass_ypg", "themMetric": "profile:pass_ypg_d"},
@@ -100,6 +100,8 @@ def damaged(data: dict) -> dict:
 
 
 SCENARIOS = r"""
+// Phase 17 #17: the leaders band asks /api/program/<id>/leaders on its own; these count the program itself.
+const programCalls = (prefix) => calls.filter((u) => u.startsWith(prefix) && !u.includes("/leaders")).length;
 const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 const text = (node) => (node ? node.textContent : "");
 const clean = (label, node) => {
@@ -114,7 +116,7 @@ scenarios.twoTeam = async () => {
   const { twoTeamTable, twoTeamLeader } = await import(moduleUrl("ui/two-team.js"));
   const rows = [
     { label: "Yards per play", format: "1f", higherIsBetter: true, metric: "profile:ypp", us: { value: 8.04, rank: 5, of: 138 }, them: { value: 6.1, rank: 70, of: 138 } },
-    { label: "Opp yards per play", format: "1f", higherIsBetter: false, metric: "profile:ypp_d", us: { value: 4.5, rank: 30, of: 138 }, them: { value: 4.9, rank: 57, of: 138 } },
+    { label: "Yards allowed per play", format: "1f", higherIsBetter: false, metric: "profile:ypp_d", us: { value: 4.5, rank: 30, of: 138 }, them: { value: 4.9, rank: 57, of: 138 } },
     { label: "Third down", format: "pct", higherIsBetter: true, us: { value: 0.46, rank: 50, of: 138 }, them: { value: 0.46, rank: 50, of: 138 } },
     { label: "Blue-chip ratio", format: "pct", higherIsBetter: true, us: { value: 0.7 }, them: { value: null } },
   ];
@@ -207,25 +209,27 @@ scenarios.edges = async () => {
   const rows = wrap.querySelectorAll("tbody tr");
   assert.equal(rows.length, 2);
   // offense row: Swampwater Tech's chip is its offense stat, the opponent's its defense stat
-  const [offUs, offThem] = [rows[0].childNodes[1], rows[0].childNodes[2]];
+  // Phase 17 #14, #16: label | us | the tug bar | them; the cells bracket the bar
+  const [offUs, offTug, offThem] = [rows[0].childNodes[1], rows[0].childNodes[2], rows[0].childNodes[3]];
   assert.equal(offUs.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
   assert.equal(offThem.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg_d?team=Silver%20Dollar");
   // defense row: the reverse (and a row with keys but no metrics still links)
   assert.equal(rows[1].childNodes[1].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg_d?team=Swampwater%20Tech");
-  assert.equal(rows[1].childNodes[2].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Silver%20Dollar");
-  // label and sub-line, the signed edge, Edge to, the row tint
+  assert.equal(rows[1].childNodes[3].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Silver%20Dollar");
   assert.equal(text(rows[0].childNodes[0]), "PassingSWT offense vs GRID defense");
   assert.equal(text(rows[1].childNodes[0]), "RushingGRID offense vs SWT defense");
-  assert.equal(text(rows[0].querySelector(".tt__edge")), "+95");
-  assert.equal(text(rows[1].querySelector(".tt__edge")), "−40");
-  assert.equal(text(rows[0].querySelector("td.tt__edge-to")), "SWT");
-  assert.equal(text(rows[1].querySelector("td.tt__edge-to")), "GRID");
-  assert.ok(cls(rows[0]).includes("is-us") && !cls(rows[1]).includes("is-us"));
-  assert.ok(text(wrap.querySelector("thead")).includes("Edge to") && !text(wrap).includes("Favours"));
+  // the bar leans to the side with the edge, in its color, and says how far apart the ranks are
+  assert.ok(offTug.querySelector(".tug__bar--us") && !offTug.querySelector(".tug__bar--them"));
+  assert.ok(offTug.querySelector(".tug").getAttribute("title").includes("SWT has the edge, 95 national ranks apart"));
+  assert.ok(rows[1].childNodes[2].querySelector(".tug__bar--them"));
+  // our chip sits outside our value, the opponent's mirrored: the values meet the bar
+  assert.ok(cls(offUs.childNodes[0]).includes("rank-chip") && cls(offThem.childNodes[offThem.childNodes.length - 1]).includes("rank-chip"));
+  // no red-tinted rows, no Better or Edge to columns
+  assert.ok(!cls(rows[0]).includes("is-us") && !text(wrap.querySelector("thead")).includes("Edge to") && !wrap.querySelector(".tt__better"));
   // values in each side's own format; the leader follows the edge, not the values (different stats)
   assert.equal(text(offUs.querySelector(".tt__val")), "298");
-  assert.ok(cls(offUs).includes("lead") && cls(rows[1].childNodes[2]).includes("lead"));
-  assert.equal(edgesSummary(edges, { usAbbr: "SWT", themAbbr: "GRID" }), "SWT better in 1 of 2 · Biggest: Passing, SWT O vs GRID D, +95");
+  assert.ok(cls(offUs).includes("lead") && cls(rows[1].childNodes[3]).includes("lead"));
+  assert.equal(edgesSummary(edges, { usAbbr: "SWT", themAbbr: "GRID" }), "SWT better in 1 of 2 · Biggest: Passing, SWT offense vs GRID defense, SWT by 95 ranks");
   assert.equal(edgesSummary([], { usAbbr: "SWT" }), "");
   assert.equal(edgeRows([null, "x", { label: "Junk" }]).length, 0);
   clean("junk edges", edgesTable([null, { label: 5, usRank: 3 }, { edge: 4, side: "defense" }], {}));
@@ -350,8 +354,15 @@ scenarios.faceOff = async () => {
   const live = cover({ ...props, now: new Date("2026-09-26T20:00:00Z") });
   assert.ok(text(live.querySelector(".cover__middle")).includes("Under way"));
   // the SP+ link and the AP poll badge open their lists
-  const sp = node.querySelector("a.cover__link");
+  // Phase 17 #2: the record, the conference record and SP+ are chips like the AP badge
+  const rec = node.querySelector(".cover__side--us .cover__rec");
+  assert.ok(rec.querySelectorAll(".cover-chip").length >= 2, text(rec));
+  assert.ok(!text(rec).includes(" · "), "chips, not a dotted line");
+  const chipLinks = node.querySelectorAll(".cover__side--us a.cover-chip--link");
+  const sp = chipLinks.find((a) => a.textContent.includes("SP+"));
   assert.equal(sp.getAttribute("href"), "#national=rating%3Asp?team=Swampwater%20Tech");
+  // Phase 17 #2: our conference record opens the standings
+  assert.ok(chipLinks.some((a) => a.getAttribute("href") === "#season?band=standings"));
   const ap = node.querySelector("a.poll-badge--link");
   assert.equal(ap.getAttribute("href"), "#national=poll%3AAP?team=Silver%20Dollar");
 };
@@ -379,12 +390,17 @@ scenarios.weatherVenue = async () => {
   assert.ok(!weatherRow({ note: "No forecast yet.", radarUrl: null }).querySelector("a.weather__radar"));
   assert.ok(text(weatherRow({ tempF: 80, label: "Kickoff weather" })).includes("Kickoff weather"));
   const v = venueLine(FIXTURE.game.venueDetail, { us: "Swampwater Tech" });
-  assert.equal(text(v), "Capacity 87,451 · Grass · Elevation 660 ft · Built 1939 · Swampwater Tech 3-5 here");
+  // Phase 17 #3: the stadium's name first, and the record names the opponent it is against
+  assert.equal(text(v), "Silver Dollar Field · Capacity 87,451 · Grass · Elevation 660 ft · Built 1939 · Swampwater Tech 3-5 vs Silver Dollar here");
+  assert.ok(v.querySelector(".venue-line__name") && v.querySelector("span[title]").getAttribute("title").includes("2 older games"));
   assert.equal(text(venueLine({ dome: true, grass: false })), "Artificial turf · Dome");
+  assert.equal(text(venueLine({ name: "  Example Bowl " })), "Example Bowl");
   assert.equal(venueLine({}), null);
   assert.equal(venueLine(null), null);
-  assert.equal(venueLine({ capacity: "big", grass: "yes", elevationFt: null, recordAtVenue: { wins: null } }), null);
-  assert.equal(text(venueLine({ recordAtVenue: { wins: 1, losses: 0, ties: 1, games: 2 } }, { us: "Swampwater Tech" })), "Swampwater Tech 1-0-1 here");
+  assert.equal(venueLine({ name: "", capacity: "big", grass: "yes", elevationFt: null, recordAtVenue: { wins: null } }), null);
+  assert.equal(text(venueLine({ recordAtVenue: { opponent: "Diner Tech", wins: 1, losses: 0, ties: 1, games: 2 } }, { us: "Swampwater Tech" })), "Swampwater Tech 1-0-1 vs Diner Tech here");
+  // a record that cannot say who it is against is left out rather than misread
+  assert.equal(venueLine({ recordAtVenue: { wins: 8, losses: 2, ties: 0 } }, { us: "Swampwater Tech" }), null);
 };
 
 scenarios.zones = async () => {
@@ -396,7 +412,7 @@ scenarios.zones = async () => {
   assert.equal(text(rows[0].childNodes[0]), "Deep", "the deep row sits over the short row");
   assert.equal(text(rows[1].childNodes[0]), "Short");
   assert.equal(text(zones.querySelector("thead")), "PassesLeftMiddleRight");
-  assert.ok(text(rows[0].childNodes[1]).startsWith("4 att") && text(rows[0].childNodes[1]).includes("25% comp"));
+  assert.ok(text(rows[0].childNodes[1]).startsWith("4 att") && text(rows[0].childNodes[1]).includes("25.0% comp"));
   assert.ok(text(rows[1].childNodes[2]).startsWith("0 att"), "a zero is a zero");
   assert.ok(text(rows[0].childNodes[2]).startsWith("–"), "a zone missing from the payload is a dash");
   const lanes = runLanesTable(FIXTURE.tendencies.runLanes);
@@ -447,7 +463,7 @@ scenarios.pickerOneFetch = async () => {
   installWindow();
   const data = clone(FIXTURE);
   const { root, view } = await mountProgram(data);
-  const before = callsTo("/api/program");
+  const before = programCalls("/api/program");
   assert.equal(before, 1);
   // choosing another game only changes the hash: the router builds the next view once (bug 13)
   const next = root.querySelector("a.cover__nav--next");
@@ -455,11 +471,11 @@ scenarios.pickerOneFetch = async () => {
   view.open(526001015);
   await advance(1000);
   assert.equal(window.location.hash, "#program=526001015");
-  assert.equal(callsTo("/api/program"), before, "the old view fetched nothing more");
+  assert.equal(programCalls("/api/program"), before, "the old view fetched nothing more");
   view.unmount();
   root.remove();
   const again = await mountProgram(data, "526001015");
-  assert.equal(callsTo("/api/program/526001015"), 1, "the new view fetches once");
+  assert.equal(programCalls("/api/program/526001015"), 1, "the new view fetches once");
   again.view.unmount();
   again.root.remove();
 };
@@ -490,7 +506,7 @@ scenarios.countdownTicks = async () => {
   assert.ok(text(coverNode.querySelector(".cover__middle")).includes("1h 2m"), "no tick before 30 s");
   await advance(3 * 60 * 1000); // six ticks, well inside the 15-minute refresh
   assert.equal(root.querySelector(".cover"), coverNode, "ticking never rebuilds the cover");
-  assert.equal(callsTo("/api/program"), 1, "and never fetches");
+  assert.equal(programCalls("/api/program"), 1, "and never fetches");
   assert.ok(text(coverNode.querySelector(".cover__middle")).includes("Kickoff in 59 min"), text(coverNode.querySelector(".cover__middle")));
   view.unmount();
   await advance(60 * 1000);

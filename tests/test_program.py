@@ -235,7 +235,7 @@ def test_notes_file_feeds_schemes_and_availability(pclient: TestClient, fake_cfb
     }), encoding="utf-8")
     notes = pclient.get("/api/program/next").json()["data"]["notes"]
     assert notes["present"] and notes["schemes"] == {"offense": "Spread", "defense": "4-2-5", "source": None}
-    assert [s["heading"] for s in notes["sections"]] == ["Line movement"] and [a["name"] for a in notes["availability"]] == ["A"]
+    assert [s["heading"] for s in notes["sections"]] == ["Line movement"] and [a["name"] for a in notes["availability"]] == ["A", "no status"]  # Phase 17: a row with no status is kept
     # 2026-10-02: the published depth charts ride along, bad slots and names dropped, the missing team None
     lineups = notes["lineups"]
     assert lineups["source"] == "Ourlads" and lineups["them"] is None
@@ -280,25 +280,25 @@ def test_newspaper_on_a_weekday_has_headlines_and_no_slate(pclient: TestClient, 
     route_program(fake_cfbd)
     set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
     data = pclient.get("/api/newspaper").json()["data"]
-    assert data["gameDay"] is False and data["opensHere"] is False and data["slate"] == [] and data["slateNote"]
+    assert data["gameDay"] is False and "opensHere" not in data and data["slate"] == [] and data["slateNote"]
     assert data["nextGame"]["gameId"] == NEXT_GAME and data["nextGame"]["opponent"] == "Diner Tech"
     assert len(data["news"]) >= 10 and all(h["title"] and h["source"] for h in data["news"])
     assert set(data["feeds"]) == {"team", "espn", "athletic", "google"} and all(f["status"] == "ok" for f in data["feeds"].values())
     assert fake_cfbd.count("/lines") == 0
 
 
-def test_newspaper_on_game_day_opens_there_until_an_hour_before_kickoff(pclient: TestClient, fake_cfbd: FakeCfbd, program_app):
+def test_newspaper_on_game_day_carries_the_slate(pclient: TestClient, fake_cfbd: FakeCfbd, program_app):
     route_program(fake_cfbd)
     set_clock(program_app, datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc))  # 8 am Eastern on game day
     data = pclient.get("/api/newspaper").json()["data"]
-    assert data["gameDay"] and data["opensHere"] and data["gameId"] == NEXT_GAME
+    assert data["gameDay"] and data["gameId"] == NEXT_GAME
     assert len(data["slate"]) >= 8 and data["slate"][0]["isUs"] and data["slate"][0]["home"]["school"] == "Swampwater Tech"
     assert data["slate"][0]["line"]["formatted"] == facts.line(NEXT_GAME, "lines_week")["formattedSpread"] and 0 < data["slate"][0]["homeWinProbability"] < 1
     assert all(g["home"]["school"] and g["away"]["school"] for g in data["slate"])
     assert any(g["tv"] for g in data["slate"])
     set_clock(program_app, datetime(2026, 9, 26, 19, 0, tzinfo=timezone.utc))  # 3 pm Eastern, inside the hour
     data = pclient.get("/api/newspaper").json()["data"]
-    assert data["gameDay"] and data["opensHere"] is False
+    assert data["gameDay"] and "opensHere" not in data  # Phase 17 #32: the app always opens on the Game program
 
 
 def test_newspaper_survives_dead_feeds(pclient: TestClient, fake_cfbd: FakeCfbd, program_app, sites: FakeSites):

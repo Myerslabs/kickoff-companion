@@ -31,6 +31,23 @@ scenarios.menu = async () => {
   assert.equal(items[1].label, "Diner Tech");
   assert.equal(items[1].hash, "team=Diner%20Tech");
   assert.equal(MENU.length, 2, "the base menu is not changed");
+  // Phase 17 #32: the Game program is the first tab and the default; #25: the LIVE marker comes and goes
+  const { shell, VIEWS } = await import(moduleUrl("ui/shell.js"));
+  assert.equal(VIEWS[0].id, "program");
+  installWindow();
+  const page = shell({ menu: plain });
+  document.body.append(page.root);
+  const tab = page.root.querySelector('.tab[data-view="live"]');
+  const flag = page.root.querySelector(".live-flag");
+  assert.equal(page.root.querySelector('.tab[aria-current="page"]').dataset.view, "program");
+  assert.ok(flag.hasAttribute("hidden") && !tab.className.includes("tab--live"));
+  page.setLive(true);
+  assert.ok(!flag.hasAttribute("hidden") && tab.className.includes("tab--live"));
+  assert.ok(text(page.root.querySelector(".drawer")).includes("our game is live"));
+  page.setLive("yes");
+  assert.ok(flag.hasAttribute("hidden") && !tab.className.includes("tab--live"), "only true turns it on");
+  assert.ok(!text(page.root.querySelector(".drawer")).includes("our game is live"));
+  clean("shell", page.root);
 };
 
 scenarios.scopes = async () => {

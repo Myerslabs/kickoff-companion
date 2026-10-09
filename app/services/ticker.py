@@ -107,6 +107,7 @@ class TickerService:
                 games = [await self._from_scoreboard(g, teams, ap, delay, now) for g in part.records]
             else:
                 if slate.ok and self._active(slate.records, now):
+                    self.client.ticker_ttl = LEAN_REFRESH if plan.lean(self.client) else REFRESH  # the cache keeps the slate as long as the cadence
                     slate = await self.fetcher.fetch("slate", "/games", params, Game, DataKind.TICKER, max_age=LEAN_REFRESH if plan.lean(self.client) else REFRESH)
                 parts["slate"] = slate
                 source = "games"
@@ -225,18 +226,24 @@ class TickerService:
         local = kickoff.astimezone(self.settings.tzinfo)
         return f"{local.hour % 12 or 12}:{local.minute:02d} {'AM' if local.hour < 12 else 'PM'}"
 
-    async def _ours(self, game_id: int, status: str, detail: str | None, home_pts: Any, away_pts: Any, delay: float) -> tuple[str, str | None, Any, Any]:
+    async def _ours(self, game_id: int, status: str, detail: str | None, home_pts: Any, away_pts: Any, delay: float, now: datetime) -> tuple[str, str | None, Any, Any]:
         """Our game's entry never runs ahead of the delayed live sheet."""
         engine = self.engine
-        if engine.current_game_id == game_id and engine.mode in ("live", "replay"):
+        # Final pass: the engine's delayed state rules whenever it has this game's events, the idle moments after the
+        # final included (before, the entry fell through to CFBD's undelayed final the moment the window closed).
+        if engine.current_game_id == game_id and (engine.mode in ("live", "replay") or engine.has_events(game_id)):
             state = await asyncio.to_thread(engine.state, delay, game_id)
             if state:
                 s = state.get("status")
                 kind = "final" if s == "final" else "pre" if s == "pre" else "live"
-                text = "Final" if kind == "final" else _clock_text(state.get("period"), state.get("clock")) or ("In progress" if kind == "live" else detail)
+                if kind == "pre":  # nothing released yet: no score at all (decision 15), the kickoff time or "In progress"
+                    return ("live", "In progress", None, None) if status == "live" else ("pre", detail, None, None)
+                text = "Final" if kind == "final" else _clock_text(state.get("period"), state.get("clock")) or "In progress"
                 return kind, text, state.get("homeScore"), state.get("awayScore")
         if status == "live":
             return "live", "In progress", None, None
+        if status == "final" and engine.current_game_id == game_id and not engine.final_released(now, delay):
+            return "live", "In progress", None, None  # the feed's final is not released to this device yet
         return status, detail, home_pts, away_pts
 
     async def _from_game(self, g: Game, teams: dict[str, Team], ap: dict[str, int], delay: float, now: datetime) -> dict[str, Any] | None:
@@ -252,7 +259,7 @@ class TickerService:
         is_us = self.team in (g.home_team, g.away_team)
         home_pts, away_pts = g.home_points, g.away_points
         if is_us:
-            status, detail, home_pts, away_pts = await self._ours(g.id, status, detail, home_pts, away_pts, delay)
+            status, detail, home_pts, away_pts = await self._ours(g.id, status, detail, home_pts, away_pts, delay, now)
         return {
             "gameId": g.id,
             "status": status,
@@ -299,7 +306,7 @@ class TickerService:
         home_pts = g.home_team.points if g.home_team else None
         away_pts = g.away_team.points if g.away_team else None
         if is_us:
-            status, detail, home_pts, away_pts = await self._ours(g.id, status, detail, home_pts, away_pts, delay)
+            status, detail, home_pts, away_pts = await self._ours(g.id, status, detail, home_pts, away_pts, delay, now)
         return {
             "gameId": g.id,
             "status": status,

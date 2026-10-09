@@ -232,6 +232,27 @@ def test_typing_searches_teams_and_rosters_without_calling_cfbd_search(client, f
     assert fake_cfbd.count("/player/search") == 0
 
 
+def test_a_misspelled_name_suggests_close_spellings_without_a_call(client, fake_cfbd):
+    # Phase 17 #8: a near miss offers the real name instead of a dead end
+    route_search(fake_cfbd)
+    last = QB_NAME.split()[-1]
+    typo = last[:-1] + ("x" if last[-1].lower() != "x" else "q")
+    data = client.get("/api/search", params={"q": typo.lower()}).json()["data"]
+    assert data["teams"] == [] and data["players"] == [] and last in data["suggest"]
+    assert len(data["suggest"]) <= 3
+    # a real match never carries suggestions, and nonsense gets none
+    assert client.get("/api/search", params={"q": last.lower()}).json()["data"]["suggest"] == []
+    assert client.get("/api/search", params={"q": "qzxwv"}).json()["data"]["suggest"] == []
+    assert fake_cfbd.count("/player/search") == 0
+
+
+def test_suggestions_guard_their_input():
+    from app.services.search import suggestions
+
+    assert suggestions("ab", ["Abc"]) == []  # too short to guess from
+    assert suggestions("sanches", [None, 7, "", "  ", "Sánchez", "Sanchez", "Smith"]) == ["Sánchez"]  # folded duplicates once
+
+
 def test_a_jersey_number_finds_players(client, fake_cfbd):
     route_search(fake_cfbd)
     players = client.get("/api/search", params={"q": str(OUR_QB["jersey"])}).json()["data"]["players"]

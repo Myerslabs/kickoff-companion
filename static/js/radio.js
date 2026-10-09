@@ -7,6 +7,7 @@
 // Public release Phase 5b: sources come from .env, from Settings (each with its team) and from the repo's
 // station list; with none for a primary team, radioHelpBlock offers search links and the request button.
 
+import { icon } from "./ui/icons.js";
 import { getPrefs, savePrefs } from "./prefs.js";
 import { el, recall, remember, text } from "./ui/dom.js";
 import { fetchJson } from "./views/common.js";
@@ -172,7 +173,7 @@ export function startRadio(source) {
     audio.play().catch((error) => setState("error", error?.name === "NotAllowedError" ? "The browser blocked autoplay. Tap play again." : `${error?.message || "Playback failed"}.`));
     return;
   }
-  const frame = el("iframe", { class: "radio-frame", src: source.url, title: source.name, allow: "autoplay", referrerpolicy: "no-referrer-when-downgrade", loading: "eager" });
+  const frame = el("iframe", { class: "radio-frame", src: source.url, title: source.name, allow: "autoplay", sandbox: "allow-scripts allow-same-origin allow-popups allow-forms", referrerpolicy: "no-referrer-when-downgrade", loading: "eager" });
   radio.frame = frame;
   radio.playerOpen = true;
   remember(PLAYER_KEY, true);
@@ -262,7 +263,7 @@ function drawDock() {
       el("span", { class: `radio-bar__state radio-bar__state--${radio.state}` }, stateLine),
       el("span", { class: "radio-bar__spacer" }),
       el("span", { class: "radio-bar__note" }, "Audio is not delayed"),
-      el("button", { class: "btn", type: "button", "aria-label": toggleLabel, onclick: toggleRadio }, isStream ? (playing ? "‖" : "▶") : toggleLabel),
+      el("button", { class: "btn", type: "button", "aria-label": toggleLabel, onclick: toggleRadio }, isStream ? icon(playing ? "pause" : "play") : toggleLabel),
       el("button", { class: "btn btn--quiet icon-btn", type: "button", "aria-label": "Stop the radio", onclick: stopRadio }, "×"),
     ),
   );

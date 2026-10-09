@@ -4,10 +4,11 @@
 
 import { ours } from "./identity.js";
 import { paintTeam } from "./theme.js";
+import { applyAnnouncer } from "./ui/announcer.js";
 import { recall, remember } from "./ui/dom.js";
 import { fetchJson } from "./views/common.js";
 
-const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, notesCommand: "claude", keepScreenOn: "gameday", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
+const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, announcer: true, backups: true, scheduledRuns: false, keepScreenOn: "gameday", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
 const SETTINGS_TIMEOUT_MS = 5000;
 const state = { loaded: false, loading: null, prefs: { ...DEFAULTS }, meta: null, error: null };
 const listeners = new Set();
@@ -27,7 +28,7 @@ export function applyTheme(theme = state.prefs.theme) {
   document.documentElement.dataset.theme = mode;
   const palette = paintTeam(ours(), mode); // the team's own colors over the default tokens (public release Phase 3)
   const meta = document.querySelector('meta[name="theme-color"]'); // the browser bar and the home-screen app follow the theme (Phase 12)
-  if (meta) meta.setAttribute("content", palette ? palette["--ground"] : mode === "light" ? "#EEF1F8" : "#0A1230");
+  if (meta) meta.setAttribute("content", palette ? palette["--ground"] : mode === "light" ? "#F1F2F4" : "#14161B");
 }
 
 /** Stat hints are on unless the owner switched them off; an older server without the setting leaves them on. */
@@ -80,6 +81,7 @@ function take(data) {
   state.meta = data || null;
   applyTheme();
   applyHints();
+  applyAnnouncer(state.prefs.announcer !== false);
 }
 
 /** Load once; later calls return the cached answer. `force` refetches. */
@@ -99,6 +101,7 @@ export async function loadPrefs(force = false) {
       state.error = error?.name === "AbortError" ? "The settings did not load within 5 seconds; using the defaults" : error?.message || "Could not load the settings";
       applyTheme();
       applyHints();
+      applyAnnouncer(state.prefs.announcer !== false);
     } finally {
       if (timer) clearTimeout(timer);
     }

@@ -52,8 +52,6 @@ log = logging.getLogger("kickoff.season")
 CONCURRENCY = 4
 POLL_NAMES = {"AP Top 25": "AP", "Coaches Poll": "Coaches", "Playoff Committee Rankings": "CFP"}
 
-CLASS_NAMES = {1: "FR", 2: "SO", 3: "JR", 4: "SR", 5: "GR"}
-
 
 def _num(value: Any) -> float | None:
     if isinstance(value, bool):
@@ -97,6 +95,37 @@ def _win_pct(line: Any) -> float:
 
 
 # --- parts: see app/services/parts.py ------------------------------------------------------------
+
+
+def standings_rows(records: list[TeamRecords], teams: dict[str, dict[str, Any]], ap: dict[str, int], conference: str | None, team: str | None) -> list[dict[str, Any]]:
+    """One conference's standings: conference record first, then conference wins, then the overall record.
+    Phase 17 #2: shared by the Season page (our conference) and every team page (that team's conference)."""
+    rows = []
+    for rec in records:
+        if rec.conference and rec.conference != conference:
+            continue
+        meta = teams.get(rec.team, {})
+        rows.append(
+            {
+                "team": rec.team,
+                "abbreviation": meta.get("abbreviation"),
+                "logo": meta.get("logo"),
+                "logoDark": meta.get("logoDark"),
+                "conference": _record(rec.conference_games),
+                "overall": _record(rec.total),
+                "apRank": ap.get(rec.team),
+                "isUs": rec.team == team,
+                "_conf_pct": _win_pct(rec.conference_games),
+                "_conf_wins": (rec.conference_games.wins if rec.conference_games and rec.conference_games.wins is not None else -1),
+                "_pct": _win_pct(rec.total),
+            }
+        )
+    rows.sort(key=lambda r: (-r["_conf_pct"], -r["_conf_wins"], -r["_pct"], r["team"]))
+    for index, row in enumerate(rows, start=1):
+        row["place"] = index
+        for key in ("_conf_pct", "_conf_wins", "_pct"):
+            row.pop(key, None)
+    return rows
 
 
 @dataclass
@@ -316,33 +345,7 @@ class SeasonService:
         return rows, next_game
 
     def _standings(self, records: list[TeamRecords], teams: dict[str, dict[str, Any]], poll_ranks: dict[str, dict[str, int]]) -> list[dict[str, Any]]:
-        ap = poll_ranks.get("AP", {})
-        rows = []
-        for rec in records:
-            if rec.conference and rec.conference != self.settings.conference:
-                continue
-            meta = teams.get(rec.team, {})
-            rows.append(
-                {
-                    "team": rec.team,
-                    "abbreviation": meta.get("abbreviation"),
-                    "logo": meta.get("logo"),
-                    "logoDark": meta.get("logoDark"),
-                    "conference": _record(rec.conference_games),
-                    "overall": _record(rec.total),
-                    "apRank": ap.get(rec.team),
-                    "isUs": rec.team == self.settings.team,
-                    "_conf_pct": _win_pct(rec.conference_games),
-                    "_conf_wins": (rec.conference_games.wins if rec.conference_games and rec.conference_games.wins is not None else -1),
-                    "_pct": _win_pct(rec.total),
-                }
-            )
-        rows.sort(key=lambda r: (-r["_conf_pct"], -r["_conf_wins"], -r["_pct"], r["team"]))
-        for index, row in enumerate(rows, start=1):
-            row["place"] = index
-            for key in ("_conf_pct", "_conf_wins", "_pct"):
-                row.pop(key, None)
-        return rows
+        return standings_rows(records, teams, poll_ranks.get("AP", {}), self.settings.conference, self.settings.team)
 
     # --- the stat profile ---------------------------------------------------------------
 

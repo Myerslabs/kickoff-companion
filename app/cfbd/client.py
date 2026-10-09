@@ -266,7 +266,8 @@ class CfbdClient:
         self.breaker = Breaker("general")  # every call that is not live=True
         self.live_breaker = Breaker("live")  # the game-day poller's own lane
         self.capabilities = Capabilities()
-        self.live_window = False  # Phase 6's poller sets this inside a game window
+        self.live_window = False
+        self.ticker_ttl: timedelta | None = None  # the ticker's cadence, set by the ticker service (final pass)  # Phase 6's poller sets this inside a game window
         self.game_day = False  # Phase 3 sets this from the schedule
         # The live engine sets this to kickoff + 24 h after our game: until then CFBD may still
         # correct a finished game, so its answers are kept an hour instead of forever. UTC-aware.
@@ -465,6 +466,8 @@ class CfbdClient:
         if kind is DataKind.FINISHED_GAME:
             return finished_game_ttl(payload, now, self._settle_until())
         ttl = ttl_for(kind, now.astimezone(self.settings.tzinfo), game_day=self.game_day)
+        if kind is DataKind.TICKER and self.ticker_ttl is not None:
+            ttl = self.ticker_ttl  # final pass: the ticker service sets its cadence (5 min paid, 20 min Free), so the slate is not refetched at 5 on the Free tier
         if ttl is not None and ttl != NO_CACHE and kind is not DataKind.TICKER:  # the ticker cadence is the owner's approved figure on every tier
             ttl = ttl * self.ttl_scale(quota_status)
         return ttl

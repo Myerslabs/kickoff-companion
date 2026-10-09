@@ -34,7 +34,7 @@ class NoteSection(NotesModel):
 class AvailabilityRow(NotesModel):
     name: str
     position: str | None = None
-    status: str
+    status: str | None = None  # Phase 17: a chat that finds no published status leaves it out; the row is kept, "Not reported"
     note: str | None = None
 
 

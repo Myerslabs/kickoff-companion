@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <meta name="theme-color" content="#0A1230">
+  <meta name="theme-color" content="#14161B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -24,6 +24,23 @@
       <div class="topbar__spacer"></div>
       <span class="pill pill--quiet" role="status">Loading</span>
     </header>
+    <!-- Phase 16 wave 3 (DS-13): the page's outline while the scripts load; app.js replaces all of it -->
+    <main class="shell__main boot" aria-busy="true" aria-label="Loading">
+      <div class="season boot__grid">
+        <section class="band" aria-hidden="true">
+          <div class="band__head"><span class="skel boot__title"></span></div>
+          <div class="band__body"><div class="skel skel--block"></div><div class="skel skel--row"></div><div class="skel skel--row"></div></div>
+        </section>
+        <section class="band" aria-hidden="true">
+          <div class="band__head"><span class="skel boot__title"></span></div>
+          <div class="band__body"><div class="skel skel--row"></div><div class="skel skel--row"></div><div class="skel skel--row"></div><div class="skel skel--row"></div></div>
+        </section>
+        <section class="band" aria-hidden="true">
+          <div class="band__head"><span class="skel boot__title"></span></div>
+          <div class="band__body"><div class="skel skel--row"></div><div class="skel skel--row"></div><div class="skel skel--row"></div></div>
+        </section>
+      </div>
+    </main>
   </div>
   <script type="module" src="/static/js/app.js"></script>
   <noscript>

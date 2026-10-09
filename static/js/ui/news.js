@@ -2,9 +2,12 @@
 // Headlines are links out, never body text. Our game is pinned first and outlined.
 
 import { usSchool } from "../identity.js";
-import { DASH, el, fmtDate, fmtPct, fmtTime, isNum, teamLink, text } from "./dom.js";
+import { DASH, el, fmtDate, fmtPct, fmtTime, isNum, teamLink, teamLogo, text } from "./dom.js";
+import { pollHref } from "./national-link.js";
+import { pollBadge, rankChip } from "./stat-table.js";
+import { nationalHref } from "./national-link.js";
 
-function ageOf(iso) {
+export function ageOf(iso) {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
@@ -35,17 +38,9 @@ export function newsSkeleton(rows = 5) {
   return el("div", {}, Array.from({ length: rows }, () => el("div", { class: "skel skel--row" })));
 }
 
+/** Phase 16 wave 3 (G3-10): the shared logo, from the app's own logo cache with the same fallback tile as everywhere. */
 function logo(team) {
-  if (team?.logo) {
-    const img = el("img", { class: "cover__logo", src: team.logo, alt: "", width: "40", height: "40", loading: "lazy" });
-    img.addEventListener("error", () => img.replaceWith(mono(team)));
-    return img;
-  }
-  return mono(team);
-}
-
-function mono(team) {
-  return el("div", { class: "cover__logo cover__logo--mono", "aria-hidden": "true" }, text(team?.abbreviation || team?.school?.slice(0, 3)?.toUpperCase()));
+  return teamLogo(team && typeof team === "object" ? team : {}, { size: 40, className: "cover__logo" });
 }
 
 function recordText(record) {
@@ -53,13 +48,46 @@ function recordText(record) {
   return record.ties ? `${record.wins}-${record.losses}-${record.ties}` : `${record.wins}-${record.losses}`;
 }
 
-function teamBlock(team, side) {
+/** N2 (final pass): "44.8 pts #3 · 552 yds #8", each chip opening the national list. */
+function statLine(team, rows) {
+  const list = Array.isArray(rows) ? rows.filter((r) => r && typeof r === "object" && isNum(r.value)) : [];
+  if (!list.length) return null;
+  const parts = [];
+  for (const r of list) {
+    if (parts.length) parts.push(" · ");
+    const unit = r.key === "ppg" ? "pts" : "yds";
+    const value = r.key === "ppg" ? (Math.round(r.value * 10) / 10).toFixed(1) : String(Math.round(r.value));
+    let href = null;
+    try {
+      href = typeof r.metric === "string" ? nationalHref(r.metric, { team: team?.school }) : null;
+    } catch {
+      href = null;
+    }
+    parts.push(el("span", { class: "game-card__statpair" }, el("span", { class: "game-card__stat" }, `${value} ${unit}`), " ", isNum(r.rank) ? rankChip(r.rank, r.of, { href, label: text(r.label) }) : null)); // the number and its chip stay on one line
+  }
+  return el("div", { class: "game-card__stats" }, ...parts);
+}
+
+/** "Edge: Passing, SWT offense against BLUE defense, SWT by 29 ranks" from the server's biggest pairing. */
+function edgeLine(game) {
+  const e = game?.edge && typeof game.edge === "object" ? game.edge : null;
+  if (!e || !e.stat || !isNum(e.edge)) return null;
+  const home = text(game.home?.abbreviation);
+  const away = text(game.away?.abbreviation);
+  const homeOffense = e.side !== "defense";
+  const units = homeOffense ? `${home} offense against ${away} defense` : `${away} offense against ${home} defense`;
+  const who = e.edge > 0 ? home : e.edge < 0 ? away : null;
+  return el("div", { class: "game-card__edge" }, el("span", { class: "game-card__edge-word" }, "Edge"), ` ${e.stat}, ${units}, ${who ? `${who} by ${Math.abs(e.edge)} ranks` : "even"}`);
+}
+
+function teamBlock(team, side, rows) {
   const rec = recordText(team?.record);
   return el(
     "div",
     { class: `game-card__team game-card__team--${side}` },
     logo(team),
-    el("div", { class: "game-card__name" }, `${isNum(team?.apRank) ? `#${team.apRank} ` : ""}`, teamLink(team?.school, text(team?.school)), el("small", {}, rec || DASH)),
+    el("div", { class: "game-card__name" }, isNum(team?.apRank) ? [pollBadge(team.apRank, "AP", { href: pollHref("AP", { team: team.school }), label: text(team.school), showPoll: false }), " "] : null, teamLink(team?.school, text(team?.school)), el("small", {}, rec || DASH)),
+    statLine(team, rows),
   );
 }
 
@@ -74,7 +102,8 @@ export function gameCard(game = {}) {
     { class: `game-card${game.isUs ? " game-card--us" : ""}` },
     game.bowl ? el("div", { class: "game-card__watch" }, text(game.bowl)) : null,
     game.watch === "next" || game.watch === "future" ? el("div", { class: "game-card__watch" }, game.watch === "next" ? "Our next opponent" : "A later opponent of ours") : null,
-    el("div", { class: "game-card__teams" }, teamBlock(game.away, "away"), el("span", { class: "game-card__at" }, game.neutralSite ? "vs" : "at"), teamBlock(game.home, "home")),
+    el("div", { class: "game-card__teams" }, teamBlock(game.away, "away", game.stats?.away), el("span", { class: "game-card__at" }, game.neutralSite ? "vs" : "at"), teamBlock(game.home, "home", game.stats?.home)),
+    edgeLine(game),
     el(
       "div",
       { class: "game-card__meta" },

@@ -11,6 +11,11 @@
 //       liveHref: "Open the Live sheet" under way (primary) and inside the hour (secondary). archiveHref: "Full
 //       game in the Archive" on a final (pass it only when the archive holds the game). prev / next:
 //       { href, label } arrows in the kicker row. extra: a node for the cover's foot (the page's jump list).
+//       Phase 17 #2: crew (text) joins the when line after the network; details (a node, the coaches) sits under it.
+//       Each W/L square opens that game (ours: the Archive or the program; any other: its box score), and the
+//       conference record opens the standings (ours on the Season page; another conference's on that team's page).
+//       Phase 17 #4: the logo opens the team's football page on Wikipedia, the name its school's page, the venue
+//       the stadium's page; a "Team page" chip keeps the way to the app's own team page.
 //       The returned section has tick(now = the clock): it redraws the countdown and the buttons in place
 //       (the cover itself is not rebuilt) and returns the state it now shows.
 //   coverState({ state, date, startTimeTbd, now })   "final" | "live" | "soon" | "pre" | "tbd" | "unknown".
@@ -18,20 +23,17 @@
 //   countdownParts(kickoffIso, now), openingLine(spreadOpen, spread, homeName, awayName)   as before.
 
 import { usLabel } from "../identity.js";
-import { el, fmtDate, fmtNum, fmtTime, isNum, teamLink, teamLogo, text } from "./dom.js";
+import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLogo, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { pollBadge } from "./stat-table.js";
 import { listLink } from "./two-team.js";
+import { fillWiki, teamPageChip, wikiLink } from "./wiki-links.js";
 
 const SOON_MS = 60 * 60 * 1000;
 
 function record(rec) {
   if (!rec || !isNum(rec.wins) || !isNum(rec.losses)) return "–";
   return rec.ties ? `${rec.wins}-${rec.losses}-${rec.ties}` : `${rec.wins}-${rec.losses}`;
-}
-
-function obj(value) {
-  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 function isHash(href) {
@@ -140,8 +142,30 @@ function winBar(usWp, usAbbr, themAbbr) {
   );
 }
 
-/** GX-17 (owner look): the last five results as W/L squares, newest on the right; each says its score. Exported for the tests. */
-export function formGuide(form) {
+/**
+ * Phase 17 #2: where a form square leads. One of our games opens the Archive when it holds it, else its program;
+ * any other game opens its box score. Null without a usable id.
+ */
+export function formHref(game, ours) {
+  const id = game?.gameId;
+  if (!(isNum(id) || (typeof id === "string" && /^\d{1,12}$/.test(id)))) return null;
+  if (ours) return game.archived === true ? `#archive=${id}` : `#program=${id}`;
+  return `#box=${id}`;
+}
+
+/** The conference record chip's target: our standings on the Season page, another conference's on that team's page. */
+export function standingsHref(team, usTeam) {
+  const school = typeof team?.school === "string" && team.school ? team.school : null;
+  if (!school) return null;
+  const ours = school === usTeam?.school || (typeof team.conference === "string" && team.conference && team.conference === usTeam?.conference);
+  return ours ? "#season?band=standings" : `#team=${encodeURIComponent(school)}?band=standings`;
+}
+
+/**
+ * GX-17 (owner look): the last five results as W/L squares, newest on the right; each says its score. Exported for
+ * the tests. Phase 17 #2: with hrefFor(game) each square is a link to that game.
+ */
+export function formGuide(form, { hrefFor } = {}) {
   const games = (Array.isArray(form) ? form : []).filter((g) => g && typeof g === "object" && ["W", "L", "T"].includes(g.result)).slice(-5);
   if (!games.length) return null;
   const says = (g) => {
@@ -149,22 +173,44 @@ export function formGuide(form) {
     const vs = typeof g.opponent === "string" && g.opponent ? ` ${g.homeAway === "away" ? "at" : "vs"} ${g.opponent}` : "";
     return `${g.result}${score}${vs}`;
   };
+  const hrefs = games.map((g) => (typeof hrefFor === "function" ? hrefFor(g) : null));
+  if (!hrefs.some(Boolean)) {
+    return el(
+      "div",
+      { class: "form-guide", role: "img", "aria-label": `Last ${games.length}: ${games.map(says).join("; ")}` },
+      games.map((g) => el("span", { class: `form-guide__game form-guide__game--${g.result.toLowerCase()}`, title: says(g) }, g.result)),
+    );
+  }
   return el(
     "div",
-    { class: "form-guide", role: "img", "aria-label": `Last ${games.length}: ${games.map(says).join("; ")}` },
-    games.map((g) => el("span", { class: `form-guide__game form-guide__game--${g.result.toLowerCase()}`, title: says(g) }, g.result)),
+    { class: "form-guide", role: "group", "aria-label": `Last ${games.length} results` },
+    games.map((g, i) =>
+      hrefs[i]
+        ? el("a", { class: `form-guide__game form-guide__game--${g.result.toLowerCase()} form-guide__game--link`, href: hrefs[i], title: `${says(g)}. Open the game`, "aria-label": `${says(g)}. Open the game` }, g.result)
+        : el("span", { class: `form-guide__game form-guide__game--${g.result.toLowerCase()}`, title: says(g) }, g.result),
+    ),
   );
 }
 
-/** Record, conference record, AP poll badge and the SP+ link for one team (each rank opens its list). */
-function recordParts(team) {
+/**
+ * Record, conference record, AP poll badge and the SP+ link for one team (each rank opens its list), every
+ * one the same chip (Phase 17 #2: only the AP rank had a box, so the line read as mismatched).
+ */
+function recordParts(team, usTeam) {
   const t = obj(team);
   const parts = [];
-  if (isNum(t.record?.wins)) parts.push(record(t.record));
-  if (isNum(t.conferenceRecord?.wins)) parts.push(`${record(t.conferenceRecord)} conf`);
+  const chip = (value, title) => el("span", { class: "cover-chip", title }, value);
+  if (isNum(t.record?.wins)) parts.push(chip(record(t.record), "Record"));
+  if (isNum(t.conferenceRecord?.wins)) {
+    const href = standingsHref(t, usTeam);
+    const label = [record(t.conferenceRecord), el("span", { class: "cover-chip__label" }, " conf")];
+    parts.push(href ? el("a", { class: "cover-chip cover-chip--link", href, title: "Conference record. Open the standings", "aria-label": `Conference record ${record(t.conferenceRecord)}. Open the standings` }, label) : chip(label, "Conference record"));
+  }
   if (isNum(t.apRank)) parts.push(pollBadge(t.apRank, "AP", { href: pollHref("AP", { team: t.school }), label: text(t.school) }));
   const sp = obj(t.sp);
-  if (isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover__link" }));
+  if (isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover-chip cover-chip--link" }));
+  const page = teamPageChip(t.school);
+  if (page) parts.push(page);
   return parts;
 }
 
@@ -186,19 +232,24 @@ export function cover(props) {
   const usWp = isNum(pregame.homeWinProbability) ? (homeIsUs ? pregame.homeWinProbability : 1 - pregame.homeWinProbability) : null;
   let kind = coverState({ state: p.state, date, startTimeTbd, now });
 
-  const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), text(venue) + (neutralSite ? " (neutral site)" : ""), tv ? `on ${text(tv)}` : null].filter(Boolean).join(" · ");
+  const crew = typeof p.crew === "string" && p.crew.trim() ? p.crew.trim() : null;
+  const venueName = typeof venue === "string" && venue.trim() ? venue.trim() : null;
+  const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venueName ? [wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null] : text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]
+    .filter(Boolean)
+    .flatMap((part, i) => (i ? [" · ", part] : [part]));
+  const details = typeof Node !== "undefined" && p.details instanceof Node ? p.details : null;
 
   // GX-07 (owner pick 2026-09-28): a face-off. Our 112px dark-variant logo on the left, as in every
   // two-team table, the opponent's facing it on the right, each name and record under its logo.
   const teamBlock = (team, side) => {
-    const parts = recordParts(team);
+    const parts = recordParts(team, us);
     return el(
       "div",
       { class: `cover__side cover__side--${side}` },
-      teamLogo(team, { size: 112, lazy: false, className: "cover__logo cover__logo--hero" }),
-      el("div", { class: "cover__name" }, team.school ? teamLink(team.school, text(team.school)) : text(null)),
-      el("div", { class: "cover__rec" }, parts.length ? parts.flatMap((part, index) => [index ? " · " : null, part]) : "No record yet"),
-      formGuide(team.form),
+      wikiLink("football", { team: team.school }, teamLogo(team, { size: 112, lazy: false, className: "cover__logo cover__logo--hero" })),
+      el("div", { class: "cover__name" }, team.school ? wikiLink("school", { team: team.school }, text(team.school)) : text(null)),
+      el("div", { class: "cover__rec" }, parts.length ? parts : "No record yet"),
+      formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) }),
     );
   };
 
@@ -228,10 +279,13 @@ export function cover(props) {
       teamBlock(them, "them"),
     ),
     el("div", { class: "cover__when" }, when),
+    details ? el("div", { class: "cover__details" }, details) : null,
     lineParts.length ? el("div", { class: "cover__line" }, lineParts) : el("div", { class: "cover__line" }, el("span", {}, noLine)),
     kind !== "final" ? winBar(usWp, usAbbr, themAbbr) : null,
     el("div", { class: "cover__foot" }, actionRow, extra),
   );
+
+  fillWiki(section); // Phase 17 #4: the searches drawn above become the pages once the server has them
 
   /** Redraw the countdown and the buttons in place (P-10): no rebuild, no replayed reveal. */
   section.tick = (at = new Date(Date.now())) => {

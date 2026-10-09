@@ -3,8 +3,11 @@
 // Typing only reads the app's own copies (no CFBD call); "Search every player" asks CFBD once per term.
 // Phase 16 (G3-15): the old results dim while a search runs (aria-busy), the matched letters are marked,
 // openable rows end in a chevron, 'Former' and 'Not FBS' are tags, and a favorite team carries a star.
+// Phase 17 (#8): before typing, the sheet says what search finds and offers example searches to tap; a near
+// miss offers the server's close spellings ("Did you mean") instead of a dead end.
 
-import { usSchool } from "../identity.js";
+import { icon } from "../ui/icons.js";
+import { ours, usSchool } from "../identity.js";
 import { DASH, el, frag, isNum, teamLogo, text } from "../ui/dom.js";
 import { openSheet } from "../ui/remote.js";
 import { fetchJson } from "./common.js";
@@ -56,7 +59,7 @@ function teamItem(t, close, query) {
       "button",
       { class: `search__item${t.isFavorite === true ? " search__item--fav" : ""}`, type: "button", onclick: () => { close(); document.dispatchEvent(new CustomEvent("kickoff:team", { detail: t.school })); } },
       teamLogo(t, { size: 28, className: "search__logo" }),
-      el("span", { class: "search__name" }, el("span", {}, marked(t.school, query), t.isFavorite === true ? el("span", { class: "search__star", title: "One of your teams", "aria-label": "One of your teams" }, " ★") : null), el("small", {}, [t.mascot, t.conference].filter(Boolean).join(" · ") || DASH)),
+      el("span", { class: "search__name" }, el("span", {}, marked(t.school, query), t.isFavorite === true ? el("span", { class: "search__star", title: "One of your teams" }, " ", icon("star", { label: "One of your teams" })) : null), el("small", {}, [t.mascot, t.conference].filter(Boolean).join(" · ") || DASH)),
       el("span", { class: "search__meta" }, text(t.abbreviation)),
       CHEVRON(),
     ),
@@ -76,6 +79,37 @@ function playerItem(p, close, query) {
     "li",
     {},
     el("button", { class: `search__item${p.isUs ? " search__item--us" : ""}`, type: "button", onclick: () => { close(); openPlayer(p.playerId, { name: p.name, number: p.number, position: p.position, isUs: p.isUs, team: p.team }); } }, body, CHEVRON()),
+  );
+}
+
+/** Example searches for the help block: our school, our mascot and a jersey number, from the identity. */
+export function exampleSearches(identity = ours()) {
+  const id = identity && typeof identity === "object" ? identity : {};
+  const word = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  const school = word(id.school);
+  const mascot = word(id.mascot);
+  return [school ? { label: school, why: "a school" } : null, mascot && mascot !== school ? { label: mascot, why: "a mascot" } : null, { label: "12", why: "a jersey number" }].filter(Boolean);
+}
+
+/** What search finds, with example searches; pick(term) runs one. */
+function helpBlock(pick) {
+  return el(
+    "div",
+    { class: "search__help" },
+    el("p", { class: "search__help-lead" }, "Find a team or a player."),
+    el(
+      "ul",
+      { class: "search__help-list" },
+      el("li", {}, "A school, a mascot or an abbreviation finds any FBS team."),
+      el("li", {}, `A name or a jersey number finds players on ${usSchool()} and this week's opponent as you type.`),
+      el("li", {}, "Search every player (or Enter) asks CFBD about anyone else, from any school or season."),
+    ),
+    el(
+      "div",
+      { class: "search__try" },
+      el("span", { class: "search__try-label" }, "Try"),
+      exampleSearches().map((x) => el("button", { class: "btn btn--quiet search__try-btn", type: "button", title: `Search for ${x.why}`, onclick: () => pick(x.label) }, x.label)),
+    ),
   );
 }
 
@@ -108,6 +142,10 @@ export function openSearch() {
     if (players.length) blocks.push(section(`Players: ${usSchool()}${data.opponent ? ` and ${text(data.opponent)}` : ""}`, players.map((p) => playerItem(p, close, query))));
     if (wide && all) blocks.push(all.length ? section("Every player (CFBD)", all.map((p) => playerItem(p, close, query))) : el("p", { class: "note" }, "CFBD has no player by that name."));
     if (data.wideNote) blocks.push(el("p", { class: "note" }, text(data.wideNote)));
+    const suggest = Array.isArray(data.suggest) ? data.suggest.filter((x) => typeof x === "string" && x.trim()) : [];
+    if (!teams.length && !players.length && suggest.length) {
+      blocks.push(el("div", { class: "search__try" }, el("span", { class: "search__try-label" }, "Did you mean"), suggest.map((name) => el("button", { class: "btn btn--quiet search__try-btn", type: "button", onclick: () => pick(name) }, name))));
+    }
     if (!blocks.length) blocks.push(el("p", { class: "note" }, `No team, ${usSchool()} player or next-opponent player by that name. Search every player to ask CFBD.`));
     results.replaceChildren(...blocks);
   }
@@ -117,7 +155,7 @@ export function openSearch() {
     const mine = ++seq;
     if (q.length < 2 && !wide) {
       pending(false);
-      results.replaceChildren(el("p", { class: "note" }, "Type two letters or more: a school, a mascot, a player, or a jersey number."));
+      results.replaceChildren(helpBlock(pick));
       return;
     }
     pending(true); // the old results dim until the new ones arrive
@@ -146,8 +184,14 @@ export function openSearch() {
     }
   });
   wideButton.addEventListener("click", () => run(true));
+  function pick(term) {
+    input.value = term;
+    clearTimeout(timer);
+    run(false);
+    input.focus();
+  }
 
-  const body = el("div", { class: "search" }, el("div", { class: "search__bar" }, input, wideButton), el("p", { class: "search__hint" }, "Teams and players as you type. Enter or the button searches every player in CFBD (one call per name)."), results);
+  const body = el("div", { class: "search" }, el("div", { class: "search__bar" }, input, wideButton), results);
   handle = openSheet({ title: "Search", body });
   input.focus(); // the sheet focuses its close button; the reader came here to type
   run(false);

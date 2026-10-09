@@ -584,6 +584,14 @@ def test_status_gives_the_live_view_an_hour_before_kickoff_and_polling_at_thirty
         assert window["gameId"] == GAME and window["liveView"] is live_view and window["open"] is is_open, minutes
         assert window["liveViewAt"] == (KICKOFF - timedelta(hours=1)).isoformat() and window["opensAt"] == (KICKOFF - timedelta(minutes=30)).isoformat() and window["extended"] is False
         assert status["feed"]["state"] == feed and set(status["feed"]) == FEED_KEYS and status["feed"]["checkedAt"].endswith("Z")
+        assert window["inProgress"] is False, minutes  # Phase 17 #25: not before kickoff
+    # Phase 17 #25: in progress from kickoff until the final
+    clock["now"] = KICKOFF + timedelta(minutes=10)
+    engine.window = asyncio.run(engine.find_window())
+    assert engine.status()["window"]["inProgress"] is True
+    engine._final_seen = True
+    assert engine.status()["window"]["inProgress"] is False
+    engine._final_seen = False
     cfbd.capabilities.live_plays = False
     assert engine.status()["feed"]["state"] == "no_live_key"
     engine.mode = "replay"

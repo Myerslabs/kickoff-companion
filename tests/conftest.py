@@ -199,6 +199,10 @@ def settings(tmp_path: Path) -> Settings:
     )
 
 
+async def _no_wait(_seconds: float) -> None:
+    return None
+
+
 @pytest.fixture
 def fake_cfbd() -> FakeCfbd:
     return FakeCfbd()
@@ -207,7 +211,7 @@ def fake_cfbd() -> FakeCfbd:
 @pytest.fixture
 def app(settings: Settings, fake_cfbd: FakeCfbd):
     configure_logging(settings)
-    application = create_app(settings, cfbd_transport=fake_cfbd.transport)
+    application = create_app(settings, cfbd_transport=fake_cfbd.transport, cfbd_sleep=_no_wait)  # Phase 18.5: retry back-off costs no real time in tests
     yield application
     shutdown_logging()
 

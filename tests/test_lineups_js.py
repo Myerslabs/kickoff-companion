@@ -167,16 +167,16 @@ scenarios.programBands = async () => {
   const { root, view } = await mountProgram(withLineups);
   clean("program with lineups", root);
   const starters = root.querySelector("#program-lineups");
-  const depth = root.querySelector("#program-depth");
-  assert.ok(starters && depth, "both bands are on the page");
-  assert.equal(text(starters.querySelector(".band__title")), "Starting lineups");
+  assert.ok(starters, "the combined band is on the page");
+  assert.equal(root.querySelector("#program-depth"), null, "the depth chart is part of the lineups now (Phase 19)");
+  assert.equal(text(starters.querySelector(".band__title")), "Lineups and depth");
   assert.ok(text(starters.querySelector(".band__summary")).includes("Published depth charts"));
-  assert.equal(depth.getAttribute("data-collapsed"), "true", "the full chart starts folded");
-  assert.ok(text(starters).includes("Mason Hamilton") && text(starters).includes("917 passing yards") && text(depth).includes("Tramell Jones Jr."));
+  assert.ok(text(starters).includes("Mason Hamilton") && text(starters).includes("917 passing yards") && text(starters).includes("Tramell Jones Jr."), "starters and the depth behind them together");
+  assert.ok(text(starters).includes("Then, in order") && text(starters).includes("Experience of the starters"));
   assert.ok(starters.querySelector(".avail--questionable"), "the program hands the availability report to the block");
-  // the order on the page: notes, availability, lineups, depth, then the rest
+  // the order on the page: notes, availability, lineups and depth, then the rest
   const ids = [...root.querySelectorAll("section.band")].map((s) => s.getAttribute("id") || "");
-  assert.ok(ids.indexOf("program-availability") < ids.indexOf("program-lineups") && ids.indexOf("program-lineups") < ids.indexOf("program-depth"), ids.join(","));
+  assert.ok(ids.indexOf("program-availability") < ids.indexOf("program-lineups"), ids.join(","));
   // owner direction: every band on the program can be minimised (a toggle in every head)
   const bands = [...root.querySelectorAll("section.band")].filter((b) => b.querySelector(".band__head"));
   const stuck = bands.filter((b) => !b.querySelector(".band__toggle")).map((b) => text(b.querySelector(".band__title")));
@@ -188,6 +188,17 @@ scenarios.programBands = async () => {
   clean("program without lineups", bare.root);
   assert.ok(text(bare.root.querySelector("#program-lineups")).includes("No lineups for this game yet."));
   assert.ok(!bare.root.querySelector("#program-lineups .band__summary"));
+  // Phase 17 #13: each empty band says what it is missing and offers "Add notes", which unfolds the notes band
+  assert.ok(text(bare.root.querySelector("#program-availability")).includes("No availability report for this game yet."));
+  for (const id of ["program-availability", "program-lineups"]) {
+    const add = bare.root.querySelector(`#${id} .state-block__action`);
+    assert.equal(text(add), "Add notes", `${id} offers Add notes`);
+  }
+  const notesBand = bare.root.querySelector("#program-notes");
+  notesBand.setCollapsed(true);
+  bare.root.querySelector("#program-lineups .state-block__action").click();
+  assert.equal(notesBand.getAttribute("data-collapsed"), "false", "Add notes unfolds the notes band");
+  assert.ok(!text(bare.root).includes("pre-game notes task") && !text(bare.root).includes("by hand;"));
   bare.view.unmount();
   bare.root.remove();
 };

@@ -18,8 +18,9 @@ import { confLabel, confName, usLabel, usName, usSchool } from "../identity.js";
 import { DASH, el, fmtNum, fmtStat, isNum, playerFace, recall, remember, text } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band, note, revealBand } from "../ui/states.js";
+import { mountFlow, stopFlow } from "../ui/flow.js";
 import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
-import { boardDetail } from "../ui/stat-labels.js";
+import { boardDetail, statLabel } from "../ui/stat-labels.js";
 import { pollMs } from "../prefs.js";
 import { combinedState, errorPanel, fetchJson, poller } from "./common.js";
 import { openPlayer, pctLabel } from "./player.js";
@@ -169,6 +170,9 @@ function who(row) {
   );
 }
 
+// final pass: a board's minimum in words ("5 punts"), never CFBD's key ("5 no")
+const MINIMUM_WORDS = { NO: "punts", ATT: "attempts", CAR: "carries", REC: "catches", PLAYS: "plays", FGA: "field goal tries", TOT: "tackles" };
+
 function playerCell(scope) {
   if (scope === "team" || scope === "opponent") return { key: "player", label: "Player", kind: "text", render: who };
   return { key: "player", label: "Player", kind: "text", sub: "team", subTeam: true };
@@ -186,13 +190,13 @@ function leagueTable(board, scope, ctx) {
     playerCell(scope),
     {
       key: "value",
-      label: board.stat,
+      label: statLabel(board.stat, board.category),
       format: board.format,
       rank: scope === "team" ? { key: "nationalRank", of: "nationalOf", link: (row) => listHref(row, board, { team: ctx.us }), placeholder: true } : null,
     },
     ...detailColumns(board, [...top, ...extra]),
   ];
-  if (scope === "team") columns.splice(3, 0, { key: "conferenceRank", label: confLabel(), kind: "rank", of: "conferenceOf", link: (row) => listHref(row, board, { team: ctx.us, scope: "conference" }) });
+  if (scope === "team") columns.splice(3, 0, { key: "conferenceRank", label: `${confLabel()} rank`, kind: "rank", of: "conferenceOf", link: (row) => listHref(row, board, { team: ctx.us, scope: "conference" }) });
   const rowClass = (row) => {
     const classes = [];
     if (row.isUs) classes.push("is-us");
@@ -247,9 +251,9 @@ function versusTable(board, ctx) {
   const columns = [
     { key: "place", label: "#", dim: true },
     { key: "usPlayer", label: text(ctx.usAbbr), kind: "text", render: whoButton("usRow") },
-    { key: "usValue", label: board.stat, format: board.format, rank: { key: "usRank", of: "usOf", link: (row) => (row.usRow ? listHref(row.usRow, board, { team: ctx.us }) : null), placeholder: true } },
+    { key: "usValue", label: statLabel(board.stat, board.category), format: board.format, rank: { key: "usRank", of: "usOf", link: (row) => (row.usRow ? listHref(row.usRow, board, { team: ctx.us }) : null), placeholder: true } },
     { key: "themPlayer", label: text(ctx.oppAbbr), kind: "text", divider: true, render: whoButton("themRow") },
-    { key: "themValue", label: board.stat, format: board.format, rank: { key: "themRank", of: "themOf", link: (row) => (row.themRow ? listHref(row.themRow, board, { team: ctx.opp }) : null), placeholder: true } },
+    { key: "themValue", label: statLabel(board.stat, board.category), format: board.format, rank: { key: "themRank", of: "themOf", link: (row) => (row.themRow ? listHref(row.themRow, board, { team: ctx.opp }) : null), placeholder: true } },
   ];
   return el(
     "div",
@@ -262,7 +266,7 @@ function versusTable(board, ctx) {
 function emptyWhy(board, scope, ctx) {
   if (scope === "opponent" && !ctx.opp) return "The next opponent is not known yet.";
   if (LEAGUE.has(scope) && board.conferenceOf == null && board.nationalOf == null) return "Team and opponent only for this board.";
-  if (board.minimum && typeof board.minimum === "object" && isNum(board.minimum.value)) return `No one has ${board.minimum.value} ${text(board.minimum.stat).toLowerCase()} yet.`;
+  if (board.minimum && typeof board.minimum === "object" && isNum(board.minimum.value)) return `No one has ${board.minimum.value} ${MINIMUM_WORDS[text(board.minimum.stat)] || text(board.minimum.stat).toLowerCase()} yet.`;
   return "No stat lines yet.";
 }
 
@@ -307,14 +311,12 @@ function render(envelope, container, state) {
   const partsFor = (scope) => (scope === "national" ? Object.keys(parts).filter((k) => k.startsWith("national_")).map((k) => parts[k]) : scope === "conference" ? [parts.conference] : scope === "opponent" ? [parts.team, parts.opponent || parts.conference] : [parts.team]);
   // a board with no league lists (usage) shows its team table when a link asks for a league scope
   const scopeOf = (board) => (LEAGUE.has(state.scope) && board.id === state.focus && board.nationalOf == null && board.conferenceOf == null ? "team" : state.scope);
-  container.replaceChildren(
-    el(
+  const grades = gradesBand(state);
+  if (grades && grades.classList) grades.classList.add("flow-wide"); // the graded table takes two columns
+  const page = el(
       "div",
       { class: "page leaders" },
-      el("div", { class: "leaders__scope" }, el("div", { class: "seg", role: "group", "aria-label": "Scope" }, buttons)),
-      el(
-        "div",
-        { class: "spread spread--2" },
+      el("div", { class: "leaders__scope flow-full" }, el("div", { class: "seg", role: "group", "aria-label": "Scope" }, buttons)),
         boards.map((board) => {
           const scope = scopeOf(board);
           return band({
@@ -327,11 +329,11 @@ function render(envelope, container, state) {
             body: () => el("div", {}, boardTable(board, scope, ctx), board.note ? el("p", { class: "note" }, text(board.note)) : null),
           });
         }),
-      ),
       boards.length ? null : note("No boards yet. Leaders appear after the first game."),
-      gradesBand(state),
-    ),
+      grades,
   );
+  state.ui ??= {};
+  mountFlow(state.ui, container, page); // final pass: the boards flow into 1 to 4 columns under the pinned chips
   if (state.focus && !state.revealed) {
     const target = boards.find((b) => b.id === state.focus);
     const section = target ? container.querySelector(`#${bandId(target)}`) : null;
@@ -349,7 +351,7 @@ export function createLeadersView({ onStatus, arg } = {}) {
   const remembered = recall(SCOPE_KEY, "team");
   const group = recall(GRADE_KEY, "QB");
   const state = { scope: asked.scope || (SCOPE_IDS.has(remembered) ? remembered : "team"), focus: asked.board, revealed: false, gradeGroup: GRADE_GROUPS.some(([id]) => id === group) ? group : "QB", grades: {} };
-  return poller({
+  const view = poller({
     url: "/api/season/leaders",
     refreshMs: pollMs(),
     onStatus,
@@ -363,6 +365,7 @@ export function createLeadersView({ onStatus, arg } = {}) {
         el("div", { class: "spread spread--2" }, ["Passing yards", "Rushing yards", "Receiving yards", "Tackles"].map((title) => band({ title, collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(5, 6) }))),
       ),
   });
+  return { ...view, unmount() { stopFlow(state.ui); view.unmount(); } };
 }
 
 export { rankChip, fmtNum, fmtStat, DASH };

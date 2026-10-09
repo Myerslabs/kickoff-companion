@@ -3,7 +3,7 @@
 // so the strip, the radio, and the glance stats stay put.
 
 import { isTopLayer } from "./player-card.js";
-import { el, layerZ, replaceWith, restoreScroll, retireLayer, scrollState, syncPageLock, text } from "./dom.js";
+import { el, layerZ, replaceWith, restoreScroll, retireLayer, scrollState, swipeToClose, syncPageLock, text } from "./dom.js";
 
 /**
  * remoteBar({ items: [{ id, label, hint }], onOpen(id) })
@@ -95,10 +95,9 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     if (typeof onClose === "function") onClose();
     if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus();
   }
-  layer.append(
-    el("div", { class: "sheet-layer__scrim", onclick: () => close() }),
-    el("aside", { class: `side-sheet${className ? ` ${className}` : ""}` }, el("div", { class: "side-sheet__head" }, titleEl, toolsEl, closeButton), bodyEl),
-  );
+  const aside = el("aside", { class: `side-sheet${className ? ` ${className}` : ""}` }, el("div", { class: "side-sheet__head" }, titleEl, toolsEl, closeButton), bodyEl);
+  layer.append(el("div", { class: "sheet-layer__scrim", onclick: () => close() }), aside);
+  if (!inline) swipeToClose(aside, () => close()); // Phase 16 wave 3 (2B): a swipe right closes it
   const update = (next) => {
     if (closed) return;
     const fresh = typeof next === "function" ? next() : next;

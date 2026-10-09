@@ -7,14 +7,10 @@
 //   { attempts, completions, yards, success {made, of}, successRate, completionRate, yardsPerAttempt }.
 //   successTone(rate)  the band a success rate falls in (for the cell's color).
 
-import { DASH, el, fmtPct, isNum, text } from "./dom.js";
+import { DASH, el, fmtPct, isNum, obj, text } from "./dom.js";
 
 const SIDES = ["left", "middle", "right"];
 const DEPTHS = ["deep", "short"];
-
-function obj(value) {
-  return value && typeof value === "object" ? value : {};
-}
 
 function count(value) {
   return isNum(value) && value >= 0 ? Math.round(value) : 0;

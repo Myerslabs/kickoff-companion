@@ -25,7 +25,7 @@
 //       col.rank.placeholder: true keeps an invisible chip where a row has no rank.
 //       col.render(row) -> node or text replacing the cell's value (a throw falls back to the value).
 //       col.stick: true keeps the column in view when the table scrolls sideways (Rk and Team).
-//       formats "rating100" (0.9379 -> 94, cell tinted by tier) and "stars" (4★), next to "1f", "pct" and the rest.
+//       formats "rating100" (0.9379 -> 94, cell tinted by tier) and "stars" (4-star), next to "1f", "pct" and the rest.
 //       A table that fits its width lets go of its scroll box (.stat-table-wrap--fits) so its header sticks
 //       under the top bar; flow: false keeps the box. A clipped table fades at its right edge.
 //       rowClass(row) may return "is-us", "is-next" (the next opponent) or any other row class.
@@ -181,6 +181,8 @@ export function firstDirection(rows, column) {
   const values = (Array.isArray(rows) ? rows : []).map((row) => row?.[key]).filter((v) => v !== null && v !== undefined && v !== "");
   const rankLike = column.kind === "rank" || /rank|^place$|^#$/i.test(String(key)) || /^#/.test(String(column.label || "")) || (values.length > 0 && values.every((v) => typeof v === "string" && /^#\d/.test(v.trim())));
   if (rankLike) return "ascending";
+  // a column of years, seasons, dates or weeks sorts newest first on the first tap (owner, 2026-10-08)
+  if (/^(year|season|date|dateText|week|wk|kickoff)$/i.test(String(key)) || /^(year|season|date|wk|week)$/i.test(String(column.label || "").trim())) return "descending";
   if (column.kind !== "text") return "descending";
   return values.some((v) => Array.isArray(sortValue(v))) ? "descending" : "ascending";
 }

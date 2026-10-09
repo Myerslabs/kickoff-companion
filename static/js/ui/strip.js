@@ -21,9 +21,9 @@ export function strip(props) {
   const { us = {}, them = {}, possession = null, status = "live", tools, sticky = true } = props;
   const teamNode = (side, team) =>
     el("span", { class: `strip__team strip__team--${side}${possession === side ? " strip__team--poss" : ""}` }, text(team.abbr));
-  const pts = (team) => el("span", { class: "strip__pts" }, isNum(team.points) ? String(team.points) : "–");
+  const pts = (team, side) => el("span", { class: "strip__pts", dataset: { k: `strip:${side}` } }, isNum(team.points) ? String(team.points) : "–"); // Phase 16 wave 3: flashes when it changes
 
-  const score = el("div", { class: "strip__score" }, teamNode("us", us), pts(us), el("span", { class: "strip__sep" }, "·"), teamNode("them", them), pts(them));
+  const score = el("div", { class: "strip__score" }, teamNode("us", us), pts(us, "us"), el("span", { class: "strip__sep" }, "·"), teamNode("them", them), pts(them, "them"));
 
   let clockNode;
   if (status === "final") clockNode = el("span", { class: "strip__final" }, "Final");

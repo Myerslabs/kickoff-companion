@@ -382,7 +382,7 @@ def test_the_newspaper_shows_the_slate_on_a_bye_saturday(pclient: TestClient, fa
     set_program_clock(program_app, datetime(2026, 9, 26, 14, 0, tzinfo=timezone.utc))
     data = pclient.get("/api/newspaper").json()["data"]
     assert data["gameDay"] is False and data["slateDay"] is True and data["byeWeek"] is True and data["slateWeek"] == 4
-    assert data["opensHere"] is True and data["slate"] and data["slateNote"] is None
+    assert data["slate"] and data["slateNote"] is None
     assert not any(g["isUs"] for g in data["slate"])
     watch = [g for g in data["slate"] if g["watch"]]
     order = [g["watch"] or "z" for g in data["slate"]]

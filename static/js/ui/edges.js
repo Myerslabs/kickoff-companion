@@ -2,7 +2,7 @@
 // two-team table so the Game program and the Live sheet's Edges panel read the same way. Each side's
 // cell is its value with a rank chip linking to that stat's national list: on an offense row our
 // chip is its offense stat and the opponent's its defense stat, on a defense row the other way round.
-// The edge is signed (positive favors our unit) and "Edge to" names the side it favours.
+// The edge is signed (positive favors our unit); the table draws it as a tug-of-war bar that leans to the side it favours (Phase 17).
 //
 // Frozen API (the Live stream consumes these; do not change the signatures):
 //   edgesTable(edges, { usAbbr, themAbbr, usTeam, themTeam, limit })  -> .stat-table-wrap (a two-team table)
@@ -12,12 +12,8 @@
 //   edgesSummary(edges, { usAbbr, themAbbr })  "SWT better in 14 of 24 · Biggest: Passing, SWT O vs GBS D, +95", or "".
 
 import { usLabel } from "../identity.js";
-import { DASH, el, fmtSigned, isNum, text } from "./dom.js";
+import { DASH, el, fmtSigned, isNum, records, text } from "./dom.js";
 import { twoTeamTable } from "./two-team.js";
-
-function records(value) {
-  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
-}
 
 /** "Passing: Swampwater Tech offense vs Gravy Boat State defense" -> "Passing". */
 function unitName(label) {
@@ -50,7 +46,7 @@ export function edgeRows(edges, { usAbbr = usLabel(), themAbbr = DASH } = {}) {
         side: offense ? "offense" : "defense",
         edge,
         leads: isNum(edge) ? (edge > 0 ? "us" : edge < 0 ? "them" : "even") : null,
-        rowClass: isNum(edge) && edge > 0 ? "is-us" : null,
+        rowClass: null, // Phase 17 #16: no tinted rows; the tug bar says whose edge it is
         us: { value: e.usValue, format: e.usFormat || e.format, rank: e.usRank, of: e.of, metric: metricOf(e.usMetric, e.usKey) },
         them: { value: e.themValue, format: e.themFormat || e.format, rank: e.themRank, of: isNum(e.themOf) ? e.themOf : e.of, metric: metricOf(e.themMetric, e.themKey) },
       };
@@ -68,14 +64,10 @@ export function edgesTable(edges, { usAbbr = usLabel(), themAbbr = DASH, usTeam,
     themAbbr: them,
     usTeam,
     themTeam,
-    better: false,
+    tug: true, // Phase 17 #14, #16: the bar leans to the unit with the edge, in its team's color
     className: "tt--edges", // hints.js maps these composed labels ("Passing: SWT offense vs ...") to the Edges entry
     labelHead: "Matchup",
     caption: "Biggest edges, unit against unit by national rank",
-    extra: [
-      { head: "Edge", headClass: "tt__edge", className: "num tt__edge", cell: (row) => (isNum(row.edge) ? fmtSigned(row.edge, 0) : DASH) },
-      { head: "Edge to", headClass: "txt tt__edge-to", className: "txt tt__edge-to", cell: (row) => el("span", { class: row.leads === "us" || row.leads === "them" ? "tt__edge-who" : null }, row.leads === "us" ? us : row.leads === "them" ? them : row.leads === "even" ? "Even" : DASH) },
-    ],
   });
 }
 
@@ -86,6 +78,8 @@ export function edgesSummary(edges, { usAbbr = usLabel(), themAbbr = DASH } = {}
   const them = text(themAbbr);
   const ahead = rows.filter((r) => r.edge > 0).length;
   const top = rows.reduce((best, r) => (Math.abs(r.edge) > Math.abs(best.edge) ? r : best), rows[0]);
-  const units = top.side === "offense" ? `${us} O vs ${them} D` : `${us} D vs ${them} O`;
-  return `${us} better in ${ahead} of ${rows.length} · Biggest: ${top.label}, ${units}, ${fmtSigned(top.edge, 0)}`;
+  // Phase 17 (#15): plain words, not "SWT O vs GRID D, +95"
+  const units = top.side === "offense" ? `${us} offense vs ${them} defense` : `${them} offense vs ${us} defense`;
+  const who = top.edge > 0 ? us : top.edge < 0 ? them : null;
+  return `${us} better in ${ahead} of ${rows.length} · Biggest: ${top.label}, ${units}, ${who ? `${who} by ${Math.abs(top.edge)} ranks` : "even"}`;
 }

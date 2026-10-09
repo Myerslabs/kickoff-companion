@@ -55,7 +55,7 @@ def test_chips_lead_with_what_the_player_does():
     assert chips_for(by_player["3"]) == ["271 receiving yards", "17 REC", "2 TD", "15.9 YPR"]
     assert chips_for(by_player["5"]) == ["20 tackles", "1 TFL", "3 PD", "2 INT"], "zero sacks skipped, interceptions added"
     assert chips_for(by_player["9"]) == ["29 tackles", "0.5 SACKS", "1.5 TFL"]
-    assert chips_for(by_player["6"]) == ["6 field goals", "7 FGA", "86% completions", "48 LONG"]
+    assert chips_for(by_player["6"]) == ["6 field goals", "7 FGA", "86% field goals", "48 LONG"]
     assert chips_for(by_player["7"]) == ["44.3 yards a punt", "12 NO", "58 LONG"]
     assert chips_for(by_player["4"]) == ["0 tackles"], "a lineman with a line but no numbers keeps his one chip"
     assert chips_for({}) == []

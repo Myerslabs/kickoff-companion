@@ -63,9 +63,11 @@ async def live_sync(request: Request, tapAt: str | None = Query(None, max_length
 
 
 @router.get("/api/live/status")
-async def live_status(request: Request) -> Any:
+async def live_status(request: Request, delay: float = Query(0, ge=0, le=MAX_DELAY)) -> Any:
+    """`delay` is the device's spoiler delay: the window's inProgress (the LIVE marker) goes by what a sheet that far
+    behind has seen, so a final the feed already has does not clear the marker early (final pass)."""
     engine: LiveEngine = request.app.state.live
-    return envelope(engine.status(), source="live")
+    return envelope(engine.status(_delay(delay)), source="live")
 
 
 @router.get("/api/live/stream")

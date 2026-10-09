@@ -10,7 +10,7 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from app.services.players import BOARDS
+from app.services.players import BOARDS, history_classes
 from tests.conftest import ROLES, FakeCfbd, fixture_payload, route_depth2, team_player_stats
 
 
@@ -286,6 +286,20 @@ def test_opponent_player_card_uses_the_opponent_roster(client: TestClient, fake_
     assert data["player"]["isUs"] is False and data["player"]["team"] == "Diner Tech"
     assert data["history"] == [] and (data["player"]["highSchool"] is None or isinstance(data["player"]["highSchool"], str))
     assert fake_cfbd.count("/roster") == 2
+
+
+def test_history_counts_classes_back_from_the_latest_season():
+    # CFBD's old rosters repeat the current class: a 2026 junior listed as a junior in 2024 and 2025 too
+    rows = [{"year": y, "team": "T", "classYear": 3, "position": "RB", "number": 13} for y in (2024, 2025, 2026)]
+    assert [r["classYear"] for r in history_classes(rows)] == ["FR", "SO", "JR"]
+    # a redshirt year counts below freshman: a dash, never a made-up class
+    rows = [{"year": y, "classYear": 2} for y in (2023, 2024, 2025, 2026)]
+    assert [r["classYear"] for r in history_classes(rows)] == [None, None, "FR", "SO"]
+    # a fifth-year player counts back from year 5, and is a SR; a player gone from this year's roster counts from his last season
+    assert [r["classYear"] for r in history_classes([{"year": 2023, "classYear": 1}, {"year": 2025, "classYear": 5}])] == ["JR", "SR"]
+    # malformed or missing classes: no anchor, every class a dash, no crash
+    assert [r["classYear"] for r in history_classes([{"year": 2025, "classYear": None}, {"year": 2026, "classYear": "JR"}, {"year": 2026, "classYear": 9}])] == [None, None, None]
+    assert history_classes([]) == []
 
 
 def test_unknown_player_is_404(client: TestClient, fake_cfbd: FakeCfbd):

@@ -36,6 +36,8 @@ from xml.etree import ElementTree
 
 import httpx
 
+from app.httpcap import get_capped
+
 log = logging.getLogger("kickoff.feeds")
 
 TIMEOUT = httpx.Timeout(10.0, connect=5.0)
@@ -357,6 +359,76 @@ def merge_headlines(results: list[FeedResult], limit: int = 40) -> list[dict[str
     return [h.as_dict() for h in merged[:limit]]
 
 
+# --- the season's headlines (Phase 17 #26) -----------------------------------------------------------
+# The paper keeps every headline the feeds delivered this season (the feeds themselves only hold their
+# latest few dozen), in data/feeds/season-<year>.json. A new season starts a new file and the old ones go
+# (owner, 2026-10-07: "anything collected during the season, but only the current season is kept").
+
+SEASON_ARCHIVE_LIMIT = 4000
+
+
+def headline_key(title: str) -> str:
+    """The dedupe key the merge uses: lower case, letters and digits, the first 80 characters."""
+    return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()[:80]
+
+
+class SeasonArchive:
+    def __init__(self, data_dir: Path) -> None:
+        self.dir = data_dir / "feeds"
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self._cache: dict[int, list[dict[str, Any]]] = {}
+
+    def _path(self, season: int) -> Path:
+        return self.dir / f"season-{int(season)}.json"
+
+    def load(self, season: int) -> list[dict[str, Any]]:
+        if season in self._cache:
+            return self._cache[season]
+        path = self._path(season)
+        rows: list[dict[str, Any]] = []
+        if path.exists():
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                stored = raw.get("headlines") if isinstance(raw, dict) else None
+                for h in stored if isinstance(stored, list) else []:
+                    if isinstance(h, dict) and isinstance(h.get("title"), str) and h["title"].strip() and not is_betting(h["title"], h.get("source"), h.get("url")):
+                        rows.append({"title": h["title"].strip(), "url": _str_or_none(h.get("url")), "source": _str_or_none(h.get("source")) or "", "feed": _str_or_none(h.get("feed")) or "", "publishedAt": _str_or_none(h.get("publishedAt"))})
+            except (OSError, ValueError, TypeError, AttributeError) as exc:
+                log.warning("The season's headline archive %s is unreadable; starting it again: %s", path.name, exc)
+                rows = []
+        self._cache[season] = rows
+        return rows
+
+    def add(self, season: int, results: list[FeedResult]) -> list[dict[str, Any]]:
+        """Fold the feeds' current headlines into the season's archive; returns it newest first."""
+        rows = self.load(season)
+        seen = {headline_key(r["title"]) for r in rows}
+        added = 0
+        for result in results:
+            for h in result.headlines:
+                key = headline_key(h.title)
+                if not key or key in seen or is_betting(h.title, h.source, h.url):
+                    continue
+                seen.add(key)
+                rows.append(h.as_dict())
+                added += 1
+        rows.sort(key=lambda r: r.get("publishedAt") or "", reverse=True)
+        del rows[SEASON_ARCHIVE_LIMIT:]
+        if added:
+            try:
+                self._path(season).write_text(json.dumps({"season": int(season), "headlines": rows}, ensure_ascii=False), encoding="utf-8")
+            except OSError as exc:
+                log.warning("Could not store the season's headlines: %s", exc)
+            for old in self.dir.glob("season-*.json"):
+                if old.name != self._path(season).name:
+                    try:
+                        old.unlink()
+                        log.info("A new season: removed the old headline archive %s", old.name)
+                    except OSError as exc:
+                        log.warning("Could not remove the old headline archive %s: %s", old.name, exc)
+        return rows
+
+
 # --- fetching -------------------------------------------------------------------------------
 
 
@@ -420,7 +492,7 @@ class FeedStore:
             if time.time() < self._paused_until.get(spec.id, 0.0):
                 return self._stale(spec, last, f"paused after repeated failures for {int(self._paused_until[spec.id] - time.time())} s")
             try:
-                response = await self._http.get(spec.url)
+                response = await get_capped(self._http, spec.url, MAX_BYTES)
             except httpx.HTTPError as exc:
                 return self._failed(spec, last, f"{exc.__class__.__name__}")
             if response.status_code != 200:

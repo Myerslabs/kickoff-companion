@@ -63,17 +63,21 @@ def test_stale_labels_are_gone():
     for name in OWNED:
         source = (STATIC_JS / name).read_text(encoding="utf-8")
         assert "Biscuit Belt and Top 25" not in source and "Biscuit Belt, Top 25" not in source and "Biscuit Belt or Top 25" not in source, name
-    # the ticker carries every FBS game, and the sheet opens an hour before kickoff
+    # the ticker carries every FBS game; Phase 17 #25: the sheet no longer promises to open itself
     assert "FBS scores" in live and "every FBS game" in live and "No FBS games" in live
-    assert "1 hour before kickoff" in live and "30 minutes before" in live
+    assert "opens by itself" not in live and "1 hour before kickoff" not in live
 
 
 def test_success_rate_row_is_not_repeated_in_the_feed_table():
+    # final pass: the feed rows are one shared list (ui/team-stats.js FEED_ROWS) drawn by the Live sheet and the Archive
     live = (STATIC_JS / "views" / "live.js").read_text(encoding="utf-8")
     start = live.index("function feedStatsTable")
     body = live[start : live.index("function wpBlock")]
-    assert '"Success rate"' not in body
-    assert '"Standard downs"' in body and '"Passing downs"' in body
+    assert "FEED_ROWS" in body and '"Success rate"' not in body
+    rows = (STATIC_JS / "ui" / "team-stats.js").read_text(encoding="utf-8")
+    rows = rows[rows.index("export const FEED_ROWS") : rows.index("];", rows.index("export const FEED_ROWS"))]
+    assert '"Success rate"' not in rows
+    assert '"Standard downs"' in rows and '"Passing downs"' in rows and '"PPA per play"' in rows and '"Scoring chances"' in rows
 
 
 def live_state() -> dict:
@@ -168,7 +172,7 @@ async function mountLive({ status, ticker = TICKER, program = PROGRAM } = {}) {
   await view.mount(container);
   await settle();
   const shell = () => statuses[statuses.length - 1]?.label;
-  const stripPill = () => container.querySelector(".strip .pill")?.textContent;
+  const stripPill = () => container.querySelector(".strip .pill")?.textContent; // Phase 17 #29: always none
   return { view, container, statuses, shell, stripPill };
 }
 
@@ -262,12 +266,13 @@ scenarios.pure = async () => {
   assert.equal(live.clampDelay(-10), 0);
   assert.equal(live.clampDelay(500), 120);
   assert.equal(live.clampDelay("30"), null);
-  assert.equal(app.opensOnLive({ window: { open: false, liveView: true } }), true);
-  assert.equal(app.opensOnLive({ window: { open: true } }), true);
-  assert.equal(app.opensOnLive({ window: { open: false, liveView: false } }), false);
-  assert.equal(app.opensOnLive({ window: null }), false);
-  assert.equal(app.opensOnLive({ window: { liveView: "yes" } }), false);
-  assert.equal(app.opensOnLive(null), false);
+  // Phase 17 #25: the LIVE marker follows the server's inProgress, never the hour-before view, never a replay
+  assert.equal(app.gameIsLive({ mode: "live", window: { open: true, liveView: true, inProgress: true } }), true);
+  assert.equal(app.gameIsLive({ mode: "live", window: { open: true, liveView: true, inProgress: false } }), false);
+  assert.equal(app.gameIsLive({ mode: "replay", window: { inProgress: true } }), false);
+  assert.equal(app.gameIsLive({ window: { inProgress: "yes" } }), false);
+  assert.equal(app.gameIsLive({ window: null }), false);
+  assert.equal(app.gameIsLive(null), false);
 };
 
 scenarios.components = async () => {
@@ -444,7 +449,7 @@ scenarios.live = async () => {
   const frame1 = liveFrame();
   latest().emit("state", frame1);
   await settle();
-  assert.equal(stripPill(), "Delayed 30 s");
+  assert.equal(shell(), "Delayed 30 s");
   assert.equal(shell(), "Delayed 30 s");
   assert.equal(wake.requests, 1, "the screen is held awake on a live frame");
   const tickerNode = container.querySelector(".live-ticker .ticker");
@@ -482,7 +487,7 @@ scenarios.live = async () => {
   assert.equal(container.querySelector(".remote"), bar, "the remote bar is built once");
   assert.equal(remoteButton(container, "plays").getAttribute("aria-pressed"), "true");
   assert.equal(text(remoteButton(container, "plays").querySelector("small")), `${frame2.counts.plays} plays`);
-  assert.equal(text(remoteButton(container, "scores").querySelector("small")), "every FBS game");
+  assert.match(text(remoteButton(container, "scores").querySelector("small")), /^(\d+ live|every FBS game)$/); // Phase 16 wave 3 (L-14): the count of live games when there are some
 
   // The box score keeps the reader's sort.
   document.body.querySelector(".side-sheet__head button").click();
@@ -508,14 +513,14 @@ scenarios.live = async () => {
 
   // F4: the feed health from pings drives both pills.
   latest().emit("ping", { feed: feed("stale", { staleSeconds: 50 }), serverTime: new Date(now).toISOString() });
-  assert.equal(stripPill(), "Stale 50 s, CFBD not answering");
+  assert.equal(shell(), "Stale 50 s, CFBD not answering");
   assert.equal(shell(), "Stale 50 s, CFBD not answering");
   latest().emit("ping", { feed: feed("stale", { staleSeconds: 130 }), serverTime: new Date(now).toISOString() });
-  assert.equal(stripPill(), "Stale 2 min, CFBD not answering");
+  assert.equal(shell(), "Stale 2 min, CFBD not answering");
   latest().emit("ping", { feed: feed("no_live_key"), serverTime: new Date(now).toISOString() });
   assert.equal(shell(), "No live feed on this key");
   latest().emit("ping", { feed: feed("ok"), serverTime: new Date(now).toISOString() });
-  assert.equal(stripPill(), "Delayed 30 s");
+  assert.equal(shell(), "Delayed 30 s");
   assert.equal(shell(), "Delayed 30 s");
 
   // F3: a bad frame is dropped; a frame that cannot be drawn keeps the last good screen.
@@ -529,11 +534,11 @@ scenarios.live = async () => {
   globalThis.__failTag = null;
   assert.ok(errors.some((e) => e.includes("could not be drawn")));
   assert.equal(container.querySelector(".strip"), stripBefore, "the last good screen stays");
-  assert.equal(stripPill(), "Display error");
+  assert.equal(shell(), "Display error");
   assert.equal(shell(), "Display error");
   latest().emit("state", withNewPlay(frame2, "Recovered"));
   assert.notEqual(container.querySelector(".strip"), stripBefore);
-  assert.equal(stripPill(), "Delayed 30 s");
+  assert.equal(shell(), "Delayed 30 s");
   assert.equal(shell(), "Delayed 30 s");
 
   // F3: an open side panel that cannot be redrawn keeps its last good body and never holds back
@@ -552,11 +557,11 @@ scenarios.live = async () => {
   assert.ok(text(container.querySelector(".strip")).includes("99") && text(container.querySelector(".strip")).includes("98"), text(container.querySelector(".strip")));
   assert.equal(layer(), playsLayer, "the same sheet stays open");
   assert.ok(text(sheetBody()).includes("Recovered") && !text(sheetBody()).includes("Hidden play"), "the panel keeps its last good body");
-  assert.equal(stripPill(), "Display error");
+  assert.equal(shell(), "Display error");
   assert.equal(shell(), "Display error");
   latest().emit("state", withNewPlay(frame2, "Drawn again"));
   assert.ok(text(sheetBody()).includes("Drawn again"), "the next good frame redraws the panel");
-  assert.equal(stripPill(), "Delayed 30 s");
+  assert.equal(shell(), "Delayed 30 s");
   assert.equal(shell(), "Delayed 30 s");
   globalThis.__failTag = "ul";
   latest().emit("state", withNewPlay(frame2, "Hidden again"));
@@ -564,7 +569,7 @@ scenarios.live = async () => {
   assert.equal(shell(), "Display error");
   document.body.querySelector(".side-sheet__head button").click();
   assert.equal(layer(), null);
-  assert.equal(stripPill(), "Delayed 30 s", "closing the panel clears its Display error");
+  assert.equal(shell(), "Delayed 30 s", "closing the panel clears its Display error");
   assert.equal(shell(), "Delayed 30 s");
 
   // F2: the watchdog reopens a silent stream.
@@ -577,12 +582,12 @@ scenarios.live = async () => {
   route("/api/live/state", () => envelope(withNewPlay(frame2, "Polled")));
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
   latest().fail(false);
-  assert.equal(stripPill(), "Offline");
+  assert.equal(shell(), "Offline");
   assert.equal(shell(), "Offline");
   await advance(15000);
   assert.equal(callsTo("/api/live/state"), 1);
   assert.equal(shell(), "Polling, stream down");
-  assert.equal(stripPill(), "Polling, stream down");
+  assert.equal(shell(), "Polling, stream down");
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
   assert.equal(shell(), "Delayed 30 s");
   latest().emit("state", frame2);
@@ -629,7 +634,7 @@ scenarios.live = async () => {
   range.dispatchEvent(makeEvent("change"));
   assert.equal(sources.length, before + 1);
   assert.ok(latest().url.includes("delay=45"));
-  assert.equal(stripPill(), "Delayed 45 s");
+  assert.equal(shell(), "Delayed 45 s");
   assert.equal(shell(), "Delayed 45 s");
   assert.equal(text(delayButton), "Spoiler delay 45 s ›", "the button says the delay");
   latest().emit("hello", { delaySeconds: 45, mode: "live", gameId: 526000600, feed: feed("ok") });
@@ -656,7 +661,7 @@ scenarios.live = async () => {
   latest().emit("state", liveFrame({ status: "final" }));
   await settle();
   assert.equal(wake.sentinels[wake.sentinels.length - 1].released, true);
-  assert.equal(stripPill(), "Final");
+  assert.equal(shell(), "Final");
   assert.equal(shell(), "Final");
 
   // Unmount leaves nothing behind: no sheet, no stream, no observer, no timer.
@@ -702,11 +707,13 @@ scenarios.pregame = async () => {
   assert.equal(sources.length, 0);
   assert.equal(shell(), "Pregame");
   const page = text(container);
-  assert.ok(page.includes("opens by itself 1 hour before kickoff"), page);
-  assert.ok(page.includes("plays start flowing 30 minutes before"));
-  assert.ok(page.includes("30 s behind the broadcast"));
+  assert.ok(!/(undefined|NaN|null)/.test(page), page);
+  // Phase 17 #25: before kickoff the sheet is the game sheet with dashes, never a promise to open itself
+  assert.ok(!page.includes("opens by itself") && !page.includes("1 hour before"), page);
+  assert.ok(page.includes("The sheet fills in as the game is played, 30 s behind the broadcast"), page);
+  assert.ok(text(container.querySelector(".strip")).includes("Kickoff"), "the strip shows the kickoff");
   assert.ok(container.querySelector(".live-ticker .ticker"));
-  assert.equal(container.querySelector(".remote"), null);
+  assert.ok(container.querySelector(".remote"), "the remote bar is there before kickoff too");
   container.querySelector(".delay-button").click();  // public release Phase 7b: the slider opens in a side panel
   const slider = document.body.querySelector(".sheet-layer .delay");
   const range = slider.querySelector('input[type="range"]');
@@ -714,6 +721,9 @@ scenarios.pregame = async () => {
   range.dispatchEvent(makeEvent("change"));
   assert.equal(sources.length, 0, "no stream before the window");
   assert.ok(text(container).includes("45 s behind the broadcast"));
+  container.querySelector(".remote button").click(); // a side panel opens on the empty sheet without an error
+  assert.ok(document.body.querySelector(".sheet-layer"));
+  assert.equal(shell(), "Pregame");
   assert.equal(document.body.querySelector(".sheet-layer .delay"), slider);
   status.window = WINDOW_OPEN;
   status.feed = feed("waiting");
@@ -733,7 +743,7 @@ scenarios.pregame = async () => {
   assert.ok(text(second.container).includes("tries again every minute"));
   program = PROGRAM;
   await advance(60000);
-  assert.ok(text(second.container).includes("opens by itself 1 hour before kickoff"));
+  assert.ok(text(second.container).includes("The sheet fills in as the game is played"));
   second.view.unmount();
 };
 
@@ -741,6 +751,7 @@ scenarios.oldserver = async () => {
   const status = { mode: "live", window: { gameId: 526001015, kickoff: KICKOFF, opensAt: KICKOFF, closesAt: KICKOFF, open: true } };
   const { view, container, shell, stripPill } = await mountLive({ status });
   assert.equal(shell(), "Delayed 30 s", "no feed block: the pill works as before");
+  assert.equal(stripPill(), undefined, "Phase 17 #29: one pill, in the top bar; the strip carries none");
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600 });
   const frame = clone(FIXTURE);
   frame.status = "in_progress";
@@ -748,7 +759,7 @@ scenarios.oldserver = async () => {
   frame.box["Swampwater Tech"].successRate = 0.387;
   frame.lastPlay = { ...frame.plays[1], success: false };
   latest().emit("state", frame);
-  assert.equal(stripPill(), "Delayed 30 s");
+  assert.equal(shell(), "Delayed 30 s");
   assert.equal(text(container.querySelector("#live-wp .success__source")), "Success rate, play log");
   assert.equal(text(container.querySelector("#live-wp .success__rate--us small")), "29 of 75");
   assert.equal(text(container.querySelector("#live-wp .band__summary")), "Last play: failed");
@@ -804,7 +815,7 @@ scenarios.archive = async () => {
     assert.equal(raw, null, `archive ${id} shows a raw value: ${raw && raw[0]}`);
     if (data === good) {
       const cells = container.querySelectorAll("#archive-stats td.txt").map(text);
-      assert.ok(cells.includes("EPA per play"), "the feed table is drawn");
+      assert.ok(cells.includes("PPA per play"), "the feed table is drawn"); // final pass: the Season tables' name
       assert.equal(cells.filter((t) => t === "Success rate").length, 1, "one success-rate row: the team table's, not the feed table's");
     }
     view.unmount();

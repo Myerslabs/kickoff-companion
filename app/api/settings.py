@@ -62,12 +62,13 @@ def _payload(request: Request) -> dict[str, Any]:
             "tierName": quota.get("tier_name"),
             "reconciledAt": quota.get("reconciled_at"),
         },
+        "housekeeping": request.app.state.maintenance.status(),
         "capabilities": cfbd["capabilities"],
         "server": {"team": settings.team, "season": settings.season, "conference": settings.conference, "timezone": settings.timezone, "port": settings.port, "livePollSeconds": settings.live_poll_seconds, "dataDir": str(settings.data_dir), "logDir": str(settings.log_dir)},
         "autoStart": launcher.status(),
         "plan": plan.summary(request.app.state.cfbd),  # public release Phase 5a
         "canChangeKey": _on_server_computer(request),
-        "notes": notes.status(prefs.prefs.notesCommand),
+        "notes": notes.status(settings.claude_command),
         "files": {**ROOTS.describe(), "envFile": str(settings.env_file_used) if settings.env_file_used else None, "dataDir": str(settings.data_dir), "logDir": str(settings.log_dir)},  # public release Phase 10: where this install keeps its files
         "about": {"name": APP_NAME, "version": __version__, "publisher": PUBLISHER, "repoUrl": REPO_URL, "dataCredit": DATA_CREDIT, "dataUrl": DATA_URL},  # public release Phase 8
     }
@@ -134,6 +135,8 @@ async def open_folder_route(request: Request) -> Any:
 
 @router.post("/api/settings/desktop-shortcut")
 async def desktop_shortcut(request: Request) -> Any:
+    if not _on_server_computer(request):
+        return error_response(403, "not_here", "Make the Desktop icon from the server computer itself.")
     prefs: PrefsStore = request.app.state.prefs
     launcher: Launcher = request.app.state.launcher
     result = launcher.desktop_shortcut(tray=prefs.prefs.trayMode)

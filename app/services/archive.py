@@ -7,6 +7,7 @@ watch is not in the archive."""
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from datetime import timedelta
@@ -205,3 +206,79 @@ class ArchiveService:
             return
         if recap is not None:
             data["recap"] = recap
+
+    # --- Phase 18.2: look again two days later -------------------------------------------------------------
+
+    REFRESH_AFTER = timedelta(hours=48)
+    REFRESH_FILE = ".refreshed.json"
+
+    def _refreshed(self) -> dict[str, str]:
+        try:
+            raw = json.loads((self.folder / self.REFRESH_FILE).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+        return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
+
+    def _mark_refreshed(self, game_id: int, now: Any) -> None:
+        marks = self._refreshed()
+        marks[str(game_id)] = now.isoformat(timespec="seconds")
+        try:
+            self.folder.mkdir(parents=True, exist_ok=True)
+            (self.folder / self.REFRESH_FILE).write_text(json.dumps(marks, indent=1), encoding="utf-8")
+        except OSError as exc:
+            log.warning("Could not note the archive refresh of game %s: %s", game_id, exc)
+
+    async def refresh_finished(self, now: Any) -> list[int]:
+        """CFBD corrects a game's stats for a day or two after the final. Two days after kickoff, the cached
+        post-game answers of each archived game are dropped once and fetched again, so the Archive shows the corrected
+        numbers. At most one refresh per game, a handful of calls each. Returns the games refreshed."""
+        from datetime import datetime
+
+        from app.cache import cache_key
+
+        done: list[int] = []
+        if not self.folder.is_dir():
+            return done
+        marks = self._refreshed()
+        schedule = await self._schedule()
+        by_id = {g.id: g for g in schedule}
+        for path in sorted(self.folder.glob("*.json")):
+            raw = self._read(path)
+            if raw is None:
+                continue
+            game_id = raw["gameId"]
+            game = by_id.get(game_id)
+            if game is None or not game.completed or str(game_id) in marks:
+                continue
+            try:
+                start = datetime.fromisoformat(str(game.start_date).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if start.tzinfo is None or now - start < self.REFRESH_AFTER:
+                continue
+            keys = [cache_key("/game/box/advanced", {"id": game_id}), cache_key("/metrics/wp", {"gameId": game_id})]
+            for team in (game.home_team, game.away_team):
+                if team:
+                    keys += [cache_key("/games/teams", gamekeys.box_params(game, self._year, team)), cache_key("/games/players", gamekeys.box_params(game, self._year, team))]
+            # Final pass: the cached copies are kept aside and put back when the refetch does not fully succeed, so a
+            # CFBD outage during the refresh never leaves the archive game without its box score or win probability.
+            kept = {key: await asyncio.to_thread(self._client.cache.get, key) for key in keys}
+            for key in keys:
+                await asyncio.to_thread(self._client.cache.delete, key)
+            complete = False
+            try:
+                result = await self.game(game_id)  # fetches it all again and caches it
+                complete = not (getattr(result, "all_failed", False) or getattr(result, "errors", None))  # every part answered
+            except Exception:  # noqa: BLE001 - one game's refresh must not stop the others; logged
+                log.exception("Archive refresh of game %s failed", game_id)
+            if not complete:
+                for key, entry in kept.items():
+                    if entry is not None and await asyncio.to_thread(self._client.cache.get, key) is None:
+                        ttl = entry.expires_at - entry.fetched_at if entry.expires_at is not None else None
+                        await asyncio.to_thread(self._client.cache.put, key, entry.endpoint, entry.params, entry.payload, fetched_at=entry.fetched_at, ttl=ttl)
+                log.warning("Archive refresh of game %s did not complete; the earlier copies are kept and it is tried again next time", game_id)
+                continue
+            self._mark_refreshed(game_id, now)
+            done.append(game_id)
+            log.info("Archive game %s refreshed with CFBD's corrected post-game numbers", game_id)
+        return done

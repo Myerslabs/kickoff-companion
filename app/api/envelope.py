@@ -14,7 +14,7 @@ from typing import Any, Literal
 
 from fastapi.responses import JSONResponse
 
-from app.build import build_id
+from app.build import build_id, code_changed
 
 Source = Literal["live", "cache", "replay"]
 
@@ -33,7 +33,7 @@ def envelope(
 ) -> dict[str, Any]:
     return {
         "data": data,
-        "meta": {"fetched_at": fetched_at or utc_now_iso(), "stale": bool(stale), "source": source, "build": build_id()},  # build: app.build (Phase 12)
+        "meta": {"fetched_at": fetched_at or utc_now_iso(), "stale": bool(stale), "source": source, "build": build_id(), "restartNeeded": code_changed()},  # build: app.build (Phase 12); restartNeeded: Phase 16 wave 3
         "errors": list(errors or []),
     }
 

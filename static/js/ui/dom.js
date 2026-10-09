@@ -3,6 +3,21 @@
 
 export const DASH = "–";
 
+/** A plain object, or {} for anything else (an array, null, a string): safe to read keys from. */
+export function obj(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+
+/** The rows of a list: only the plain objects, or [] for anything that is not an array. */
+export function records(value) {
+  return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
+}
+
+/** A string's trimmed text, or null when it is not a string or is blank. */
+export function str(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 export function isNum(value) {
   return typeof value === "number" && Number.isFinite(value);
 }
@@ -72,6 +87,15 @@ export function fmtSigned(value, digits = 0) {
   return body;
 }
 
+/** "$20.5M", "$850K", "$1,200": a dollar amount at a glance (Phase 17 Part 3b, rumored roster costs). */
+export function fmtUsd(value) {
+  if (!isNum(value) || value < 0) return DASH;
+  if (value >= 1e9) return `$${(value / 1e9).toFixed(value >= 1e10 ? 0 : 1).replace(/\.0$/, "")}B`;
+  if (value >= 1e6) return `$${(value / 1e6).toFixed(value >= 1e8 ? 0 : 1).replace(/\.0$/, "")}M`;
+  if (value >= 1e4) return `$${Math.round(value / 1e3)}K`;
+  return `$${Math.round(value).toLocaleString("en-US")}`;
+}
+
 export function fmtPct(value, digits = 0) {
   return isNum(value) ? `${(value * 100).toFixed(digits)}%` : DASH;
 }
@@ -89,7 +113,7 @@ export function ratingTier(score) {
   return score >= 90 ? "top" : score >= 80 ? "good" : "fair";
 }
 
-/** Stars as "4★" (1 to 5), or null. */
+/** Stars as "4-star" (1 to 5), or null (Phase 16 wave 3: words, not a font star some tablets can't draw). */
 export function starCount(value) {
   if (!isNum(value)) return null;
   const n = Math.round(value);
@@ -105,9 +129,10 @@ export function fmtStat(value, format) {
     }
     case "stars": {
       const n = starCount(value);
-      return n === null ? DASH : `${n}★`;
+      return n === null ? DASH : `${n}-star`;
     }
-    case "pct": return fmtPct(value);
+    case "pct": return fmtPct(value, 1); // final pass: a rate in a table shows one decimal, so ranked neighbours never look equal
+    case "usd": return fmtUsd(value);
     case "1f": return fmtNum(value, 1);
     case "2f": return fmtNum(value, 2);
     case "3f": return fmtNum(value, 3);
@@ -403,4 +428,43 @@ export function retireLayer(layer, base) {
     if (event.target !== layer && !cls.includes("scrim")) done(); // the panel's slide, not the shorter scrim fade
   });
   setTimeout(done, 250);
+}
+
+/**
+ * Phase 16 wave 3 (owner pick 2B): a swipe to the right closes a side sheet or the player card. Ignored when it starts
+ * inside something that scrolls sideways (a wide table, the ticker, the sheet buttons) or a form control, when it is
+ * mostly vertical, or slow. Returns a function that removes the listeners.
+ */
+export function swipeToClose(node, close, { distance = 80, maxDrift = 50, maxMs = 700 } = {}) {
+  if (!node || typeof node.addEventListener !== "function" || typeof close !== "function") return () => {};
+  let start = null;
+  const sideways = (target) => {
+    for (let n = target; n && n !== node; n = n.parentElement) {
+      if (n.matches?.("input, select, textarea, .ticker, .remote, .chips-row")) return true;
+      if (n.scrollWidth > n.clientWidth + 2 && typeof getComputedStyle === "function" && /(auto|scroll)/.test(getComputedStyle(n).overflowX)) return true;
+    }
+    return false;
+  };
+  const down = (event) => {
+    start = event.pointerType === "mouse" || sideways(event.target) ? null : { x: event.clientX, y: event.clientY, at: Date.now() };
+  };
+  const up = (event) => {
+    if (!start) return;
+    const dx = event.clientX - start.x;
+    const dy = Math.abs(event.clientY - start.y);
+    const quick = Date.now() - start.at <= maxMs;
+    start = null;
+    if (dx >= distance && dy <= maxDrift && quick) close();
+  };
+  const cancel = () => {
+    start = null;
+  };
+  node.addEventListener("pointerdown", down);
+  node.addEventListener("pointerup", up);
+  node.addEventListener("pointercancel", cancel);
+  return () => {
+    node.removeEventListener("pointerdown", down);
+    node.removeEventListener("pointerup", up);
+    node.removeEventListener("pointercancel", cancel);
+  };
 }

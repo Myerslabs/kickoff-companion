@@ -6,7 +6,7 @@
 //           (class:<year>); the band summary carries the same chip. #recruiting=<focus> opens a class year
 //           ("2027", not remembered) and scrolls to a part: "national" (the class rank), "where", "visitors".
 //           The Visitors summary shows the kickoff date, never the game id.
-//   LRP-13  ratings on the 0-100 scale in their tier color, stars as 4★; each commit's national rank is a chip
+//   LRP-13  ratings on the 0-100 scale in their tier color, stars as 4-star; each commit's national rank is a chip
 //           that opens the recruit list once the row carries its list key (metric, from stream NV).
 //   GX-20   (restrained) 'Where they're from': State | Commits | Avg rating | 5/4/3 stars per class, with the
 //           in-state share, from the class's byState and inState.
@@ -16,6 +16,7 @@ import { usSchool } from "../identity.js";
 import { el, fmtDate, fmtPct, isNum, recall, remember, text } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band, note, revealBand, subhead } from "../ui/states.js";
+import { mountFlow, stopFlow } from "../ui/flow.js";
 import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { starStrip } from "../ui/team-page.js";
 import { errorPanel, partState, poller } from "./common.js";
@@ -37,7 +38,7 @@ function recruitLink(row) {
 }
 
 const COMMIT_COLUMNS = [
-  { key: "nationalRank", label: "Nat", kind: "rank", link: recruitLink },
+  { key: "nationalRank", label: "National rank", kind: "rank", link: recruitLink },
   { key: "name", label: "Recruit", kind: "text", sub: "position" },
   { key: "stars", label: "Stars", format: "stars" },
   { key: "rating", label: "Rating", format: "rating100" },
@@ -100,7 +101,7 @@ function classHeadline(cls, team) {
 
 function classSummary(cls, team) {
   if (!cls) return "";
-  const counts = [isNum(cls.count) ? `${cls.count} commits` : null, isNum(cls.average) ? `${cls.average.toFixed(2)}★ average` : null].filter(Boolean).join(", ");
+  const counts = [isNum(cls.count) ? `${cls.count} commits` : null, isNum(cls.average) ? `${cls.average.toFixed(2)} stars average` : null].filter(Boolean).join(", ");
   const chip = classChip(cls, team);
   if (!chip) return counts;
   return el("span", { class: "class-sum" }, chip, " nationally", counts ? ` · ${counts}` : "");
@@ -141,7 +142,7 @@ function whereBlock(cls) {
         { key: "state", label: "State", kind: "text" },
         { key: "commits", label: "Commits" },
         { key: "averageRating", label: "Avg rating", format: "rating100" },
-        { key: "starMix", label: "5★ / 4★ / 3★", kind: "text", sortable: false },
+        { key: "starMix", label: "5-, 4-, 3-star", kind: "text", sortable: false },
       ],
       rows: list,
       sort: { key: "commits", dir: "descending" },
@@ -186,8 +187,7 @@ function render(envelope, container, state) {
   const part = current ? parts[current.partName] : null;
   const kickoff = typeof visitors.date === "string" && visitors.date ? fmtDate(visitors.date) : null;
   const commits = current ? rows(current.commits) : [];
-  container.replaceChildren(
-    el(
+  const page = el(
       "div",
       { class: "page recruiting" },
       band({
@@ -226,8 +226,9 @@ function render(envelope, container, state) {
         state: partState(parts.schedule, true),
         body: () => visitorsBlock(visitors, team),
       }),
-    ),
   );
+  state.ui ??= {};
+  mountFlow(state.ui, container, page, { wide: ["recruiting-class"] }); // final pass: the flowing page with its section chips
   reveal(container, state);
 }
 
@@ -235,7 +236,7 @@ function render(envelope, container, state) {
 export function createRecruitingView({ onStatus, arg } = {}) {
   const asked = parseRecruitingArg(arg);
   const state = { year: asked.year ?? recall(CLASS_KEY, null), part: asked.part, revealed: false };
-  return poller({
+  const view = poller({
     url: "/api/recruiting",
     refreshMs: 60 * 60 * 1000,
     onStatus,
@@ -250,4 +251,5 @@ export function createRecruitingView({ onStatus, arg } = {}) {
         band({ title: "Visitors this week", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(3, 6) }),
       ),
   });
+  return { ...view, unmount() { stopFlow(state.ui); view.unmount(); } };
 }

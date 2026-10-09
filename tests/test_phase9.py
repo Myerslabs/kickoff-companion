@@ -40,8 +40,8 @@ def test_prefs_default_save_refuse_and_survive_a_broken_file(tmp_path: Path):
         store.update({"colour": "orange"})
     with pytest.raises(PrefsError, match="theme"):
         store.update({"theme": "neon"})
-    with pytest.raises(PrefsError, match="notesCommand"):
-        store.update({"notesCommand": "   "})
+    with pytest.raises(PrefsError, match="notesCommand"):  # Phase 18.1: the program to run is not a setting any more
+        store.update({"notesCommand": "calc.exe"})
     assert store.as_dict()["delaySeconds"] == 45  # a refused change leaves the saved value alone
     (tmp_path / "settings.json").write_text("{not json", encoding="utf-8")
     broken = PrefsStore(tmp_path)
@@ -243,7 +243,7 @@ def test_notes_runner_reports_a_missing_command_and_runs_a_fake_one(app, client:
     runner: NotesRunner = app.state.notes
     status = client.get("/api/notes/run").json()["data"]
     assert status["command"] == "claude" and status["running"] is False and status["promptFile"].endswith("PROMPT.md")
-    app.state.prefs.update({"notesCommand": str(tmp_path / "no-such-tool")})
+    app.state.settings.claude_command = str(tmp_path / "no-such-tool")
     refused = client.post("/api/notes/run", json={}).json()
     assert refused["errors"] and "not found" in refused["errors"][0]["message"] and refused["data"]["commandFound"] is False
     # a fake tool: answers with notes JSON on its output (public release Phase 6: the app reads and saves the answer)
@@ -257,7 +257,7 @@ def test_notes_runner_reports_a_missing_command_and_runs_a_fake_one(app, client:
         tool = tmp_path / "fake-claude"
         tool.write_text(f"#!/bin/sh\necho 'prompt was received'\necho '{answer}'\n", encoding="utf-8")
         os.chmod(tool, 0o755)
-    app.state.prefs.update({"notesCommand": str(tool)})
+    app.state.settings.claude_command = str(tool)
     started = client.post("/api/notes/run", json={}).json()
     assert started["errors"] == [] and started["data"]["gameId"] == 526001015 and started["data"]["commandFound"]
     for _ in range(100):

@@ -42,7 +42,7 @@ def test_envelope_shape(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {"data", "meta", "errors"}
-    assert set(body["meta"]) == {"fetched_at", "stale", "source", "build"}
+    assert set(body["meta"]) == {"fetched_at", "stale", "source", "build", "restartNeeded"}  # restartNeeded: Phase 16 wave 3
     assert isinstance(body["meta"]["build"], str) and len(body["meta"]["build"]) == 12
     assert body["meta"]["stale"] is False
     assert body["meta"]["source"] == "live"

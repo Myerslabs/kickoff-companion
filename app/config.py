@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     https: bool = False  # public release Phase 4b: plain HTTP on the home network, nothing to install on a device
     mdns_name: str = "kickoff"  # announced on the home network as <name>.local; blank or "off" turns it off
     timezone: str = "America/New_York"
+    claude_lookup_model: str = ""  # Phase 18.7: a smaller model for the injury-report runs ("haiku"); blank: the tool's own default
+    claude_command: str = "claude"  # Phase 18.1: the one program the notes runs start; set here in .env, never over the network
     monthly_call_budget: int = 30000
     quota_hard_stop_pct: int = 90
     live_poll_seconds: int = 12
@@ -107,6 +109,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_dir: Path = PROJECT_ROOT / "logs"
     data_dir: Path = PROJECT_ROOT / "data"
+    backup_dir: Path | None = None  # blank: a "backups" folder beside data/. Phase 18.2: a nightly zip of what cannot be fetched again; point it at another disk
+    backup_keep: int = Field(default=7, ge=1, le=60)
 
     _env_file_used: Path | None = PrivateAttr(default=None)
     _env_target: Path | None = PrivateAttr(default=None)
@@ -179,6 +183,14 @@ class Settings(BaseSettings):
                 f"{value!r} is not a valid host name. Use letters, digits, hyphens, and dots "
                 "(example: football.localdomain), or leave it blank"
             )
+        return value
+
+    @field_validator("claude_command")
+    @classmethod
+    def _claude_command(cls, value: str) -> str:
+        value = value.strip().strip('"')
+        if not value or "\n" in value or "\r" in value:
+            raise ValueError("must name the Claude Code command (claude, or a full path to it) on one line")
         return value
 
     @field_validator("mdns_name")
@@ -256,9 +268,11 @@ class Settings(BaseSettings):
             raise ValueError(f"must be one of DEBUG, INFO, WARNING, ERROR (got {value!r})")
         return level
 
-    @field_validator("log_dir", "data_dir", mode="before")
+    @field_validator("log_dir", "data_dir", "backup_dir", mode="before")
     @classmethod
-    def _anchor_dir(cls, value: Any) -> Path:
+    def _anchor_dir(cls, value: Any, info: Any) -> Path | None:
+        if info.field_name == "backup_dir" and (value is None or not str(value).strip()):
+            return None
         path = Path(str(value).strip()).expanduser()
         if not path.is_absolute():
             path = PROJECT_ROOT / path

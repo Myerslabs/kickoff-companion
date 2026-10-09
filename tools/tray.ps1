@@ -5,12 +5,18 @@ optionally in the tray instead of a taskbar window).
 Started by start.ps1 -Tray. Hides its own console window, starts the server as a hidden
 child process, and shows a tray icon with a menu: Open the app, Status page, Show the log, Quit.
 Quit stops the server. The server's own log stays in logs\app.log.
+
+Phase 16 wave 3: the packaged program uses it too. Its Desktop icon and Startup shortcut run this script with
+-Program (the program's .exe) instead of -Python; -Root is then the folder that holds .env, data and logs.
+The address is http:// unless HTTPS=on in .env (plain HTTP has been the default since public release Phase 4b).
 #>
 param(
-    [Parameter(Mandatory = $true)][string]$Python,
+    [string]$Python,
+    [string]$Program,
     [Parameter(Mandatory = $true)][string]$Root,
     [switch]$Login
 )
+if (-not $Python -and -not $Program) { throw "Give -Python (a checkout) or -Program (the packaged program)." }
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
@@ -33,17 +39,27 @@ function Read-EnvValue($name, $fallback) {
 $port = Read-EnvValue "PORT" "8642"
 $hostName = Read-EnvValue "LAN_HOSTNAME" "localhost"
 if (-not $hostName) { $hostName = "localhost" }
-$appUrl = "https://$hostName`:$port/"
-$statusUrl = "https://$hostName`:$port/status"
+$scheme = if ((Read-EnvValue "HTTPS" "off") -match "^(on|true|1|yes)$") { "https" } else { "http" }
+$appUrl = "$scheme`://$hostName`:$port/"
+$statusUrl = "$scheme`://$hostName`:$port/status"
 $logFile = Join-Path $Root "logs\app.log"
 
 # Hide this console (0 = SW_HIDE). It comes back with "Show the window".
 $console = [Kickoff.Win32Window]::GetConsoleWindow()
 [Kickoff.Win32Window]::ShowWindow($console, 0) | Out-Null
 
-$serverArgs = @("-m", "app")
-if ($Login) { $serverArgs += "--login" }  # started at login: no browser unless Settings say Always
-$server = Start-Process -FilePath $Python -ArgumentList $serverArgs -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+$env:KICKOFF_NO_PAUSE = "1"  # the packaged program never waits for Enter in a hidden window
+if ($Program) {
+    $serverArgs = @()
+    if ($Login) { $serverArgs += "--login" }  # started at login: no browser unless Settings say Always
+    $startArgs = @{ FilePath = $Program; WorkingDirectory = (Split-Path -Parent $Program); WindowStyle = "Hidden"; PassThru = $true }
+    if ($serverArgs.Count -gt 0) { $startArgs.ArgumentList = $serverArgs }
+    $server = Start-Process @startArgs
+} else {
+    $serverArgs = @("-m", "app")
+    if ($Login) { $serverArgs += "--login" }
+    $server = Start-Process -FilePath $Python -ArgumentList $serverArgs -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+}
 
 $icon = New-Object System.Windows.Forms.NotifyIcon
 $icon.Icon = [System.Drawing.SystemIcons]::Application

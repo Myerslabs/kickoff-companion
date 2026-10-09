@@ -58,6 +58,10 @@ class Prefs(BaseModel):
     autoStart: bool = False
     trayMode: bool = False
     hints: bool = True  # stat names show a dotted underline and explain themselves when tapped (2026-09-26)
+    scheduledRuns: bool = False  # Phase 18.7: Claude Code runs the game-week prompts by itself, a few times a week
+    backups: bool = True  # Phase 18.2: the nightly backup of the archive, notes and settings
+    announcer: bool = True  # Phase 17 #15: the little announcer calls out the bands' stat blurbs
+    updateCheck: bool = True  # Phase 16 wave 3: once a day, ask GitHub whether a newer release is out
     keepScreenOn: Literal["off", "gameday", "always"] = "gameday"  # the shell's screen wake lock (Phase 12)
     openBrowser: Literal["manual", "always", "never"] = "manual"  # open the app on the host when the server starts (Phase 4b)
     # Public release Phase 5b (a Tier 2 key for all of these). Primary teams #2 to #5: their team pages load
@@ -71,18 +75,6 @@ class Prefs(BaseModel):
     tickerMode: Literal["national", "mine"] = "national"  # every FBS game, or only my teams' games (Tier 2)
     # Radio stations added in Settings (Phase 5b), after the RADIO_SOURCES in .env. `team` says whose station it is.
     radioStations: list[SavedStation] = Field(default_factory=list, max_length=MAX_STATIONS)
-    notesCommand: str = Field(default="claude", min_length=1, max_length=400)
-
-    @field_validator("notesCommand")
-    @classmethod
-    def _command(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("must name the Claude Code command (claude, or a full path to it)")
-        if any(ch in value for ch in "\r\n"):
-            raise ValueError("must be one line")
-        return value
-
     @field_validator("primaryTeams", "likedTeams", "likedConferences", "likedStates")
     @classmethod
     def _names(cls, values: list[str]) -> list[str]:
