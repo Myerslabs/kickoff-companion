@@ -40,6 +40,8 @@ import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common
 import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
 import { commonOpponentsBlock, lastSeasonTwoTeam } from "../ui/offday.js";
+import { resultsBand } from "../ui/results.js";
+import { twoSchoolsBand } from "../ui/two-schools.js";
 
 /** A payload part as an object, or {} (a list, a string or null never reaches a band). */
 function objOf(value) {
@@ -947,7 +949,7 @@ function resetOpponentColors() {
 }
 
 /** The program's bands that span two columns on a wide page (owner pick 2026-10-07: the big side-by-side tables). */
-const PROGRAM_WIDE = ["program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box", "program-watch", "program-ppa"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
+const PROGRAM_WIDE = ["program-results", "program-schools", "program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box", "program-watch", "program-ppa"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
 
 function render(envelope, container, state) {
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
@@ -965,7 +967,11 @@ function render(envelope, container, state) {
   state.cover = coverEl;
   useOpponentColors(data.them);
   const tools = el("div", { class: "program-tools flow-full" }, printButton()); // Phase 19: print the program
-  page.append(...[back, tools, coverEl, ...sections(data)].filter(Boolean));
+  // wave B (owner 2026-10-13): a finished game's program opens with the expectations locked at kickoff beside the result;
+  // the two schools' history sits under the cover on every program that has facts
+  const results = data.game?.completed ? resultsSlot(data, state) : null;
+  const schools = twoSchoolsBand({ us: data.us, them: data.them, facts: data.facts });
+  page.append(...[back, tools, coverEl, results, schools, ...sections(data)].filter(Boolean));
   if (back) back.classList.add("flow-full");
   coverEl.classList.add("flow-full");
   if (state.flow) state.flow.stop();
@@ -984,6 +990,41 @@ function render(envelope, container, state) {
     state.focus = null;
     if (target) settleOn(target);
   }
+}
+
+/**
+ * The results band loads its locked expectations once per game (the lock never changes) and draws beside the program's
+ * final box; a program that was never locked says so instead of showing nothing.
+ */
+function resultsSlot(data, state) {
+  const id = data.game?.gameId;
+  const host = el("div", { class: "flow-full", dataset: { results: text(id) } });
+  const draw = (locked) => host.replaceChildren(resultsBand({ locked, data }));
+  if (state.locked && state.locked.gameId === id) {
+    draw(state.locked.data);
+    return host;
+  }
+  host.replaceChildren(band({ id: "program-results", title: "Expectations and results", collapsible: false, state: { status: "loading" } }));
+  if (data.game?.locked === false) {
+    state.locked = { gameId: id, data: null };
+    draw(null);
+    return host;
+  }
+  fetchJson(`/api/program/${encodeURIComponent(text(id))}/locked`)
+    .then((envelope) => {
+      const locked = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+      state.locked = { gameId: id, data: locked };
+      draw(locked);
+    })
+    .catch((error) => {
+      if (isNum(error?.status) && error.status === 404) {
+        state.locked = { gameId: id, data: null };
+        draw(null);
+        return;
+      }
+      host.replaceChildren(band({ id: "program-results", title: "Expectations and results", collapsible: false, state: { status: "error", message: `${text(error?.message || "The locked program could not be read")}.` } }));
+    });
+  return host;
 }
 
 /**

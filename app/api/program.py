@@ -8,7 +8,7 @@ from urllib.parse import unquote
 
 from fastapi import APIRouter, Query, Request
 
-from app.api.envelope import error_response
+from app.api.envelope import envelope, error_response
 from app.api.players import respond
 from app.api.season import archived_ids, mark_archived
 from app.services.parts import Assembled, assemble
@@ -30,6 +30,12 @@ def _mark_program(result: Assembled, request: Request) -> None:
         held = request.app.state.live.held_final() if hasattr(request.app.state, "live") else None
         game["heldUntil"] = held["until"] if held and held.get("gameId") == game.get("gameId") else None
     mark_archived(result.data.get("picker"), archived)
+    # wave B: the facts for both schools (the two-schools band) and whether the program was locked at kickoff
+    notes = getattr(request.app.state, "season_notes", None)
+    lock = getattr(request.app.state, "program_lock", None)
+    if isinstance(game, dict):
+        game["locked"] = bool(lock is not None and lock.has(game.get("gameId")))
+    result.data["facts"] = {"us": notes.facts_for((result.data.get("us") or {}).get("school")) if notes else None, "them": notes.facts_for((result.data.get("them") or {}).get("school")) if notes else None}
     for side in ("us", "them"):  # Phase 17 #2: a form square of ours opens the Archive when it holds the game
         block = result.data.get(side)
         if isinstance(block, dict):
@@ -56,6 +62,17 @@ async def program_game(game_id: str, request: Request) -> Any:
         return error_response(404, "not_found", "That game is not on our schedule.")
     _mark_program(result, request)
     return respond(result)
+
+
+@router.get("/api/program/{game_id}/locked")
+async def program_locked(game_id: str, request: Request) -> Any:
+    """Wave B: what the program said at kickoff, for the results band on a finished game's program."""
+    if not game_id.isdigit() or len(game_id) > 12:
+        return error_response(404, "not_found", "No game with that id.")
+    locked = request.app.state.program_lock.load(int(game_id))
+    if locked is None:
+        return error_response(404, "not_locked", "This program was not locked at kickoff.")
+    return envelope(locked, source="cache", fetched_at=locked.get("lockedAt"))
 
 
 @router.get("/api/program/{game_id}/leaders")

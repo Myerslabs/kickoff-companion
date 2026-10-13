@@ -2171,6 +2171,14 @@ body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer
 .facts__table th[scope="row"] { width: 38%; white-space: normal; text-align: left; color: var(--fog); font-weight: 600; vertical-align: top; }
 .facts__table td.facts__value { white-space: normal; overflow-wrap: anywhere; }
 .facts__sources { margin: 0; }
+/* wave B: expectations and results (ui/results.js) and the two schools (ui/two-schools.js) on the program */
+.results, .schools { display: grid; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.results__table td, .schools__table td { text-align: right; }
+.results__table td.txt, .schools__table td.txt { text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.results__table th[scope="row"], .schools__table th[scope="row"] { white-space: normal; text-align: left; color: var(--fog); font-weight: 600; }
+.results__table td.results__result { color: var(--chalk); font-weight: 600; }
+.results__table tr.results__them th[scope="row"] { border-left: 2px solid var(--opp, var(--rule-strong)); }
+.schools__trophy { margin: 0; font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); font-weight: 600; }
 .page-note .readiness, .status-card .readiness { display: grid; gap: var(--sp-3); margin: 0; padding: 0; list-style: none; }
 .page-note .readiness { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--sp-3) var(--gap); } /* side by side where they fit: the note stays short above the page */
 .page-note .readiness__item { align-content: start; }

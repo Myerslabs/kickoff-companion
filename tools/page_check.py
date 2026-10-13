@@ -74,7 +74,7 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     # --- SEASON: Season, team pages, Ratings ---
     "SEASON": ["season", "season=polls:Coaches", "team={US}", "team={OPP}", "ratings", "ratings=sp", "ratings=elo?team={OPP}", "preseason"],
     # --- PROGRAM: Game program (the simulator's game under way, a finished one, an upcoming one) ---
-    "PROGRAM": ["program", "program={LIVE}", "program={LAST}", "program={NEXT}", "box={LAST}", "box={OTHER}", "season?band=standings", "team={OPP}?band=standings"],
+    "PROGRAM": ["program", "program={LIVE}", "program={LAST}", "program={NEXT}", "box={LAST}", "box={OTHER}", "season?band=standings", "team={OPP}?band=standings"],  # program={LAST}: the results band (wave B)
     # --- PEOPLE: Leaders, Roster, Recruiting, the player card ---
     "PEOPLE": [
         "leaders", "leaders=passing:YDS:national", "leaders=defensive:TOT:conference", "leaders=ppa:all:opponent",

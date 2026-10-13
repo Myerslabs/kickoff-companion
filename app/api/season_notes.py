@@ -315,6 +315,27 @@ async def season_template_reset(request: Request, kind: str) -> Any:
     return envelope(t.payload(), source="live")
 
 
+@router.get("/api/today")
+async def today(request: Request) -> Any:
+    """Wave B: the dated events whose day is today (the facts prompt's "dates"), for the teams the app follows and this
+    week's opponent, with how many years ago. The note at the top of the page says them once a day."""
+    from app.api.notes import _game
+    from app.services.anniversaries import on_this_day
+
+    state = request.app.state
+    primaries, _conferences, _meta = await _context(request)
+    schools = list(primaries)
+    try:
+        game, _ok = await _game(request, None)
+    except Exception:  # noqa: BLE001 - no schedule: the primaries' days still answer
+        game = None
+    if game is not None and not game.completed:
+        schools.append(game.away_team if game.home_team == state.settings.team else game.home_team)
+    day = _today(request)
+    events = on_this_day(_notes(request).facts().get("teams", {}), schools, day)
+    return envelope({"date": day.isoformat(), "events": events}, source="live")
+
+
 @router.get("/api/preseason")
 async def preseason_page(request: Request) -> Any:
     primaries, conferences, meta = await _context(request)

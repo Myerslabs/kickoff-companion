@@ -1,13 +1,15 @@
 """Claude Code on a schedule (Phase 18.7, owner 2026-10-08: "as few runs as quality allows", never continuous, timed to when
 each source publishes, nothing after the game).
 
-A game week is three runs:
+A game week is one run (the Prompts phase, wave B, owner 2026-10-13: "I want the pre-game program to run once at the most
+accurate time"):
 
-    notes             Monday 18:00 Eastern: the written notes, depth charts, TV crew and coaches (the head coach's Monday
-                      press conference and the school's game notes are out). One run.
-    injuries-first    Wednesday 21:00 Eastern: the first availability report (a conference that requires one publishes its first on Wednesday).
-                      A small run that merges only the report into the notes. Skipped when the notes are newer.
-    injuries-last     75 minutes before kickoff: the final report (such a conference publishes it 90 minutes before). Same small run.
+    notes             two hours before kickoff: the written notes, the availability report (a conference that requires one
+                      publishes its final report 90 minutes before), both depth charts, the TV crew and the coaches, in
+                      one answer. The program is locked at kickoff right after (app/services/program_lock.py).
+
+Until then (Phase 18.7) it was three: Monday's notes, Wednesday's first report, the final report 75 minutes before; the
+injuries-only merge stays in the runner for a run by hand.
 
 and the season has a few: the whole-season load in August (once, if anything is missing), again after the December and
 January coaching changes, and the roster costs after each transfer-portal window. A bye week has no game, so no runs. After
@@ -38,7 +40,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone  # noqa: F401 - time: the season slots' hour
 from pathlib import Path
 from typing import Any
 
@@ -46,9 +48,8 @@ from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.schedule")
 
-NOTES_HOUR = 18  # Monday, local time
-FIRST_REPORT_HOUR = 21  # Wednesday, local time
-LAST_REPORT_BEFORE_KICKOFF = timedelta(minutes=75)
+NOTES_BEFORE_KICKOFF = timedelta(hours=2)  # after the final availability report, before the program locks at kickoff
+NOTES_UNTIL_AFTER_KICKOFF = timedelta(minutes=5)
 RETRY_AFTER = timedelta(minutes=20)
 MAX_ATTEMPTS = 2
 BREAKER_FAILURES = 3
@@ -85,20 +86,10 @@ def _local(day: date, hour: int, tz: Any) -> datetime:
 
 
 def game_slots(game_id: int, kickoff: datetime, tz: Any) -> list[Slot]:
-    """The three runs of a game week. `kickoff` is timezone-aware."""
+    """The one run of a game week: the notes two hours before kickoff. `kickoff` is timezone-aware; `tz` is kept for the
+    callers and the season slots."""
     kick = kickoff.astimezone(timezone.utc)
-    day = kickoff.astimezone(tz).date()
-    monday = day - timedelta(days=day.weekday())
-    notes_at = min(_local(monday, NOTES_HOUR, tz), kick - timedelta(hours=48))  # a Tuesday or Wednesday game still gets its notes run first
-    back = (day.weekday() - 2) % 7
-    wednesday = day - timedelta(days=back)
-    first_at = min(_local(wednesday, FIRST_REPORT_HOUR, tz), kick - timedelta(hours=30)) if back <= 4 else kick - timedelta(hours=30)  # a Sunday or Monday game has no Wednesday in its own week
-    last_at = kick - LAST_REPORT_BEFORE_KICKOFF
-    return [
-        Slot(f"notes:{game_id}", "notes", "The week's notes", notes_at, kick - timedelta(hours=3), game_id),
-        Slot(f"injuries-first:{game_id}", "injuries", "The first availability report", first_at, kick - timedelta(hours=2), game_id),
-        Slot(f"injuries-last:{game_id}", "injuries", "The final availability report", last_at, kick + timedelta(minutes=5), game_id),
-    ]
+    return [Slot(f"notes:{game_id}", "notes", "The game's notes", kick - NOTES_BEFORE_KICKOFF, kick + NOTES_UNTIL_AFTER_KICKOFF, game_id)]
 
 
 def season_slots(year: int, tz: Any) -> list[Slot]:

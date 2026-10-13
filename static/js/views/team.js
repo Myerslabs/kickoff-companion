@@ -60,13 +60,17 @@ function eloFact(team) {
 }
 
 /** The header's facts: the AP rank as a poll badge, SP+ as a dotted link to Ratings with this team marked. */
-function headerFacts(team) {
+function headerFacts(team, facts = null) {
   const school = typeof team?.school === "string" ? team.school : null;
   const ap = isNum(team?.apRank) ? pollBadge(team.apRank, "AP", { href: pollHref("AP", { team: school }), label: school, showPoll: false }) : null;
+  const f = facts && typeof facts === "object" ? facts : null; // wave B: the school's facts, where loaded
+  const titles = Array.isArray(f?.nationalTitles) ? f.nationalTitles.filter(isNum).length : 0;
   return [
     ap ? { label: "AP", node: ap } : { label: "AP", value: "NR" },
     isNum(team?.sp?.rank) ? { label: "SP+", value: `#${team.sp.rank}`, href: ratingsHref("sp", school), hint: "Open the ratings" } : { label: "SP+", value: DASH },
     eloFact(team),
+    f && isNum(f.founded) ? { label: "Founded", value: String(f.founded) } : null,
+    f && titles ? { label: "Titles", value: String(titles), hint: `National titles: ${f.nationalTitles.filter(isNum).join(", ")}` } : null,
   ].filter(Boolean);
 }
 
@@ -365,7 +369,7 @@ function render(envelope, container, state) {
     shown = bodies[id]().flat().filter(Boolean);
     page.append(...shown); // the flow places each new band as it arrives
   };
-  const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team), tabs: TABS, current: state.tab, onTab: (id) => { state.tab = id; show(id); } });
+  const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team, data.facts), tabs: TABS, current: state.tab, onTab: (id) => { state.tab = id; show(id); } });
   page.append(el("div", { class: "flow-full" }, backRow()), el("div", { class: "flow-full" }, header.root));
   show(state.tab);
   mountFlow(state.ui, container, page, { wide: TEAM_WIDE }); // final pass: the flowing page with its section chips
@@ -384,7 +388,7 @@ export function openTeamFlyout(school) {
     .then((envelope) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
       const team = data.team && typeof data.team === "object" ? data.team : {};
-      const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team), tabs: [] });
+      const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team, data.facts), tabs: [] });
       const [tiles, ...statBands] = summary(data); // owner 2026-10-10: the schedule right under the four tiles, then the stat tables
       // owner 2026-10-10: every team's sheet carries its injury report (from our games' notes), its roster (folded: a long
       // list) and its recruiting, the same bands as the team page under their own ids so a page beneath keeps its own

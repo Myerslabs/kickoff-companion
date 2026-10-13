@@ -25,33 +25,24 @@ def utc(*args) -> datetime:
     return datetime(*args, tzinfo=timezone.utc)
 
 
-def test_a_saturday_game_week_has_three_runs_at_the_publishers_hours():
-    notes, first, last = game_slots(77, KICK, ET)
-    assert [s.kind for s in (notes, first, last)] == ["notes", "injuries", "injuries"]
-    assert notes.at == datetime(2026, 10, 5, 18, 0, tzinfo=ET).astimezone(timezone.utc)  # Monday 6 p.m.
-    assert first.at == datetime(2026, 10, 7, 21, 0, tzinfo=ET).astimezone(timezone.utc)  # Wednesday 9 p.m.
-    assert last.at == KICK.astimezone(timezone.utc) - timedelta(minutes=75)
-    assert last.until == KICK.astimezone(timezone.utc) + timedelta(minutes=5)
-    assert len({s.key for s in (notes, first, last)}) == 3
-
-
-def test_a_short_week_still_gets_its_runs_before_kickoff():
+def test_a_game_week_is_one_run_two_hours_before_kickoff():
+    """Wave B (owner 2026-10-13): the notes run once, at the most accurate time, after the final availability report."""
+    (notes,) = game_slots(77, KICK, ET)
+    assert notes.kind == "notes" and notes.key == "notes:77"
+    assert notes.at == KICK.astimezone(timezone.utc) - timedelta(hours=2)
+    assert notes.until == KICK.astimezone(timezone.utc) + timedelta(minutes=5)
     thursday = datetime(2026, 10, 15, 19, 30, tzinfo=ET)
-    notes, first, last = game_slots(1, thursday, ET)
-    kick = thursday.astimezone(timezone.utc)
-    assert notes.at < first.at < last.at < kick
-    tuesday = datetime(2026, 10, 13, 20, 0, tzinfo=ET)
-    notes, first, _last = game_slots(2, tuesday, ET)
-    assert notes.at < first.at < tuesday.astimezone(timezone.utc) - timedelta(hours=24)
+    (short,) = game_slots(1, thursday, ET)
+    assert short.at == thursday.astimezone(timezone.utc) - timedelta(hours=2) and short.at < short.until
 
 
 def test_the_slots_follow_the_clock_change():
-    # Daylight time ends Sunday 2026-11-01. A Saturday Nov 7 game: Monday 6 p.m. Eastern is 23:00 UTC after the change.
+    # Daylight time ends Sunday 2026-11-01. A Saturday Nov 7 game at noon Eastern: the run is 10 a.m. Eastern, 15:00 UTC.
     saturday = datetime(2026, 11, 7, 12, 0, tzinfo=ET)
-    notes, _first, _last = game_slots(3, saturday, ET)
-    assert notes.at == utc(2026, 11, 2, 23, 0)
+    (notes,) = game_slots(3, saturday, ET)
+    assert notes.at == datetime(2026, 11, 7, 15, 0, tzinfo=timezone.utc)
     before = game_slots(4, datetime(2026, 10, 24, 12, 0, tzinfo=ET), ET)[0]
-    assert before.at == utc(2026, 10, 19, 22, 0)
+    assert before.at == datetime(2026, 10, 24, 14, 0, tzinfo=timezone.utc), "an hour earlier in UTC before the change"
 
 
 def test_the_season_runs_are_few_and_dated():
@@ -116,24 +107,24 @@ def test_nothing_runs_when_off_or_without_the_tool_or_before_a_slot(tmp_path):
     rig.enabled, rig.command = True, False
     assert rig.tick() == "no command"
     rig.command = True
-    rig.now = utc(2026, 10, 5, 21, 0)  # an hour before Monday 6 p.m. Eastern
+    rig.now = utc(2026, 10, 10, 17, 0)  # half an hour before the slot (kickoff 3:30 Eastern, the run at 1:30)
     assert rig.tick() == "nothing due" and not rig.started
 
 
 def test_a_run_starts_once_finishes_and_is_not_run_again(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5))
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))  # five minutes into the slot
     assert rig.tick() == "started notes:77" and rig.started == ["notes:77"]
     assert rig.tick() == "running"
     rig.result = {"running": False, "ok": True, "changed": True}
     assert rig.tick() == "finished notes:77"
     assert rig.schedule.ledger.rows[-1]["ok"] is True and rig.schedule.ledger.rows[-1]["changed"] is True
-    assert rig.tick() == "nothing due", "Monday's slot is done; Wednesday's is not due yet"
-    rig.now = utc(2026, 10, 8, 1, 5)  # Wednesday 9 p.m. Eastern passed
-    assert rig.tick() == "started injuries-first:77"
+    assert rig.tick() == "nothing due", "the one run is done"
+    rig.now = utc(2026, 10, 10, 19, 0)
+    assert rig.tick() == "nothing due" and rig.started == ["notes:77"], "never again this week"
 
 
 def test_a_slot_whose_data_is_already_newer_is_skipped(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5))
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))
     rig.current = True
     assert rig.tick() == "skipped notes:77" and not rig.started
     assert rig.schedule.ledger.succeeded("notes:77")
@@ -141,7 +132,7 @@ def test_a_slot_whose_data_is_already_newer_is_skipped(tmp_path):
 
 
 def test_a_failed_run_is_tried_once_more_after_twenty_minutes_and_then_left(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5))
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))
     rig.tick()
     rig.result = {"running": False, "ok": False, "error": "the tool exited with code 1"}
     assert rig.tick() == "finished notes:77"
@@ -156,12 +147,13 @@ def test_a_failed_run_is_tried_once_more_after_twenty_minutes_and_then_left(tmp_
 
 
 def test_three_failures_in_a_row_pause_everything_for_six_hours(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 8, 1, 5))  # Monday's and Wednesday's slots are both due
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))
     rig.result = {"running": False, "ok": False, "error": "down"}
     for _ in range(BREAKER_FAILURES):
-        rig.tick()  # start
+        rig.tick()  # start (the slot, then its retry, then a manual third attempt: the breaker counts failures, not slots)
         rig.tick()  # finish (failed)
         rig.now += RETRY_AFTER + timedelta(minutes=1)
+        rig.schedule.ledger.rows[-1]["key"] = f"other:{len(rig.schedule.ledger.rows)}"  # a different slot each time, so the two-attempt cap does not end the test early
     assert rig.schedule.paused_until is not None
     assert rig.tick() == "paused"
     rig.now += timedelta(hours=7)
@@ -169,26 +161,28 @@ def test_three_failures_in_a_row_pause_everything_for_six_hours(tmp_path):
 
 
 def test_a_run_that_cannot_start_is_a_failure_not_a_hang(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5))
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))
     rig.start_status = {"error": "claude was not found"}
     assert rig.tick() == "could not start notes:77"
     assert rig.schedule.pending is None and rig.schedule.ledger.rows[-1]["error"] == "claude was not found"
 
 
 def test_a_bye_week_has_no_game_runs_and_a_late_slot_is_not_run(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5), game=False)
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35), game=False)
     assert rig.tick() == "nothing due"
-    late = Rig(tmp_path / "late", utc(2026, 10, 10, 19, 29))  # a minute before kickoff: every window but the last has closed
-    assert late.tick() == "started injuries-last:77"
+    late = Rig(tmp_path / "late", utc(2026, 10, 10, 19, 29))  # a minute before kickoff: still inside the slot's window
+    assert late.tick() == "started notes:77"
+    gone = Rig(tmp_path / "gone", utc(2026, 10, 10, 19, 40))  # ten minutes after kickoff: the window has closed, nothing runs late
+    assert gone.tick() == "nothing due"
 
 
 def test_status_lists_what_is_next_and_what_ran(tmp_path):
-    rig = Rig(tmp_path, utc(2026, 10, 5, 22, 5))
+    rig = Rig(tmp_path, utc(2026, 10, 10, 17, 35))
     rig.tick()
     rig.result = {"running": False, "ok": True, "changed": False}
     rig.tick()
     status = asyncio.run(rig.schedule.status())
-    assert [n["key"] for n in status["next"]][:2] == ["injuries-first:77", "injuries-last:77"]
+    assert all(n["key"] != "notes:77" for n in status["next"]), "the game's run is done; the season's are next"
     assert status["recent"][0]["key"] == "notes:77" and status["enabled"] and status["commandFound"] and status["running"] is None
 
 

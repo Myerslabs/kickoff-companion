@@ -199,6 +199,7 @@ class Maintenance:
         refresh_archive: Callable[[datetime], Any] | None = None,
         clock: Callable[[], datetime] | None = None,
         awake: KeepAwake | None = None,
+        lock_program: Callable[[datetime], Any] | None = None,
     ) -> None:
         self.data_dir = Path(data_dir)
         self.backup_dir = Path(backup_dir)
@@ -206,6 +207,7 @@ class Maintenance:
         self.window_open = window_open
         self.backups_enabled = backups_enabled
         self.refresh_archive = refresh_archive
+        self.lock_program = lock_program  # wave B: the Pre-Game Program locked at kickoff, checked every tick
         self._clock = clock or (lambda: datetime.now().astimezone())
         self.awake = awake or KeepAwake()
         self.backup_error: str | None = None
@@ -247,6 +249,11 @@ class Maintenance:
 
     async def tick(self) -> None:
         self.awake.set(bool(self.window_open()))
+        if self.lock_program is not None:
+            try:
+                await self.lock_program(self._clock())
+            except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
+                log.exception("Locking the program at kickoff failed")
         loop_now = asyncio.get_running_loop().time()
         if self._last_slow is not None and loop_now - self._last_slow < SLOW_JOB_SECONDS:
             return

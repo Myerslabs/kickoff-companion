@@ -180,6 +180,51 @@ function watchLiveGame(page) {
 }
 
 const RELEASE_SEEN_KEY = "kickoff.release.seen";
+const TODAY_SEEN_KEY = "kickoff.today.seen";
+
+/** Today on this device, YYYY-MM-DD. */
+function todayKey(now = new Date()) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/**
+ * On this day (wave B, owner 2026-10-13: "the stadium was built 84 years ago today"): the dated events the
+ * facts prompt collected, for the teams the app follows and this week's opponent, as the one reminder note, once a day
+ * on each device, with its close button. Never a popup.
+ */
+async function startTodayNote() {
+  let seen = null;
+  try {
+    seen = window.localStorage.getItem(TODAY_SEEN_KEY);
+  } catch {
+    seen = null;
+  }
+  if (seen === todayKey()) return null;
+  const envelope = await fetchJson("/api/today");
+  const events = Array.isArray(envelope?.data?.events) ? envelope.data.events.filter((e) => e && typeof e === "object" && typeof e.event === "string" && isNum(e.years)) : [];
+  if (!events.length) return null;
+  const line = (e) => `${e.event.trim()}, ${e.years} ${e.years === 1 ? "year" : "years"} ago today${typeof e.school === "string" && e.school ? ` (${e.school})` : ""}.`;
+  return addNote({
+    id: "today",
+    title: "On this day",
+    body: () => (events.length === 1 ? el("p", {}, line(events[0])) : el("ul", { class: "plain-list" }, events.slice(0, 6).map((e) => el("li", {}, line(e))))),
+    onDismiss: () => {
+      try {
+        window.localStorage.setItem(TODAY_SEEN_KEY, todayKey());
+      } catch {
+        // no storage: the note comes back next load
+      }
+    },
+    onShow: () => {
+      try {
+        window.localStorage.setItem(TODAY_SEEN_KEY, todayKey());
+      } catch {
+        // as above
+      }
+    },
+  });
+}
 
 /**
  * A newer release is out (the update check, Phase 16 wave 3, asked of GitHub once a day): the same note as every other
@@ -530,6 +575,7 @@ async function start() {
     readinessAsked = true;
     startReadiness(page).catch((error) => console.warn("The Not loaded yet check did not finish.", error?.message || error));
     startReleaseNote().catch((error) => console.warn("The update check did not finish.", error?.message || error));
+    startTodayNote().catch((error) => console.warn("The on-this-day check did not finish.", error?.message || error));
   };
   const guestKnown = startGuestMode().catch(() => null); // Phase 18.6: a guest's page says it is view-only
   const drawn = new Promise((resolve) => {

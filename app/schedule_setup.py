@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 
-from app.services.claude_schedule import ClaudeSchedule, Ledger, Slot
+from app.services.claude_schedule import NOTES_BEFORE_KICKOFF, ClaudeSchedule, Ledger, Slot
 from app.services.notes import load_notes, notes_path
 from app.services.notes_task import NotesRunner
 from app.services.prompt_runs import PromptRuns, Step
@@ -101,6 +101,13 @@ def build_prompt_runs(app: FastAPI) -> PromptRuns:
             return None
         if game is None or game.completed:
             return None
+        # wave B: the notes run once, at the most accurate time (two hours before kickoff); until then the catch-up
+        # leaves them alone, and "Run everything again" still runs them any time
+        kickoff = _parse(getattr(game, "start_date", None))
+        clock = getattr(state.cfbd, "_clock", None)
+        now = clock() if callable(clock) else datetime.now(timezone.utc)
+        if kickoff is not None and now < kickoff - NOTES_BEFORE_KICKOFF:
+            return None
         notes, _problem = load_notes(state.settings.data_dir, game.id)
         if notes is None:
             return "this week's notes are not loaded"
@@ -115,6 +122,36 @@ def build_prompt_runs(app: FastAPI) -> PromptRuns:
         Step("notes", "This week's notes", notes_start, notes_poll, notes_missing),
     ]
     return PromptRuns(steps, command_found)
+
+
+def build_program_lock(app: FastAPI):
+    """lock_program(now): at kickoff, write the program's expectations once (wave B). Cheap until kickoff: it reads the
+    cached schedule only; the one program call happens once per game."""
+    state = app.state
+    shim = SimpleNamespace(app=app)
+    tried: dict[int, datetime] = {}
+
+    async def lock_program(now: datetime) -> bool:
+        from app.api.notes import _game
+        from app.services.program_lock import lock_due, snapshot
+
+        lock = state.program_lock
+        try:
+            game, _ok = await _game(shim, None)
+        except Exception:  # noqa: BLE001 - no schedule now: nothing to lock; the loop tries again next tick
+            return False
+        if game is None or not lock_due(game.start_date, game.completed, now) or lock.has(game.id):
+            return False
+        last = tried.get(game.id)
+        if last is not None and now - last < timedelta(minutes=5):
+            return False  # a program that could not be read is asked again in a few minutes, not every tick
+        tried[game.id] = now
+        assembled = await state.program.program(game.id)
+        if assembled is None:
+            return False
+        return lock.save(game.id, snapshot(assembled.data, now))
+
+    return lock_program
 
 
 def build_schedule(app: FastAPI) -> ClaudeSchedule:
