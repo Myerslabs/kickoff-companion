@@ -42,11 +42,12 @@ scenarios.block = async () => {
   assert.ok(!RAW.test(t), t.slice(0, 500));
   // the starter and the depth behind him in ONE row
   assert.ok(t.includes("Q One") && t.includes("917 passing yards"));
-  assert.ok(t.includes("Q Two (FR), questionable, Q Three (RS SO)"), "the rest of the chart, in order, with the report's status: " + t.slice(0, 900));
-  assert.ok(t.includes("Then, in order"));
+  assert.ok(t.includes("Q.\u00A0Two (FR), questionable, Q.\u00A0Three (RS SO)"), "the rest of the chart, in order, with the report's status (item 6: as K. Crawford): " + t.slice(0, 900));
+  assert.ok(t.includes("then Q.\u00A0Two"), "the next man under the starter (2026-10-10: lineups as matchups, no Then column)");
+  assert.deepEqual(node.querySelectorAll(".lu-next").map((n) => n.getAttribute("title")).slice(0, 2), ["Q Two", "Q Three"], "each man behind the starter on one line, his whole name in its title");
   assert.ok(t.includes("Home U offense") && t.includes("Away U defense"), "our offense beside their defense");
-  // a tap on a starter with an id opens him
-  node.querySelectorAll("tbody tr").find((r) => text(r).includes("Q One")).click();
+  // a tap on a starter with an id opens him (his name is the button; two starters share a row now)
+  node.querySelectorAll("button.lu-name").find((b) => pnText(b) === "Q One").click();
   assert.deepEqual(opened, ["11"]);
   // the experience table: starters by class, average class
   const exp = experienceBlock({ lineups, us, them });

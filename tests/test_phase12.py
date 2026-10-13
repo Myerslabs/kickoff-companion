@@ -397,7 +397,11 @@ def test_the_newspaper_on_a_weekday_still_has_no_slate(pclient: TestClient, fake
     set_program_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
     data = pclient.get("/api/newspaper").json()["data"]
     assert data["slateDay"] is False and data["byeWeek"] is False and data["slate"] == []
-    assert fake_cfbd.count("/calendar") == 0  # only a Saturday asks
+    # items 10-12: the edition's week comes from the calendar on any day (a week's cache), never once a read
+    asked = fake_cfbd.count("/calendar")
+    assert asked <= 1
+    pclient.get("/api/newspaper")
+    assert fake_cfbd.count("/calendar") == asked
 
 
 def test_the_ticker_takes_its_week_from_the_calendar(app, client: TestClient, fake_cfbd: FakeCfbd):
@@ -530,8 +534,8 @@ assert.equal(live.madeOf({ made: 3, of: 8 }), "3 of 8");
 assert.equal(live.madeOf({ made: 0, of: 0 }), "–");
 assert.equal(live.madeOf(null), "–");
 
-assert.equal(driveEfficiency({ successCounts: { made: 3, of: 5 }, epaPerPlay: 0.214 }), " · success 3 of 5 · EPA +0.21/play");
-assert.equal(driveEfficiency({ successCounts: { made: 0, of: 0 }, epaPerPlay: -0.5 }), " · EPA -0.50/play");
+assert.equal(driveEfficiency({ successCounts: { made: 3, of: 5 }, epaPerPlay: 0.214 }), " · success 3 of 5 · PPA +0.21/play");
+assert.equal(driveEfficiency({ successCounts: { made: 0, of: 0 }, epaPerPlay: -0.5 }), " · PPA -0.50/play");
 assert.equal(driveEfficiency({}), "");
 assert.equal(driveEfficiency(null), "");
 

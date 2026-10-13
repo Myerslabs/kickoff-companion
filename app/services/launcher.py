@@ -59,6 +59,34 @@ def run_command(args: list[str]) -> tuple[int, str]:
 DESKTOP_RESERVED = frozenset(" \t\n\"'\\><~|&;$*?#()`")  # Desktop Entry spec: an Exec argument with one of these is quoted
 
 
+def windows_desktop_folder(home: Path) -> Path:
+    """Where Windows keeps this user's Desktop: the shell's own answer (the User Shell Folders key, which OneDrive and a
+    redirected Desktop move), else %USERPROFILE%\\Desktop. The owner's Desktop is redirected, so the profile's path did not
+    exist and the shortcut could not be saved (bug, 2026-10-13)."""
+    if sys.platform == "win32":
+        try:
+            import winreg
+
+            for key_name in ("User Shell Folders", "Shell Folders"):
+                with winreg.OpenKey(winreg.HKEY_CURRENT_USER, rf"Software\Microsoft\Windows\CurrentVersion\Explorer\{key_name}") as key:
+                    value, _kind = winreg.QueryValueEx(key, "Desktop")
+                folder = Path(os.path.expandvars(str(value)))
+                if folder.is_dir():
+                    return folder
+        except (OSError, ImportError, ValueError) as exc:
+            log.debug("The Desktop folder could not be read from the registry: %s", exc)
+    return Path(os.environ.get("USERPROFILE", "") or home) / "Desktop"
+
+
+def first_line(output: str) -> str:
+    """The sentence of a PowerShell error, without its stack ("At line:1 char:320 + ... + CategoryInfo ..."), on one line."""
+    text = " ".join(str(output or "").split())
+    for marker in (" At line:", " + CategoryInfo", " + FullyQualifiedErrorId"):
+        if marker in text:
+            text = text.split(marker, 1)[0]
+    return text.strip()[:300]
+
+
 def desktop_arg(value: str) -> str:
     """One argument of a .desktop Exec= line. The Desktop Entry spec quotes with double quotes only (not the shell's
     single quotes), escapes " ` $ and \\ inside them, then doubles every backslash as any string value does; % starts a
@@ -124,6 +152,7 @@ class Launcher:
         program: str | Path | None = None,
         static_dir: str | Path | None = None,
         install_root: str | Path | None = None,
+        desktop: str | Path | None = None,
     ) -> None:
         self.project_root = Path(project_root)
         self.install_root = Path(install_root) if install_root else self.project_root  # .env, data and logs (the tray's -Root)
@@ -134,6 +163,7 @@ class Launcher:
         self.runner: Runner = runner or (_run_powershell if self.system == "windows" else run_command)
         self.appdata = appdata if appdata is not None else os.environ.get("APPDATA", "")
         self.home = Path(home) if home is not None else Path.home()
+        self.desktop = Path(desktop) if desktop else None  # the Desktop folder when the caller knows it (the tests); else asked of the system
 
     # -- where things go ---------------------------------------------------------------------------------
     @property
@@ -192,12 +222,20 @@ class Launcher:
         return None
 
     @property
+    def desktop_folder(self) -> Path:
+        if self.desktop is not None:
+            return self.desktop
+        if self.system == "windows":
+            return windows_desktop_folder(self.home)
+        return self.home / "Desktop"
+
+    @property
     def desktop_path(self) -> Path:
         if self.system == "windows":
-            return Path(os.environ.get("USERPROFILE", "") or self.home) / "Desktop" / SHORTCUT_NAME
+            return self.desktop_folder / SHORTCUT_NAME
         if self.system == "mac":
-            return self.home / "Desktop" / COMMAND_FILE
-        return self.home / "Desktop" / DESKTOP_FILE
+            return self.desktop_folder / COMMAND_FILE
+        return self.desktop_folder / DESKTOP_FILE
 
     def _legacy(self, folder: Path | None) -> list[Path]:
         return [folder / name for name in LEGACY_SHORTCUT_NAMES if folder and (folder / name).is_file()]
@@ -370,9 +408,11 @@ class Launcher:
             return {"created": False, "error": self._missing()}
         target = self.desktop_path
         if self.system == "windows":
+            if not target.parent.is_dir():
+                return {"created": False, "error": f"the Desktop folder was not found at {target.parent}"}
             code, output = self.runner([self._lnk_script(target, tray)])
             if code != 0:
-                return {"created": False, "error": f"could not create the Desktop shortcut: {output or 'PowerShell failed'}"}
+                return {"created": False, "error": f"could not create the Desktop shortcut: {first_line(output) or 'PowerShell failed'}"}
             self._drop_legacy(target.parent)
             return {"created": True, "path": str(target)}
         try:

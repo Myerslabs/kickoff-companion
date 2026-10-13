@@ -34,6 +34,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from datetime import time as clock_time
 from pathlib import Path
 from typing import Any
 
@@ -60,6 +61,10 @@ WINDOW_CAP = timedelta(hours=10)  # a game still in progress keeps the window op
 WINDOW_EXTEND_STEP = timedelta(minutes=15)  # how far each extension pushes the close
 CHECK_POLL_SPACING = timedelta(minutes=30)  # a stretched window with nobody watching looks at the feed this often
 CALLED_OFF_WORDS = ("postpon", "cancel", "forfeit")  # a raw status with one of these never stretches the window
+# Owner 2026-10-10: In Game keeps our last final until the day after the game, noon local time; then the next game's
+# pregame sheet takes over and the final lives on in the Archive. Never sooner than an hour after the final.
+HOLD_UNTIL = clock_time(12, 0)
+HOLD_AT_LEAST = timedelta(hours=1)
 SETTLE_AFTER = timedelta(hours=24)  # finished-game answers cache an hour, not for good, until kickoff plus this (contract C4)
 SCHEDULE_CHECK_SECONDS = 60
 CLIENT_WAIT_SECONDS = 5
@@ -81,6 +86,17 @@ SCOREBOARD_SECONDS = 60  # the engine reads the scoreboard itself when the ticke
 KICKOFF_RECHECK_MAX_AGE = timedelta(minutes=5)  # the schedule re-read before the first play is at most this old
 MANIFEST_NAME = "manifest.json"
 CLOSE_REASON_MAX = 160
+
+
+def _when(value: Any) -> datetime | None:
+    """An ISO time from a file or a record, as an aware UTC datetime; None for anything else."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -298,6 +314,13 @@ class LiveEngine:
         self._state_recorded_at: datetime | None = None
         self.archive_dir = settings.data_dir / "archive"
         self.recorder = Recorder(settings.data_dir / "live", settings.live_poll_seconds)
+        self.held_path = settings.data_dir / "live" / "held.json"
+        self.held: dict[str, Any] | None = self._load_held()  # our last final, kept across restarts until its time
+        if (held := self.held_final()) is not None:
+            # review 2026-10-10: after a restart a device still mid-game reconnects and its stream must carry it to the
+            # final, so the held game is the current game again (no window and mode idle, so nothing polls CFBD)
+            self.current_game_id, self.home, self.away = held["gameId"], held.get("home"), held.get("away")
+            self._final_seen_at = _when(held.get("finalAt"))
         self.record_dir = self.recorder.folder
 
     # --- subscribers and gating ------------------------------------------------------------------
@@ -375,7 +398,110 @@ class LiveEngine:
         state["delaySeconds"] = delay_seconds
         state["team"] = self.settings.team  # the side the sheet follows (TEAM in .env), so it never assumes a team
         state["pending"] = self.store.pending_after(key, self.cutoff(delay_seconds), state["lastSeq"])
+        held = self.held_final()
+        if held is not None and held["gameId"] == gid and key == gid:
+            state["held"] = {"until": held["until"], "finalAt": held["finalAt"], "kickoff": held.get("kickoff")}
         return state
+
+    # --- the held final (owner 2026-10-10: In Game keeps our last final until noon the day after the game) ----------
+
+    def hold_until(self, window: GameWindow, final_at: datetime) -> datetime:
+        """Noon local time on the day after the game (its kickoff's local date), and never sooner than an hour after the final."""
+        tz = self.settings.tzinfo
+        day = window.kickoff.astimezone(tz).date() + timedelta(days=1)
+        return max(datetime.combine(day, HOLD_UNTIL, tzinfo=tz), final_at + HOLD_AT_LEAST)
+
+    def _hold_final(self, window: GameWindow, final_at: datetime) -> None:
+        """Remember the game just finished so every device, a reload and a restart can show its final until its time."""
+        record = {
+            "gameId": window.game_id,
+            "home": window.home,
+            "away": window.away,
+            "kickoff": _iso(window.kickoff),
+            "finalAt": _iso(final_at),
+            "until": _iso(self.hold_until(window, final_at)),
+        }
+        self.held = record
+        try:
+            self.held_path.parent.mkdir(parents=True, exist_ok=True)
+            temp = self.held_path.with_suffix(".json.tmp")
+            temp.write_text(json.dumps(record, indent=1), encoding="utf-8")
+            os.replace(temp, self.held_path)
+            log.info("Holding the final of game %s on In Game until %s", window.game_id, record["until"])
+        except OSError as exc:
+            log.warning("Could not save the held final of game %s (%s); it is held until the server restarts", window.game_id, exc)
+
+    def _load_held(self) -> dict[str, Any] | None:
+        """The held final saved at the last final, or None (no file, a broken one is logged and ignored)."""
+        try:
+            if not self.held_path.exists():
+                return None
+            raw = json.loads(self.held_path.read_text(encoding="utf-8-sig"))
+        except (OSError, ValueError) as exc:
+            log.warning("The held final in %s could not be read (%s); In Game shows the next game", self.held_path, exc)
+            return None
+        if not isinstance(raw, dict) or not isinstance(raw.get("gameId"), int) or isinstance(raw.get("gameId"), bool):
+            log.warning("The held final in %s has no game id; ignored", self.held_path)
+            return None
+        if _when(raw.get("until")) is None or _when(raw.get("finalAt")) is None:
+            log.warning("The held final in %s has no time; ignored", self.held_path)
+            return None
+        home = raw.get("home") if isinstance(raw.get("home"), str) else None
+        away = raw.get("away") if isinstance(raw.get("away"), str) else None
+        if self.settings.team and self.settings.team not in (home, away):
+            log.info("The held final of game %s is not %s's (the home team changed); In Game shows the next game", raw["gameId"], self.settings.team)
+            return None
+        return {
+            "gameId": raw["gameId"],
+            "home": home,
+            "away": away,
+            "kickoff": raw.get("kickoff") if isinstance(raw.get("kickoff"), str) else None,
+            "finalAt": raw["finalAt"],
+            "until": raw["until"],
+        }
+
+    def held_final(self, now: datetime | None = None) -> dict[str, Any] | None:
+        """The held final while it is held (until its time), else None."""
+        record = self.held
+        if not record:
+            return None
+        until = _when(record.get("until"))
+        if until is None or (now or self._clock()) >= until:
+            return None
+        return record
+
+    def held_state(self, delay_seconds: float) -> dict[str, Any] | None:
+        """The held game's sheet as a device `delay_seconds` behind sees it: built from the event log like the live sheet,
+        so the spoiler rule holds; the archive file's state when the log has none of it."""
+        record = self.held_final()
+        if record is None:
+            return None
+        gid = record["gameId"]
+        cutoff = self.cutoff(delay_seconds)
+        if self.store.count(gid) > 0:
+            events = self.store.released(gid, cutoff)
+            state = derive_state(events, game_id=gid, home=record.get("home"), away=record.get("away"), mode="held", rosters=self._rosters if self._rosters_for == gid else None, ep_tables=self._ep_tables)
+            state["pending"] = self.store.pending_after(gid, cutoff, state["lastSeq"])
+        else:
+            state = self._archived_state(gid)
+            if state is None:
+                return None
+            final_at = _when(record.get("finalAt"))
+            if final_at is not None and final_at > cutoff:
+                return None  # the archive is the final itself: a device still behind it waits, never a spoiler
+            state["pending"] = False
+        state["delaySeconds"] = delay_seconds
+        state["team"] = self.settings.team
+        state["held"] = {"until": record["until"], "finalAt": record["finalAt"], "kickoff": record.get("kickoff")}
+        return state
+
+    def _archived_state(self, game_id: int) -> dict[str, Any] | None:
+        try:
+            body = json.loads((self.archive_dir / f"{game_id}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        state = body.get("state") if isinstance(body, dict) else None
+        return dict(state) if isinstance(state, dict) else None
 
     def released_since(self, game_id: int, delay_seconds: float, after_seq: int) -> list[LiveEvent]:
         return self.store.released(self.store_key(game_id), self.cutoff(delay_seconds), after_seq)
@@ -504,9 +630,12 @@ class LiveEngine:
     def status(self, delay_seconds: float = 0.0) -> dict[str, Any]:
         window = self.window
         now = self._clock()
-        # A window that closed on the final is still "in progress" for a sheet that has not reached the final yet.
-        held = window is None and self._last_closed is not None and self._final_seen_at is not None and not self.final_released(now, delay_seconds)
-        shown = window if window is not None else (self._last_closed if held else None)
+        # A window that closed on the final is still "in progress" for a sheet that has not reached the final yet. The engine
+        # moves on to the next game's window in the same pass, so that window must not hide it (2026-10-10: the LIVE marker
+        # cleared at the feed's final, up to two minutes before a delayed sheet showed it).
+        behind = self._last_closed is not None and self._final_seen_at is not None and not self.final_released(now, delay_seconds) and (window is None or not window.contains(now))
+        shown = self._last_closed if behind else window
+        held = self.held_final(now)
         return {
             "mode": self.mode,
             "gameId": self.current_game_id,
@@ -519,6 +648,8 @@ class LiveEngine:
             "pollSeconds": self.settings.live_poll_seconds,
             "projectedCallsPerGame": round(3.5 * 3600 / self.settings.live_poll_seconds),
             "replay": self.replay.as_dict(),
+            # owner 2026-10-10: our last final, held on In Game until its time; released says whether this device has shown it
+            "held": {**held, "released": (now - (_when(held.get("finalAt")) or now)).total_seconds() >= delay_seconds} if held else None,
             "stats": {**self.stats.__dict__, "eventsStored": self.store.count(self.store_key(self.current_game_id)) if self.current_game_id else 0},
         }
 
@@ -814,6 +945,7 @@ class LiveEngine:
         if final and not self._final_seen:
             self._final_seen = True
             self._final_seen_at = self._clock()
+            self._hold_final(window, self._final_seen_at)
             win_probability = await self.fetch_win_probability(window.game_id)
             await asyncio.to_thread(self.write_archive, window, win_probability)
         return stored

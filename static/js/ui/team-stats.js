@@ -1,8 +1,31 @@
 // The two-team stats table with sub-rows (L4 as revised 2026-09-21) and the quarter score line
 // (L1). Parent rows are bold, sub-rows indent, and the side that leads a row is in chalk.
 // Every value is guarded: a stat the box does not carry renders as a dash.
+//
+// Table sizes, wave 2 (owner 2026-10-10): every two-team table is the shared kit (ui/two-team.js, design rule 9) with the
+// tug-of-war bar, sized by its own box: large has the stat's whole name and each team's school and mascot, medium the
+// middle names and the school, small the shortest names and the abbreviation (ui/sizes.js FORMS). With no national
+// ranks the bar leans by the two values themselves, how far one team is ahead.
+//
+//   teamStatRows(usBox, themBox)       the rows, in the screenshot brief's order: { label, kind, usValue, themValue,
+//                                      higherIsBetter, us, them } (us/them the display strings)
+//   teamStatsTable({ us, them, rows, labelHead = "Statistic", caption })
+//       us/them: { abbr, box, school, name }: the abbreviation, the box, the school (medium's head) and the school and
+//       mascot (large's head); rows default to teamStatRows(us.box, them.box), or pass a subset (the Situation panel,
+//       the final box's rows CFBD has). Each value cell keeps its flash key "ts:<label>:us" / ":them" (L-03).
+//   FEED_ROWS                          the live feed's efficiency measures: [label, feed key, format]
+//   feedStatRows(usFeed, themFeed)     those rows for the kit, raw values so the leader shows (the PPA rows on PPA_SCALE);
+//                                      rows neither side has go
+//   feedEfficiencyTable({ feed, us, them, caption })   the feed rows on the kit (In Game and the Archive), or null when
+//       the feed has none. us/them: { team, abbr, school, name }; team is the side's key in the feed (its school).
+//   sideHeads(us, them)                { usAbbr, themAbbr, usTeam, themTeam, usName, themName } for twoTeamTable from each
+//                                      side's { abbr, school, name } (a blank school or name is left out); In Game's other
+//                                      two-team tables (ui/in-game-tables.js) take their heads the same way
+//   quarterLine({ us, them })          the score by quarter (a scoreboard grid, not a table: large figures, the spoiler
+//                                      blur and the flash keys); its columns narrow by its band's width, not the screen.
 
-import { DASH, el, fmtNum, fmtPct, isNum, text } from "./dom.js";
+import { DASH, el, fmtNum, fmtPct, isNum, obj, records, text } from "./dom.js";
+import { PPA_SCALE, twoTeamTable } from "./two-team.js";
 
 function pair(a, b) {
   return isNum(a) && isNum(b) ? `${a}-${b}` : DASH;
@@ -27,13 +50,10 @@ function rawNum(box, key) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/**
- * The rows, in the order the screenshot brief lists them. `higherIsBetter` decides which side
- * is shown as leading; rows without it are neutral (time of possession, attempts).
- */
-/** The per-team efficiency block CFBD's live feed carries (feedStats), as rows for the Live sheet and the Archive:
+/** The per-team efficiency block CFBD's live feed carries (feedStats), as rows for In Game and the Archive:
  *  one list, named as the Season and program tables name the same measures (final pass: PPA, not EPA; scoring
- *  chances; the average start is a yard line here, yards to the goal on the season tables, so the label says which). */
+ *  chances). The fourth item is the direction: every row is better higher except the start, which CFBD's feed gives as
+ *  yards to the goal (the drives' mean startYardsToGoal), so fewer is better there, as on the season tables. */
 export const FEED_ROWS = [
   ["Standard downs", "standardDownSuccessRate", "pct"],
   ["Passing downs", "passingDownSuccessRate", "pct"],
@@ -44,10 +64,14 @@ export const FEED_ROWS = [
   ["Points per scoring chance", "pointsPerOpportunity", "2f"],
   ["Scoring chances", "scoringOpportunities", "0f"],
   ["Line yards per rush", "lineYardsPerRush", "1f"],
-  ["Average start, own yard line", "averageStartYardLine", "0f"],
+  ["Average start, yards to goal", "averageStartYardLine", "0f", false],
   ["Deserve to win", "deserveToWin", "pct"],
 ];
 
+/**
+ * The rows, in the order the screenshot brief lists them. `higherIsBetter` decides which side
+ * is shown as leading; rows without it are neutral (time of possession, attempts).
+ */
 export function teamStatRows(u = {}, t = {}) {
   const row = (label, kind, usValue, themValue, { format = "0f", higherIsBetter, usText, themText } = {}) => ({
     label,
@@ -95,39 +119,66 @@ function formatValue(value, format) {
   return fmtNum(value, 0);
 }
 
-function tone(row, side) {
-  if (row.higherIsBetter === undefined || !isNum(row.usValue) || !isNum(row.themValue) || row.usValue === row.themValue) return "";
-  const usLeads = row.higherIsBetter ? row.usValue > row.themValue : row.usValue < row.themValue;
-  const leads = side === "us" ? usLeads : !usLeads;
-  return leads ? " lead" : " trail";
+function numOrNull(value) {
+  return isNum(value) ? value : null;
+}
+
+function wordsOf(value) {
+  return typeof value === "string" && value.trim() && value.trim() !== DASH ? value.trim() : undefined; // a dash is no name
+}
+
+/** Each side's heads for the kit: the abbreviation (small), the school (medium), the school and mascot (large). */
+export function sideHeads(us, them) {
+  const u = obj(us);
+  const t = obj(them);
+  return { usAbbr: text(u.abbr), themAbbr: text(t.abbr), usTeam: wordsOf(u.school), themTeam: wordsOf(t.school), usName: wordsOf(u.name), themName: wordsOf(t.name) };
 }
 
 /**
- * teamStatsTable({ us: {abbr, box}, them: {abbr, box}, rows, compact })
+ * teamStatsTable({ us: {abbr, box, school, name}, them: {...}, rows, labelHead, caption })
  * `rows` defaults to teamStatRows(us.box, them.box); pass a subset for a summary.
  */
-export function teamStatsTable({ us = {}, them = {}, rows, compact = true, caption = "Team stats" }) {
-  const list = rows || teamStatRows(us.box || {}, them.box || {});
-  const table = el(
-    "table",
-    { class: `stat-table${compact ? " stat-table--compact" : ""}` },
-    el("caption", { class: "sr-only" }, caption),
-    el("thead", {}, el("tr", {}, el("th", { scope: "col", class: "txt" }, ""), el("th", { scope: "col", class: "us" }, text(us.abbr)), el("th", { scope: "col", class: "them" }, text(them.abbr)))),
-    el(
-      "tbody",
-      {},
-      list.map((row) =>
-        el(
-          "tr",
-          { class: row.kind === "sub" ? "is-sub" : "is-parent" },
-          el("td", { class: "txt" }, row.label),
-          el("td", { class: `num${tone(row, "us")}`, dataset: { k: `ts:${row.label}:us` } }, row.us),
-          el("td", { class: `num tt-them${tone(row, "them")}`, dataset: { k: `ts:${row.label}:them` } }, row.them), // L-07: the divider between the teams
-        ),
-      ),
-    ),
-  );
-  return el("div", { class: "stat-table-wrap" }, table);
+export function teamStatsTable(options) {
+  const { us, them, rows, labelHead = "Statistic", caption = "Team stats" } = obj(options);
+  const list = Array.isArray(rows) ? records(rows) : teamStatRows(obj(obj(us).box), obj(obj(them).box));
+  return twoTeamTable({
+    rows: list.map((r) => {
+      const label = text(r.label);
+      return {
+        label,
+        key: `ts:${label}`, // L-03: the per-play flash, the same keys as before the kit
+        rowClass: r.kind === "sub" ? "is-sub" : "is-parent",
+        higherIsBetter: typeof r.higherIsBetter === "boolean" ? r.higherIsBetter : undefined,
+        us: { value: numOrNull(r.usValue), text: typeof r.us === "string" ? r.us : DASH },
+        them: { value: numOrNull(r.themValue), text: typeof r.them === "string" ? r.them : DASH },
+      };
+    }),
+    ...sideHeads(us, them),
+    labelHead,
+    tug: true, // rule 9: the shared kit with the bar; no ranks here, so it leans by the values
+    caption,
+  });
+}
+
+/** The feed's rows for the kit: raw values so the leader shows, rows that neither side has dropped. The signed rows
+ *  (PPA, either side of zero) lean by their gap on PPA_SCALE, the rest by the two values' share. */
+export function feedStatRows(usFeed, themFeed) {
+  const u = obj(usFeed);
+  const t = obj(themFeed);
+  return FEED_ROWS.map(([label, key, format, higherIsBetter = true]) => ({ label, format, higherIsBetter, scale: format === "+2f" ? PPA_SCALE : undefined, us: { value: numOrNull(u[key]) }, them: { value: numOrNull(t[key]) } })).filter((r) => r.us.value !== null || r.them.value !== null);
+}
+
+/**
+ * feedEfficiencyTable({ feed, us: {team, abbr, school, name}, them: {...}, caption })
+ * The live feed's efficiency numbers for both teams on the kit, or null when the feed carries none of them.
+ */
+export function feedEfficiencyTable(options) {
+  const { feed, us, them, caption = "Efficiency, from the live feed" } = obj(options);
+  const f = obj(feed);
+  const team = (side) => (typeof obj(side).team === "string" ? obj(side).team : "");
+  const rows = feedStatRows(team(us) ? f[team(us)] : null, team(them) ? f[team(them)] : null);
+  if (!rows.length) return null;
+  return twoTeamTable({ rows, ...sideHeads(us, them), labelHead: "Statistic", tug: true, caption });
 }
 
 export function teamStatsSkeleton(rows = 8) {

@@ -373,7 +373,7 @@ def _team_live(world: World, r: Record, side: int, plays: list[Play], drives: li
     return {
         **shell, "lineScores": lines, "points": score, "drives": len(my_drives), "scoringOpportunities": len(opps),
         "pointsPerOpportunity": round(sum(d.get("pointsGained") or 0 for d in opps) / len(opps), 1) if opps else 0,
-        "averageStartYardLine": round(sum(100 - d["startYardsToGoal"] for d in my_drives) / len(my_drives), 1) if my_drives else 0,
+        "averageStartYardLine": round(sum(d["startYardsToGoal"] for d in my_drives) / len(my_drives), 1) if my_drives else 0,  # CFBD: yards to the goal, not a yard line
         "plays": len(own), "lineYards": round(line, 1), "lineYardsPerRush": _div(line, len(rush), 1), "secondLevelYards": second,
         "secondLevelYardsPerRush": _div(second, len(rush), 1), "openFieldYards": openf, "openFieldYardsPerRush": _div(openf, len(rush), 1),
         "epaPerPlay": _div(epa(own), len(own)), "totalEpa": round(epa(own), 1), "passingEpa": round(epa(pas), 1), "epaPerPass": _div(epa(pas), len(pas)),

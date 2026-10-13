@@ -8,6 +8,7 @@ GET, POST /api/season-notes/run            Claude Code works through the batches
 GET, PUT, DELETE /api/season-notes/template?kind=   the prompt templates, editable in Settings
 GET  /api/preseason                        the Preseason page: every primary team's load with its coaches
 Part 3b: kind "costs", one batch per conference: rumored roster costs (every team's total, the primary teams' detail).
+The Prompts phase (owner 2026-10-13): kind "facts", one batch per conference: each school's history, facts and dated events.
 
 No CFBD call beyond the cached team list. Any device on the home network may paste, as with the game notes."""
 
@@ -85,7 +86,12 @@ def _prompt(request: Request, kind: str, key: str, primaries: list[str], confere
         schools = conferences[conference]
         detailed = [s for s in schools if s in primaries]
         return season_prompts.costs_prompt(data_dir, conference=conference, schools=schools, detailed=detailed, season=season), None
-    return None, "kind must be season, preseason, coaches or costs"
+    if kind == "facts":
+        conference = next((c for c in conferences if c.lower() == key.strip().lower()), None)
+        if conference is None:
+            return None, f"{key} is not an FBS conference this season."
+        return season_prompts.facts_prompt(data_dir, conference=conference, schools=conferences[conference], season=season), None
+    return None, "kind must be season, preseason, coaches, costs or facts"
 
 
 def _saver(request: Request, kind: str, key: str, primaries: list[str], conferences: dict[str, list[str]]):
@@ -122,6 +128,12 @@ def _saver(request: Request, kind: str, key: str, primaries: list[str], conferen
             return True, None, reading.warnings
         conference = next((c for c in conferences if c.lower() == key.strip().lower()), key)
         schools = conferences.get(conference, [])
+        if kind == "facts":
+            reading = season_prompts.read_facts(text, conference, schools)
+            if reading.value is None:
+                return False, reading.error, reading.warnings
+            notes.save_facts(reading.value, conference, schools)
+            return True, None, reading.warnings
         if kind == "costs":
             reading = season_prompts.read_costs(text, conference, schools)
             if reading.value is None:
@@ -188,7 +200,7 @@ async def season_prompt(request: Request, kind: str, key: str) -> Any:
 
 
 class SaveRequest(BaseModel):
-    kind: str = Field(pattern="^(season|preseason|coaches|costs)$")
+    kind: str = Field(pattern="^(season|preseason|coaches|costs|facts)$")
     key: str = Field(min_length=1, max_length=120)
     text: str = Field(max_length=season_prompts.MAX_ANSWER)
 
@@ -209,7 +221,7 @@ async def season_save(body: SaveRequest, request: Request) -> Any:
 
 
 class RunRequest(BaseModel):
-    kind: str = Field(pattern="^(season|preseason|coaches|costs)$")
+    kind: str = Field(pattern="^(season|preseason|coaches|costs|facts)$")
     keys: list[str] | None = Field(default=None, max_length=40)
     missingOnly: bool = True
 
@@ -232,6 +244,9 @@ async def start_season_run(request: Any, kind: str, keys: list[str] | None = Non
         keys = keys or [p for p in primaries if not (missing_only and p in loaded)]
     elif kind == "costs":
         saved = notes.costs()["batches"]
+        keys = keys or [c for c in sorted(conferences) if not (missing_only and c in saved)]
+    elif kind == "facts":
+        saved = notes.facts()["batches"]
         keys = keys or [c for c in sorted(conferences) if not (missing_only and c in saved)]
     else:
         saved = notes.coaches()["batches"]
@@ -268,7 +283,7 @@ def _template(request: Request, kind: str):
 async def season_template_get(request: Request, kind: str) -> Any:
     t = _template(request, kind)
     if t is None:
-        return error_response(404, "not_found", "kind must be preseason, coaches or costs")
+        return error_response(404, "not_found", "kind must be preseason, coaches, costs or facts")
     return envelope(t.payload(), source="live")
 
 
@@ -276,7 +291,7 @@ async def season_template_get(request: Request, kind: str) -> Any:
 async def season_template_put(body: TemplateRequest, request: Request, kind: str) -> Any:
     t = _template(request, kind)
     if t is None:
-        return error_response(404, "not_found", "kind must be preseason, coaches or costs")
+        return error_response(404, "not_found", "kind must be preseason, coaches, costs or facts")
     text = body.template.replace("\r\n", "\n")
     problem = t.check(text)
     if problem:
@@ -292,7 +307,7 @@ async def season_template_put(body: TemplateRequest, request: Request, kind: str
 async def season_template_reset(request: Request, kind: str) -> Any:
     t = _template(request, kind)
     if t is None:
-        return error_response(404, "not_found", "kind must be preseason, coaches or costs")
+        return error_response(404, "not_found", "kind must be preseason, coaches, costs or facts")
     try:
         t.write(None)
     except OSError as exc:

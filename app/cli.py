@@ -55,12 +55,21 @@ def check_report(settings: Settings) -> str:
 
 def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "prompts":  # the Prompts phase (2026-10-13): every prompt through Claude Code on the running server
+        from app.prompts_cli import main as prompts_main
+
+        try:
+            settings = load_settings(env_file)
+        except SettingsError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        return prompts_main(argv[1:], settings)
     if "--demo" in argv:
         # Demo mode has its own options (and reads no .env), so it takes over before parsing.
         from app.demo.run import main as demo_main
 
         return demo_main([a for a in argv if a != "--demo"])
-    parser = argparse.ArgumentParser(prog="python -m app", description=f"Run the {APP_NAME} server.")
+    parser = argparse.ArgumentParser(prog="python -m app", description=f"Run the {APP_NAME} server. `python -m app prompts [--all]` runs every prompt through Claude Code on the running server.")
     parser.add_argument("--check", action="store_true", help="validate .env, print the settings, and exit")
     parser.add_argument("--reload", action="store_true", help="development mode: restart when code in app/ changes")
     parser.add_argument("--demo", action="store_true", help="run against the made-up league: no key, no network (--demo --help for its options)")

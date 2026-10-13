@@ -3,7 +3,9 @@
 // so the strip, the radio, and the glance stats stay put.
 
 import { isTopLayer } from "./player-card.js";
-import { el, layerZ, replaceWith, restoreScroll, retireLayer, scrollState, swipeToClose, syncPageLock, text } from "./dom.js";
+import { el, layerZ, replaceWith, restoreScroll, retireLayer, scrollState, sheetAnchor, swipeToClose, syncPageLock, text } from "./dom.js";
+import { icon } from "./icons.js";
+import { holdLayer, placeLayers } from "./layers.js";
 
 /**
  * remoteBar({ items: [{ id, label, hint }], onOpen(id) })
@@ -39,9 +41,10 @@ export function remoteBar({ items = [], onOpen } = {}) {
 
 const open = new Set();
 
-/** Close every open side sheet (the router does it on a route change; so can a view). */
-export function closeAllSheets() {
-  for (const close of [...open]) close();
+/** Close every open side sheet (the router does it on a route change; so can a view). Each takes its own history entry
+ *  back out, unless `reason` says the history is already moving ("route", "history"). */
+export function closeAllSheets(reason) {
+  for (const close of [...open].reverse()) close(reason);
 }
 
 /**
@@ -55,8 +58,16 @@ export function closeAllSheets() {
  *     closing and reopening the layer; setTitle renames it in place; setTools replaces the head tools
  *     (a 'Full page' link sits there, before the close button).
  * Sheets stack: a sheet opened from a sheet or the player card lies above it, and Escape closes the top one.
- * Every sheet closes on a route change (the "kickoff:route" event) unless `persist` is true. The page
- * underneath does not scroll while a sheet is open. The sheet slides in and out (none when motion is reduced).
+ * Every sheet closes on a route change (the "kickoff:route" event) unless `persist` is true. The sheet slides in and
+ * out (none when motion is reduced).
+ * Item 8 (owner 2026-10-10): no small ×; a › at the left of the head slides it away (and a swipe right still does). The
+ * sheet is as wide as its content (up to 780 px; a phone's whole width) and as tall as its content, lying on the page
+ * where the reader is: a long sheet is read by scrolling the page, never inside a box, and its head stays at the top
+ * while it does. Closing it by hand or with Back gives the page back where it was.
+ * Item 6 (owner 2026-10-11): from 700 px up the sheet starts under the top bar, so the Menu, Search and the tabs keep
+ * working (placeLayers, components.css); a phone keeps the whole screen. A sheet takes one history entry (ui/layers.js):
+ * Back closes it and stays on the page, and closing it by hand takes the entry back out. close(reason) is "self" (the
+ * default), "route" or "history"; only "self" moves the history.
  */
 export function openSheet({ title, body, onClose, mount = document.body, inline = false, tools, className, persist = false } = {}) {
   const content = typeof body === "function" ? body() : body;
@@ -74,17 +85,23 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
   const toolsEl = el("div", { class: "side-sheet__tools" }, tools || null);
   const opener = inline ? null : document.activeElement; // Phase 15: focus goes back here on close
   let closed = false;
+  let release = null; // the layer's history entry (ui/layers.js)
+  // one Escape closes one layer: a hint card or the status card above takes it first (they mark it handled)
   const onKey = (event) => {
-    if (event.key === "Escape" && isTopLayer(layer)) {
+    if (event.key === "Escape" && !event.defaultPrevented && isTopLayer(layer)) {
+      event.preventDefault();
       event.stopPropagation();
       close();
     }
   };
   const onRoute = () => {
-    if (!persist) close();
+    if (!persist) close("route");
   };
-  const closeButton = el("button", { class: "btn btn--quiet icon-btn side-sheet__close", type: "button", "aria-label": `Close ${text(title)}`, onclick: () => close() }, "×");
-  function close() {
+  // item 8: the › slides the sheet away to the right, the way it came in; its words are for a screen reader and a hover
+  const closeButton = el("button", { class: "btn btn--quiet icon-btn side-sheet__close", type: "button", "aria-label": `Close ${text(title)}`, title: "Slide away" }, icon("chevron-right"));
+  closeButton.addEventListener("click", () => close());
+  let anchor = null; // where the sheet lies on the page, and the page's scroll when it opened
+  function close(reason) {
     if (closed) return;
     closed = true;
     open.delete(close);
@@ -92,10 +109,14 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     document.removeEventListener("kickoff:route", onRoute);
     if (inline) layer.remove();
     else retireLayer(layer, "sheet-layer");
+    if (release) release(typeof reason === "string" ? reason : "self");
+    release = null;
     if (typeof onClose === "function") onClose();
-    if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus();
+    // the page as the reader left it (a route change takes the reader somewhere else, so it keeps its own scroll)
+    if (anchor && reason !== "route" && typeof window !== "undefined" && typeof window.scrollTo === "function") window.scrollTo(0, anchor.scrollY);
+    if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus({ preventScroll: true });
   }
-  const aside = el("aside", { class: `side-sheet${className ? ` ${className}` : ""}` }, el("div", { class: "side-sheet__head" }, titleEl, toolsEl, closeButton), bodyEl);
+  const aside = el("aside", { class: `side-sheet${className ? ` ${className}` : ""}` }, el("div", { class: "side-sheet__head" }, closeButton, titleEl, toolsEl), bodyEl);
   layer.append(el("div", { class: "sheet-layer__scrim", onclick: () => close() }), aside);
   if (!inline) swipeToClose(aside, () => close()); // Phase 16 wave 3 (2B): a swipe right closes it
   const update = (next) => {
@@ -110,6 +131,8 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     const fresh = typeof next === "function" ? next() : next;
     replaceWith(bodyEl, fresh);
     bodyEl.scrollTop = 0;
+    // a different panel starts from its top: the page back to where the sheet starts, when the reader had scrolled past it
+    if (anchor && typeof window !== "undefined" && typeof window.scrollTo === "function" && isFinite(window.scrollY) && window.scrollY > anchor.scrollY) window.scrollTo(0, anchor.scrollY);
   };
   const setTitle = (next) => {
     if (closed) return;
@@ -121,13 +144,18 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     if (closed) return;
     replaceWith(toolsEl, node || null);
   };
+  if (!inline) {
+    anchor = sheetAnchor(placeLayers()); // under the top bar from 700 px up, on the page where the reader is (item 8)
+    aside.style.setProperty("--sheet-top", `${anchor.top}px`);
+  }
   mount.append(layer);
   if (!inline) {
     open.add(close);
     document.addEventListener("keydown", onKey);
     document.addEventListener("kickoff:route", onRoute);
+    release = holdLayer((why) => close(why), { history: !persist }); // a sheet that outlives page changes takes no entry
     syncPageLock();
-    closeButton.focus();
+    closeButton.focus({ preventScroll: true });
   }
   return { close, layer, update, setTitle, setBody, setTools };
 }

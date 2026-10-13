@@ -15,6 +15,10 @@ the final nothing runs: CFBD's post-game numbers arrive on their own (app/cfbd/p
 app/maintenance.py. The times are the publishers' habits, not promises; the ledger shows when each run found something new,
 so they can be tuned after a few weeks.
 
+The Prompts phase (owner 2026-10-13): the schedule is on whenever Claude Code's command is found (Settings can still turn
+it off), and its first tick each day runs "everything that is missing" (app/services/prompt_runs.py, the same run as
+`python -m app prompts`), so an install with Claude Code starts loading by itself; a slot never starts while that run is busy.
+
 A slot is run once. A failed run is tried once more twenty minutes later, then left until the next slot. Three failures in
 a row pause every scheduled run for six hours. A slot is skipped when the data is already newer than the slot (the owner
 pasted it), and a slot whose window has passed is not run late. The runs go through the same locked-down runners as the
@@ -49,6 +53,8 @@ RETRY_AFTER = timedelta(minutes=20)
 MAX_ATTEMPTS = 2
 BREAKER_FAILURES = 3
 BREAKER_PAUSE = timedelta(hours=6)
+CATCH_UP_KEY = "catch-up"
+CATCH_UP_EVERY = timedelta(hours=20)  # once a day, whatever hour the server started
 LEDGER_KEEP = 200
 TICK_SECONDS = 120
 
@@ -173,8 +179,12 @@ class ClaudeSchedule:
         start: Callable[[Slot, dict[str, Any] | None], Awaitable[dict[str, Any]]],
         poll: Callable[[Slot], dict[str, Any]],
         clock: Callable[[], datetime] | None = None,
+        catch_up: Callable[[], Awaitable[dict[str, Any]]] | None = None,
+        busy: Callable[[], bool] | None = None,
     ) -> None:
         self.ledger = ledger
+        self.catch_up = catch_up  # the one run of everything missing (the Prompts phase); None in the tests that have none
+        self.busy = busy or (lambda: False)
         self.enabled = enabled
         self.command_found = command_found
         self.current_game = current_game
@@ -224,6 +234,17 @@ class ClaudeSchedule:
             if now < self.paused_until:
                 return "paused"
             self.paused_until = None
+        if self.busy():
+            return "busy"  # the one run (the page's button, the command line or the catch-up) has the runners
+        if self.catch_up is not None:
+            last = self.ledger.last_attempt(CATCH_UP_KEY)
+            if last is None or now - last >= CATCH_UP_EVERY:
+                status = await self.catch_up()
+                started = bool(status.get("running")) if isinstance(status, dict) else False
+                self.ledger.add({"key": CATCH_UP_KEY, "kind": CATCH_UP_KEY, "ok": started, "error": None if started else str((status or {}).get("error") or "did not start") if isinstance(status, dict) else "did not start", "startedAt": _iso(now), "finishedAt": _iso(now)})
+                if started:
+                    log.info("Claude catch-up started: everything that is missing.")
+                    return "catch-up started"
         game = await self.current_game()
         slot = self.due(game, now)
         if slot is None:

@@ -6,6 +6,9 @@
                                      ages), offseason moves, the outlook, injuries and suspensions, program facts
   data/season/<year>/costs.json      Part 3b: rumored roster costs (NIL and revenue sharing), a total for every team
                                      and, for the primary teams, position groups and players; one conference a batch
+  data/season/<year>/facts.json      Prompts phase (owner 2026-10-13): each school's history and facts (founded, the
+                                     stadium, titles, Heismans, rivalries and trophies, the fight song, alumni in the
+                                     NFL) and its dated events, for every FBS team, one conference a batch
 
 Both files are written by the app from a checked answer (pasted, or Claude Code's), never by hand-off: a new batch
 replaces only the teams it holds. Reading is lenient: a damaged file is reported and treated as empty, one bad
@@ -70,6 +73,114 @@ class CoachesBatch(NotesModel):
     season: int | None = None
     author: str | None = None
     teams: Annotated[list[TeamCoaches], DropBad] = []
+    sources: Annotated[list[NoteSource], DropBad] = []
+
+
+class Rivalry(NotesModel):
+    rival: str
+    trophy: str | None = None
+    firstMeeting: int | None = None
+    record: str | None = None  # from this school's side, "68-44-2"
+
+
+class DatedEvent(NotesModel):
+    """Something that happened on a day: the stadium's first game, a title, the rivalry's first meeting. The date is
+    YYYY-MM-DD; a year alone (YYYY) is kept for the history and never makes an anniversary."""
+
+    date: str
+    event: str
+
+    @field_validator("date")
+    @classmethod
+    def _date(cls, value: str) -> str:
+        text = str(value).strip()
+        if not re.fullmatch(r"\d{4}(-\d{2}-\d{2})?", text):
+            raise ValueError("a date is YYYY-MM-DD or a year")
+        return text
+
+
+def _year_or_none(value: Any) -> int | None:
+    """A year, from an int or a string with one in it ("1906", "1906 (as an agricultural college)"); junk is None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if 1800 <= value <= 2100 else None
+    if isinstance(value, float) and value.is_integer():
+        return _year_or_none(int(value))
+    if isinstance(value, str):
+        found = re.search(r"\b(1[89]\d{2}|20\d{2})\b", value)
+        return int(found.group(1)) if found else None
+    return None
+
+
+def _count_or_none(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if 0 <= value <= 1_000_000 else None
+    if isinstance(value, float) and value.is_integer():
+        return _count_or_none(int(value))
+    if isinstance(value, str):
+        digits = re.sub(r"[^\d]", "", value)
+        return _count_or_none(int(digits)) if digits else None
+    return None
+
+
+class TeamFacts(NotesModel):
+    """One school's history and facts. Every field but the school is optional and forgiving: a year written as text
+    still counts, a capacity with commas still counts, anything else becomes None and the row stays."""
+
+    school: str
+    founded: int | None = None
+    stadium: str | None = None
+    stadiumOpened: int | None = None
+    capacity: int | None = None
+    conferenceSince: int | None = None
+    allTimeRecord: str | None = None
+    nationalTitles: Annotated[list[int], DropBad] = []
+    conferenceTitles: int | None = None
+    heismans: Annotated[list[str], DropBad] = []
+    bowlRecord: str | None = None
+    rivalries: Annotated[list[Rivalry], DropBad] = []
+    headCoachRecord: str | None = None
+    mascotOrigin: str | None = None
+    colorsOrigin: str | None = None
+    fightSong: str | None = None
+    nflAlumni: Annotated[list[str], DropBad] = []
+    dates: Annotated[list[DatedEvent], DropBad] = []
+    sources: Annotated[list[NoteSource], DropBad] = []
+
+    @field_validator("founded", "stadiumOpened", "conferenceSince", mode="before")
+    @classmethod
+    def _years(cls, value: Any) -> int | None:
+        return _year_or_none(value)
+
+    @field_validator("capacity", "conferenceTitles", mode="before")
+    @classmethod
+    def _counts(cls, value: Any) -> int | None:
+        return _count_or_none(value)
+
+    @field_validator("nationalTitles", mode="before")
+    @classmethod
+    def _titles(cls, value: Any) -> Any:
+        return [y for y in (_year_or_none(v) for v in value) if y is not None] if isinstance(value, list) else []
+
+    @field_validator("heismans", "nflAlumni", mode="before")
+    @classmethod
+    def _names(cls, value: Any) -> Any:
+        return [str(v).strip() for v in value if isinstance(v, (str, int)) and not isinstance(v, bool) and str(v).strip()] if isinstance(value, list) else []
+
+    @field_validator("rivalries", "dates", "sources", mode="before")
+    @classmethod
+    def _lists(cls, value: Any) -> Any:
+        return value if isinstance(value, list) else []  # a list written as one thing, or junk: nothing, and the row stays
+
+
+class FactsBatch(NotesModel):
+    conference: str | None = None
+    season: int | None = None
+    author: str | None = None
+    teams: Annotated[list[TeamFacts], DropBad] = []
     sources: Annotated[list[NoteSource], DropBad] = []
 
 
@@ -255,6 +366,53 @@ class SeasonNotes:
         log.info("Coaches saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
 
+    # --- school history and facts (the Prompts phase, owner 2026-10-13) -----------------------------------------
+
+    @property
+    def facts_path(self) -> Path:
+        return self.dir / "facts.json"
+
+    def facts(self) -> dict[str, Any]:
+        raw = self._read(self.facts_path)
+        teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
+        batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
+        return {"teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}, "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)}}
+
+    def facts_for(self, school: Any) -> dict[str, Any] | None:
+        """One school's saved facts (a plain dict, every key present with None or [] where the answer had nothing)."""
+        if not isinstance(school, str):
+            return None
+        row = self.facts().get("teams", {}).get(school)
+        if not row:
+            return None
+        try:
+            facts = TeamFacts.model_validate({**row, "school": school})
+        except ValidationError:
+            log.warning("The saved facts for %s could not be read; shown as not loaded.", school)
+            return None
+        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt")}
+
+    def save_facts(self, batch: FactsBatch, conference: str, schools: list[str]) -> dict[str, Any]:
+        """Keep the teams of this conference the answer names (spelled as CFBD spells them); returns what was kept."""
+        by_lower = {s.lower(): s for s in schools}
+        data = self.facts()
+        kept: list[str] = []
+        unknown: list[str] = []
+        when = _now()
+        for row in batch.teams:
+            school = by_lower.get(row.school.strip().lower())
+            if school is None:
+                unknown.append(row.school)
+                continue
+            dump = row.model_dump(exclude_none=True)
+            dump.pop("school", None)
+            data["teams"][school] = {**dump, "conference": conference, "savedAt": when, "sources": [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)][:8]}
+            kept.append(school)
+        data["batches"][conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
+        atomic_write(self.facts_path, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        log.info("School facts saved for %s: %d of %d teams", conference, len(kept), len(schools))
+        return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
+
     # --- roster costs (Part 3b) ---------------------------------------------------------------------------
 
     @property
@@ -394,10 +552,17 @@ class SeasonNotes:
         for conference, schools in sorted(conferences.items()):
             saved = costs["batches"].get(conference) or {}
             cost_batches.append({"conference": conference, "schools": len(schools), "saved": sum(1 for s in schools if s in costs["teams"]), "savedAt": saved.get("savedAt")})
+        facts = self.facts()
+        fact_batches = []
+        for conference, schools in sorted(conferences.items()):
+            saved = facts["batches"].get(conference) or {}
+            fact_batches.append({"conference": conference, "schools": len(schools), "saved": sum(1 for s in schools if s in facts["teams"]), "savedAt": saved.get("savedAt")})
         missing = [r["school"] for r in rows if not r["savedAt"]]
         return {
             "costs": cost_batches,
             "costsSaved": sum(b["saved"] for b in cost_batches),
+            "facts": fact_batches,
+            "factsSaved": sum(b["saved"] for b in fact_batches),
             "season": self.season,
             "preseason": rows,
             "coaches": batches,

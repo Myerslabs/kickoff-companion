@@ -105,7 +105,7 @@ def test_invite_gives_an_ip_address_a_qr_and_warnings(client: TestClient, monkey
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "192.168.0.20")
     data = client.get("/api/invite").json()["data"]
     assert data["url"].startswith("http://192.168.0.20:") and data["qrPath"].startswith("/setup/qr.svg?url=http://192.168.0.20")
-    assert any("No host PIN" in w for w in data["warnings"]) and data["copyUrl"] is None, "no copy link while the repository is private"
+    assert any("No host PIN" in w for w in data["warnings"]) and data["copyUrl"], "the copy link, now that the repository is public (0.13.0)"
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "8.8.4.4")
     assert any("public network" in w for w in client.get("/api/invite").json()["data"]["warnings"])
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "192.168.137.1")

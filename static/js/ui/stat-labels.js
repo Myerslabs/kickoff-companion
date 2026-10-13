@@ -8,8 +8,13 @@
 // No., Inside 20, Touchbacks), so the stat hints still mark them. Unknown boards and categories fall back to
 // the old behaviour: the first four keys, under their CFBD names.
 //
-//   boardDetail(board, rows)            detail columns for a Leaders board: [{ key, label, format }]
-//   categoryColumns(category, keys)     the player card's columns for a stat category, in reading order
+//   boardDetail(board, rows)            detail columns for a Leaders board: [{ key, label, labelMid, labelShort, format, size }]
+//                                       (tables wave 3: size is the smallest table size that still shows the column, from
+//                                       BOARD_SIZES; a column with no size shows at every size)
+//   categoryColumns(category, keys, { log })  the player card's columns for a stat category, in reading order:
+//                                       [{ key, label, labelMid, labelShort, format, size }] (tables wave 3: size from
+//                                       CATEGORY_SIZES for the Stats tab's seasons, GAME_SIZES with { log: true } for the
+//                                       Game log)
 //   statLabel(key, category)            one plain label ("COMPLETIONS" -> "Cmp", PCT -> "Comp %" or "FG %")
 //   statFormat(key, category)           "pct", "1f" or "0f"
 //   categoryTitle(category)             "defensive" -> "Defense", "kickReturns" -> "Kick returns"
@@ -55,6 +60,12 @@ const LABELS = {
 
 const RATES = /^(YPA|YPC|YPR|AVG|YPP|QBR)$/i;
 
+// Tables wave 3 (owner 2026-10-10): the shorter words of a detail head that has them ("Inside 20" is "In 20" at small).
+const LABEL_FORMS = {
+  "IN 20": { labelShort: "In 20" },
+  TB: { labelMid: "TB", labelShort: "TB" },
+};
+
 // Leaders boards: the detail columns after the board's own stat, in reading order.
 const BOARD_ORDER = {
   "passing:YDS": ["COMPLETIONS", "ATT", "YPA", "TD", "INT"],
@@ -66,6 +77,38 @@ const BOARD_ORDER = {
   "kicking:FGM": ["FGA", "PCT", "LONG", "XPM", "PTS"],
   "punting:YPP": ["NO", "YDS", "In 20", "TB", "LONG"],
 };
+
+// Tables wave 3 (owner 2026-10-10): each Leaders board's detail columns by the smallest table size that still shows them
+// ("large" or "medium"; a column not listed shows at every size). A phone keeps the details that say the most (passing
+// TD and INT; a punter's punts), medium adds the next, large shows every one. The server's own detailColumns (play
+// value, usage, the adjusted boards) are sized here too, by their keys. Measured 2026-10-11 on a phone (390 px): every
+// sortable column takes at least 57 px at small, so a board holds four details at most beside the place, the name and
+// the value; passing's yards per attempt waits for medium.
+const BOARD_SIZES = {
+  "passing:YDS": { COMPLETIONS: "large", ATT: "medium", YPA: "medium" },
+  "rushing:YDS": { YPC: "medium", LONG: "large" },
+  "receiving:YDS": { YPR: "medium", LONG: "large" },
+  "defensive:TOT": { SOLO: "large", "QB HUR": "large", PD: "medium" },
+  "defensive:SACKS": { "QB HUR": "medium", TOT: "medium", SOLO: "large" },
+  "interceptions:INT": { AVG: "medium" },
+  "kicking:FGM": { LONG: "medium", XPM: "large", PTS: "medium" },
+  "punting:YPP": { YDS: "large", "IN 20": "medium", TB: "large", LONG: "medium" },
+  "ppa:all": { PASS: "medium", RUSH: "medium" },
+  "usage:overall": { THIRDDOWN: "medium" },
+};
+
+/** The size of one detail column on a board ("large", "medium" or null for every size). */
+function detailSize(board, key) {
+  const sizes = BOARD_SIZES[typeof board?.id === "string" ? board.id : ""];
+  const size = sizes ? sizes[upper(key)] : null;
+  return size === "large" || size === "medium" ? size : null;
+}
+
+/** A detail column with its sizes: the label's shorter words and the size that still shows it. */
+function sized(board, column) {
+  const forms = LABEL_FORMS[upper(column.key)] || {};
+  return { ...column, labelMid: forms.labelMid || null, labelShort: forms.labelShort || null, size: detailSize(board, column.key) };
+}
 
 // The player card: season lines (CFBD's season keys) and box-score lines (the game log's keys) together;
 // a table keeps only the keys it has, in this order, then any others it has.
@@ -81,6 +124,48 @@ const CATEGORY_ORDER = {
   puntReturns: ["NO", "YDS", "AVG", "TD", "LONG"],
   fumbles: ["FUM", "LOST", "REC"],
 };
+
+// Tables wave 3 (owner 2026-10-10): the player card's columns by the smallest table size that still shows them, per category
+// (a key not listed shows at every size). The Stats tab's seasons (CFBD's season keys): small keeps what says the season
+// (passing's attempts, completion rate, yards, yards per attempt, touchdowns and interceptions; a back's carries, yards,
+// average and touchdowns), medium adds the next (completions, the long, solo tackles, hurries, passes defended, the
+// kicker's tries), and large shows the rest (QBR, a defender's touchdowns, a punter's touchbacks).
+const CATEGORY_SIZES = {
+  passing: { COMPLETIONS: "medium", AVG: "medium", QBR: "large" },
+  rushing: { LONG: "medium" },
+  receiving: { LONG: "medium" },
+  defensive: { SOLO: "medium", "QB HUR": "medium", PD: "medium", TD: "large" },
+  interceptions: { AVG: "medium" },
+  kicking: { PCT: "medium", LONG: "medium", XPM: "medium", XPA: "medium" },
+  punting: { YDS: "medium", LONG: "medium", TB: "large" },
+  kickReturns: { LONG: "medium" },
+  puntReturns: { LONG: "medium" },
+};
+
+// The Game log (the box score's keys) carries three columns of its own before the stats (Wk, Opp, Result), so it holds fewer
+// stats. Measured 2026-10-11 in headless Edge: a sortable column takes at least 57 px at small (its 44 px press target), so a
+// phone's card (389 px) holds Wk, Opp ("at DT") and four stats, the Result waiting for medium (views/player.js); the 600 px
+// card holds the Result and the same four at medium (about 570 px with whole school names and the hints), and large adds the
+// rest (passing's yards per attempt and QBR, a back's long, a defender's solo tackles, hurries, passes defended and
+// touchdowns, a punter's yards, touchbacks and long). A defender's medium is the Result and three: on a Windows screen the
+// card's scroll bar leaves its tables 584 px, and a fourth stat with a long school name needs about 590.
+const GAME_SIZES = {
+  passing: { AVG: "large", QBR: "large" },
+  rushing: { LONG: "large" },
+  receiving: { LONG: "large" },
+  defensive: { SOLO: "large", "QB HUR": "large", PD: "large", TD: "large" },
+  kicking: { PCT: "medium", LONG: "large" },
+  punting: { YDS: "large", TB: "large", LONG: "large" },
+  kickReturns: { LONG: "large" },
+  puntReturns: { LONG: "large" },
+};
+
+/** The size of one of the card's columns ("large", "medium" or null for every size). */
+function categorySize(category, key, log = false) {
+  const sizes = (log ? GAME_SIZES : CATEGORY_SIZES)[typeof category === "string" ? category : ""];
+  const size = sizes ? sizes[upper(key)] : null;
+  return size === "large" || size === "medium" ? size : null;
+}
 
 const TITLES = {
   passing: "Passing",
@@ -149,10 +234,15 @@ function ordered(keys, order) {
   return out;
 }
 
-/** The player card's columns for one category: [{ key, label, format }] in reading order. */
-export function categoryColumns(category, keys) {
+/** The player card's columns for one category, in reading order: [{ key, label, labelMid, labelShort, format, size }]
+ *  (the label's shorter words and the smallest table size that still shows the column, tables wave 3; { log: true } sizes
+ *  them for the Game log). */
+export function categoryColumns(category, keys, { log = false } = {}) {
   const order = CATEGORY_ORDER[typeof category === "string" ? category : ""] || [];
-  return ordered(keys, order).map((key) => ({ key, label: statLabel(key, category), format: statFormat(key, category) }));
+  return ordered(keys, order).map((key) => {
+    const forms = LABEL_FORMS[upper(key)] || {};
+    return { key, label: statLabel(key, category), labelMid: forms.labelMid || null, labelShort: forms.labelShort || null, format: statFormat(key, category), size: categorySize(category, key, log === true) };
+  });
 }
 
 /**
@@ -163,7 +253,7 @@ export function categoryColumns(category, keys) {
 export function boardDetail(board, rows) {
   if (!board || typeof board !== "object") return [];
   if (Array.isArray(board.detailColumns)) {
-    return board.detailColumns.filter((c) => c && typeof c === "object" && typeof c.key === "string").map((c) => ({ key: c.key, label: typeof c.label === "string" && c.label ? c.label : statLabel(c.key, board.category), format: typeof c.format === "string" ? c.format : "0f" }));
+    return board.detailColumns.filter((c) => c && typeof c === "object" && typeof c.key === "string").map((c) => sized(board, { key: c.key, label: typeof c.label === "string" && c.label ? c.label : statLabel(c.key, board.category), format: typeof c.format === "string" ? c.format : "0f" }));
   }
   const seen = [];
   for (const row of Array.isArray(rows) ? rows : []) {
@@ -171,11 +261,11 @@ export function boardDetail(board, rows) {
     for (const k of Object.keys(detail)) if (!seen.includes(k)) seen.push(k);
   }
   const order = BOARD_ORDER[typeof board.id === "string" ? board.id : ""];
-  if (!order) return seen.slice(0, 4).map((key) => ({ key, label: upper(key) === "PCT" ? statLabel(key, board.category) : key, format: statFormat(key, board.category) }));
+  if (!order) return seen.slice(0, 4).map((key) => sized(board, { key, label: upper(key) === "PCT" ? statLabel(key, board.category) : key, format: statFormat(key, board.category) }));
   const have = new Map(seen.map((k) => [upper(k), k]));
   return order.filter((k) => have.has(upper(k))).map((k) => {
     const key = have.get(upper(k));
-    return { key, label: statLabel(key, board.category), format: statFormat(key, board.category) };
+    return sized(board, { key, label: statLabel(key, board.category), format: statFormat(key, board.category) });
   });
 }
 

@@ -80,6 +80,9 @@ def test_bowl_labels_and_rounds():
     bowl = next(g for g in by_id.values() if g.notes and g.playoff is None)
     assert gamekeys.playoff_round(bowl) is None and gamekeys.label(bowl) == bowl.notes
     assert gamekeys.label(games("games_team_2025_default")[0]) is None
+    # tables wave 3: the player card's week column names a postseason game in a word or two
+    assert gamekeys.short_label(title) == "National Championship" and gamekeys.short_label(bowl) == "Bowl"
+    assert gamekeys.short_label(games("games_team_2025_default")[0]) is None
 
 
 def test_a_malformed_playoff_block_never_drops_the_game():
@@ -109,6 +112,11 @@ def test_playoff_block_bracket_and_committee():
     block = playoff_block(weeks, games("games_post_2025"), POST_TEAM, {})
     assert block["week"] == 16  # the committee's selection-day ranking; the final poll has none
     assert block["rankings"][0]["rank"] == 1 and len(block["rankings"]) == 25
+    # tables wave 3: the conference column's medium form, the short name
+    from app.services.identity import conference_short
+
+    assert all(r["conferenceShort"] == conference_short(r["conference"]) for r in block["rankings"])
+    assert any(r["conferenceShort"] and r["conferenceShort"] != r["conference"] for r in block["rankings"])
     assert [r["round"] for r in block["rounds"]] == ["First Round", "Quarterfinal", "Semifinal", "National Championship"]
     assert [len(r["games"]) for r in block["rounds"]] == [4, 4, 2, 1]
     assert [g["slot"] for g in block["rounds"][0]["games"]] == ["FR1", "FR2", "FR3", "FR4"]
@@ -311,6 +319,29 @@ def test_road_ahead_lists_each_remaining_opponent_with_form():
     assert all(len(r["lastThree"]) <= 3 for r in rows)
 
 
+def test_road_ahead_form_reads_each_game_from_the_opponents_side():
+    """Tables wave 3: each of the last three carries its score, site and opponent, so the road ahead draws the standings' W
+    and L squares (each square's title the score, at or vs, and the opponent)."""
+    from app.cfbd.models import Game
+    from app.services.offday import road_ahead
+
+    base = fixture_payload("games_post_2025")[0]
+    made = [
+        dict(base, id=1, homeTeam="Gravy Boat State", awayTeam="Front Porch State", homePoints=31, awayPoints=10, completed=True, neutralSite=False, seasonType="regular", week=1),
+        dict(base, id=2, homeTeam="Okra Valley", awayTeam="Gravy Boat State", homePoints=24, awayPoints=20, completed=True, neutralSite=False, seasonType="regular", week=2),
+        dict(base, id=3, homeTeam="Gravy Boat State", awayTeam="Bayou Tech", homePoints=17, awayPoints=17, completed=True, neutralSite=True, seasonType="regular", week=3),
+        dict(base, id=4, homeTeam="Swampwater Tech", awayTeam="Gravy Boat State", homePoints=None, awayPoints=None, completed=False, neutralSite=False, seasonType="regular", week=9),
+    ]
+    records = parse_records(Game, made, context="test").records
+    rows = road_ahead([records[3]], records, "Swampwater Tech", [], {})
+    assert [r["opponent"] for r in rows] == ["Gravy Boat State"] and rows[0]["record"] == "1-1"
+    assert rows[0]["lastThree"] == [
+        {"result": "W", "score": "31-10", "points": 31, "opponentPoints": 10, "opponent": "Front Porch State", "homeAway": "home"},
+        {"result": "L", "score": "20-24", "points": 20, "opponentPoints": 24, "opponent": "Okra Valley", "homeAway": "away"},
+        {"result": "T", "score": "17-17", "points": 17, "opponentPoints": 17, "opponent": "Bayou Tech", "homeAway": "neutral"},
+    ]
+
+
 def _result(row: dict, team: str) -> dict:
     ours, theirs = (row["homePoints"], row["awayPoints"]) if row["homeTeam"] == team else (row["awayPoints"], row["homePoints"])
     return {"result": "W" if ours > theirs else "L", "score": f"{ours}-{theirs}", "margin": ours - theirs}
@@ -332,7 +363,7 @@ def test_common_opponents_from_the_2025_postseason():
     assert _opponents(post, POST_TEAM) & _opponents(post, other) == {TITLE_OPP}
     us, them = _result(TITLE_ROW, POST_TEAM), _result(beaten, other)
     rows = common_opponents(games("games_post_2025"), POST_TEAM, other)
-    assert rows == [{"opponent": TITLE_OPP, "us": [us], "them": [them], "usMargin": us["margin"], "themMargin": them["margin"]}]
+    assert rows == [{"opponent": TITLE_OPP, "opponentAbbr": None, "us": [us], "them": [them], "usMargin": us["margin"], "themMargin": them["margin"]}]
 
 
 def test_common_opponents_margins():
@@ -345,8 +376,14 @@ def test_common_opponents_margins():
         dict(base, id=3, homeTeam="Swampwater Tech", awayTeam="Front Porch State", homePoints=None, awayPoints=None, completed=False, seasonType="regular", week=9),
     ]
     rows = common_opponents(parse_records(Game, made, context="test").records, "Swampwater Tech", "Front Porch State")
-    assert rows == [{"opponent": "Gravy Boat State", "us": [{"result": "W", "score": "31-10", "margin": 21}], "them": [{"result": "W", "score": "24-20", "margin": 4}], "usMargin": 21, "themMargin": 4}]
+    assert rows == [{"opponent": "Gravy Boat State", "opponentAbbr": None, "us": [{"result": "W", "score": "31-10", "margin": 21}], "them": [{"result": "W", "score": "24-20", "margin": 4}], "usMargin": 21, "themMargin": 4}]
     assert common_opponents([], "Swampwater Tech", None) == []
+    # tables wave 2: the opponent's abbreviation for the small table, from the /teams/fbs map the program already has
+    records = parse_records(Game, made, context="test").records
+    named = common_opponents(records, "Swampwater Tech", "Front Porch State", {"Gravy Boat State": " GBS ", "Swampwater Tech": "SWT"})
+    assert named[0]["opponentAbbr"] == "GBS"
+    for junk in (None, {}, {"Gravy Boat State": ""}, {"Gravy Boat State": 7}, "x"):
+        assert common_opponents(records, "Swampwater Tech", "Front Porch State", junk)[0]["opponentAbbr"] is None  # an FCS school, a blank or a damaged map: the name stays
 
 
 def test_last_season_rows_compare_values_by_direction():

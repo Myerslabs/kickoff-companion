@@ -13,6 +13,7 @@ from typing import Any
 
 from app.cfbd.models import Game, PollWeek
 from app.services import gamekeys
+from app.services.identity import conference_short
 
 COMMITTEE = "Playoff Committee Rankings"
 ROUND_ORDER = {"first_round": 0, "quarterfinal": 1, "semifinal": 2, "championship": 3}
@@ -59,6 +60,7 @@ def playoff_block(weeks: list[PollWeek], games: list[Game], team: str, teams: di
             "rank": r.rank,
             "school": r.school,
             "conference": r.conference or teams.get(r.school, {}).get("conference"),
+            "conferenceShort": conference_short(r.conference or teams.get(r.school, {}).get("conference")),  # tables wave 3: the column's medium form
             "abbreviation": teams.get(r.school, {}).get("abbreviation"),
             "logo": teams.get(r.school, {}).get("logo"),
             "logoDark": teams.get(r.school, {}).get("logoDark"),

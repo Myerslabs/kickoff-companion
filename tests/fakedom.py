@@ -62,6 +62,15 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 // Phase 3). A scenario that renders "us" labels calls it first; without it the labels are plain words.
 const TEAM = { school: "Swampwater Tech", mascot: "Mudpuppies", abbreviation: "SWT", conference: "Biscuit Belt", conferenceShort: "Biscuit Belt", color: "#1d6b5f", altColor: "#e0b23c" };
 const useTeam = async (data = TEAM) => (await import(moduleUrl("identity.js"))).setIdentity(data);
+// Item 6 (player names): the words a drawn name (ui/dom.js personName, a .pn) shows at one form, "full", "initial", "last" or
+// "reduced" (no-break spaces read as spaces); a node holding no name gives its text. The node may be the .pn or hold one.
+const pnText = (node, form = "full") => {
+  if (!node) return "";
+  const pn = typeof node.matches === "function" && node.matches(".pn") ? node : node.querySelector(".pn");
+  if (!pn) return node.textContent.replace(/\u00A0/g, " ");
+  const span = pn.querySelector(`.pn__f--${form}`);
+  return (span ? span.textContent : pn.textContent).replace(/\u00A0/g, " ");
+};
 
 // --- the virtual clock ------------------------------------------------------------------------------
 
@@ -222,7 +231,7 @@ class FakeElement extends FakeNode {
     this.tagName = this.localName.toUpperCase();
     this.attributes = new Map();
     this.dataset = {};
-    this.style = { setProperty(key, value) { this[key] = String(value); } };
+    this.style = { setProperty(key, value) { this[key] = String(value); }, removeProperty(key) { delete this[key]; } };
     this.listeners = new Map();
     this.scrollTop = 0;
     this.scrollLeft = 0;

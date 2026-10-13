@@ -8,7 +8,7 @@ import { applyAnnouncer } from "./ui/announcer.js";
 import { recall, remember } from "./ui/dom.js";
 import { fetchJson } from "./views/common.js";
 
-const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, announcer: true, backups: true, scheduledRuns: false, keepScreenOn: "gameday", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
+const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, announcer: true, backups: true, scheduledRuns: null, keepScreenOn: "gameday", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
 const SETTINGS_TIMEOUT_MS = 5000;
 const state = { loaded: false, loading: null, prefs: { ...DEFAULTS }, meta: null, error: null };
 const listeners = new Set();

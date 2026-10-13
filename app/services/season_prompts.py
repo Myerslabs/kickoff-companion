@@ -3,7 +3,8 @@ per conference. Like the game notes (app/services/notes_paste.py) the app writes
 search answers, and the answer is pasted back or comes from Claude Code; both read through answers.read_json and
 save through SeasonNotes. Each template is editable in Settings and kept in data/season/PROMPT-<kind>.md.
 
-    TEMPLATES[kind](data_dir)                       the Template for "preseason" or "coaches"
+    TEMPLATES[kind](data_dir)                       the Template for "preseason", "coaches", "costs" or "facts"
+    facts_prompt(data_dir, conference, schools, season) / read_facts(text, conference, schools)   the Prompts phase (2026-10-13)
     preseason_prompt(data_dir, school, values)      the filled prompt for one primary team
     coaches_prompt(data_dir, conference, schools, season)
     read_preseason(text, school) / read_coaches(text, conference, schools)  -> Reading
@@ -17,10 +18,10 @@ from pathlib import Path
 from typing import Any
 
 from app.services.answers import Template, keys_score, read_json
-from app.services.season_notes import CoachesBatch, CostsBatch, PreseasonFile, PreseasonTeam, SeasonAll
+from app.services.season_notes import CoachesBatch, CostsBatch, FactsBatch, PreseasonFile, PreseasonTeam, SeasonAll
 
 MAX_ANSWER = 400_000
-KINDS = ("season", "preseason", "coaches", "costs")
+KINDS = ("season", "preseason", "coaches", "costs", "facts")
 
 PRESEASON_PROMPT = """You are loading the preseason notes for a college football second-screen app, season {season}, for one team: {school} ({team_name}, {conference}).
 
@@ -96,6 +97,91 @@ For these schools only, also fill "positions" (rumored spending by position grou
 
 Write each school's name exactly as listed. Set "conference" to "{conference}", "season" to {season}, "author" to the name of the assistant writing it, and give every page you used in "sources" with its real URL. Valid JSON only: no comments, no trailing commas.
 """
+
+
+FACTS_PROMPT = """You are loading school history and team facts for a college football second-screen app, season {season}, for the {conference}.
+
+Search the web (each school's athletics site, its media guide, Wikipedia) and answer with ONE JSON object in a single ```json code block, nothing else, in exactly this shape:
+
+{shape}
+
+For each of these schools, one entry with what you can find; every field is optional, but keep these keys and types:
+{schools}
+
+1. "founded": the year the university was founded; "stadium", "stadiumOpened" (year) and "capacity" (a whole number).
+2. "conferenceSince": the year it joined its current conference; "allTimeRecord" as wins-losses-ties.
+3. "nationalTitles": the years of its claimed national championships; "conferenceTitles": how many conference championships.
+4. "heismans": each Heisman Trophy winner as "Name, year".
+5. "bowlRecord" as wins-losses-ties.
+6. "rivalries": each main rivalry with the trophy's name where there is one, the year of the first meeting, and the series record from this school's side.
+7. "headCoachRecord": the current head coach's record at this school, as wins-losses.
+8. "mascotOrigin" and "colorsOrigin": one sentence each on where the mascot and the colors come from; "fightSong": its title.
+9. "nflAlumni": up to eight notable alumni on NFL rosters now.
+10. "dates": up to twelve dated events worth marking on their anniversary, each with a "date" as YYYY-MM-DD and a one-line "event": the stadium's first game, the first game ever played, each national title game, the first meeting with the main rival, the founding. Give a full date only when a source states it; leave the event out otherwise.
+
+Write each school's name exactly as listed. Never invent a date, a record or a number; leave a field out rather than guess. Set "conference" to "{conference}", "season" to {season}, "author" to the name of the assistant writing it, and give every page you used in "sources" with its real URL. Valid JSON only: no comments, no trailing commas.
+"""
+
+
+def facts_shape(conference: str, school: str) -> str:
+    example = {
+        "conference": conference,
+        "season": 2026,
+        "author": "Assistant name",
+        "teams": [{
+            "school": school,
+            "founded": 1853,
+            "stadium": "Stadium Name",
+            "stadiumOpened": 1930,
+            "capacity": 88548,
+            "conferenceSince": 1932,
+            "allTimeRecord": "750-440-40",
+            "nationalTitles": [1996, 2006, 2008],
+            "conferenceTitles": 8,
+            "heismans": ["Player Name, 1966", "Player Name, 1996"],
+            "bowlRecord": "24-23",
+            "rivalries": [{"rival": "Rival School", "trophy": "Trophy name", "firstMeeting": 1915, "record": "68-44-2"}],
+            "headCoachRecord": "30-20",
+            "mascotOrigin": "One sentence.",
+            "colorsOrigin": "One sentence.",
+            "fightSong": "Song title",
+            "nflAlumni": ["Player Name", "Player Name"],
+            "dates": [{"date": "1930-11-08", "event": "The stadium's first game"}, {"date": "1997-01-02", "event": "First national title, won in the bowl game"}],
+            "sources": [{"label": "Media guide", "url": "https://..."}],
+        }],
+        "sources": [{"label": "A page covering the conference", "url": "https://..."}],
+    }
+    return json.dumps(example, indent=2)
+
+
+def facts_prompt(data_dir: Path, *, conference: str, schools: list[str], season: int) -> str:
+    listing = "\n".join(f"- {s}" for s in schools)
+    return template("facts", data_dir).fill({"season": season, "conference": conference, "schools": listing, "shape": facts_shape(conference, schools[0] if schools else "School")})
+
+
+def read_facts(text: Any, conference: str, schools: list[str]) -> Reading:
+    """A school-facts batch: strangers left out, a missing school noted, an empty answer refused."""
+    parsed = read_json(text, FactsBatch, keys_score(("teams", "conference")), max_chars=MAX_ANSWER, what="a school-facts batch", keys_text="teams or conference")
+    if parsed.value is None:
+        return Reading(None, error=parsed.error)
+    batch: FactsBatch = parsed.value
+    warnings = list(parsed.warnings)
+    if not batch.teams:
+        return Reading(None, warnings=warnings, error="The answer lists no teams.")
+    wanted = {s.lower() for s in schools}
+    named = [t.school for t in batch.teams]
+    unknown = [n for n in named if n.strip().lower() not in wanted]
+    missing = [s for s in schools if s.lower() not in {n.strip().lower() for n in named}]
+    if unknown:
+        warnings.append(f"Not in the {conference}, so left out: {', '.join(unknown[:6])}{'…' if len(unknown) > 6 else ''}.")
+    if missing:
+        warnings.append(f"No facts for {', '.join(missing[:6])}{'…' if len(missing) > 6 else ''}.")
+    if len(unknown) == len(named):
+        return Reading(None, warnings=warnings, error=f"None of the teams in the answer is in the {conference}.")
+    dated = sum(len(t.dates) for t in batch.teams)
+    if not batch.sources and not any(t.sources for t in batch.teams):
+        warnings.append("No sources are listed. Ask the chat for the pages it used.")
+    return Reading(batch, {"conference": conference, "teams": len(named) - len(unknown), "of": len(schools), "dates": dated}, warnings)
 
 
 def costs_shape(conference: str, school: str) -> str:
@@ -194,6 +280,8 @@ def template(kind: str, data_dir: Path) -> Template:
         return Template(folder / "PROMPT-coaches.md", COACHES_PROMPT, ("season", "conference", "schools", "shape"), required="schools")
     if kind == "costs":
         return Template(folder / "PROMPT-costs.md", COSTS_PROMPT, ("season", "conference", "schools", "detailed", "shape"), required="schools")
+    if kind == "facts":
+        return Template(folder / "PROMPT-facts.md", FACTS_PROMPT, ("season", "conference", "schools", "shape"), required="schools")
     raise ValueError(f"no season prompt {kind!r}")
 
 

@@ -148,13 +148,13 @@ function items(rows, { title = "title", detail = "detail" } = {}) {
 function moves(rows) {
   const good = list(rows).filter((r) => str(r.name));
   if (!good.length) return null;
-  return el("ul", { class: "preseason__items" }, good.map((r) => el("li", {}, el("b", {}, r.name), str(r.position) ? ` (${r.position})` : null, str(r.kind) ? `: ${r.kind}` : null, str(r.detail) ? `, ${r.detail}` : null)));
+  return el("ul", { class: "preseason__items" }, good.map((r) => el("li", {}, el("b", { class: "pn" }, r.name), str(r.position) ? ` (${r.position})` : null, str(r.kind) ? `: ${r.kind}` : null, str(r.detail) ? `, ${r.detail}` : null))); // item 6: a name on one line
 }
 
 function injuries(rows) {
   const good = list(rows).filter((r) => str(r.name));
   if (!good.length) return null;
-  return el("ul", { class: "preseason__items" }, good.map((r) => el("li", {}, el("b", {}, r.name), str(r.position) ? ` (${r.position})` : null, `: ${str(r.status) || "Status not reported"}`, str(r.detail) ? `, ${r.detail}` : null, str(r.expectedReturn) ? `. Back: ${r.expectedReturn}` : null)));
+  return el("ul", { class: "preseason__items" }, good.map((r) => el("li", {}, el("b", { class: "pn" }, r.name), str(r.position) ? ` (${r.position})` : null, `: ${str(r.status) || "Status not reported"}`, str(r.detail) ? `, ${r.detail}` : null, str(r.expectedReturn) ? `. Back: ${r.expectedReturn}` : null)));
 }
 
 function block(title, node) {
@@ -175,7 +175,7 @@ function teamBand(team) {
     collapsible: true,
     foldable: true,
     summary: p ? `loaded ${fmtDate(t.savedAt, "short")}` : "not loaded",
-    state: p ? { status: "ready" } : { status: "empty", message: "Not loaded yet. Copy the prompt in Season loads above, or run it with Claude Code." },
+    state: p ? { status: "ready" } : { status: "empty", message: "Not loaded yet. Copy the prompt in Season loads above, or run it with Claude Code.", action: { label: "Open the prompts", href: "#prompts" } },
     body: () =>
       el(
         "div",
@@ -232,15 +232,15 @@ export function createPreseasonView({ onStatus } = {}) {
       const page = el(
           "div",
           { class: "page preseason" },
-          el("h1", { class: "page-title flow-full" }, `${text(data.season)} preseason`),
+          el("h1", { class: "page-title flow-full" }, `${text(data.season)} Preseason Magazine`),
           ui.loads,
-          teams.length ? teams.map(teamBand) : note("No primary teams yet. Pick them on the setup page."),
+          teams.length ? teams.map(teamBand) : note("No primary teams yet. Pick them with Change my teams on the My Teams page."),
       );
       mountFlow(ui, container, page); // final pass: the flowing page with its section chips
       fillWiki(container); // Phase 19: the staff's names open their Wikipedia pages
     },
-    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Preseason", message, retry)),
-    renderLoading: () => el("div", { class: "page" }, band({ title: "Preseason", collapsible: false, state: { status: "loading" } })),
+    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Preseason Magazine", message, retry)),
+    renderLoading: () => el("div", { class: "page" }, band({ title: "Preseason Magazine", collapsible: false, state: { status: "loading" } })),
     loadingDetail: "The season loads and each primary team's preseason notes",
   });
   const mount = view.mount;

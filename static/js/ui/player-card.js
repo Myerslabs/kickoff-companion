@@ -17,9 +17,16 @@
 //           rating is never read as a second stat grade beside the Grade tab.
 //   GX-13   (restrained) a 96x28 sparkline beside each Stats heading that has a trend, latest value labelled;
 //           a 96 px headshot on navy with no color band.
+//
+// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every table on the card sizes itself by its own box,
+// about 600 px from a 700 px screen and the phone's width below it: the Stats tab's seasons (a Career row from two seasons
+// up, decision 3: the server loads the earlier seasons), the short stat list of a player with no full card, the game log
+// (the table shape only; the old one-line shape is retired) and the History, whose seasons sort (newest first) with the
+// team's abbreviation and "#" at small.
 
 import { icon } from "./icons.js";
-import { DASH, el, fmtDate, fmtNum, fmtStat, isNum, layerZ, playerFace, rating100, ratingTier, retireLayer, starCount, swipeToClose, syncPageLock, teamLink, text } from "./dom.js";
+import { DASH, el, fmtDate, fmtNum, fmtStat, isNum, layerZ, personName, playerFace, rating100, ratingTier, retireLayer, sheetAnchor, starCount, swipeToClose, syncPageLock, teamLink, text, watchNames } from "./dom.js";
+import { holdLayer, placeLayers } from "./layers.js";
 import { nationalHref } from "./national-link.js";
 import { sparkline } from "./sparkline.js";
 import { subhead } from "./states.js";
@@ -96,27 +103,40 @@ function trendBlock(trend, them) {
   );
 }
 
-/**
- * Season table: columns come from the caller because they differ by position. Adds a career row
- * that sums the numeric columns marked `sum: true` and leaves the others as a dash.
- */
-function oneSeasonsTable({ title, columns = [], rows = [], trend } = {}, them) {
-  if (!Array.isArray(columns) || !Array.isArray(rows) || !columns.length || !rows.length) return null;
+/** The Career row: sums of the columns marked `sum: true`, the best of those marked `max`, rates recomputed from the summed
+ *  columns they name (`avg: { num, den }`), a dash for the rest. Exported for the tests. */
+export function careerRow(columns, rows) {
   const career = { year: "Career", isTotal: true };
-  for (const col of columns) {
-    if (col.key === "year") continue;
+  const own = columns.filter((col) => col.key !== "year");
+  for (const col of own) {
     if (col.kind === "text") career[col.key] = null;
     else if (col.sum) career[col.key] = rows.reduce((acc, row) => (isNum(row[col.key]) ? acc + row[col.key] : acc), 0);
     else if (col.max) career[col.key] = rows.reduce((acc, row) => (isNum(row[col.key]) && (acc === null || row[col.key] > acc) ? row[col.key] : acc), null);
-    else if (col.avg && isNum(career[col.avg.num]) && isNum(career[col.avg.den]) && career[col.avg.den] > 0) career[col.key] = career[col.avg.num] / career[col.avg.den];
     else career[col.key] = null;
   }
+  // the rates once every sum is in, whatever order the columns come in
+  for (const col of own) {
+    if (col.kind !== "text" && !col.sum && !col.max && col.avg && isNum(career[col.avg.num]) && isNum(career[col.avg.den]) && career[col.avg.den] > 0) career[col.key] = career[col.avg.num] / career[col.avg.den];
+  }
+  return career;
+}
+
+/**
+ * Season table: columns come from the caller because they differ by position, one row a season, newest first. From two
+ * seasons up a Career row closes it (decision 3: the server loads the earlier seasons, so the row sums real ones; with one
+ * season it would only repeat that row). Never sorted, so the Career row stays last; sized by its own box (wave 3).
+ */
+function oneSeasonsTable({ title, columns = [], rows = [], trend } = {}, them) {
+  if (!Array.isArray(columns) || !Array.isArray(rows) || !columns.length || !rows.length) return null;
+  const cols = columns.filter((c) => c && typeof c === "object" && typeof c.key === "string");
+  const seasons = rows.filter((r) => r && typeof r === "object");
+  if (!cols.length || !seasons.length) return null;
   const spark = trendBlock(trend, them);
   return el(
     "div",
     { class: "player-card__block" },
     title ? el("div", { class: "player-card__hrow" }, cardHeading(title), spark) : null,
-    statTable({ compact: true, sortable: false, columns, rows: [...rows, career], rowClass: (row) => (row.isTotal ? "is-total" : null) }),
+    statTable({ compact: true, sizes: true, sortable: false, columns: cols, rows: seasons.length > 1 ? [...seasons, careerRow(cols, seasons)] : seasons, rowClass: (row) => (row.isTotal ? "is-total" : null), caption: title ? `${text(title)} by season` : "By season" }),
   );
 }
 
@@ -194,7 +214,7 @@ function skeletonPanel() {
  *                       stars, rating, recruitRank, recruit, transfer, headshotUrl},
  *              seasons: { title, columns: [{key, label, format, sum, max, avg}], rows: [{year, ...}], trend } or a list,
  *              seasonStats: [{label, value}]   (short list, used when `seasons` is absent)
- *              gameLog: [{ title, columns, rows }] (or the old [{opponent, line}]), history: [{year, team, classYear, position, number}],
+ *              gameLog: [{ title, columns, rows, sort }], history: [{year, team, teamAbbr, classYear, position, number}],
  *              extras: [{ label, body }], them, onClose, inline, note, loading, tab })
  */
 export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [], history = [], extras = [], them = false, onClose, inline = false, note = null, loading = false, tab = null } = {}) {
@@ -220,15 +240,15 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
         "div",
         {},
         seasons ? seasonsTable(seasons, them) : null,
-        !seasons && stats.length ? statTable({ compact: true, columns: [{ key: "label", label: "Stat", kind: "text" }, { key: "value", label: "Value", format: "raw" }], rows: stats }) : null,
+        !seasons && stats.length ? statTable({ compact: true, sizes: true, columns: [{ key: "label", label: "Stat", kind: "text" }, { key: "value", label: "Value", format: "raw" }], rows: stats, caption: "Season stats" }) : null,
         !seasons && !stats.length ? el("p", { class: "note" }, "No season stats yet.") : null,
       );
+  // one table per category (views/player.js gameLogTables), the latest game first; the games sort (wave 3)
+  const logTables = log.filter((table) => Array.isArray(table.columns) && table.columns.length && Array.isArray(table.rows) && table.rows.length);
   const logPanel = loading
     ? skeletonPanel()
-    : log.length
-      ? Array.isArray(log[0].columns)
-        ? el("div", {}, log.map((table) => el("div", { class: "player-card__block" }, cardHeading(text(table.title)), statTable({ compact: true, sortable: false, columns: table.columns, rows: Array.isArray(table.rows) ? table.rows : [] }))))
-        : statTable({ compact: true, sortable: false, columns: [{ key: "opponent", label: "Game", kind: "text" }, { key: "line", label: "Line", kind: "text" }], rows: log })
+    : logTables.length
+      ? el("div", {}, logTables.map((table) => el("div", { class: "player-card__block" }, cardHeading(text(table.title)), statTable({ compact: true, sizes: true, columns: table.columns, rows: table.rows, sort: table.sort && typeof table.sort === "object" ? table.sort : undefined, caption: `${text(table.title)} by game` }))))
       : el("p", { class: "note" }, "Game log appears after the first game.");
   const historyPanel = loading
     ? skeletonPanel()
@@ -236,17 +256,21 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
       ? el(
           "div",
           {},
+          // a table of seasons sorts, newest first to start (wave 3); nothing drops at small: the team's abbreviation (still its
+          // link) and "#" for the number, as on the Roster; the class stays whole
           statTable({
             compact: true,
-            sortable: false,
+            sizes: true,
             columns: [
               { key: "year", label: "Year", kind: "text" },
-              { key: "team", label: "Team", kind: "text", team: true },
+              { key: "team", label: "Team", kind: "text", team: true, shortKey: "teamAbbr" },
               { key: "classYear", label: "Class", kind: "text" },
               { key: "position", label: "Pos", kind: "text" },
-              { key: "number", label: "No." },
+              { key: "number", label: "No.", labelShort: "#" },
             ],
             rows: past,
+            sort: { key: "year", dir: "descending" },
+            caption: "Roster history",
           }),
           past.length > 1 ? el("p", { class: "note" }, "Earlier classes count back a year a season from the latest one; a redshirt year does not show.") : null,
         )
@@ -261,8 +285,9 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
       : el(
           "div",
           { class: "player-card__bar" },
+          // item 8: the › at the left slides the card away, the way it came in
+          el("button", { class: "btn btn--quiet icon-btn player-card__close", type: "button", "aria-label": "Close", title: "Slide away", onclick: onClose }, icon("chevron-right")),
           el("span", { class: "player-card__barname" }, name),
-          el("button", { class: "btn btn--quiet icon-btn player-card__close", type: "button", "aria-label": "Close", onclick: onClose }, "×"),
         ),
     el(
       "div",
@@ -271,7 +296,8 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
       el(
         "div",
         { class: "player-card__who" },
-        el("div", { class: "player-card__name" }, name),
+        // owner 2026-10-11: one line only; the name steps down (full, "J. Surname", surname, reduced) before any "…"
+        watchNames(el("div", { class: "player-card__name" }, isNum(p.number) ? `#${p.number} ` : null, personName(p, { fit: true }))),
         bioLine(p, them),
         loading ? null : starLine(p),
         loading
@@ -305,37 +331,50 @@ function selectedTab(article) {
 
 /** Mount a slide-over card. Escape, the scrim or a route change closes it. Returns a close function;
  *  close.update(props) fills the same card in place (LRP-07) and does nothing once it is closed.
- *  Phase 16: it stacks above any open sheet, slides in and out, and locks the page underneath. */
+ *  Phase 16: it stacks above any open sheet, slides in and out, and locks the page underneath.
+ *  Item 6 (owner 2026-10-11): from 700 px up it starts under the top bar, like the side sheets; it takes one history entry,
+ *  so Back closes it and stays on the page (ui/layers.js). close(reason): "self" (the default) takes the entry back out. */
 export function openPlayerCard(props) {
   const layer = el("div", { class: "card-layer", open: true, "data-modal": true, style: { zIndex: layerZ() } });
   const opener = document.activeElement; // Phase 15: focus goes back here on close
   let closed = false;
-  const close = () => {
+  let release = null;
+  const close = (reason) => {
     if (closed) return;
     closed = true;
     document.removeEventListener("keydown", onKey);
-    document.removeEventListener("kickoff:route", close);
+    document.removeEventListener("kickoff:route", onRoute);
     retireLayer(layer, "card-layer");
-    if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus();
+    if (release) release(typeof reason === "string" ? reason : "self"); // a click or a swipe hands in an event: by hand
+    release = null;
+    if (reason !== "route" && typeof window !== "undefined" && typeof window.scrollTo === "function") window.scrollTo(0, anchor.scrollY); // the page as the reader left it
+    if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus({ preventScroll: true });
   };
+  const onRoute = () => close("route"); // bug 10: a link inside the card changes the page under it
+  // one Escape closes one layer: a hint card or the status card above takes it first (they mark it handled)
   const onKey = (event) => {
-    if (event.key === "Escape" && isTopLayer(layer)) {
+    if (event.key === "Escape" && !event.defaultPrevented && isTopLayer(layer)) {
+      event.preventDefault();
       event.stopPropagation();
       close();
     }
   };
-  let article = playerCard({ ...props, onClose: close });
-  layer.append(el("div", { class: "card-layer__scrim", onclick: close }), article);
-  swipeToClose(article, close); // Phase 16 wave 3 (2B): a swipe right closes the card
+  let article = playerCard({ ...props, onClose: () => close() });
+  layer.append(el("div", { class: "card-layer__scrim", onclick: () => close() }), article);
+  swipeToClose(article, () => close()); // Phase 16 wave 3 (2B): a swipe right closes the card
+  // under the top bar from 700 px up, on the page where the reader is, as tall as the card (item 8)
+  const anchor = sheetAnchor(placeLayers());
+  article.style.setProperty("--sheet-top", `${anchor.top}px`);
   document.body.append(layer);
   document.addEventListener("keydown", onKey);
-  document.addEventListener("kickoff:route", close); // bug 10: a link inside the card changes the page under it
+  document.addEventListener("kickoff:route", onRoute);
+  release = holdLayer((why) => close(why));
   syncPageLock();
   const closeButton = layer.querySelector("button");
-  if (closeButton) closeButton.focus();
+  if (closeButton) closeButton.focus({ preventScroll: true });
   close.update = (next) => {
     if (closed || !article.isConnected) return false;
-    const fresh = playerCard({ ...next, tab: next?.tab || selectedTab(article), onClose: close });
+    const fresh = playerCard({ ...next, tab: next?.tab || selectedTab(article), onClose: () => close() });
     // the same <article> keeps its place and its slide: only its content and labels change
     article.className = fresh.className;
     for (const name of ["aria-label", "aria-busy"]) {
@@ -345,6 +384,7 @@ export function openPlayerCard(props) {
     }
     article.replaceChildren(...fresh.childNodes);
     article.scrollTop = 0;
+    if (typeof window !== "undefined" && typeof window.scrollTo === "function" && isFinite(window.scrollY) && window.scrollY > anchor.scrollY) window.scrollTo(0, anchor.scrollY); // another player starts from the top
     const button = article.querySelector(".player-card__close");
     if (button && document.activeElement && !article.contains(document.activeElement)) button.focus();
     return true;

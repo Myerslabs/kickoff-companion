@@ -106,6 +106,20 @@ export function band(props) {
       }
       if (storageKey) remember(storageKey, value);
     };
+    // 2026-10-10 (review of "no scroll box"): the long tables show whole now, so folding a band from its pinned head left the
+    // page where it was and the reader landed thousands of pixels further down once the body was gone. When the head is pinned
+    // (the band's own top is above it), the band folds at once and the page moves so the folded head stays under the finger.
+    if (value && typeof window !== "undefined" && typeof window.scrollTo === "function" && typeof section.getBoundingClientRect === "function") {
+      const head = [...(section.children || [])].find((n) => n.classList?.contains("band__head")) || null;
+      const top = section.getBoundingClientRect().top;
+      const headTop = head && typeof head.getBoundingClientRect === "function" ? head.getBoundingClientRect().top : null;
+      if (Number.isFinite(top) && Number.isFinite(headTop) && top < headTop - 1) {
+        const y = (Number.isFinite(window.scrollY) ? window.scrollY : 0) + top - headTop;
+        apply();
+        window.scrollTo(0, Math.max(0, Math.round(y)));
+        return;
+      }
+    }
     const body = [...(section.children || [])].find((n) => n.classList?.contains("band__body")) || null;
     if (!animate || reducedMotion() || !body || typeof body.getBoundingClientRect !== "function" || typeof requestAnimationFrame !== "function") {
       apply();

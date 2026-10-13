@@ -5,7 +5,8 @@ card. Nothing here fetches: it reads what the season loads and this week's notes
 
     readiness(status, notes, game, today) -> {"items": [...], "ready": bool}
 
-An item: {"id", "title", "detail", "href"}. `href` is the app route that opens the prompt for it.
+An item: {"id", "title", "detail", "href"}. `href` is the app route with the prompt for it: the Prompts page (the Prompts
+phase, owner 2026-10-13), which every dead end leads to.
 """
 
 from __future__ import annotations
@@ -54,16 +55,19 @@ def readiness(status: dict[str, Any] | None, notes: Any, game: dict[str, Any] | 
             bits.append(f"preseason for {', '.join(absent[:3])}{'…' if len(absent) > 3 else ''}")
         if isinstance(coaches_of, int) and coaches_of and coaches_saved != coaches_of:
             bits.append(f"coaches for {coaches_saved or 0} of {coaches_of} teams")
-        items.append({"id": "season", "title": f"The {s.get('season', '')} season load".replace("  ", " "), "detail": "Not loaded: " + " and ".join(bits) + ". One prompt loads it all.", "href": "#preseason"})
+        items.append({"id": "season", "title": f"The {s.get('season', '')} season load".replace("  ", " "), "detail": "Not loaded: " + " and ".join(bits) + ". One prompt loads it all.", "href": "#prompts"})
     costs_saved = s.get("costsSaved")
     if isinstance(coaches_of, int) and coaches_of and costs_saved != coaches_of:
-        items.append({"id": "costs", "title": "Roster costs", "detail": f"Rumored costs for {costs_saved or 0} of {coaches_of} teams. One more prompt.", "href": "#preseason"})
+        items.append({"id": "costs", "title": "Roster costs", "detail": f"Rumored costs for {costs_saved or 0} of {coaches_of} teams. One more prompt.", "href": "#prompts"})
+    facts_saved = s.get("factsSaved")
+    if isinstance(coaches_of, int) and coaches_of and facts_saved != coaches_of:
+        items.append({"id": "facts", "title": "School history and facts", "detail": f"Loaded for {facts_saved or 0} of {coaches_of} teams. One prompt per conference.", "href": "#prompts"})
     if game:
         name = game.get("opponent") or "the next game"
         if notes is None:
-            items.append({"id": "notes", "title": f"This week's notes, {name}", "detail": "Not loaded: the written notes, injury report, depth charts, TV crew and coaches.", "href": "#program"})
+            items.append({"id": "notes", "title": f"This week's notes, {name}", "detail": "Not loaded: the written notes, injury report, depth charts, TV crew and coaches.", "href": "#prompts"})
         else:
             gaps = missing_notes(notes)
             if gaps:
-                items.append({"id": "notes", "title": f"This week's notes, {name}", "detail": "Missing: " + ", ".join(gaps) + ".", "href": "#program"})
+                items.append({"id": "notes", "title": f"This week's notes, {name}", "detail": "Missing: " + ", ".join(gaps) + ".", "href": "#prompts"})
     return {"items": items, "ready": not items}

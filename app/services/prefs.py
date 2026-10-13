@@ -58,8 +58,9 @@ class Prefs(BaseModel):
     autoStart: bool = False
     trayMode: bool = False
     hints: bool = True  # stat names show a dotted underline and explain themselves when tapped (2026-09-26)
-    scheduledRuns: bool = False  # Phase 18.7: Claude Code runs the game-week prompts by itself, a few times a week
+    scheduledRuns: bool | None = None  # Phase 18.7: Claude Code runs the prompts by itself; None (the Prompts phase, owner 2026-10-13: "if they are using the CLI, the scheduled commands run; if not, they do not") means on whenever its command is found
     backups: bool = True  # Phase 18.2: the nightly backup of the archive, notes and settings
+    awayFromHome: bool = False  # group five: on a public network, only devices that scanned the host's code can watch
     announcer: bool = True  # Phase 17 #15: the little announcer calls out the bands' stat blurbs
     updateCheck: bool = True  # Phase 16 wave 3: once a day, ask GitHub whether a newer release is out
     keepScreenOn: Literal["off", "gameday", "always"] = "gameday"  # the shell's screen wake lock (Phase 12)

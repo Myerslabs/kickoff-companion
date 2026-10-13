@@ -128,6 +128,27 @@ def test_a_key_cfbd_refuses_or_cannot_check(setup_app, answer, status, code):
     assert not env.exists() and client.get("/api/welcome").json()["data"]["keyChecked"] is False
 
 
+@pytest.mark.parametrize(
+    "body, shown, hidden",
+    [
+        ({"message": "Unauthorized"}, "Copy it again", "says:"),  # CFBD does not know the key: the paste is the suspect
+        ({"message": "Account has been blacklisted."}, 'says: "Account has been blacklisted."', "Copy it again"),
+        ({"message": "  Unauthorized.  This endpoint requires\na Patreon subscription at Tier 1 or higher."}, "requires a Patreon subscription", "\n"),
+        ({"message": ""}, "Copy it again", "says:"),
+        ({"message": 42}, "Copy it again", "says:"),
+        ("not json at all", "Copy it again", "says:"),
+    ],
+)
+def test_a_refusal_shows_cfbd_s_own_reason_unless_it_is_bare(setup_app, body, shown, hidden):
+    _, client, fake, _ = setup_app
+    answer = httpx.Response(401, text=body) if isinstance(body, str) else httpx.Response(401, json=body)
+    fake.route("/info", handler=lambda request: answer)
+    response = client.post("/api/welcome/key", json={"key": NEW_KEY})
+    message = response.json()["errors"][0]["message"]
+    assert response.status_code == 422 and message.startswith("CFBD did not accept this key")
+    assert shown in message and hidden not in message
+
+
 @pytest.mark.parametrize("key", ["", "short", "has a space in the middle of it", "x" * 300, 42])
 def test_junk_keys_are_refused_before_any_call(setup_app, key):
     _, client, fake, _ = setup_app

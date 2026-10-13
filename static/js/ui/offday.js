@@ -1,35 +1,28 @@
 // Context tables for the days between games (Phase 15): this season beside last, the road ahead,
 // common opponents, and both teams' last season on the program. Tables only, every column guarded.
 
-import { DASH, el, fmtDate, fmtStat, isNum, records, teamLink, text } from "./dom.js";
+import { DASH, el, fmtDate, fmtStat, isNum, records, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { note } from "./states.js";
 import { pollBadge, statTable } from "./stat-table.js";
 import { weekCell } from "./weeks.js";
-import { logoLink } from "./team-page.js";
+import { formSquares, logoLink, teamAbbrLink } from "./team-page.js";
 
 const SIDE_TITLES = { offense: "Offense", defense: "Defense", both: "Overall" };
 const h4 = (label) => el("h4", { class: "d2-head" }, label);
 
-/** This season and last, one table per side: each value with its national chip in one cell (the chip opens that
- *  season's national list: last season's carries ?year=), and which is better. */
-export function lastSeasonBlock(rows, year, thisYear, { team } = {}) {
+/**
+ * This season and last, one table per side, each sized by its own box (tables wave 3, rule 3: every data point in its own
+ * column): Statistic | this season | FBS rank | <conf> rank | last season | FBS rank | <conf> rank | Change. The FBS ranks
+ * show from medium, the conference's at large (when the server sent them); each chip opens that season's list (last
+ * season's carries ?year=). The defense's small head says "Def (allowed)" once for its rows (rule 5).
+ * lastSeasonBlock(rows, year, thisYear, { team, conferenceLabel })
+ */
+export function lastSeasonBlock(rows, year, thisYear, { team, conferenceLabel } = {}) {
   const list = records(rows);
   if (!list.some((r) => isNum(r.last?.value))) return note(`${text(year)} numbers could not be loaded yet.`);
   const lastYear = (r) => (isNum(r.metricYear) ? r.metricYear : isNum(r.last?.year) ? r.last.year : isNum(year) ? year : null);
-  const valueCol = (key, label, rankKey, ofKey, pick) => ({
-    key,
-    label,
-    divider: true,
-    render: (row) => el("span", { "data-k": `${key}:${text(row.key)}` }, fmtStat(row[key], row.format)),
-    rank: { key: rankKey, of: ofKey, link: (row) => nationalHref(row.metric, { team, year: pick(row) }), placeholder: true },
-  });
-  const columns = [
-    { key: "label", label: "Statistic", kind: "text" },
-    valueCol("now", String(thisYear ?? "This season"), "nowRank", "nowOf", () => null),
-    valueCol("last", String(year ?? "Last season"), "lastRank", "lastOf", (row) => row.metricYear),
-    { key: "change", label: "Change", kind: "text", divider: true },
-  ];
+  const conf = typeof conferenceLabel === "string" && conferenceLabel.trim() ? conferenceLabel.trim() : "Conf";
   const shaped = list.map((r) => ({
     key: r.key,
     metric: r.metric,
@@ -40,70 +33,121 @@ export function lastSeasonBlock(rows, year, thisYear, { team } = {}) {
     now: r.now?.value,
     nowRank: r.now?.rank,
     nowOf: r.now?.of,
+    nowConf: r.now?.confRank,
+    nowConfOf: r.now?.confOf,
     last: r.last?.value,
     lastRank: r.last?.rank,
     lastOf: r.last?.of,
+    lastConf: r.last?.confRank,
+    lastConfOf: r.last?.confOf,
     change: r.better === true ? "Better" : r.better === false ? "Worse" : DASH, // Phase 16 wave 3: words, no font arrows
   }));
+  const confs = shaped.some((r) => isNum(r.nowConf) || isNum(r.lastConf));
+  const season = (key, label, pick) => [
+    { key, label, divider: true, render: (row) => el("span", { "data-k": `${key}:${text(row.key)}` }, fmtStat(row[key], row.format)) },
+    { key: `${key}Rank`, label: "FBS rank", labelMid: "FBS", kind: "rank", of: `${key}Of`, size: "medium", link: (row) => nationalHref(row.metric, { team, year: pick(row) }) },
+    confs ? { key: `${key}Conf`, label: `${conf} rank`, kind: "rank", of: `${key}ConfOf`, size: "large", link: (row) => nationalHref(row.metric, { team, year: pick(row), scope: "conference" }) } : null,
+  ].filter(Boolean);
+  const columns = (side) => [
+    { key: "label", label: "Statistic", labelShort: side === "defense" ? "Def (allowed)" : "Stat", kind: "text" },
+    ...season("now", String(thisYear ?? "This season"), () => null),
+    ...season("last", String(year ?? "Last season"), (row) => row.metricYear),
+    { key: "change", label: "Change", kind: "text", divider: true },
+  ];
   const sides = [...new Set(shaped.map((r) => r.side))];
   return el(
     "div",
     { class: "d2 prof" },
-    sides.map((side) => el("div", {}, h4(SIDE_TITLES[side] || text(side)), statTable({ compact: true, sortable: false, columns, rows: shaped.filter((r) => r.side === side), caption: `${SIDE_TITLES[side] || side}: this season and last` }))),
-    note(`Each season with its national rank among FBS teams. "Better" follows the stat's direction (fewer points allowed is better). ${text(year)} is the full season, bowls included.`),
+    sides.map((side) => el("div", {}, h4(SIDE_TITLES[side] || text(side)), statTable({ compact: true, sizes: true, sortable: false, columns: columns(side), rows: shaped.filter((r) => r.side === side), caption: `${SIDE_TITLES[side] || side}: this season and last` }))),
+    note(`Each season with its national rank among FBS teams${confs ? ` and its rank inside the ${conf}` : ""}. "Better" follows the stat's direction (fewer points allowed is better). ${text(year)} is the full season, bowls included.`),
   );
 }
 
-/** A finished game as 'W 31-24' in the result color and the opponent as a link (G3-07). */
-function resultChunk(g) {
+const SITE_SHORT = { Home: "H", Away: "A", Neutral: "N" };
+
+/** A finished game of the opponent's, shaped for the standings' form squares (W or L, the score, where and whom). */
+function formGame(g) {
   const res = typeof g.result === "string" && ["W", "L", "T"].includes(g.result) ? g.result : null;
-  const opponent = typeof g.opponent === "string" && g.opponent.trim() ? g.opponent.trim() : null;
-  return el(
-    "span",
-    { class: "form-result" },
-    el("b", { class: res === "W" ? "res--w" : res === "L" ? "res--l" : null }, `${res || DASH} ${text(g.score)}`),
-    opponent ? [" ", teamLink(opponent, opponent)] : null,
-  );
+  if (!res) return null;
+  const score = typeof g.score === "string" ? /^(\d+)-(\d+)$/.exec(g.score.trim()) : null;
+  return {
+    result: res,
+    points: isNum(g.points) ? g.points : score ? Number(score[1]) : null,
+    opponentPoints: isNum(g.opponentPoints) ? g.opponentPoints : score ? Number(score[2]) : null,
+    opponent: typeof g.opponent === "string" && g.opponent.trim() ? g.opponent.trim() : null,
+    homeAway: g.homeAway === "away" || g.homeAway === "home" || g.homeAway === "neutral" ? g.homeAway : null,
+  };
 }
 
-/** Every remaining opponent: when, where, record, AP (a poll badge), SP+ with its chip, and the last three results. */
-export function roadAheadBlock(rows, { logos } = {}) {
+/** The moment an ISO date names, for sorting; null for anything else. */
+function moment(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const at = Date.parse(value);
+  return Number.isFinite(at) ? at : null;
+}
+
+/**
+ * Every remaining opponent, sized by its own box (tables wave 3): Wk | Date | Opponent | Site | Record | AP rank | SP+ |
+ * FBS rank | Last three. At small: the week, the opponent's abbreviation (still its link), H, A or N, the record and SP+.
+ * The last three read as the standings' W and L squares (each square's title the score and the opponent), so the Season
+ * page reads results one way. Games sort; the schedule's order to start.
+ * roadAheadBlock(rows, { logos: Map(school -> the schedule's opponent), sorts: a plain object the table keeps its order in })
+ */
+export function roadAheadBlock(rows, { logos, sorts } = {}) {
   const list = records(rows);
   if (!list.length) return note("No games left on the schedule.");
-  const shaped = list.map((r) => ({
-    week: weekCell(r),
-    date: fmtDate(r.date, "short"),
-    opponent: r.opponent,
-    site: r.site,
-    record: r.record || DASH,
-    apRank: r.apRank,
-    sp: r.sp,
-    spRank: r.spRank,
-    spOf: r.spOf,
-    spMetric: r.spMetric,
-    lastThree: records(r.lastThree),
-  }));
-  const opponentOf = (row) => (typeof row.opponent === "string" ? row.opponent : null);
+  const teams = logos instanceof Map ? logos : new Map();
+  const shaped = list.map((r, order) => {
+    const opponent = typeof r.opponent === "string" && r.opponent.trim() ? r.opponent.trim() : null;
+    const found = opponent ? teams.get(opponent) : null;
+    const meta = found && typeof found === "object" ? found : null;
+    const form = records(r.lastThree).map(formGame).filter(Boolean);
+    return {
+      order,
+      week: weekCell(r),
+      when: moment(r.date),
+      date: fmtDate(r.date, "short"),
+      opponent,
+      meta,
+      abbr: typeof meta?.abbreviation === "string" && meta.abbreviation.trim() ? meta.abbreviation.trim() : null,
+      site: typeof r.site === "string" && r.site.trim() ? r.site.trim() : DASH,
+      siteShort: SITE_SHORT[r.site] || null,
+      record: typeof r.record === "string" && r.record.trim() ? r.record.trim() : DASH,
+      apRank: r.apRank,
+      sp: r.sp,
+      spRank: r.spRank,
+      spOf: r.spOf,
+      spMetric: r.spMetric,
+      form,
+      formWins: form.filter((g) => g.result === "W").length,
+    };
+  });
+  const state = sorts && typeof sorts === "object" ? sorts : {};
   return el(
     "div",
-    { class: "d2" },
+    { class: "d2 road-ahead" },
     statTable({
       compact: true,
+      sizes: true,
       columns: [
-        { key: "week", label: "Wk", dim: true },
-        { key: "date", label: "Date", kind: "text" },
-        { key: "opponent", label: "Opponent", kind: "text", render: (row) => logoLink(row.opponent, logos instanceof Map ? logos.get(row.opponent) : null) },
-        { key: "site", label: "Site", kind: "text" },
+        { key: "week", label: "Wk", dim: true, sortKey: "order" }, // the schedule's order, so a bowl follows the weeks
+        { key: "date", label: "Date", kind: "text", size: "medium", sortKey: "when" },
+        { key: "opponent", label: "Opponent", kind: "text", render: (row) => logoLink(row.opponent, row.meta), renderShort: (row) => teamAbbrLink(row.opponent, row.abbr) },
+        { key: "site", label: "Site", kind: "text", shortKey: "siteShort" },
         { key: "record", label: "Record" },
-        { key: "apRank", label: "AP", render: (row) => (isNum(row.apRank) ? pollBadge(row.apRank, "AP", { href: pollHref("AP", { team: opponentOf(row) }), label: opponentOf(row), showPoll: false }) : el("span", { class: "nr" }, "NR")) },
-        { key: "sp", label: "SP+", format: "1f", divider: true, rank: { key: "spRank", of: "spOf", link: (row) => nationalHref(row.spMetric, { team: opponentOf(row) }), placeholder: true } },
-        { key: "form", label: "Last three", kind: "text", divider: true, render: (row) => (row.lastThree.length ? el("span", { class: "form-results" }, row.lastThree.map(resultChunk)) : DASH) },
-      ],
+        { key: "apRank", label: "AP rank", labelMid: "AP", size: "medium", render: (row) => (isNum(row.apRank) ? pollBadge(row.apRank, "AP", { href: pollHref("AP", { team: row.opponent }), label: row.opponent, showPoll: false }) : el("span", { class: "nr" }, "NR")) },
+        { key: "sp", label: "SP+", format: "1f", divider: true },
+        { key: "spRank", label: "FBS rank", labelMid: "FBS", kind: "rank", of: "spOf", size: "medium", link: (row) => nationalHref(row.spMetric, { team: row.opponent }) },
+        { key: "form", label: "Last three", size: "medium", divider: true, sortKey: "formWins", render: (row) => formSquares(row.form, { limit: 3 }) || DASH },
+      ].map((column) => ({ ...column, tieKey: "order" })), // a tie keeps the schedule's order
       rows: shaped,
-      sortable: false,
+      sort: state.road && typeof state.road.key === "string" ? state.road : { key: "week", dir: "ascending" },
+      onSort: (sort) => {
+        state.road = sort; // the reader's order survives a refresh
+      },
       caption: "The road ahead",
     }),
-    note("Record and form count this season's finished games; SP+ is this week's rating."),
+    note("Record and the last three count this season's finished games, the newest on the right; SP+ is this week's rating."),
   );
 }
 
@@ -111,28 +155,43 @@ function results(list) {
   return records(list).map((g) => `${text(g.result)} ${text(g.score)}`).join(", ") || DASH;
 }
 
-/** Teams both sides have played, with each result and the margin. */
-export function commonOpponentsBlock(rows, usName, themName) {
-  const list = records(rows);
-  if (!list.length) return note(`${text(usName)} and ${text(themName)} have no opponent in common yet this season.`);
-  const shaped = list.map((r) => ({ opponent: r.opponent, us: results(r.us), usMargin: r.usMargin, them: results(r.them), themMargin: r.themMargin }));
+/** The margins' scale for the bar (wave 2): four touchdowns between the two teams' results against the same opponent leans
+ *  all the way. Margins run either side of zero (a win and a loss), so they lean by their gap over this, never their share. */
+export const MARGIN_SCALE = 28;
+
+/** Common opponents as two-team rows: the opponent (its team page, its abbreviation at small), each side's results, and
+ *  the margins (every meeting added up) deciding who did better against it. Exported for the tests. */
+export function commonOpponentRows(rows) {
+  return records(rows)
+    .filter((r) => typeof r.opponent === "string" && r.opponent.trim())
+    .map((r) => {
+      const opponent = r.opponent.trim();
+      const abbr = typeof r.opponentAbbr === "string" && r.opponentAbbr.trim() ? r.opponentAbbr.trim() : null;
+      return {
+        label: opponent,
+        team: opponent,
+        labelShort: abbr || undefined,
+        higherIsBetter: true,
+        scale: MARGIN_SCALE,
+        us: { value: isNum(r.usMargin) ? r.usMargin : null, text: results(r.us) },
+        them: { value: isNum(r.themMargin) ? r.themMargin : null, text: results(r.them) },
+      };
+    });
+}
+
+/**
+ * Teams both sides have played, on the two-team kit (rule 9; owner 2026-10-10, wave 2): each side's results against the
+ * opponent under its own head, the bar leaning to the side that did better against it by the margins. We sit first.
+ * commonOpponentsBlock(rows, { usAbbr, themAbbr, usTeam, themTeam, usName, themName })
+ */
+export function commonOpponentsBlock(rows, { usAbbr, themAbbr, usTeam, themTeam, usName, themName } = {}) {
+  const shaped = commonOpponentRows(rows);
+  if (!shaped.length) return note(`${text(usTeam || usAbbr)} and ${text(themTeam || themAbbr)} have no opponent in common yet this season.`);
   return el(
     "div",
     { class: "d2" },
-    statTable({
-      compact: true,
-      columns: [
-        { key: "opponent", label: "Opponent", kind: "text", team: true },
-        { key: "us", label: text(usName), kind: "text", divider: true },
-        { key: "usMargin", label: "Margin", format: "+0f" },
-        { key: "them", label: text(themName), kind: "text", divider: true },
-        { key: "themMargin", label: "Margin", format: "+0f" },
-      ],
-      rows: shaped,
-      sortable: true,
-      caption: "Common opponents",
-    }),
-    note("Scores read from each team's side. Margins add up every meeting."),
+    programTwoTeam({ rows: shaped, usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, usName, themName, tug: true, labelHead: "Opponent", caption: "Common opponents" }),
+    note("Scores read from each team's side. The bar leans to the team that did better against that opponent, by the margins (every meeting added up)."),
   );
 }
 

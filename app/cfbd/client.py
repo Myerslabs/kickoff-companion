@@ -550,7 +550,7 @@ class CfbdClient:
         await asyncio.to_thread(self.quota.record, "/info", status, ok, live=False, now=now)
         if not ok:
             log.warning("CFBD refused a new key with HTTP %d", status)
-            return status, None, _body_excerpt(response) or f"HTTP {status}"
+            return status, None, _refusal_reason(response) or f"HTTP {status}"
         try:
             payload = response.json()
         except ValueError:
@@ -854,6 +854,21 @@ def _body_excerpt(response: httpx.Response) -> str:
     except Exception:  # noqa: BLE001 - a body we cannot decode is not worth failing over
         return ""
     return " ".join(text.split())[:300]
+
+
+def _refusal_reason(response: httpx.Response) -> str:
+    """CFBD's own words for a refusal: the `message` of its JSON body ("Unauthorized", "Account has
+    been blacklisted.", "...requires a Patreon subscription at Tier 1 or higher."), one line and at
+    most 200 characters, so a page can show it as it is. Empty when the body has no such message
+    (a proxy's HTML page, an empty or odd value): the status code says enough then."""
+    try:
+        body = response.json()
+    except ValueError:
+        return ""
+    message = body.get("message") if isinstance(body, dict) else None
+    if not isinstance(message, str):
+        return ""
+    return " ".join(message.split())[:200]
 
 
 def _describe_size(payload: Any) -> str:

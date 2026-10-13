@@ -60,7 +60,7 @@ scenarios.links = async () => {
 const BOX = {
   season: 2026,
   game: { gameId: 900, week: 3, completed: true, neutralSite: false, conferenceGame: true, venue: "Pie Bowl", kickoff: "2026-09-20T19:00:00Z", isOurs: false },
-  home: { school: "Home U", abbreviation: "HOM", points: 31, lineScores: [7, 10, 7, 7] },
+  home: { school: "Home U", abbreviation: "HOM", mascot: "Hounds", points: 31, lineScores: [7, 10, 7, 7] },
   away: { school: "Away State", abbreviation: null, points: 24, lineScores: [7, null, "x", 10] },
   final: {
     available: true,
@@ -82,6 +82,13 @@ scenarios.page = async () => {
   assert.ok(main.querySelector(".box-head__side--right").className.includes("won"));
   assert.ok(t.includes("A Passer"));
   assert.ok(t.includes("Conference game") && t.includes("Pie Bowl"));
+  // tables wave 3: the team stats' heads are the two teams, the school and mascot at large, the school at medium, the
+  // abbreviation at small (the visitor first, as the score reads)
+  const heads = main.querySelectorAll("#box-team .tt__team");
+  const form = (th, which) => text(th.querySelector(`.tt__t--${which}`) || th);
+  assert.deepEqual(heads.map((th) => form(th, "long")), ["Away State", "Home U Hounds"]);
+  assert.deepEqual(heads.map((th) => form(th, "mid")), ["Away State", "Home U"]);
+  assert.equal(form(heads[1], "short"), "HOM");
 };
 
 scenarios.unplayed = async () => {

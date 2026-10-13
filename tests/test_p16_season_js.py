@@ -1,8 +1,9 @@
 """Phase 16, stream SEASON: Season, the team pages and Ratings in the fake browser (tests/fakedom.py).
 
-Every national number is a linked unit (value and chip in one cell, the chip opening the national list, the
-conference list with scope=conference, last season's list with year=), a row without a metric keeps a plain
-chip, Mudpuppies schedule rows open the archive or the program while other teams' rows promise no tap, the poll
+Every national number is linked (tables wave 3: the value and each rank in columns of their own, the chip opening the
+national list, the conference list with scope=conference, last season's list with year=), a row without a metric keeps a
+plain chip, the Season page's tables size themselves (the polls' own order a badge, a plain number at small; the FPI
+schedule strengths' rank as their value at small), Mudpuppies schedule rows open the archive or the program while other teams' rows promise no tap, the poll
 choice and a table's sort survive a refresh with new data, Ratings scrolls its own boxes (never
 scrollIntoView) and marks the next opponent, and damaged payloads never print undefined, null or NaN."""
 
@@ -64,7 +65,7 @@ def season_payload() -> dict[str, Any]:
         ],
         "polls": [
             {"poll": "AP", "metric": "poll:AP", "name": "AP Top 25", "week": 4, "usRank": 18, "pathWeeks": [{"week": 2}, {"week": 3}, {"week": 4}], "previousWeek": {"week": 3}, "ranks": [
-                {"rank": 1, "school": "Texas", "conference": "Biscuit Belt", "points": 1500, "isUs": False, "previousRank": 3, "change": 2, "movement": "+2", "apPath": [3, 3, 1]},
+                {"rank": 1, "school": "Texas", "conference": "Biscuit Belt", "conferenceShort": "BB", "points": 1500, "isUs": False, "previousRank": 3, "change": 2, "movement": "+2", "apPath": [3, 3, 1]},
                 {"rank": 8, "school": "Diner Tech", "conference": "Biscuit Belt", "points": 1100, "isUs": False, "previousRank": 5, "change": -3, "movement": "-3", "apPath": [5, None, 8]},
                 {"rank": 18, "school": "Swampwater Tech", "conference": "Biscuit Belt", "points": 400, "isUs": True, "previousRank": None, "change": None, "movement": "new", "apPath": [None, None, 18]},
             ]},
@@ -79,7 +80,7 @@ def season_payload() -> dict[str, Any]:
             {"side": "offense", "label": "Run rate", "key": "offense_run_rate", "metric": "advanced:offense_run_rate", "group": "Tempo", "value": 0.52, "format": "pct", "nationalRank": None, "nationalOf": 138},
         ]},
         "ratings": {
-            "sp": {"rating": 19.4, "rank": 13, "of": 138, "metric": "rating:sp", "offense": {"rating": 33.4, "rank": 21, "of": 138, "metric": "rating:spOffense"}, "defense": {"rating": 14.5, "rank": 10, "of": 138, "metric": "rating:spDefense"}},
+            "sp": {"rating": 19.4, "rank": 13, "of": 138, "metric": "rating:sp", "offense": {"rating": 33.4, "rank": 21, "of": 138, "metric": "rating:spOffense"}, "defense": {"rating": 14.5, "rank": 10, "of": 138, "metric": "rating:spDefense"}, "special": {"rating": 0.6, "rank": 50, "of": 138, "metric": "rating:spSpecial"}},
             "elo": {"rating": 1668, "rank": 34, "of": 138, "metric": "rating:elo"},
             "fpi": {"rating": 16.4, "rank": 16, "of": 138, "metric": "rating:fpi", "strengthOfScheduleRank": 61, "strengthOfScheduleOf": 138, "strengthOfScheduleMetric": "rating:fpiSos", "strengthOfRecordRank": 5, "strengthOfRecordOf": 138},
         },
@@ -131,14 +132,31 @@ def team_payload(school: str) -> dict[str, Any]:
             {"gameId": 1003, "week": 3, "date": "2026-09-27T23:30:00.000Z", "opponent": {**team_block("Silver Dollar", "GRID"), "apRank": 12}, "homeAway": "away", "completed": False, "archived": False},
         ],
         "roster": [{"playerId": 1, "number": 2, "name": "Mason Hamilton", "position": "QB", "classYear": "SO", "weight": 241}],
-        "coaches": [],
+        # tables wave 3: the coaches, the play value and usage, and the standings the team page sizes
+        "coaches": [
+            {"name": "Pat Whistler", "hireDate": "2021-11-28T00:00:00.000Z", "wins": 6, "losses": 2, "ties": 0, "year": 2026, "srs": 12.4, "spOverall": 18.3},
+            {"name": "Lee Clipboard", "hireDate": "2024-01-05", "wins": None, "losses": None, "ties": None, "year": 2026, "srs": None, "spOverall": None},
+        ],
+        "standings": None if us else {"conference": "Pancake Athletic", "conferenceShort": "PA", "rows": [
+            {"place": 1, "team": "Diner Tech", "abbreviation": "DT", "logo": "/media/logo/DT", "conference": {"wins": 2, "losses": 0}, "overall": {"wins": 3, "losses": 0}, "apRank": 8, "isUs": True, "form": [{"result": "W", "points": 41, "opponentPoints": 38}]},
+            {"place": 2, "team": "Swampwater Tech", "abbreviation": "SWT", "logo": "/media/logo/SWT", "conference": {"wins": 1, "losses": 1}, "overall": {"wins": 2, "losses": 1}, "apRank": None, "isUs": False, "form": []},
+        ]},
         "series": None if us else {"team1": "Swampwater Tech", "team2": "Diner Tech", "usWins": 13, "themWins": 13, "ties": 1, "streak": {"team": "Diner Tech", "games": 1}, "lastTen": [
             {"season": 2025, "homeTeam": "Diner Tech", "awayTeam": "Swampwater Tech", "homeScore": 34, "awayScore": 24, "winner": "Diner Tech", "neutralSite": False},
             {"season": 2024, "homeTeam": "Swampwater Tech", "awayTeam": "Diner Tech", "homeScore": 24, "awayScore": 17, "winner": "Swampwater Tech", "neutralSite": False},
             {"season": 2020, "homeTeam": None, "awayTeam": "Swampwater Tech", "homeScore": "x"},
         ]},
         "recruiting": {"talent": {"talent": 891.07, "rank": 10, "of": 138, "metric": "rating:talent"}, "blueChip": None, "returning": None},
-        "playValue": {"players": [], "usage": []},
+        "playValue": {
+            "players": [
+                {"playerId": "pv1", "name": "Avery Runner", "position": "RB", "plays": 64, "all": 0.12, "pass": None, "rush": 0.12},
+                {"playerId": "pv2", "name": "Quinn Thrower Jr.", "position": "QB", "plays": 210, "all": 0.31, "pass": 0.36, "rush": 0.05},
+            ],
+            "usage": [
+                {"playerId": "pv1", "name": "Avery Runner", "position": "RB", "overall": 0.18, "pass": 0.02, "rush": 0.41},
+                {"playerId": "pv2", "name": "Quinn Thrower Jr.", "position": "QB", "overall": 0.52, "pass": 0.88, "rush": 0.12},
+            ],
+        },
         "parts": {},
     }
 
@@ -211,8 +229,13 @@ scenarios.seasonLinks = async () => {
   assert.ok(nat.length >= 2, "the tile and the profile row link the national list");
   const cell = nat.find((a) => a.parentNode.localName === "td");
   assert.ok(cell, "a profile chip sits in a table cell");
-  assert.ok(!cell.parentNode.className.includes("txt"), "the value cell is numeric (right-aligned)");
-  assert.ok(text(cell.parentNode).startsWith("31.4"), `value and chip in one cell: ${text(cell.parentNode)}`);
+  // tables wave 3 (rule 3): every data point in its own column, the value and then its FBS rank (from medium)
+  const cells = [...cell.parentNode.parentNode.childNodes];
+  const valueCell = cells[cells.indexOf(cell.parentNode) - 1];
+  assert.ok(!valueCell.className.includes("txt"), "the value cell is numeric (right-aligned)");
+  assert.equal(text(valueCell), "31.4", "the value alone in its cell");
+  assert.equal(text(cell.parentNode), "#12", "the chip alone in the next");
+  assert.ok(cell.parentNode.className.includes("st__min-medium"), "the FBS rank from medium");
   assert.ok(link(nationalHref("profile:ppg", { team: "Swampwater Tech", scope: "conference" })).length === 1, "the Biscuit Belt chip opens the conference list");
   assert.ok(link(nationalHref("profile:ppg", { team: "Swampwater Tech", year: 2025 })).length === 1, "last season's chip carries the year");
   assert.ok(link(nationalHref("profile:ppg", { team: "Swampwater Tech" })).some((a) => a.closest("#season-last")), "this season's chip in the last-season band has no year");
@@ -224,8 +247,10 @@ scenarios.seasonLinks = async () => {
   const ypgd = [...all(main, "#season-profile .prof tr")].find((tr) => text(tr).startsWith("Yards allowed per game"));
   assert.ok(ypgd.querySelector("span.rank-chip") && !ypgd.querySelector("a.rank-chip--link"), "the row without a metric keeps a plain chip");
   assert.ok(![...all(main, ".tiles a.rank-chip--link")].some((a) => (a.getAttribute("aria-label") || "").startsWith("Yards allowed per game")), "nor is its tile");
-  // a row with no rank keeps an invisible chip so its value lines up
-  assert.ok(all(main, ".prof .rank-chip--placeholder").length >= 1);
+  // a row with no rank shows a dash in that rank's own column (wave 3: no invisible placeholder beside the value)
+  assert.equal(text(ypgd.querySelectorAll("td")[3]), "–", "no conference rank: a dash");
+  assert.ok(ypgd.querySelectorAll("td")[3].className.includes("st__min-large"), "the conference rank at large");
+  assert.equal(all(main, ".rank-chip--placeholder").length, 0);
   // poll ranks are poll badges linked to the poll
   assert.ok([...all(main, "a.poll-badge--link")].some((a) => a.getAttribute("href") === pollHref("AP", { team: "Silver Dollar" })));
   assert.ok([...all(main, "#season-resume a.poll-badge--link")].length === 3, "the poll path's ranks are badges");
@@ -253,8 +278,38 @@ scenarios.seasonLinks = async () => {
   const playoff = main.querySelector("#season-playoff");
   assert.ok([...all(playoff, "td button.team-link")].map((b) => b.dataset.team).includes("Clemson"));
   assert.ok(text(playoff).includes("(9)"));
-  // road-ahead form: linked results
-  assert.ok([...all(main, "#season-road .form-result button.team-link")].some((b) => b.dataset.team === "Louisville"));
+  // road-ahead form (wave 3): the last three as the standings' squares, each square's title the score and the opponent
+  const roadForm = main.querySelector("#season-road .form");
+  assert.equal(roadForm.getAttribute("aria-label"), "Last 2: W L");
+  assert.equal(roadForm.querySelector(".form__sq--w").getAttribute("title"), "Won 41-38 vs Louisville");
+  assert.equal(roadForm.querySelector(".form__sq--l").getAttribute("title"), "Lost 10-13");
+  // tables wave 3 (owner 2026-10-10): the Season page's own tables size themselves, every data point in its own column
+  const marks = (ths) => ths.map((th) => (th.className.includes("st__min-large") ? "L" : th.className.includes("st__min-medium") ? "M" : ""));
+  for (const id of ["season-standings", "season-polls", "season-ratings", "season-resume", "season-profile", "season-advanced", "season-road", "season-last", "season-playoff"]) {
+    assert.ok([...all(main, `#${id} .stat-table-wrap`)].every((wrap) => wrap.dataset.size), `${id}: every table sized`);
+  }
+  // the polls: the poll's own order (its badge, a plain number at small), the team, its conference's own column
+  const pollHeads = [...all(main, "#season-polls thead th")];
+  assert.deepEqual(pollHeads.map((th) => th.dataset.term), ["AP rank", "Team", "Conference", "±", "AP path", "Points"], "no first-place votes in the payload: no column");
+  assert.deepEqual(marks(pollHeads), ["", "", "M", "", "L", ""], "the conference from medium, the AP path at large");
+  assert.equal(pollHeads[0].querySelector(".sz-t--short").textContent, "#");
+  const top = main.querySelector("#season-polls tbody tr").querySelectorAll("td");
+  assert.ok(top[0].querySelector(".sz-t--long .poll-badge") && top[0].querySelector(".sz-t--short").textContent === "1", "the badge at large and medium, the number at small");
+  assert.equal(top[2].querySelector(".sz-t--long").textContent, "Biscuit Belt");
+  assert.equal(top[2].querySelector(".sz-t--mid").textContent, "BB", "the conference's short name at medium");
+  assert.ok(top[1].querySelector(".sz-t--short button.team-link"), "the team stays a link at small");
+  // the ratings: the value and its FBS rank apart; the FPI schedule strengths show their rank as the value at small
+  const ratingRows = [...all(main, "#season-ratings tbody tr")];
+  const sos = ratingRows.find((tr) => tr.querySelector("td").dataset.term === "Strength of schedule").querySelectorAll("td");
+  assert.equal(sos[1].querySelector(".sz-t--long").textContent, "–");
+  assert.equal(sos[1].querySelector(".sz-t--short").textContent, "#61");
+  assert.ok(sos[2].className.includes("st__min-medium") && sos[2].querySelector("a.rank-chip--link"));
+  const special = ratingRows.find((tr) => tr.querySelector("td").dataset.term === "SP+ special teams");
+  assert.ok(special && special.className.includes("st__min-large"), "special teams at large only");
+  assert.deepEqual([...all(main, "#season-ratings thead th")].map((th) => th.dataset.term), ["Rating", "Value", "FBS rank"]);
+  // the standings sort, place first
+  assert.ok(main.querySelector("#season-standings thead th button"), "teams sort");
+  assert.equal(text(main.querySelector("#season-standings tbody tr td")), "1");
   // GX-06 movement and GX-17 form squares
   assert.equal(text(main.querySelector(".mv--up")), "+2");
   assert.equal(text(main.querySelector(".mv--down")), "−3");
@@ -310,10 +365,14 @@ scenarios.ratings = async () => {
   const data = clone(FIXTURE.ratings);
   const { main, view, set } = await mountView(createRatingsView, "/api/ratings", data);
   clean("ratings", main);
-  const boxes = [...all(main, ".stat-table-wrap--box")];
-  assert.ok(boxes.length >= 3);
-  assert.ok(boxes.every((w) => w.scrollTop > 0), `every box opens on Swampwater Tech: ${boxes.map((w) => w.scrollTop)}`);
-  assert.equal(intoView, 0, "never scrollIntoView: the page itself must not move");
+  // no table scrolls inside the page (owner 2026-10-10): every team is on the page, each band folds
+  // and each sizes itself (owner 2026-10-10, "size them now"): the team's abbreviation at small, the sub-ranks from medium or large
+  for (const id of ["ratings-sp", "ratings-more", "ratings-side", "ratings-conferences"]) assert.ok(main.querySelector(`#${id} .stat-table-wrap`).dataset.size, id);
+  assert.ok([...all(main, "#ratings-sp thead th")].filter((th) => th.className.includes("st__min-large")).length >= 4, "Special, SOS and their ranks only at large");
+  assert.equal([...all(main, ".stat-table-wrap--box")].length, 0);
+  assert.ok([...all(main, ".stat-table-wrap")].length >= 3);
+  for (const id of ["ratings-sp", "ratings-more", "ratings-side"]) assert.ok(main.querySelector(`#${id}`).className.includes("band--foldable"), id);
+  assert.equal(intoView, 0, "never scrollIntoView");
   const next = main.querySelector("#ratings-sp tr.is-next");
   assert.ok(next && text(next).includes("Silver Dollar") && text(next).includes("Next"));
   // each rank is out of its own rating's count (talent covers 120 teams, not 14)
@@ -368,14 +427,31 @@ scenarios.teamPage = async () => {
 scenarios.flyout = async () => {
   installWindow();
   await useTeam();
-  const { openTeamFlyout, seriesRow } = await import(moduleUrl("views/team.js"));
+  const { openTeamFlyout } = await import(moduleUrl("views/team.js"));
+  const { seriesRows } = await import(moduleUrl("ui/series.js"));
   route("/api/team/Diner%20Tech", () => envelope(clone(FIXTURE.opponent)));
+  route("/api/injuries?team=Diner%20Tech", () => envelope({ team: { school: "Diner Tech" }, isUs: false, games: [{ gameId: 1002, week: 2, homeAway: "away", completed: true, opponent: { school: "Diner Tech" }, notes: true, reported: true, source: "Conference report", rows: [{ name: "Hurt Guy", position: "QB", status: "Out", note: "Shoulder" }], unassigned: [] }], counts: { games: 1, reports: 1 } }));
   openTeamFlyout("Diner Tech");
   await settle();
   const sheet = document.body.querySelector(".side-sheet") || document.body;
   const t = clean("flyout", sheet);
+  // owner 2026-10-10: every team's sheet carries its injury report (our games against it), its roster (folded) and its recruiting
+  const injuryBand = [...all(sheet, "section.band")].find((b) => text(b.querySelector(".band__head")).includes("Injury report"));
+  assert.ok(injuryBand && text(injuryBand).includes("Hurt Guy") && text(injuryBand).includes("Week 2 at Diner Tech") && text(injuryBand).includes("1 out"), text(injuryBand));
+  assert.equal(sheet.querySelector("#sheet-roster")?.getAttribute("data-collapsed"), "true", "the roster folded: a long list");
+  assert.ok(sheet.querySelector("#sheet-recruiting"), "its talent and recruiting");
+  assert.equal(sheet.querySelector("#team-roster"), null, "the sheet's own ids, never the team page's");
   const rows = [...all(sheet, "li.sched__game")].filter((li) => !li.className.includes("sched__game--bye"));
   assert.equal(rows.length, 2);
+  // wave 3: the sheet's bands have ids of their own, so a team page under the sheet keeps its own
+  for (const id of ["team-schedule", "team-standings", "team-history"]) assert.equal(sheet.querySelector(`#${id}`), null, id);
+  assert.ok(sheet.querySelector("#sheet-standings") && sheet.querySelector("#sheet-history"), "the sheet's standings and series");
+  // owner 2026-10-10: the schedule sits right under the four tiles, before the stat tables
+  const sched = sheet.querySelector("#sheet-schedule");
+  const kids = [...sched.parentNode.children];
+  const at = kids.indexOf(sched);
+  assert.ok(at > 0 && kids[at - 1].querySelector(".tiles"), "the tiles right above the schedule");
+  assert.ok(text(kids[at + 1]).includes("Offense"), "the Offense table right below it");
   assert.ok(rows.every((li) => !li.hasAttribute("role") && !li.hasAttribute("tabindex")), "another team's schedule promises no tap");
   assert.ok(!t.includes("›"));
   // the series from Swampwater Tech's side: the opponent a link, Swampwater Tech's score first in W/L color
@@ -385,9 +461,82 @@ scenarios.flyout = async () => {
   assert.ok([...all(history, ".res--w")].some((n) => text(n) === "W 24-17"));
   assert.ok([...all(sheet, "a.poll-badge--link")].length >= 1, "the header's AP rank is a linked badge");
   assert.ok([...all(sheet, "a.team-head__link")].some((a) => a.getAttribute("href") === "#ratings=sp?team=Diner%20Tech"));
-  assert.deepEqual(seriesRow({ season: 2019, homeTeam: "A", awayTeam: "B" }), { season: 2019, site: "–", opponent: null, result: null, score: null, margin: null });
-  assert.equal(seriesRow(null).result, null);
-  assert.equal(seriesRow({ homeTeam: "Swampwater Tech", awayTeam: "X", homeScore: 7, awayScore: 7, neutralSite: true }).site, "Neutral");
+  // the series is the Pre-Game Program's table (ui/series.js): our score first in the result, the schools short at small
+  assert.equal(history.querySelector("tbody td button.team-link .sz-t--short")?.textContent, "SWT", "ours from the identity at small");
+  assert.deepEqual(seriesRows({ lastTen: [{ season: 2019, homeTeam: "A", awayTeam: "B" }] }, "Swampwater Tech")[0], { season: "2019", away: "B", home: "A", awayAbbr: null, homeAbbr: null, score: "–", winner: null, winnerAbbr: null, won: null, result: null });
+  assert.deepEqual(seriesRows(null, "Swampwater Tech"), []);
+  assert.equal(seriesRows({ lastTen: [{ homeTeam: "Swampwater Tech", awayTeam: "X", homeScore: 7, awayScore: 7 }] }, "Swampwater Tech")[0].result, "T 7-7");
+};
+
+scenarios.teamTables = async () => {
+  // tables wave 3 (owner 2026-10-10): the team page's own tables size themselves, each data point in its own column
+  installWindow();
+  await useTeam();
+  const players = [];
+  route("/api/players/", (url) => { players.push(url); return envelope({ player: { playerId: "pv2", name: "Quinn Thrower Jr." }, parts: {} }); });
+  const { createTeamView, coachRow } = await import(moduleUrl("views/team.js"));
+  const { main, view } = await mountView(createTeamView, "/api/team/Diner%20Tech", FIXTURE.opponent, { school: "Diner Tech" });
+  clean("team tables", main);
+  const marks = (ths) => ths.map((th) => (th.className.includes("st__min-large") ? "L" : th.className.includes("st__min-medium") ? "M" : ""));
+  const heads = (root) => [...all(root, "thead th")];
+  const terms = (root) => heads(root).map((th) => th.dataset.term);
+  const cells = (root, i) => [...all(root, "tbody tr")[i].querySelectorAll("td")];
+  // Talent and recruiting: Measure | Value | FBS rank (medium), the chip in its own column and still the list's link
+  const recruiting = main.querySelector("#team-recruiting");
+  assert.deepEqual(terms(recruiting), ["Measure", "Value", "FBS rank"]);
+  assert.deepEqual(marks(heads(recruiting)), ["", "", "M"]);
+  const talent = cells(recruiting, 0);
+  assert.equal(talent[0].querySelector(".sz-t--short").textContent, "Talent");
+  assert.equal(text(talent[1]), "891", "the value alone");
+  assert.equal(talent[2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=rating%3Atalent?team=Diner%20Tech");
+  // play value and usage: the player (the surname at small), his position from medium, sorted by the value
+  const [ppa, usage] = all(main, "#team-playvalue .stat-table-wrap");
+  assert.deepEqual(terms(ppa), ["Player", "Pos", "Plays", "PPA per play", "Pass", "Rush"]);
+  assert.deepEqual(marks(heads(ppa)), ["", "M", "M", "", "", ""]);
+  assert.deepEqual([heads(ppa)[3].querySelector(".sz-t--mid").textContent, heads(ppa)[3].querySelector(".sz-t--short").textContent], ["PPA/play", "PPA"]);
+  assert.equal(heads(ppa)[3].getAttribute("aria-sort"), "descending", "the best play value first");
+  assert.deepEqual([pnText(cells(ppa, 0)[0], "last"), pnText(cells(ppa, 0)[0], "initial"), text(cells(ppa, 0)[1])], ["Thrower", "Q. Thrower", "QB"], "item 6: the name steps down with the table");
+  assert.equal(text(cells(ppa, 1)[4]), "–", "no pass value: a dash");
+  assert.deepEqual(terms(usage), ["Player", "Pos", "Usage", "Pass", "Rush"]);
+  assert.equal(heads(usage)[2].getAttribute("aria-sort"), "descending");
+  assert.equal(pnText(cells(usage, 0)[0]), "Quinn Thrower Jr.");
+  all(ppa, "tbody tr")[0].click();
+  await settle();
+  assert.equal(players.length, 1, "a row opens the player card");
+  document.body.querySelector(".card-layer")?.remove();
+  // the standings: the Season page's table, the conference's short name over its record, the page's team marked
+  const standings = main.querySelector("#team-standings");
+  assert.deepEqual(terms(standings), ["#", "Team", "PA", "Overall", "AP rank", "Last 5"]);
+  assert.deepEqual(marks(heads(standings)), ["", "", "", "", "M", "L"]);
+  assert.ok(all(standings, "tbody tr")[0].className.includes("is-next") && all(standings, "tbody tr")[1].className.includes("is-us"));
+  assert.equal(cells(standings, 0)[1].querySelector(".sz-t--short button.team-link").textContent, "DT");
+  assert.equal(cells(standings, 0)[5].querySelector(".form").getAttribute("aria-label"), "Last 1: W");
+  heads(standings)[3].querySelector("button").click();
+  await view.refresh();
+  assert.equal(heads(main.querySelector("#team-standings"))[3].getAttribute("aria-sort"), "descending", "the reader's order survives a refresh");
+  // Coaches: the hire date (its year at small, sorting by the day), the record ("Record" at small), SP+, SRS at large
+  main.querySelector('button[data-tab="coaches"]').click();
+  const coaches = main.querySelector("#team-coaches");
+  clean("coaches", coaches);
+  assert.deepEqual(terms(coaches), ["Coach", "Hired", "This season", "SP+", "SRS"]);
+  assert.deepEqual(marks(heads(coaches)), ["", "", "", "", "L"]);
+  assert.equal(heads(coaches)[2].querySelector(".sz-t--short").textContent, "Record");
+  assert.deepEqual([cells(coaches, 0)[1].querySelector(".sz-t--short").textContent, text(cells(coaches, 0)[2]), text(cells(coaches, 0)[4])], ["2021", "6-2", "12.4"]);
+  assert.deepEqual([text(cells(coaches, 1)[2]), text(cells(coaches, 1)[3])], ["–", "–"]);
+  heads(coaches)[1].querySelector("button").click();
+  assert.equal(cells(coaches, 0)[1].querySelector(".sz-t--short").textContent, "2024", "the newest hire first");
+  assert.deepEqual(coachRow({ hireDate: "soon", wins: "6", ties: 1 }), { hireDate: "soon", wins: "6", ties: 1, hired: "–", hiredYear: null, hiredAt: null, recordText: "–", spOverall: null, srs: null });
+  assert.equal(coachRow(null).hired, "–");
+  // History: the Pre-Game Program's series table, newest first, never sorted
+  main.querySelector('button[data-tab="history"]').click();
+  const series = main.querySelector("#team-history");
+  assert.deepEqual(terms(series), ["Year", "Away", "Home", "Score", "Winner", "Result"]);
+  assert.deepEqual(marks(heads(series)), ["", "", "", "M", "M", ""]);
+  assert.ok(!heads(series).some((th) => th.querySelector("button")), "a series reads back from the last game: no sort");
+  assert.equal(text(cells(series, 0)[0]), "2025");
+  assert.deepEqual([cells(series, 0)[1].querySelector(".sz-t--short").textContent, cells(series, 0)[2].querySelector(".sz-t--short").textContent], ["SWT", "DT"]);
+  assert.ok(text(series).includes("Swampwater Tech's score first in the result."));
+  view.unmount();
 };
 
 scenarios.damaged = async () => {
@@ -444,7 +593,7 @@ scenarios.graphics = async () => {
 };
 """
 
-NAMES = ["seasonLinks", "seasonState", "ratings", "teamPage", "flyout", "damaged", "graphics"]
+NAMES = ["seasonLinks", "seasonState", "ratings", "teamPage", "flyout", "teamTables", "damaged", "graphics"]
 
 
 @pytest.fixture(scope="module")
@@ -475,7 +624,7 @@ def test_page_check_covers_the_season_routes() -> None:
 
 def test_season_css_sits_under_its_anchor() -> None:
     block = CSS.split("/* === SEASON: Season, Team page, Ratings === */", 1)[1].split("/* === PROGRAM:", 1)[0]
-    for selector in (".sched__game--tap", ".sched__ctx", ".trend__avg", ".mv--up", ".tight .stat-table", ".ratings .stat-table-wrap--box tbody tr.is-us td"):
+    for selector in (".sched__game--tap", ".sched__ctx", ".trend__avg", ".mv--up", ".tight .stat-table", ".ratings .stat-table tbody tr.is-us td"):
         assert selector in block, selector
     assert "@container (min-width: 561px)" in CSS, "the tiles size to their column"
     assert not any(":hover" in line and "@media (hover: hover)" not in line for line in block.splitlines()), "hover only where a mouse hovers"

@@ -86,7 +86,14 @@ def test_the_sp_scatter(tmp_path: Path, fixture_path: Path, scenario: str) -> No
     run_scenario(tmp_path, SCENARIOS, scenario, str(fixture_path))
 
 
-def test_the_scatter_shows_only_at_1100_and_wider() -> None:
+def test_the_scatter_follows_its_band() -> None:
+    """2026-10-10 (the Ratings tables size themselves): by the band's own width. None in a phone-width band, above the table
+    (centred) from 700 px, beside it from 1000 px, where the table keeps room for its medium size."""
     assert re.search(r"(?m)^\.scatter \{ display: none;", CSS)
-    wide = CSS.split("@media (min-width: 1100px) {\n  .ratings__sp", 1)
-    assert len(wide) == 2 and ".scatter { display: grid;" in wide[1].split("}\n}", 1)[0]
+    above = CSS.split("@container (min-width: 700px) {\n  .ratings__sp", 1)
+    assert len(above) == 2
+    block = above[1].split("}\n}", 1)[0]
+    assert ".ratings__sp > .scatter { display: grid;" in block and "order: -1" in block
+    assert "minmax(0, 1fr)" in block, "a one-column grid that never grows past the band"
+    beside = CSS.split("@container (min-width: 1000px) {\n  .ratings__sp", 1)
+    assert len(beside) == 2 and "280px" in beside[1].split("}\n}", 1)[0]

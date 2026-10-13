@@ -15,6 +15,8 @@ leaves the machine.
       .clear()                 no PIN again: every device is the host
       .verify(pin, who)        True/False, and LockedOut when the address has failed too often
       .token() / .valid_token(text)   the host cookie's value
+      .join_token() / .valid_join(text)   group five, away from home: the code in the invite link and the join cookie,
+                                          signed with a per-install secret (data/join.json) that needs no PIN
 """
 
 from __future__ import annotations
@@ -35,6 +37,8 @@ from app.services.answers import atomic_write
 log = logging.getLogger("kickoff.host")
 
 COOKIE = "kickoff_host"
+JOIN_COOKIE = "kickoff_join"  # group five: the device arrived through the host's code
+JOIN_SECONDS = 30 * 24 * 3600
 COOKIE_SECONDS = 365 * 24 * 3600
 PIN_DIGITS = (4, 8)
 MAX_FAILS = 5
@@ -135,6 +139,35 @@ class HostAccess:
 
     def token(self) -> str:
         return hmac.new(bytes.fromhex(self._data["secret"]), b"kickoff-host", hashlib.sha256).hexdigest() if self._data else ""
+
+    def _join_secret(self) -> str:
+        """A per-install secret for the join code, made on first use and kept beside the host file; a PIN is not needed."""
+        cached = getattr(self, "_join", None)
+        if isinstance(cached, str) and cached:
+            return cached
+        path = self.path.with_name("join.json")
+        secret = None
+        if path.exists():
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+                secret = raw.get("secret") if isinstance(raw, dict) else None
+            except (OSError, ValueError) as error:
+                log.error("The join file %s cannot be read (%s); a new code is made", path, error)
+        if not isinstance(secret, str) or len(secret) < 32:
+            secret = secrets.token_hex(32)
+            try:
+                atomic_write(path, json.dumps({"secret": secret}))
+            except OSError as exc:
+                log.error("The join file %s could not be written (%s); the code changes at the next start", path, exc)
+        self._join = secret
+        return secret
+
+    def join_token(self) -> str:
+        """The short code in the invite link: twelve hex characters, the same for the life of the install."""
+        return hmac.new(bytes.fromhex(self._join_secret()), b"kickoff-join", hashlib.sha256).hexdigest()[:12]
+
+    def valid_join(self, value: Any) -> bool:
+        return isinstance(value, str) and hmac.compare_digest(value, self.join_token())
 
     def valid_token(self, value: Any) -> bool:
         return bool(self._data) and isinstance(value, str) and hmac.compare_digest(value, self.token())

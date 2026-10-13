@@ -10,17 +10,23 @@
 //       sized by their column (a container query: 2 x 2 below 560 px of column, 4 across above), sentence-case
 //       one-line labels, a 40px value, and under it the rank chip (a link with href) followed by "of N".
 //   profileTiles(rows, { team })            the four tiles from profile rows (points and yards, for and against).
-//   profileTable(rows, side, { team, conferenceLabel })   one side of the stat profile: Statistic | Value with its
-//       national chip in the same cell | the conference chip in its own narrow column. Season and the team
-//       pages share both, so a chip means the same thing everywhere.
+//   profileTable(rows, side, { team, conferenceLabel })   one side of the stat profile, sized by its own box (tables
+//       wave 3, rule 3: every data point in its own column): Statistic | Value | FBS rank (from medium) | the
+//       conference's rank (large). The defense's small head says "Def (allowed)" once for its rows. Season and the
+//       team pages share it, so a chip means the same thing everywhere.
+//   standingsTable(rows, { conference, rowClass, caption, sort, onSort })   a conference's standings, sized (wave 3):
+//       # | Team (logo and school; its abbreviation, still a link, at small) | the conference record under the
+//       conference's short name | Overall | AP rank (from medium) | Last 5 (large). Teams sort, by place to start.
+//   teamAbbrLink(school, abbreviation)  a team's link that reads its abbreviation: a sized team cell's small form.
+//   conferenceColumn()  a team's conference as its own column (decision 1): its whole name at large, its short name
+//       (the row's conferenceShort) at medium, gone at small. The polls and the committee's rankings share it.
 //   formSquares(form, { limit = 5 })  GX-17: the last results as small squares, a letter on a tinted fill,
 //       newest on the right; null when there is no finished game.
 
 import { icon } from "./icons.js";
-import { el, fmtNum, fmtStat, isNum, teamLink, teamLogo, text } from "./dom.js";
-import { valueColumn } from "./depth2.js";
-import { metricLink, nationalHref } from "./national-link.js";
-import { rankChip, statTable } from "./stat-table.js";
+import { DASH, el, fmtNum, fmtStat, isNum, personName, teamLink, teamLogo, text } from "./dom.js";
+import { metricLink, nationalHref, pollHref } from "./national-link.js";
+import { pollBadge, rankChip, sizedText, statTable } from "./stat-table.js";
 import { fillWiki, wikiLink } from "./wiki-links.js";
 
 function recordText(record) {
@@ -150,7 +156,16 @@ export function profileTiles(rows, { team } = {}) {
   }));
 }
 
-/** One side of the stat profile ("offense" takes the rows for both sides too). */
+/** A conference's name for a rank head ("BB rank"), or "Conf" when there is none. */
+function confWord(label) {
+  return typeof label === "string" && label.trim() ? label.trim() : "Conf";
+}
+
+/**
+ * One side of the stat profile ("offense" takes the rows for both sides too), sized by its own box (tables wave 3):
+ * Statistic | Value | FBS rank (from medium) | the conference's rank (large), each its own column (rule 3). The value
+ * keeps its flash key (v:<key>); a row with no rank shows a dash in that column.
+ */
 export function profileTable(rows, side, { team, conferenceLabel = "Conf" } = {}) {
   const list = rowsOf(rows).filter((row) => row.side === side || (side === "offense" && row.side === "both"));
   return el(
@@ -158,15 +173,81 @@ export function profileTable(rows, side, { team, conferenceLabel = "Conf" } = {}
     { class: "prof" },
     statTable({
       compact: true,
+      sizes: true,
       columns: [
-        { key: "label", label: "Statistic", kind: "text" },
-        valueColumn({ team }),
-        { key: "conferenceRank", label: `${text(conferenceLabel)} rank`, kind: "rank", of: "conferenceOf", dim: true, link: metricLink({ team, scope: "conference" }) }, // Phase 17 #27: a rank, and says so
+        { key: "label", label: "Statistic", labelShort: side === "defense" ? "Def (allowed)" : "Stat", kind: "text" }, // rule 5: the defense's head says allowed once
+        { key: "value", label: "Value", render: (row) => el("span", { "data-k": typeof row?.key === "string" && row.key ? `v:${row.key}` : null }, isNum(row?.value) ? fmtStat(row.value, row.format || "2f") : DASH) },
+        { key: "nationalRank", label: "FBS rank", labelMid: "FBS", kind: "rank", of: "nationalOf", size: "medium", link: metricLink({ team }) },
+        { key: "conferenceRank", label: `${confWord(conferenceLabel)} rank`, kind: "rank", of: "conferenceOf", size: "large", link: metricLink({ team, scope: "conference" }) }, // Phase 17 #27: a rank, and says so
       ],
       rows: list,
       caption: `${side} profile`,
     }),
   );
+}
+
+/** A team's link that reads its abbreviation (the school when it has none): a sized team cell's small form, so the tap
+ *  survives at small (wave 3). A dash with no school. */
+export function teamAbbrLink(school, abbreviation) {
+  const name = typeof school === "string" && school.trim() ? school.trim() : null;
+  if (!name) return DASH;
+  const short = typeof abbreviation === "string" && abbreviation.trim() ? abbreviation.trim() : name;
+  return teamLink(name, short);
+}
+
+/** A team's conference in a column of its own (owner 2026-10-10, decision 1: the second fact under a name has its own
+ *  column at large and medium and is gone at small): the whole name at large, the short name the server sends
+ *  (conferenceShort: "BB") at medium, where a ranked list's band has no room for a long conference name. */
+export function conferenceColumn() {
+  const words = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  return {
+    key: "conference",
+    label: "Conference",
+    labelMid: "Conf",
+    kind: "text",
+    size: "medium",
+    render: (row) => {
+      const name = words(row.conference);
+      if (!name) return DASH;
+      const short = words(row.conferenceShort) || name;
+      return el("span", {}, sizedText(name, short, short));
+    },
+  };
+}
+
+/** How many games of a form list were won (the Last 5 column's sort). */
+export function formWins(form) {
+  return (Array.isArray(form) ? form : []).filter((g) => g && typeof g === "object" && g.result === "W").length;
+}
+
+/**
+ * A conference's standings, sized by its own box (tables wave 3; the Season page and every team page share it):
+ * # | Team | the conference record (headed by the conference's short name) | Overall | AP rank (from medium) | Last 5
+ * (large). At small the team is its abbreviation (still its link). Teams sort; place first.
+ * rows: the server's standings rows ({ place, team, abbreviation, logo, conference: record, overall: record, apRank, form }).
+ */
+export function standingsTable(rows, { conference = "Conf", rowClass, caption, sort, onSort } = {}) {
+  const list = rowsOf(rows).map((row) => ({ ...row, place: isNum(row.place) ? row.place : null, confText: recordText(row.conference) || DASH, overallText: recordText(row.overall) || DASH, formWins: formWins(row.form) }));
+  const school = (row) => (typeof row.team === "string" && row.team.trim() ? row.team.trim() : null);
+  const columns = [
+    { key: "place", label: "#", dim: true },
+    { key: "team", label: "Team", kind: "text", render: (row) => logoLink(row.team, row), renderShort: (row) => teamAbbrLink(row.team, row.abbreviation) },
+    { key: "confText", label: confWord(conference) },
+    { key: "overallText", label: "Overall", labelShort: "Ovr" },
+    { key: "apRank", label: "AP rank", labelMid: "AP", size: "medium", render: (row) => (isNum(row.apRank) ? pollBadge(row.apRank, "AP", { href: pollHref("AP", { team: school(row) }), label: school(row), showPoll: false }) : el("span", { class: "nr" }, "NR")) },
+    // measured 2026-10-11: a 1080p screen's one-column band (about 460 px) holds the AP rank at medium but not the squares too
+    { key: "form", label: "Last 5", size: "large", sortKey: "formWins", render: (row) => formSquares(row.form) || DASH },
+  ].map((column) => ({ ...column, tieKey: "team" })); // a tie in any column falls back to the school's name
+  return statTable({
+    compact: true,
+    sizes: true,
+    columns,
+    rows: list,
+    sort: sort && typeof sort.key === "string" ? sort : { key: "place", dir: "ascending" },
+    onSort,
+    rowClass,
+    caption: typeof caption === "string" && caption ? caption : `${confWord(conference)} standings`,
+  });
 }
 
 /**
@@ -206,7 +287,8 @@ export function impactCard({ player = {}, chips = [], tag, them = false, onTap }
     el(
       "div",
       {},
-      el("div", { class: "impact__name" }, `${player.position ? `${text(player.position)} ` : ""}${text(player.name)}`, tag ? el("span", { class: "tag" }, text(tag)) : null),
+      // item 6: one line, the name fitted (full, "K. Crawford", the surname, the reduced surname, then the ellipsis)
+      el("div", { class: "impact__name" }, player.position ? `${text(player.position)} ` : null, personName(player.name, { fit: true }), tag ? el("span", { class: "tag" }, text(tag)) : null),
       el("div", { class: "impact__chips" }, chips.length ? chips.map((chip) => el("span", { class: "chip" }, text(chip))) : el("span", { class: "chip" }, "No stats yet")),
     ),
     el("div", { class: "impact__class" }, text(player.classYear)),

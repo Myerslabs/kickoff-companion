@@ -77,6 +77,36 @@ class TickerService:
     # --- the answer --------------------------------------------------------------------------------
 
     async def ticker(self, delay: float) -> Assembled:
+        slot, source, parts, kept = await self.collect(delay)
+        week = slot[0] if slot else None
+        mode, asked, mode_note, mine = self._mode(parts["teams"].records)
+        for g in kept:
+            g["isMine"] = g["isUs"] or g["home"]["school"] in mine or g["away"]["school"] in mine
+        if mode == "mine":
+            ours = [g for g in kept if g["isMine"]]
+            if ours or not kept:
+                kept = ours
+            else:
+                mode, mode_note = "national", "None of your teams play on this slate, so the ticker shows every game."
+        data = {
+            "season": self.year,
+            "week": week,
+            "source": source,
+            "delaySeconds": delay,
+            "mode": mode,
+            "modeAsked": asked,
+            "refreshMinutes": int((LEAN_REFRESH if plan.lean(self.client) else REFRESH).total_seconds() // 60),  # the slate's cadence while games are on
+            "modeNote": mode_note,
+            "games": kept,
+            "note": None if week is not None else "No week of ours to show yet.",
+            "parts": statuses(parts, self.client._clock()),
+        }
+        return assemble(data, parts)
+
+    async def collect(self, delay: float) -> tuple[tuple[int, str] | None, str, dict[str, Part], list[dict[str, Any]]]:
+        """((week, seasonType) or None, source, parts, every FBS game of the week's slate) before the My teams filter, live first: the
+        ticker's own answer, and the Top 25 page's and the newspaper's live scores (items 10-12) from the same
+        cached calls. Our game's entry follows the delay."""
         now = self.client._clock()
         results = await asyncio.gather(
             self.fetcher.fetch("schedule", "/games", {"year": self.year, "team": self.team}, Game, DataKind.SCHEDULE),
@@ -115,29 +145,7 @@ class TickerService:
                 games = [await self._from_game(g, teams, ap, delay, now) for g in records]
         kept = [g for g in games if g is not None]
         kept.sort(key=lambda g: (STATUS_ORDER.get(g["status"], 3), g.get("kickoff") or ""))
-        mode, asked, mode_note, mine = self._mode(parts["teams"].records)
-        for g in kept:
-            g["isMine"] = g["isUs"] or g["home"]["school"] in mine or g["away"]["school"] in mine
-        if mode == "mine":
-            ours = [g for g in kept if g["isMine"]]
-            if ours or not kept:
-                kept = ours
-            else:
-                mode, mode_note = "national", "None of your teams play on this slate, so the ticker shows every game."
-        data = {
-            "season": self.year,
-            "week": week,
-            "source": source,
-            "delaySeconds": delay,
-            "mode": mode,
-            "modeAsked": asked,
-            "refreshMinutes": int((LEAN_REFRESH if plan.lean(self.client) else REFRESH).total_seconds() // 60),  # the slate's cadence while games are on
-            "modeNote": mode_note,
-            "games": kept,
-            "note": None if week is not None else "No week of ours to show yet.",
-            "parts": statuses(parts, self.client._clock()),
-        }
-        return assemble(data, parts)
+        return slot, source, parts, kept
 
     # --- which week, which games -------------------------------------------------------------------
 
@@ -151,6 +159,11 @@ class TickerService:
         if asked == "mine" and not plan.allows_liked(self.client.capabilities):
             return "national", asked, "The My teams ticker needs a Tier 2 key, so it shows every game.", mine
         return asked, asked, None, mine
+
+    def week_of(self, games: list[Game], now: datetime) -> tuple[int, str] | None:
+        """(week, seasonType) of our game today, else the next one, else the last one played (the Top 25 page's week
+        when the calendar has none)."""
+        return self._week(games, now)
 
     def _week(self, games: list[Game], now: datetime) -> tuple[int, str] | None:
         """(week, seasonType) of our game today, else the next one, else the last one played."""
@@ -227,7 +240,7 @@ class TickerService:
         return f"{local.hour % 12 or 12}:{local.minute:02d} {'AM' if local.hour < 12 else 'PM'}"
 
     async def _ours(self, game_id: int, status: str, detail: str | None, home_pts: Any, away_pts: Any, delay: float, now: datetime) -> tuple[str, str | None, Any, Any]:
-        """Our game's entry never runs ahead of the delayed live sheet."""
+        """Our game's entry never runs ahead of the delayed In Game sheet."""
         engine = self.engine
         # Final pass: the engine's delayed state rules whenever it has this game's events, the idle moments after the
         # final included (before, the entry fell through to CFBD's undelayed final the moment the window closed).
@@ -245,6 +258,15 @@ class TickerService:
         if status == "final" and engine.current_game_id == game_id and not engine.final_released(now, delay):
             return "live", "In progress", None, None  # the feed's final is not released to this device yet
         return status, detail, home_pts, away_pts
+
+    async def entry_for(self, g: Game, teams: dict[str, Team], ap: dict[str, int], delay: float, now: datetime) -> dict[str, Any] | None:
+        """One game's ticker entry from the schedule (a game the slate's answer did not carry: a bowl on another day);
+        ours follows the delay. None for a game with no FBS side."""
+        return await self._from_game(g, teams, ap, delay, now)
+
+    def ap_ranks(self, weeks: list[PollWeek]) -> dict[str, int]:
+        """{school: AP rank} from the latest poll."""
+        return self._ap(weeks)
 
     async def _from_game(self, g: Game, teams: dict[str, Team], ap: dict[str, int], delay: float, now: datetime) -> dict[str, Any] | None:
         if not self._keep(g.home_team, g.away_team, g.home_classification, g.away_classification, teams):

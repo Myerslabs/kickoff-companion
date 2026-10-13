@@ -38,15 +38,25 @@ def _utc_text(game: Game) -> str | None:
     return game.start_date if isinstance(game.start_date, str) and game.start_date else None
 
 
-def _result(game: Game, school: str) -> dict[str, Any]:
+def _abbreviation(teams: dict[str, dict[str, Any]] | None, school: str | None) -> str | None:
+    """A school's abbreviation from the /teams/fbs map (tables wave 3: My Teams' opponent at small); None for an FCS team or
+    a blank one."""
+    meta = teams.get(school or "") if isinstance(teams, dict) else None
+    short = meta.get("abbreviation") if isinstance(meta, dict) else None
+    return short.strip() if isinstance(short, str) and short.strip() else None
+
+
+def _result(game: Game, school: str, teams: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     home = game.home_team == school
     us, them = (game.home_points, game.away_points) if home else (game.away_points, game.home_points)
     outcome = None
     if isinstance(us, int) and isinstance(them, int):
         outcome = "W" if us > them else "L" if us < them else "T"
+    opponent = gamekeys.opponent_of(game, school)
     return {
         "gameId": game.id,
-        "opponent": gamekeys.opponent_of(game, school),
+        "opponent": opponent,
+        "opponentAbbr": _abbreviation(teams, opponent),
         "homeAway": "neutral" if game.neutral_site else ("home" if home else "away"),
         "date": _utc_text(game),
         "startTimeTbd": bool(game.start_time_tbd),
@@ -56,12 +66,13 @@ def _result(game: Game, school: str) -> dict[str, Any]:
     }
 
 
-def last_and_next(games: list[Game], school: str) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    """A team's latest finished game and its next one, from the season's games (the Game program's part)."""
+def last_and_next(games: list[Game], school: str, teams: dict[str, dict[str, Any]] | None = None) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
+    """A team's latest finished game and its next one, from the season's games (the Pre-Game Program's part). With the
+    /teams/fbs map each carries the opponent's abbreviation (tables wave 3: the small table's "at DT")."""
     own = sorted((g for g in games if isinstance(g, Game) and school in (g.home_team, g.away_team) and g.week is not None), key=gamekeys.order)
     done = [g for g in own if g.completed]
     ahead = [g for g in own if not g.completed]
-    return (_result(done[-1], school) if done else None), (_result(ahead[0], school) if ahead else None)
+    return (_result(done[-1], school, teams) if done else None), (_result(ahead[0], school, teams) if ahead else None)
 
 
 def _rating(table: Any, school: str) -> dict[str, Any]:
@@ -107,7 +118,7 @@ class MyTeamsService:
         fpi = fpi_tables(parts["fpi"].records, fbs)["fpi"]
         rows = []
         for school in [*chosen.primaries, *chosen.secondary]:
-            last, upcoming = last_and_next(parts["games"].records, school)
+            last, upcoming = last_and_next(parts["games"].records, school, teams)
             block = self.program._team_block(school, teams, records, ranks)
             rows.append({
                 **block,

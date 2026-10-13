@@ -365,6 +365,17 @@ def test_matchup_rows_name_their_lists_and_logos_are_local(client: TestClient, f
     for side in ("away", "home"):
         logo = data[side]["logo"]
         assert logo is None or logo.startswith("/media/logo/")
+    # tables wave 3: each side's conference rank is the one its own conference list gives that team (any two teams)
+    from app.services.identity import conference_short
+
+    for side in ("away", "home"):
+        school = data[side]["school"]
+        assert data[side]["conferenceShort"] == conference_short(data[side]["conference"])
+        ranked = [r for r in data["rows"] if r[side]["confRank"] is not None]
+        assert ranked, side
+        for row in ranked[:6]:
+            listed = client.get(f"/api/national/{row['metric']}", params={"team": school, "scope": "conference"}).json()["data"]
+            assert (listed["focus"]["rank"], listed["of"]) == (row[side]["confRank"], row[side]["confOf"]), (side, row["key"])
 
 
 # --- page chips: blue-chip and returning-production ranks on the pages (coordinator follow-up, decision 9) -----------

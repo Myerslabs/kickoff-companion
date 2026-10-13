@@ -9,6 +9,7 @@ final, and per-play PPA rides the live feed only. Every block says whether it ha
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Iterable
 from typing import Any
 
 from app.cache import DataKind
@@ -97,6 +98,17 @@ def player_rows(records: list[PlayerGamePpa], team: str, opponent: str | None = 
     return rows[:limit]
 
 
+def player_ids(groups: Iterable[list[PlayerGamePpa]]) -> dict[tuple[str, str], str]:
+    """(team, name) to the player's id, from play value records (whole, before player_rows keeps the top few)."""
+    ids: dict[tuple[str, str], str] = {}
+    for records in groups:
+        for r in records:
+            pid = str(r.id).strip() if r.id is not None else ""
+            if r.team and r.name and pid.isdigit():
+                ids.setdefault((r.team, r.name), pid)
+    return ids
+
+
 class AnalyticsService:
     """`/api/games/{id}/analytics`: the win probability series and the play value of one of our games."""
 
@@ -151,6 +163,8 @@ class AnalyticsService:
         this_them = next((r for r in them_rows if r["gameId"] == game_id), None)
         players_us = player_rows(parts["ppaPlayersUs"].records, self.team, opponent) if "ppaPlayersUs" in parts else []
         players_them = player_rows(parts["ppaPlayersThem"].records, opponent or "", self.team) if "ppaPlayersThem" in parts else []
+        # the advanced box names its players without ids; the week's play value records carry them, so a row opens the card
+        box_ids = player_ids(parts[key].records for key in ("ppaPlayersUs", "ppaPlayersThem") if key in parts)
         now = self.client._clock()
         data = {
             "gameId": game_id,
@@ -174,7 +188,7 @@ class AnalyticsService:
                 "players": {"us": players_us, "them": players_them},
                 "note": None if (this_us or players_us) else ("Play value posts after the final, once CFBD grades the game." if not game.completed else "CFBD has not posted play value for this game."),
             },
-            "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None) if "advancedBox" in parts else None,
+            "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None, box_ids) if "advancedBox" in parts else None,
             "parts": statuses(parts, now),
         }
         recap16.enrich_win_probability(data["winProbability"], home_is_us)  # Phase 16 BX: game time (GX-02) and the biggest swings (GX-09)

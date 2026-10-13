@@ -33,12 +33,14 @@
   ],
   "availability": [
     {
+      "team": "School name",
       "name": "Player Name",
       "position": "WR",
       "status": "Out",
       "note": "knee, week 2"
     },
     {
+      "team": "School name",
       "name": "Player Name",
       "position": "OL",
       "status": "Questionable",

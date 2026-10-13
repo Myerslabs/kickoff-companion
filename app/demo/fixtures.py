@@ -21,6 +21,7 @@ RECORDINGS: dict[str, tuple[str, dict[str, str], int]] = {
     "calendar": ("/calendar", {"year": "{S}"}, 2),
     "calendar_2025": ("/calendar", {"year": "{S-1}"}, 2),
     "coaches_opponent": ("/coaches", {"team": "{OPP}", "year": "{S}"}, 2),
+    "coaches_year": ("/coaches", {"year": "{S}"}, 2),  # items 10-12: every head coach of the year in one call
     "drives": ("/drives", {"year": "{S}", "week": "{LASTWEEK}", "team": "{US}"}, 2),
     "drives_post": ("/drives", {"year": "{S-1}", "week": "1", "team": "{POSTTEAM}", "seasonType": "postseason"}, 2),
     "game_box_advanced": ("/game/box/advanced", {"id": "{LASTGAME}"}, 2),
@@ -43,6 +44,8 @@ RECORDINGS: dict[str, tuple[str, dict[str, str], int]] = {
     "games_teams_post": ("/games/teams", {"id": "{POSTGAME}", "year": "{S-1}"}, 2),
     "games_weather": ("/games/weather", {"year": "{S}", "team": "{US}"}, 0),
     "games_weather_tier2": ("/games/weather", {"year": "{S}", "week": "{NEXTWEEK}", "team": "{US}"}, 2),
+    "games_weather_week": ("/games/weather", {"year": "{S}", "week": "{NEXTWEEK}", "classification": "fbs"}, 2),  # items 10-12: a whole week
+    "games_weather_week_before": ("/games/weather", {"year": "{S}", "week": "{LASTWEEK}", "classification": "fbs"}, 2),
     "games_week": ("/games", {"year": "{S}", "week": "{NEXTWEEK}"}, 2),
     "info": ("/info", {}, 0),
     "info_after": ("/info", {}, 0),

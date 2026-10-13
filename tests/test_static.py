@@ -54,11 +54,12 @@ def test_static_assets(client: TestClient):
     assert client.get("/static/js/views/season.js").status_code == 200
 
 
-def test_plain_http_is_redirected_to_https(plain_client: TestClient):
-    for path in ("/", "/api/health", "/nowhere"):
+def test_plain_http_is_served_beside_https(plain_client: TestClient):
+    """Group five: with HTTPS on the server answers both schemes and redirects nothing (guests keep http://)."""
+    for path, status in (("/", 200), ("/api/health", 200), ("/nowhere", 404)):
         response = plain_client.get(path, follow_redirects=False)
-        assert response.status_code == 302, path
-        assert response.headers["location"] == f"https://testserver{path}"
+        assert response.status_code == status, path
+        assert "location" not in response.headers, path
 
 
 def test_setup_pages_are_allowed_over_plain_http(plain_client: TestClient):

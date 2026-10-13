@@ -130,7 +130,9 @@ def test_setup_mode_lets_the_demo_page_through(tmp_path: Path, monkeypatch):
 def test_the_readme_and_the_menu_say_the_same():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert PRIVACY in readme and PLANS in readme and "**Use my own team**" in readme and "**demo**" in readme
-    shell = (ROOT / "static/js/ui/shell.js").read_text(encoding="utf-8")
-    assert '{ id: "demo", label: "Demo", href: "/demo"' in shell
+    # owner 2026-10-10: the Demo is on the Setup page (the menu's Setup item), not a menu item of its own
+    setup = (ROOT / "static/js/views/setup-page.js").read_text(encoding="utf-8")
+    assert '{ label: "Demo", href: "/demo"' in setup
+    assert '{ id: "setup", label: "Setup"' in (ROOT / "static/js/ui/shell.js").read_text(encoding="utf-8")
     app_js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
     assert "showDemoBanner(page);" in app_js

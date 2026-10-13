@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.api.envelope import utc_now_iso
-from app.cfbd.models import Game, PlayerGamePpa, PlayWinProbability, parse_records
+from app.cfbd.models import Game, PlayerGamePpa, PlayWinProbability, Team, parse_records
 from app.services import gamekeys, recap16
 from app.services.analytics import AnalyticsService, player_rows, wp_series
 from app.services.context16 import peek
@@ -50,10 +50,11 @@ class ArchiveService:
             return None
         return raw
 
-    def _summary(self, raw: dict[str, Any]) -> dict[str, Any]:
+    def _summary(self, raw: dict[str, Any], abbreviations: dict[str, str] | None = None) -> dict[str, Any]:
         state = raw["state"]
         home, away = raw.get("home"), raw.get("away")
         home_is_us = home == self.team
+        short = abbreviations or {}
         return {
             "gameId": raw["gameId"],
             "week": _num(raw.get("week")),
@@ -62,6 +63,9 @@ class ArchiveService:
             "savedAt": raw.get("savedAt"),
             "home": home,
             "away": away,
+            # tables wave 3: the list's small form ("SWT at SD"); None for a school /teams/fbs does not list
+            "homeAbbr": short.get(home) if isinstance(home, str) else None,
+            "awayAbbr": short.get(away) if isinstance(away, str) else None,
             "homeIsUs": home_is_us,
             "opponent": away if home_is_us else home,
             "homeScore": _num(state.get("homeScore")),
@@ -73,16 +77,26 @@ class ArchiveService:
             "hasWinProbability": bool(raw.get("winProbability")),
         }
 
-    def list(self) -> dict[str, Any]:
+    async def _abbreviations(self) -> dict[str, str]:
+        """School -> abbreviation from the /teams/fbs answer the other pages cached (a peek: never a call, no quota). Empty
+        on a cold cache; a damaged record is skipped by the parser."""
+        payload = await peek(self._client, "/teams/fbs", {"year": self._year})
+        if payload is None:
+            return {}
+        teams = parse_records(Team, payload, context="archive/teams peek").records
+        return {t.school: t.abbreviation.strip() for t in teams if isinstance(t.school, str) and t.school and isinstance(t.abbreviation, str) and t.abbreviation.strip()}
+
+    async def list(self) -> dict[str, Any]:
         games: list[dict[str, Any]] = []
         skipped = 0
+        abbreviations = await self._abbreviations()
         if self.folder.is_dir():
             for path in sorted(self.folder.glob("*.json")):
                 raw = self._read(path)
                 if raw is None:
                     skipped += 1
                     continue
-                games.append(self._summary(raw))
+                games.append(self._summary(raw, abbreviations))
         games.sort(key=lambda g: (g.get("kickoff") or "", g["gameId"]), reverse=True)
         return {"games": games, "count": len(games), "skipped": skipped, "folder": str(self.folder), "fetchedAt": utc_now_iso()}
 

@@ -20,7 +20,7 @@ from pydantic import ValidationError
 
 from app import restart
 from app.cfbd.models import Game, Team, parse_records
-from app.services import stations, teamset
+from app.services import myteams, stations, teamset
 from app.services.prefs import Prefs
 from tests.conftest import TEST_KEY, FakeCfbd, fixture_payload
 from tests.test_national import load_pages, route_all
@@ -239,10 +239,25 @@ def test_my_teams_lists_records_ranks_and_games_from_cached_answers(app, client:
     sp_rank = next(r["ranking"] for r in fixture_payload("ratings_sp") if r["team"] == HOME)
     assert by[HOME]["sp"]["rank"] == sp_rank and isinstance(by[HOME]["record"]["wins"], int)
     assert by[HOME]["last"]["opponent"] == "Silver Dollar" and by[HOME]["next"]["opponent"] == OPPONENT
+    abbr = {t.school: t.abbreviation for t in TEAMS}  # tables wave 3: the small table reads "at GRID", "vs DINR"
+    assert by[HOME]["last"]["opponentAbbr"] == abbr["Silver Dollar"] and by[HOME]["next"]["opponentAbbr"] == abbr[OPPONENT]
+    assert by[HOME]["abbreviation"] == abbr[HOME]
     assert body["data"]["note"] is None and body["data"]["teamSet"]["extraPrimaries"] == [OPPONENT]
     tier(app, 0)
     free = client.get("/api/myteams").json()["data"]
     assert [r["school"] for r in free["rows"]] == [HOME] and "Tier 2" in free["note"]
+
+
+def test_last_and_next_carry_the_opponents_abbreviation_when_known():
+    """Tables wave 3: My Teams' small table names each opponent by its abbreviation; an FCS opponent, a blank one or no team
+    map leaves it None (the page then shows the school)."""
+    teams = {"Silver Dollar": {"abbreviation": " GRID "}, OPPONENT: {"abbreviation": "  "}, "Junk": "x"}
+    last, upcoming = myteams.last_and_next(GAMES, HOME, teams)
+    assert last["opponent"] == "Silver Dollar" and last["opponentAbbr"] == "GRID"
+    assert upcoming["opponent"] == OPPONENT and upcoming["opponentAbbr"] is None
+    plain_last, plain_next = myteams.last_and_next(GAMES, HOME)
+    assert plain_last["opponentAbbr"] is None and plain_next["opponentAbbr"] is None
+    assert myteams.last_and_next([], HOME, teams) == (None, None)
 
 
 def test_my_teams_survives_junk_parts(app, client: TestClient, fake_cfbd: FakeCfbd):

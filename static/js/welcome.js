@@ -45,9 +45,14 @@ const els = {
   finishNote: $("finish-note"),
   finishError: $("finish-error"),
   status: $("welcome-status"),
+  backToApp: $("back-to-app"),
+  demoLine: $("demo-line"),
 };
 
 const MAX_PRIMARIES = 4;
+// A list of schools shows this many matches whole and says how many more typing would find: never a scroll box
+// inside the page, which keeps a finger on a phone (owner 2026-10-10).
+const SHOWN = 8;
 const state = { info: null, teams: [], conferences: [], states: [], team: null, primaries: [], tickerMode: "national", liked: { teams: [], conferences: [], states: [] } };
 
 const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
@@ -182,10 +187,16 @@ function matches(team, query) {
   return [team.school, team.mascot, team.conference, team.abbreviation, team.state].some((v) => typeof v === "string" && v.toLowerCase().includes(q));
 }
 
+/** The first SHOWN items of a list of matches, then a line saying how many more there are and that typing narrows them. */
+function shortList(items, draw) {
+  const more = items.length - SHOWN;
+  return [...items.slice(0, SHOWN).map(draw), more > 0 ? el("p", { class: "welcome__more", role: "none" }, `${more} more: type a school, mascot or conference to find them.`) : null].filter(Boolean);
+}
+
 function renderTeams() {
   const query = els.teamSearch.value.trim();
-  const shown = state.teams.filter((t) => matches(t, query)).slice(0, query ? 60 : 200);
-  els.teamList.replaceChildren(...shown.map((team) => teamItem(team, { selected: state.team === team.school, onPick: pickTeam })));
+  const found = state.teams.filter((t) => matches(t, query));
+  els.teamList.replaceChildren(...shortList(found, (team) => teamItem(team, { selected: state.team === team.school, onPick: pickTeam })));
   if (state.team) {
     const team = state.teams.find((t) => t.school === state.team);
     show(els.teamChosen, team ? `${team.school}${str(team.mascot) ? ` ${team.mascot}` : ""}, ${str(team.conference) || "conference unknown"}` : state.team);
@@ -227,8 +238,8 @@ function renderPrimaries() {
   els.primarySearch.disabled = !allowed || !state.teams.length || full;
   els.primarySearch.placeholder = full ? `${MAX_PRIMARIES} more is the most; remove one to add another` : "Add a school";
   const query = els.primarySearch.value.trim();
-  const candidates = query && !full ? state.teams.filter((t) => t.school !== state.team && !state.primaries.includes(t.school) && matches(t, query)).slice(0, 30) : [];
-  els.primaryList.replaceChildren(...candidates.map((team) => teamItem(team, { selected: false, onPick: (t) => {
+  const candidates = query && !full ? state.teams.filter((t) => t.school !== state.team && !state.primaries.includes(t.school) && matches(t, query)) : [];
+  els.primaryList.replaceChildren(...shortList(candidates, (team) => teamItem(team, { selected: false, onPick: (t) => {
     state.primaries.push(t.school);
     state.liked.teams = state.liked.teams.filter((v) => v !== t.school); // a team is primary or secondary, not both
     els.primarySearch.value = "";
@@ -252,8 +263,8 @@ function renderLiked() {
   lockNote(els.likedLocked, "Secondary teams, conferences and states show with a Tier 2 key.");
   els.likedSearch.disabled = !allowed || !state.teams.length;
   const query = els.likedSearch.value.trim();
-  const candidates = query ? state.teams.filter((t) => t.school !== state.team && !state.primaries.includes(t.school) && !state.liked.teams.includes(t.school) && matches(t, query)).slice(0, 30) : [];
-  els.likedList.replaceChildren(...candidates.map((team) => teamItem(team, { selected: false, onPick: (t) => { state.liked.teams.push(t.school); els.likedSearch.value = ""; renderLiked(); } })));
+  const candidates = query ? state.teams.filter((t) => t.school !== state.team && !state.primaries.includes(t.school) && !state.liked.teams.includes(t.school) && matches(t, query)) : [];
+  els.likedList.replaceChildren(...shortList(candidates, (team) => teamItem(team, { selected: false, onPick: (t) => { state.liked.teams.push(t.school); els.likedSearch.value = ""; renderLiked(); } })));
   els.likedChips.replaceChildren(...state.liked.teams.map((school) => el("button", { class: "chip", type: "button", disabled: !allowed, "aria-label": `Remove ${school}`, onclick: () => { state.liked.teams = state.liked.teams.filter((t) => t !== school); renderLiked(); } }, school, " ×")));
   const checks = (values, list, key, label = (v) => v) => values.map((value) => el("label", {}, el("input", { type: "checkbox", disabled: !allowed, checked: list.includes(value), onchange: (event) => { state.liked[key] = event.target.checked ? [...list, value] : list.filter((v) => v !== value); renderLiked(); } }), label(value)));
   els.likedConferences.replaceChildren(...checks(state.conferences, state.liked.conferences, "conferences"));
@@ -335,6 +346,14 @@ async function finish() {
   }
 }
 
+// Item 6, step H: a set-up app is one tap away ("Back to the app" in the header) and the demo link goes; during a first
+// setup "/" leads back here, so the way back stays hidden and the demo stays offered.
+function renderWayBack() {
+  const done = state.info?.setupNeeded === false;
+  if (els.backToApp) els.backToApp.hidden = !done;
+  if (els.demoLine) els.demoLine.hidden = done;
+}
+
 // --- start ------------------------------------------------------------------------------------------
 
 async function load() {
@@ -345,6 +364,7 @@ async function load() {
     for (const key of ["teams", "conferences", "states"]) state.liked[key] = (Array.isArray(liked[key]) ? liked[key] : []).filter((v) => str(v));
     state.primaries = (Array.isArray(state.info.primaryTeams) ? state.info.primaryTeams : []).filter((v) => str(v)).slice(0, MAX_PRIMARIES);
     state.tickerMode = state.info.tickerMode === "mine" ? "mine" : "national";
+    renderWayBack();
     renderKey();
     renderFinish();
     renderPrimaries();

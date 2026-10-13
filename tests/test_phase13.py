@@ -222,6 +222,24 @@ def test_the_game_analytics_carry_the_advanced_box(app, client: TestClient, fake
     route_depth2(fake_cfbd)
     data = client.get("/api/games/526000600/analytics").json()["data"]
     assert data["advancedBox"]["teams"]["Swampwater Tech"]["plays"] == next(r for r in fixture_payload("game_box_advanced")["teams"]["ppa"] if r["team"] == "Swampwater Tech")["plays"]
+    # wave 2 review: the box names its players without ids, so the server takes them from the week's play value records
+    known = {(r["team"], r["name"]): str(r["id"]) for r in fixture_payload("ppa_players_games")}
+    players = data["advancedBox"]["players"]
+    matched = [p for p in players if (p["team"], p["player"]) in known]
+    assert matched and all(p["playerId"] == known[(p["team"], p["player"])] for p in matched)
+    assert all(p["playerId"] is None for p in players if (p["team"], p["player"]) not in known)
+
+
+def test_player_ids_skip_junk_records():
+    from app.cfbd.models import PlayerGamePpa
+    from app.services.analytics import player_ids
+
+    good = PlayerGamePpa.model_validate({"id": "4321", "name": "A Back", "team": "Swampwater Tech"})
+    no_team = PlayerGamePpa.model_validate({"id": "99", "name": "B Back"})
+    not_digits = PlayerGamePpa.model_validate({"id": "x9", "name": "C Back", "team": "Swampwater Tech"})
+    again = PlayerGamePpa.model_validate({"id": "5555", "name": "A Back", "team": "Swampwater Tech"})
+    assert player_ids([[good, no_team, not_digits], [again]]) == {("Swampwater Tech", "A Back"): "4321"}
+    assert player_ids([]) == {}
 
 
 def test_the_season_carries_the_resume(app, client: TestClient, fake_cfbd: FakeCfbd):

@@ -6,8 +6,8 @@ A second screen for college football. Pick your team, start it on a computer at 
 
 ## What it does
 
-- **Live sheet:** the score, every play as it happens, team and player stats, win probability, drives, situational splits and a shot chart of your offense's passes and runs, all held back by a spoiler delay you can sync to your TV with one tap.
-- **Game program:** the matchup, weather at the stadium, the TV crew and both coaching staffs, players to watch, the injury report, starting lineups and season stats side by side.
+- **In Game:** the score, every play as it happens, team and player stats, win probability, drives, situational splits and a shot chart of your offense's passes and runs, all held back by a spoiler delay you can sync to your TV with one tap.
+- **Pre-Game Program:** the matchup, weather at the stadium, the TV crew and both coaching staffs, players to watch, the injury report, starting lineups and season stats side by side.
 - **Season:** schedule, results, standings, polls, ratings (SP+, Elo, FPI) and the stat profile behind every rank, each rank one tap from its national list.
 - **People:** roster, leaders, recruiting, a card for every player, and our own stat grades for each position.
 - **Your teams:** one home team themes the app with its colors; with a Tier 2 key you can follow more primary teams and whole conferences or states, and set the score ticker to just your teams.
@@ -58,7 +58,7 @@ The first start also brings a Windows Security dialog, "Do you want to allow pub
 **Then, either way:**
 
 1. The browser opens the **demo**: a made-up league with a game already under way, so you can see everything working. Its welcome page explains what a CFBD key does.
-2. When you are ready, choose **Use my own team** on that page (or the banner at the top): paste your CFBD key, pick your team, save. The app restarts with your team. The menu's **Demo** item switches back to the demo any time, for showing a friend.
+2. When you are ready, choose **Use my own team** on that page (or the banner at the top): paste your CFBD key, pick your team, save. The app restarts with your team. **Demo** on the menu's **Setup** page switches back to the demo any time, for showing a friend.
 3. On a phone or tablet, scan the QR code in the server window (or on the app's status page). The window that opened is the server: keep it open during the game, close it to stop.
 
 Settings in the app can start the server when you log in, make a Desktop icon, and keep the screen awake. The full guide, including the firewall on each system and the Steam Deck, is [docs/05-SETUP.md](docs/05-SETUP.md).

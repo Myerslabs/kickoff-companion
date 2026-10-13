@@ -8,6 +8,9 @@ outside the conference. The roster page adds the roster and five recruiting clas
 card adds the prior rosters and one player box score per finished game of the player's own team
 (cached for good). An opponent's finished games come from the league-wide schedule answer the
 Season view and the program already cache, so an opponent card asks for no schedule of its own.
+Tables wave 3 (owner decision 3, 2026-10-10): our player's card also reads the team-season player
+stats of each earlier season in its History (at most the four the prior rosters cover, each shared
+by every player of that team and year and kept as history), so its Career row sums real seasons.
 """
 
 from __future__ import annotations
@@ -53,6 +56,13 @@ PPA_MIN_PLAYS_TEAM = 10
 PPA_MIN_PLAYS_NATIONAL_CHECK = 45
 
 CATEGORIES = ("passing", "rushing", "receiving", "defensive", "interceptions", "kicking", "punting")
+CARD_CATEGORIES = (*CATEGORIES, "kickReturns", "puntReturns", "fumbles")  # the card's Stats tab, in reading order
+# Decision 3 (owner 2026-10-10): the card loads its past seasons so its Career row is real. It asks for the team-season
+# player stats of each earlier season in its History, and the History reads our rosters for the four seasons before this
+# one, so a card asks for four more answers at most (none for a player new this year). Each answer is the same call the
+# card makes for this season, keyed by year and team: every player of that team and year shares it, so on a cold cache the
+# whole roster costs those four calls once, and a finished season is kept as history (30 days).
+PAST_SEASONS = 4
 TEAM_TOP = 5
 SCOPE_TOP = 10
 
@@ -169,6 +179,37 @@ def lines_from(records: list[PlayerStat]) -> dict[tuple[str, str], Line]:
     return lines
 
 
+def season_lines(records: list[PlayerStat], player_id: str, year: int) -> list[dict[str, Any]]:
+    """One player's lines in one team-season answer, [{year, category, stats}] one per category. The answer is asked for
+    by year, so a record that names another season is left out rather than added to this one."""
+    lines = lines_from([r for r in records if r.season is None or r.season == year])
+    return [{"year": year, "category": category, "stats": line.stats} for (pid, category), line in lines.items() if pid == player_id and line.stats]
+
+
+def past_team_seasons(history: list[dict[str, Any]], season: int) -> list[tuple[int, str]]:
+    """(year, team) for each earlier season in a card's History, newest first: the team-seasons whose player stats the card
+    asks for (decision 3). Only the PAST_SEASONS seasons before `season`, each once; a row without a year or a team asks
+    for nothing."""
+    out: list[tuple[int, str]] = []
+    for row in history:
+        year, team = row.get("year"), row.get("team")
+        if isinstance(year, bool) or not isinstance(year, int) or not season - PAST_SEASONS <= year < season:
+            continue
+        if not isinstance(team, str) or not team.strip() or any(y == year for y, _ in out):
+            continue
+        out.append((year, team.strip()))
+    return sorted(out, reverse=True)
+
+
+def card_order(line: dict[str, Any]) -> tuple[int, str, int]:
+    """The Stats tab's order: the categories in reading order (an unknown one after them, by name), the newest season
+    first within each."""
+    category = line.get("category") or ""
+    known = category in CARD_CATEGORIES
+    year = line.get("year")
+    return (CARD_CATEGORIES.index(category) if known else len(CARD_CATEGORIES), "" if known else category, -year if isinstance(year, int) else 0)
+
+
 def board_entries(lines: dict[tuple[str, str], Line], board: Board) -> list[Line]:
     """Every line for the board's category with a numeric value, best first."""
     out = []
@@ -251,6 +292,11 @@ class PlayerService:
     async def _player_stats(self, name: str, params: dict[str, Any]) -> Part:
         return await self.fetcher.fetch(name, "/stats/player/season", {"year": self.year, **params}, PlayerStat, DataKind.SEASON_STATS)
 
+    async def _past_stats(self, year: int, team: str) -> Part:
+        """An earlier season's team player stats for the card (decision 3): this season's call with another year, a
+        finished season kept as history."""
+        return await self.fetcher.fetch(f"stats_{year}", "/stats/player/season", {"year": year, "team": team}, PlayerStat, DataKind.HISTORY)
+
     async def _box(self, game: Game, team: str) -> Part:
         return await self.fetcher.fetch(f"box_{team}_{gamekeys.tag(game)}", "/games/players", gamekeys.box_params(game, self.year, team), GamePlayerStats, DataKind.FINISHED_GAME)
 
@@ -259,7 +305,7 @@ class PlayerService:
         for t in teams:
             if not t.school:
                 continue
-            out[t.school] = {"school": t.school, "abbreviation": t.abbreviation, "conference": t.conference, **logo_fields(t.id, t.logos), "color": t.color}  # Phase 16: local logo URLs
+            out[t.school] = {"school": t.school, "abbreviation": t.abbreviation, "mascot": t.mascot, "conference": t.conference, **logo_fields(t.id, t.logos), "color": t.color}  # Phase 16: local logo URLs; wave 3: the mascot heads the vs board at large
         return out
 
     def _next_game(self, games: list[Game]) -> tuple[Game | None, str | None]:
@@ -393,8 +439,9 @@ class PlayerService:
             "detailColumns": [{"key": "plays", "label": "Plays", "format": "0f"}, {"key": "pass", "label": "Pass", "format": "+2f"}, {"key": "rush", "label": "Rush", "format": "+2f"}],
             "team": [entry(r, "all", conf=conf_rank.get(r["playerId"]), nat=nat_rank.get(r["playerId"]), conf_of=len(conference), nat_of=len(national)) for r in team_rows],
             "opponent": [entry(r, "all", conf=conf_rank.get(r["playerId"]), nat=nat_rank.get(r["playerId"]), conf_of=len(conference), nat_of=len(national)) for r in opp_rows],
-            "conference": [entry(r, "all", rank=conf_rank[r["playerId"]], conf_of=len(conference), nat_of=len(national)) for r in conference[:SCOPE_TOP]],
-            "national": [entry(r, "all", rank=nat_rank[r["playerId"]], conf_of=len(conference), nat_of=len(national)) for r in national[:SCOPE_TOP]],
+            # tables wave 3: every list row carries both ranks, so the conference top 10 shows each player's FBS rank too
+            "conference": [entry(r, "all", rank=conf_rank[r["playerId"]], conf=conf_rank.get(r["playerId"]), nat=nat_rank.get(r["playerId"]), conf_of=len(conference), nat_of=len(national)) for r in conference[:SCOPE_TOP]],
+            "national": [entry(r, "all", rank=nat_rank[r["playerId"]], conf=conf_rank.get(r["playerId"]), nat=nat_rank.get(r["playerId"]), conf_of=len(conference), nat_of=len(national)) for r in national[:SCOPE_TOP]],
             "conferenceOf": len(conference) or None,
             "nationalOf": len(national) or None,
             "usBest": {"conferenceRank": min((conf_rank[r["playerId"]] for r in team_rows if r["playerId"] in conf_rank), default=None), "nationalRank": min((nat_rank[r["playerId"]] for r in team_rows if r["playerId"] in nat_rank), default=None)},
@@ -637,6 +684,7 @@ class PlayerService:
                     "highSchool": r.school,
                     "hometown": ", ".join(part for part in (r.city, r.state_province) if part) or None,
                     "heightText": _height_text(r.height),
+                    "height": r.height if isinstance(r.height, (int, float)) and r.height > 0 else None,  # tables wave 3: Ht sorts by inches
                     "weight": r.weight,
                     "recruitType": r.recruit_type,
                 }
@@ -713,13 +761,40 @@ class PlayerService:
         row["logoDark"] = teams.get(team, {}).get("logoDark")
         row["isUs"] = is_us
 
-        lines = lines_from(parts["stats"].records)
-        seasons = [
-            {"year": self.year, "category": category, "stats": line.stats}
-            for (pid, category), line in lines.items()
-            if pid == player_id
-        ]
-        seasons.sort(key=lambda s: CATEGORIES.index(s["category"]) if s["category"] in CATEGORIES else 99)
+        history = []
+        for year in range(self.year - 4, self.year + 1):
+            part = parts.get("roster" if year == self.year else f"roster_{year}")
+            if part is None:
+                continue
+            hit = next((p for p in part.records if p.id == player_id), None)
+            if hit is not None:
+                school = hit.team or team
+                history.append({"year": year, "team": school, "teamAbbr": teams.get(school, {}).get("abbreviation"), "classYear": hit.year, "position": hit.position, "number": hit.jersey})
+        history = history_classes(history)
+        # wave 3 review (fail loud): an earlier roster that did not load leaves its year out of the History, and so out of the
+        # past seasons asked for below; the card says which years, since the career rows may be missing a season
+        missing_history = [y for y in range(self.year - PAST_SEASONS, self.year) if is_us and (parts.get(f"roster_{y}") is None or not parts[f"roster_{y}"].ok)]
+        if missing_history:
+            log.warning("Player card %s: the rosters for %s did not load; History and the career rows may leave those seasons out", player_id, missing_history)
+
+        # Decision 3: this season's lines, then each earlier season in the History from that team-season's answer. A season
+        # that fails is named on the card (missingSeasons) and in the parts; an empty answer is counted (emptySeasons) and
+        # logged; neither stops the card, and the other seasons still show.
+        seasons = season_lines(parts["stats"].records, player_id, self.year)
+        past = past_team_seasons(history, self.year)
+        past_parts = await asyncio.gather(*(self._past_stats(year, school) for year, school in past))
+        missing_seasons: list[int] = []
+        empty_seasons: list[int] = []
+        for (year, school), part in zip(past, past_parts, strict=True):
+            parts[part.name] = part
+            if not part.ok:
+                missing_seasons.append(year)
+            elif not part.records:
+                empty_seasons.append(year)
+                log.info("Player card %s: the %s player stats for %s came back empty; that season is left out", player_id, school, year)
+            else:
+                seasons.extend(season_lines(part.records, player_id, year))
+        seasons.sort(key=card_order)
 
         game_log = []
         missing_weeks = []
@@ -740,17 +815,7 @@ class PlayerService:
                 if stats:
                     entries.append({"category": category.name, "stats": stats})
             opponent_name, result = _record_text(game, team)
-            game_log.append({"gameId": game.id, "week": game.week, "postseason": gamekeys.label(game), "date": game.start_date, "opponent": opponent_name, "homeAway": "home" if game.home_team == team else "away", "result": result, "lines": entries})
-
-        history = []
-        for year in range(self.year - 4, self.year + 1):
-            part = parts.get("roster" if year == self.year else f"roster_{year}")
-            if part is None:
-                continue
-            hit = next((p for p in part.records if p.id == player_id), None)
-            if hit is not None:
-                history.append({"year": year, "team": hit.team or team, "classYear": hit.year, "position": hit.position, "number": hit.jersey})
-        history = history_classes(history)
+            game_log.append({"gameId": game.id, "week": game.week, "postseason": gamekeys.label(game), "postseasonShort": gamekeys.short_label(game), "date": game.start_date, "opponent": opponent_name, "opponentAbbr": teams.get(opponent_name or "", {}).get("abbreviation"), "homeAway": "home" if game.home_team == team else "away", "result": result, "lines": entries})  # wave 3: "at DT" at small; a bowl's week reads "Bowl" or its playoff round
 
         ppa_rows = ppa_season_rows(parts["ppaSeason"].records, team) if "ppaSeason" in parts else []
         mine = next((r for r in ppa_rows if r["playerId"] == player_id), None)
@@ -762,5 +827,5 @@ class PlayerService:
         ppa = {"season": mine, "teamRank": next((i + 1 for i, r in enumerate(ppa_rows) if r["playerId"] == player_id), None), "teamOf": len(ppa_rows) or None, "games": ppa_game_rows(by_week, player_id)}
         usage_all = usage_rows(parts["usage"].records, team) if "usage" in parts else []
         usage = next((r for r in usage_all if r["playerId"] == player_id), None)
-        data = {"player": row, "seasons": seasons, "gameLog": game_log, "missingWeeks": missing_weeks, "history": history, "ppa": ppa, "usage": usage, "parts": statuses(parts, self.client._clock())}
+        data = {"player": row, "seasons": seasons, "gameLog": game_log, "missingWeeks": missing_weeks, "missingSeasons": missing_seasons, "emptySeasons": empty_seasons, "missingHistory": missing_history, "history": history, "ppa": ppa, "usage": usage, "parts": statuses(parts, self.client._clock())}
         return assemble(data, parts)

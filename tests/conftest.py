@@ -85,6 +85,17 @@ def team_player_stats(team: str) -> list[dict[str, Any]]:
     return [row for category in CATEGORIES for row in fixture_payload(f"stats_player_season_all_{category}") if row.get("team") == team]
 
 
+def past_team_stats(year: str | int, team: str = TEAM) -> list[dict[str, Any]]:
+    """/stats/player/season?year=<an earlier season>&team=<team> (tables wave 3, decision 3: the player card's past seasons).
+    The recordings hold this season's team answer (stats_player_season_team: year and team in, the flat rows of season,
+    playerId, player, position, team, conference, category, statType, stat out); an earlier year is the same question,
+    answered by the league in the same shape. The league plays two seasons, so the years before last come back empty."""
+    from app.demo.upstream import TEST_NOW, answer
+
+    status, payload = answer(league(), "/stats/player/season", {"year": str(year), "team": team}, TEST_NOW)
+    return payload if status == 200 and isinstance(payload, list) else []
+
+
 def load_fixture(name: str) -> dict[str, Any]:
     """The league's answer by a recording's name: {'endpoint', 'params', 'status', 'payload', ...}.
     A copy, so a test that changes it cannot change the next test's."""

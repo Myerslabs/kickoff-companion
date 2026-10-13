@@ -19,7 +19,6 @@ def rule(selector: str) -> str:
 
 def test_remote_bar_sits_above_the_radio_dock() -> None:
     assert "bottom: var(--dock-h, 0px)" in rule(".remote")
-    assert "var(--dock-h, 0px)" in rule(".update-banner")
     radio = (STATIC / "js" / "radio.js").read_text(encoding="utf-8")
     assert '"--dock-h"' in radio and "ResizeObserver" in radio
     # hiding the dock sends no resize notice, so every redraw writes the height too

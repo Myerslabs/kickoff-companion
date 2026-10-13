@@ -13,9 +13,18 @@
 //   (their streams decide what the arg means: "polls:AP", "<board>:<scope>", a sort key, a focus).
 //   Before a new route mounts, document hears "kickoff:route" (detail: the route); open side sheets and the
 //   player card close on it. Leaving a page keeps its scroll in history.state, and Back puts it back after
-//   the view's first draw; history.state.depth counts the app's own entries (backRow uses it).
+//   the view's first draw; history.state.depth counts the app's own entries (backRow uses it). A cold start at the
+//   board (the kiosk, a bookmark, the home-screen icon) puts In Game under it first, so Back never leaves the app.
+//   Item 6 (owner 2026-10-11): a side sheet, the player card and the menu each hold one history entry of the same page
+//   (ui/layers.js), so Back closes the top layer and the page stays: such a pop keeps the route and its scroll. A tab or
+//   menu item takes the layer's entry for the new page (goTo), so no dead entry is left behind.
 //   The team route highlights no tab; the national list keeps the tab it was opened from.
 //   Pull down at the top of a page, or 'r' on a keyboard, refreshes the current view.
+//   Nothing opens by itself over the page (item 6, step C): "Not loaded yet" is a note on the Pre-Game Program and a dot
+//   on the status pill (ui/readiness.js), a guest's welcome a note on the page it lands on (ui/guest.js).
+//   The loading screen can always be left (item 6, step E): its bar has Reload from the first frame, index.html's watchdog
+//   says "Could not load" and retries once when the app has not drawn its Menu in 10 s, the settings and the identity
+//   each give up after 5 s, and a reload after a server restart waits until the server answers.
 
 import { confLabel, loadIdentity, ours, usLabel, usSchool } from "./identity.js";
 import { installClientLog } from "./client-log.js";
@@ -27,12 +36,13 @@ import { addAliases, enableHints } from "./ui/hints.js";
 import { parseRoute, routeKey } from "./ui/national-link.js";
 import { installNationalLinks } from "./ui/national-sheet.js";
 import { installPullToRefresh } from "./ui/pull-refresh.js";
-import { menuWith, shell } from "./ui/shell.js";
+import { MENU, shell } from "./ui/shell.js";
 import { band } from "./ui/states.js";
 import { fetchJson } from "./views/common.js";
 import { createLeadersView } from "./views/leaders.js";
 import { createLiveView } from "./views/live.js";
 import { createNewspaperView } from "./views/newspaper.js";
+import { createTop25View } from "./views/top25.js";
 import { createProgramView } from "./views/program.js";
 import { createRatingsView } from "./views/ratings.js";
 import { createRecruitingView } from "./views/recruiting.js";
@@ -48,12 +58,17 @@ import { createBoxView } from "./views/box.js";
 import { installCvd } from "./ui/cvd.js";
 import { startGuestMode } from "./ui/guest.js";
 import { installSpoiler } from "./ui/spoiler.js";
-import { maybeShowReadiness } from "./ui/readiness.js";
-import { createBoardView } from "./views/board.js";
+import { startReadiness } from "./ui/readiness.js";
+import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";
+import { createBoardView, seedBoardHistory } from "./views/board.js";
 import { createInviteView } from "./views/invite.js";
 import { createPreseasonView } from "./views/preseason.js";
 import { createReviewView } from "./views/review.js";
-import { restartFlow } from "./ui/restart.js";
+import { createInjuriesView } from "./views/injuries.js";
+import { createPromptsView } from "./views/prompts.js";
+import { addNote } from "./ui/page-notes.js";
+import { createSetupPageView } from "./views/setup-page.js";
+import { reloadWhenServerAnswers, restartFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
 
 const BUILT = {
@@ -61,7 +76,8 @@ const BUILT = {
   leaders: (opts, arg, focus, params) => createLeadersView({ ...opts, arg, params }),
   roster: (opts) => createRosterView(opts),
   recruiting: (opts, arg, focus, params) => createRecruitingView({ ...opts, arg, params }),
-  newspaper: (opts) => createNewspaperView(opts),
+  newspaper: (opts, arg) => createNewspaperView({ ...opts, edition: arg }), // items 10-12: #newspaper=week-6 opens an earlier edition
+  top25: (opts) => createTop25View(opts), // item 11: every game of the week with an AP Top 25 team
   program: (opts, arg, focus) => createProgramView({ ...opts, gameId: arg && /^\d+$/.test(arg) ? arg : null, focus }),
   team: (opts, arg, focus, params) => createTeamView({ ...opts, school: arg, params }),
   box: (opts, arg) => createBoxView({ ...opts, gameId: arg }),
@@ -76,14 +92,16 @@ const BUILT = {
   invite: (opts) => createInviteView(opts), // Phase 18.6: the QR code for friends
   review: (opts) => createReviewView(opts), // Phase 19: the season told from the schedule
   board: (opts) => createBoardView(opts), // Phase 18.6: the Live sheet made for a wall
+  injuries: (opts) => createInjuriesView(opts), // owner 2026-10-10: our injuries through the season, from the game notes
+  prompts: (opts) => createPromptsView(opts), // the Prompts phase (2026-10-13): every prompt, its Copy, Paste and Run, the one run, the schedule
+  setup: (opts) => createSetupPageView(opts), // owner 2026-10-10: the demo, the archive, the season in review and the radio
 };
 
 const LATER = {
   radio: ["Radio", "The team's radio plays from the bar at the bottom of every page; pick the station in Settings."],
-  injuries: ["Injury report", "The availability report lives on the Game program."],
 };
 
-const VALID = new Set([...Object.keys(BUILT), ...Object.keys(LATER), "radio", "injuries"]);
+const VALID = new Set([...Object.keys(BUILT), ...Object.keys(LATER), "radio"]);
 const NO_TAB = new Set(["team", "box", "invite", "board"]); // a team page and a box score belong to no tab (DS-03)
 const KEEP_TAB = new Set(["national"]); // a list keeps the tab it was opened from
 
@@ -122,19 +140,34 @@ export function gameIsLive(statusData) {
 }
 
 const LIVE_CHECK_MS = 60000;
+const DOWN_RETRY_MS = Object.freeze([2000, 4000, 8000]); // a server that does not answer is asked again sooner: it is restarting
 
-/** Keep the LIVE marker current: once now, then every minute and whenever the page comes back into view. */
+let gameUnderWay = false; // what the last live check said; the restart reload keeps its hands off In Game and the board then
+
+/**
+ * Keep the LIVE marker current: once now, then every minute and whenever the page comes back into view. A check the
+ * server does not answer (it is restarting, owner bug 2026-10-13) is asked again after 2, 4 and 8 s, so the new build's
+ * envelope arrives, and the page reloads, seconds after the server is back instead of up to a minute later.
+ */
 function watchLiveGame(page) {
   let busy = false;
+  let misses = 0;
+  let retry = null;
   const check = async () => {
     if (busy) return;
     busy = true;
     try {
       const delay = Number(getPrefs()?.delaySeconds); // the marker goes by what a sheet this far behind has seen
       const envelope = await fetchJson(`/api/live/status?delay=${Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : 0}`);
-      page.setLive(gameIsLive(envelope?.data));
+      gameUnderWay = gameIsLive(envelope?.data);
+      page.setLive(gameUnderWay);
+      misses = 0;
     } catch (error) {
       console.warn("Could not check for a live game; the LIVE marker keeps its last state.", error?.message || error);
+      const wait = DOWN_RETRY_MS[Math.min(misses, DOWN_RETRY_MS.length - 1)];
+      misses += 1;
+      clearTimeout(retry);
+      retry = setTimeout(check, wait);
     } finally {
       busy = false;
     }
@@ -146,24 +179,78 @@ function watchLiveGame(page) {
   });
 }
 
+const RELEASE_SEEN_KEY = "kickoff.release.seen";
+
+/**
+ * A newer release is out (the update check, Phase 16 wave 3, asked of GitHub once a day): the same note as every other
+ * reminder (owner 2026-10-13), once per release on each device; its close button remembers the version. The app never
+ * downloads or installs anything by itself.
+ */
+async function startReleaseNote() {
+  const envelope = await fetchJson("/api/updates");
+  const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+  if (!data || data.newer !== true || typeof data.latest !== "string" || !data.latest) return null;
+  let seen = null;
+  try {
+    seen = window.localStorage.getItem(RELEASE_SEEN_KEY);
+  } catch {
+    seen = null;
+  }
+  if (seen === data.latest) return null;
+  const link = typeof data.url === "string" && /^https:\/\//.test(data.url) ? el("a", { href: data.url, target: "_blank", rel: "noopener" }, "See what changed") : null;
+  return addNote({
+    id: "release",
+    title: `Version ${data.latest} is out`,
+    body: () => el("p", {}, `You run ${typeof data.current === "string" ? data.current : "an older version"}. `, link, link ? ". " : "", "Settings, About, says how to update."),
+    onDismiss: () => {
+      try {
+        window.localStorage.setItem(RELEASE_SEEN_KEY, data.latest);
+      } catch {
+        // no storage: the note comes back next load, the safe direction
+      }
+    },
+  });
+}
+
+/** The view the address names: "live" for "#live" and "#live=...", "" for none. */
+function viewInAddress() {
+  return String(window.location.hash || "").replace(/^#/, "").split(/[=?]/)[0];
+}
+
+/**
+ * Whether a reload now would pull the page out from under a viewer: In Game or the board while our game is under way
+ * (the banner shows there instead, and the reload waits for the next view). Anywhere else, any time, the page reloads.
+ */
+function holdsAViewer() {
+  return gameUnderWay && ["live", "board"].includes(viewInAddress());
+}
+
 /**
  * Phase 12: when the server has a newer build than this page (a restart, or a file changed under
- * static/), a banner offers the reload. Away from the Live sheet the page also reloads by itself the
- * next time it comes back into view, so a tablet left on the Season page is never stuck on old code;
- * during a game only the banner shows, so nothing reloads under the viewer.
+ * static/), the page reloads by itself as soon as the server answers (owner bug 2026-10-13: "when I restart the
+ * server, the page does not refresh"; until then it waited to come back into view), so no device is ever left on
+ * old code. The one hold: In Game and the board while our game is under way show the banner and reload the next
+ * time they come into view, so nothing reloads under the viewer.
+ * Item 6, step E: either way the page reloads only once the server answers (ui/restart.js reloadWhenServerAnswers),
+ * never into a server that is still restarting or a Wi-Fi still reconnecting after the iPad wakes.
  */
 function watchForUpdates(page) {
   let pending = false;
   document.addEventListener("kickoff:update", () => {
     if (pending) return;
     pending = true;
-    const banner = el(
-      "div",
-      { class: "update-banner", role: "status" },
-      el("span", {}, "A new version of the app is on the server."),
-      el("button", { class: "btn", type: "button", onclick: () => window.location.reload() }, "Reload"),
-    );
-    page.root.insertBefore(banner, page.main);
+    const said = el("span", { class: "note", role: "status" }, "");
+    const reloadButton = el("button", { class: "btn", type: "button", onclick: async () => {
+      reloadButton.disabled = true;
+      const reloaded = await reloadWhenServerAnswers({ onWait: () => { said.textContent = " Waiting for the server…"; } });
+      if (!reloaded) {
+        reloadButton.disabled = false;
+        said.textContent = " The server is not answering yet. Try again in a moment.";
+      }
+    } }, "Reload");
+    // one format for every reminder (owner 2026-10-13): a note at the top of the page with its close button (ui/page-notes.js)
+    addNote({ id: "update", title: "A new version of the app is on the server", body: () => el("div", { class: "page-note__row" }, el("span", {}, "The page reloads by itself once the server answers; Reload does it now."), reloadButton, said) });
+    if (document.visibilityState === "visible" && !holdsAViewer()) reloadWhenServerAnswers({ onWait: () => { said.textContent = " Waiting for the server…"; } });
   });
   // Phase 16 wave 3: the server's own code changed on disk (an update was pulled): only a restart brings it in
   let restartOffered = false;
@@ -173,15 +260,28 @@ function watchForUpdates(page) {
     const said = el("span", { class: "note", role: "status" }, "");
     const button = el("button", { class: "btn", type: "button", onclick: async () => {
       button.disabled = true;
-      await restartFlow({ say: (words) => { said.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
+      await restartFlow({ say: (words) => { said.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the In Game sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
       button.disabled = false;
     } }, "Restart the server");
-    const banner = el("div", { class: "update-banner", role: "status" }, el("span", {}, "The server's code was updated. Restart it to use the new version."), button, said);
-    page.root.insertBefore(banner, page.main);
+    addNote({ id: "restart-needed", title: "The server's code was updated", body: () => el("div", { class: "page-note__row" }, el("span", {}, "Restart the server to use the new version."), button, said) });
   });
   document.addEventListener("visibilitychange", () => {
-    if (pending && document.visibilityState === "visible" && !["#live", "#board"].includes(window.location.hash)) window.location.reload(); // the board is the live view on a wall: the banner only
+    // a server that never answers leaves the page and its banner
+    if (pending && document.visibilityState === "visible" && !holdsAViewer()) reloadWhenServerAnswers();
   });
+}
+
+// index.html's watchdog (item 6, step E) retries a failed start once per tab and remembers it here; once the app has drawn
+// its top bar the memory goes, so a later failed start gets its own retry. Storage refused: the watchdog never retries by
+// itself (it cannot remember that it did), and its Reload still works.
+const BOOT_RETRY_KEY = "kickoff.bootRetry";
+
+function forgetBootRetry() {
+  try {
+    window.sessionStorage?.removeItem(BOOT_RETRY_KEY);
+  } catch {
+    // storage refused: nothing was remembered
+  }
 }
 
 /** The page's scroll goes into the current history entry as the reader scrolls (at most every 300 ms), and
@@ -242,14 +342,29 @@ async function start() {
   const page = shell({
     current: initial ? initial.id : "program",
     status: { kind: "quiet", label: "Loading" },
+    // a tab, the wordmark or a menu item; with a sheet or the card open (the top bar stays above them from 700 px up)
+    // the new page takes the layer's own history entry, and the page already showing just closes them
     onNavigate: (id) => {
-      if (window.location.hash !== `#${id}`) window.location.hash = id;
-      else show({ id, arg: null });
+      if (window.location.hash !== `#${id}`) goTo(id);
+      else {
+        closeLayers();
+        show({ id, arg: null });
+      }
     },
-    onSearch: () => openSearch(),
-    menu: menuWith(prefsMeta()?.teamSet?.extraPrimaries), // public release Phase 5b: primary teams one tap away
+    // item 6 review: the top bar stays above sheets now, so a second tap on Search reuses the open one (as "/" does)
+    onSearch: () => {
+      const input = document.querySelector(".sheet-layer[data-modal] .search__input");
+      if (input) {
+        input.focus();
+        input.select();
+        return;
+      }
+      openSearch();
+    },
+    menu: MENU, // owner 2026-10-10: the other primary teams are reached from the My Teams page, not the menu
   });
-  root.replaceChildren(page.root);
+  root.replaceChildren(page.root); // the loading bar (and its Reload, item 6) gives way to the real one with its Menu
+  forgetBootRetry();
   try {
     enableHints(document.body); // stat names explain themselves when tapped (owner request 2026-09-26)
   } catch (error) {
@@ -310,7 +425,6 @@ async function start() {
 
   function show(route) {
     if (route.id === "radio") route = { id: "program", arg: null, focus: "program-radio" }; // the radio control lives on the Game program
-    if (route.id === "injuries") route = { id: "program", arg: null, focus: "program-availability" }; // so does the availability report
     const key = routeKey(route);
     if (currentKey === key) {
       if (restore?.pending) restore = null;
@@ -318,6 +432,7 @@ async function start() {
       return;
     }
     const entry = markEntry();
+    if (route.id === "board" && depth === 0 && seedBoardHistory()) depth = 1; // item 6, step A: Back from a cold board lands on In Game
     const backTo = isNum(entry.scrollY) && restore?.pending ? entry.scrollY : null;
     restore = backTo !== null ? { y: backTo, until: Date.now() + 5000 } : null;
     try {
@@ -326,9 +441,16 @@ async function start() {
       console.error("A layer did not close on the route change.", error);
     }
     if (view) {
-      view.unmount();
+      try {
+        view.unmount();
+      } catch (error) {
+        console.error("The last view did not unmount cleanly.", error);
+      }
       view = null;
     }
+    // the board hides the top bar and the tabs for the whole body: never let that outlive the board (a page with no
+    // menu needs the browser's back button; owner bug 2026-10-10)
+    if (route.id !== "board") document.body.classList.remove("board-mode", "board-awake");
     currentKey = key;
     if (!KEEP_TAB.has(route.id)) page.setCurrent(NO_TAB.has(route.id) ? null : route.id);
     if (route.id === "archive" && route.arg) window.scrollTo(0, 0);
@@ -355,6 +477,10 @@ async function start() {
   }
 
   window.addEventListener("popstate", () => {
+    // a layer's own entry (a sheet, the card, the menu: ui/layers.js) is the same page: no hashchange follows, and the
+    // page keeps its place
+    const route = parseHash();
+    if (route && currentKey !== null && routeKey(route.id === "radio" ? { id: "program", arg: null } : route) === currentKey) return;
     restore = { pending: true }; // the hashchange that follows is a Back or Forward: put its scroll back
   });
   window.addEventListener("hashchange", () => {
@@ -374,7 +500,8 @@ async function start() {
   document.addEventListener("keydown", (event) => {
     const target = event.target;
     if (isTyping(target) || event.ctrlKey || event.metaKey || event.altKey) return;
-    if (event.key === "/" && !document.querySelector(".sheet-layer .search")) {
+    // not while the menu is open (item 6): Search would open behind it and an Escape would close both
+    if (event.key === "/" && !document.querySelector(".sheet-layer .search") && !document.querySelector(".drawer[open]")) {
       event.preventDefault();
       openSearch();
     } else if ((event.key === "r" || event.key === "R") && !event.shiftKey && !document.querySelector("[data-modal]")) {
@@ -383,7 +510,9 @@ async function start() {
     }
   });
   document.addEventListener("click", (event) => {
-    const link = event.target.closest("[data-team]:not(.team-link)");
+    // a Wikipedia link carries data-team for its lookup (ui/wiki-links.js) and is not a team tap: a coach's name opens
+    // the coach's page, not the team flyout (owner bug 2026-10-10)
+    const link = event.target.closest("[data-team]:not(.team-link):not(.wiki-link)");
     if (link && link.dataset.team) {
       event.preventDefault();
       openTeam(link.dataset.team);
@@ -391,13 +520,29 @@ async function start() {
   });
   installCvd(); // Phase 19: this device's color-blind friendly colors
   installSpoiler(); // Phase 19: this device's spoiler switch
-  startGuestMode(); // Phase 18.6: a guest's page says it is view-only
-  setTimeout(() => maybeShowReadiness(), 4000); // Phase 18.3: once per server start per device, only when something is not loaded
+  installLayerHistory(); // item 6: Back closes the top sheet, the card or the menu, and the page stays
+  // Phase 18.3 and item 6, step C: once per server start per device, only when something is not loaded, a note on the
+  // Pre-Game Program and a dot on the status pill; checked once the first page has drawn (its fetches go first) and the
+  // device knows whether it is a guest (a guest gets the welcome note instead, ui/guest.js)
+  let readinessAsked = false;
+  const askReadiness = () => {
+    if (readinessAsked) return;
+    readinessAsked = true;
+    startReadiness(page).catch((error) => console.warn("The Not loaded yet check did not finish.", error?.message || error));
+    startReleaseNote().catch((error) => console.warn("The update check did not finish.", error?.message || error));
+  };
+  const guestKnown = startGuestMode().catch(() => null); // Phase 18.6: a guest's page says it is view-only
+  const drawn = new Promise((resolve) => {
+    document.addEventListener("kickoff:rendered", resolve, { once: true });
+    setTimeout(resolve, 4000); // a page that draws without the event (its own stream) still gets the check
+  });
+  Promise.all([guestKnown, drawn]).then(askReadiness);
   if (initial) show(initial);
   else {
     window.location.hash = "program"; // Phase 17 #32: the Game program is home
     show({ id: "program", arg: null });
   }
+  stepOverLeftovers(); // a reload while a sheet was open: its entry, its sheet gone, is stepped back over
 }
 
 // The guard lets the test suite import the opening rule under Node, where there is no page.

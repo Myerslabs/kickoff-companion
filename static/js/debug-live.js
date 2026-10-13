@@ -68,7 +68,7 @@ function renderState(state) {
     ["Last play success", state.lastPlay ? `${state.lastPlay.success ? "success" : "failed"}: ${text(state.lastPlay.text)}` : DASH],
     ["New this tick", (state.new || []).length],
   ]);
-  els.plays.replaceChildren(playLog({ plays: state.plays || [], us, them, maxHeight: 460 }));
+  els.plays.replaceChildren(playLog({ plays: state.plays || [], us, them }));
 }
 
 async function refreshEngine() {

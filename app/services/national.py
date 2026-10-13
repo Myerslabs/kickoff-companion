@@ -62,6 +62,7 @@ from app.config import Settings
 from app.services import gamekeys, national_extra, plan, teamset
 from app.services.depth2 import ADJUSTED_BOARDS, ADJUSTED_KEYS, adjusted_board_rows, adjusted_rows, adjusted_source_rows, core_tables, shared_ranks, sos_table, srs_table
 from app.services.depth2 import num as finite
+from app.services.identity import conference_short
 from app.services.logos import logo_fields
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
 from app.services.players import BOARDS, PPA_MIN_PLAYS, Board, Line, fbs_lines, lines_from, national_board, ppa_national
@@ -337,6 +338,7 @@ class NationalService:
             row["logo"], row["logoDark"] = info.get("logo"), info.get("logoDark")
             if not row.get("conference"):
                 row["conference"] = info.get("conference")
+            row["conferenceShort"] = conference_short(row.get("conference"))  # tables wave 3: the conference column at medium
             row["isUs"] = team == us_team
             row["isFocus"] = bool(focus) and team == focus
             row["isNext"] = bool(next_team) and team == next_team
@@ -382,6 +384,7 @@ class NationalService:
             "scopes": scopes,
             "scopeTeams": len(keep) if keep is not None else None,
             "conference": ranked.conference,
+            "conferenceShort": conference_short(ranked.conference),  # tables wave 3: a conference list's rank head ("BB rank", "BB")
             "unit": m.unit,
             "population": population,
             "rankSource": ranked.rank_source or m.rank_source,

@@ -45,6 +45,19 @@ async def live_state(request: Request, delay: float = Query(0, ge=0, le=MAX_DELA
     return envelope(state, source="replay" if engine.mode == "replay" else "live")
 
 
+@router.get("/api/live/final")
+async def live_final(request: Request, delay: float = Query(0, ge=0, le=MAX_DELAY)) -> Any:
+    """Owner 2026-10-10: our last final, held on In Game until noon the day after the game, as a device `delay` seconds
+    behind may see it (built from the event log, so the spoiler rule holds). It is no viewer of a live game: a final needs
+    no polling of CFBD. Nothing held: {"held": null}; held but this device is not there yet: {"held": ..., "waiting": true}."""
+    engine: LiveEngine = request.app.state.live
+    state = await asyncio.to_thread(engine.held_state, _delay(delay))
+    if state is None:
+        held = engine.held_final()
+        return envelope({"held": held, "waiting": held is not None}, source="live")
+    return envelope(state, source="live")
+
+
 @router.get("/api/live/sync")
 async def live_sync(request: Request, tapAt: str | None = Query(None, max_length=40)) -> Any:  # noqa: N803 - the query name the browser sends
     """"Sync to my TV": without tapAt, stamps the tap with server time now; with it, the snaps that

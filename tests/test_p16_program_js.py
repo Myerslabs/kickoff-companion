@@ -124,10 +124,12 @@ scenarios.twoTeam = async () => {
   clean("two-team table", wrap);
   const body = wrap.querySelectorAll("tbody tr");
   assert.equal(body.length, 4);
-  // value and chip in ONE cell, the opponent's cell carries the divider class
-  const [label, us, them, better] = body[0].childNodes;
-  assert.equal(text(label), "Yards per play");
-  assert.ok(cls(us).includes("tt__cell") && us.querySelector(".tt__val") && us.querySelector(".rank-chip"), "value and chip share the cell");
+  // 2026-10-10: every data point its own column: the chip beside the value in a column of its own, the opponent's
+  // value cell carries the divider class
+  const [label, usChip, us, them, themChip, better] = body[0].childNodes;
+  assert.equal(label.dataset.term, "Yards per play");
+  assert.ok(cls(us).includes("tt__cell") && us.querySelector(".tt__val") && !us.querySelector(".rank-chip"), "the value stands alone in its cell");
+  assert.ok(cls(usChip).includes("tt__rank--natl") && usChip.querySelector(".rank-chip"), "the chip in its own column");
   assert.equal(text(us.querySelector(".tt__val")), "8.0");
   assert.ok(cls(them).includes("tt__them"), "the divider class stands before the opponent");
   assert.ok(wrap.querySelector("th.tt__them"), "the opponent's header carries the divider too");
@@ -135,23 +137,22 @@ scenarios.twoTeam = async () => {
   assert.ok(cls(us).includes("lead") && cls(them).includes("trail"));
   assert.equal(text(better), "SWT");
   assert.ok(cls(better).includes("lead"));
-  const [, usD, themD, betterD] = body[1].childNodes;
+  const [, , usD, themD] = body[1].childNodes;
   assert.ok(cls(usD).includes("lead") && cls(themD).includes("trail"), "lower is better: 4.5 beats 4.9");
   // ties stay neutral
-  const [, usT, themT, betterT] = body[2].childNodes;
+  const [, , usT, themT, , betterT] = body[2].childNodes;
   assert.ok(!cls(usT).includes("lead") && !cls(usT).includes("trail") && !cls(themT).includes("lead") && !cls(themT).includes("trail"));
   assert.equal(text(betterT), "Even");
   assert.ok(!cls(betterT).includes("lead"));
-  // a row with no rank keeps an invisible chip so its value lines up; a missing value is a dash
-  const [, usB, themB] = body[3].childNodes;
-  assert.ok(usB.querySelector(".rank-chip--placeholder") && themB.querySelector(".rank-chip--placeholder"));
+  // a row with no rank shows a dash in the chip's column, never a blank square; a missing value is a dash
+  const [, usBChip, , themB, themBChip] = body[3].childNodes;
+  assert.ok(usBChip.querySelector(".tt__norank") && themBChip.querySelector(".tt__norank") && text(usBChip) === "–");
   assert.equal(text(themB.querySelector(".tt__val")), "–");
-  // linked chips: each side's own team, the whole cell the target
-  const usLink = us.querySelector("a.rank-chip--link");
-  const themLink = them.querySelector("a.rank-chip--link");
+  // linked chips: each side's own team
+  const usLink = usChip.querySelector("a.rank-chip--link");
+  const themLink = themChip.querySelector("a.rank-chip--link");
   assert.equal(usLink.getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech");
   assert.equal(themLink.getAttribute("href"), "#national=profile%3Aypp?team=Silver%20Dollar");
-  assert.ok(cls(us).includes("tt__cell--link"));
   assert.ok(!body[2].childNodes[1].querySelector("a"), "no metric, no link: a plain chip");
   // a year opens that season's list
   const last = twoTeamTable({ rows: [{ ...rows[0], metricYear: 2025 }], usTeam: "Swampwater Tech" });
@@ -209,26 +210,26 @@ scenarios.edges = async () => {
   const rows = wrap.querySelectorAll("tbody tr");
   assert.equal(rows.length, 2);
   // offense row: Swampwater Tech's chip is its offense stat, the opponent's its defense stat
-  // Phase 17 #14, #16: label | us | the tug bar | them; the cells bracket the bar
-  const [offUs, offTug, offThem] = [rows[0].childNodes[1], rows[0].childNodes[2], rows[0].childNodes[3]];
-  assert.equal(offUs.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
-  assert.equal(offThem.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg_d?team=Silver%20Dollar");
+  // Phase 17 #14, #16, sizes 2026-10-10: label | our chip | our value | the tug bar | their value | their chip
+  const [offUsChip, offUs, offTug, offThem, offThemChip] = [rows[0].childNodes[1], rows[0].childNodes[2], rows[0].childNodes[3], rows[0].childNodes[4], rows[0].childNodes[5]];
+  assert.equal(offUsChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
+  assert.equal(offThemChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg_d?team=Silver%20Dollar");
   // defense row: the reverse (and a row with keys but no metrics still links)
   assert.equal(rows[1].childNodes[1].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg_d?team=Swampwater%20Tech");
-  assert.equal(rows[1].childNodes[3].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Silver%20Dollar");
+  assert.equal(rows[1].childNodes[5].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Silver%20Dollar");
   assert.equal(text(rows[0].childNodes[0]), "PassingSWT offense vs GRID defense");
   assert.equal(text(rows[1].childNodes[0]), "RushingGRID offense vs SWT defense");
   // the bar leans to the side with the edge, in its color, and says how far apart the ranks are
   assert.ok(offTug.querySelector(".tug__bar--us") && !offTug.querySelector(".tug__bar--them"));
   assert.ok(offTug.querySelector(".tug").getAttribute("title").includes("SWT has the edge, 95 national ranks apart"));
-  assert.ok(rows[1].childNodes[2].querySelector(".tug__bar--them"));
-  // our chip sits outside our value, the opponent's mirrored: the values meet the bar
-  assert.ok(cls(offUs.childNodes[0]).includes("rank-chip") && cls(offThem.childNodes[offThem.childNodes.length - 1]).includes("rank-chip"));
+  assert.ok(rows[1].childNodes[3].querySelector(".tug__bar--them"));
+  // our chip sits outside our value in its own column, the opponent's mirrored: the values meet the bar
+  assert.ok(cls(offUsChip).includes("tt__rank--natl") && cls(offThemChip).includes("tt__rank--natl") && cls(offUs).includes("tt__cell") && cls(offThem).includes("tt__cell"));
   // no red-tinted rows, no Better or Edge to columns
   assert.ok(!cls(rows[0]).includes("is-us") && !text(wrap.querySelector("thead")).includes("Edge to") && !wrap.querySelector(".tt__better"));
   // values in each side's own format; the leader follows the edge, not the values (different stats)
   assert.equal(text(offUs.querySelector(".tt__val")), "298");
-  assert.ok(cls(offUs).includes("lead") && cls(rows[1].childNodes[3]).includes("lead"));
+  assert.ok(cls(offUs).includes("lead") && cls(rows[1].childNodes[4]).includes("lead"));
   assert.equal(edgesSummary(edges, { usAbbr: "SWT", themAbbr: "GRID" }), "SWT better in 1 of 2 · Biggest: Passing, SWT offense vs GRID defense, SWT by 95 ranks");
   assert.equal(edgesSummary([], { usAbbr: "SWT" }), "");
   assert.equal(edgeRows([null, "x", { label: "Junk" }]).length, 0);
@@ -269,7 +270,7 @@ scenarios.coverStates = async () => {
   // upcoming: a countdown, no Live button yet
   const pre = cover({ ...base, now: at("2026-09-24T19:30:00.000Z") });
   assert.equal(pre.dataset.state, "pre");
-  assert.ok(text(pre).includes("2d 0h 0m") && !text(pre).includes("Open the Live sheet"));
+  assert.ok(text(pre).includes("2d 0h 0m") && !pre.querySelector("a.cover__action"), "no In Game button before the hour");
   // P-15: the pregame win probability as a bar, Swampwater Tech from the left (home 38% here, so Swampwater Tech 62%)
   const bar = pre.querySelector(".cover__wp");
   assert.ok(bar && text(bar).includes("SWT 62%") && text(bar).includes("38% GRID"));
@@ -300,8 +301,15 @@ scenarios.coverStates = async () => {
   assert.ok(ft.includes("SWT 31") && ft.includes("24 GRID") && ft.includes("Won"));
   assert.ok(final.querySelector(".cover__score .is-winner") && text(final.querySelector(".cover__score .is-loser")).includes("24"));
   assert.ok(!final.querySelector("a.cover__action"), "no archive file: no Archive link");
-  const archived = cover({ ...base, state: "final", usPoints: 17, themPoints: 20, archiveHref: "#archive=526000600" });
-  assert.equal(archived.querySelector("a.cover__action").getAttribute("href"), "#archive=526000600");
+  const archived = cover({ ...base, state: "final", usPoints: 17, themPoints: 20, archiveHref: "#archive=526000600", now: at("2026-10-05T12:00:00Z") });
+  assert.deepEqual(archived.querySelectorAll("a.cover__action").map((a) => a.getAttribute("href")), ["#archive=526000600"], "a week on: the Archive only");
+  // owner 2026-10-10: until noon the day after the game, In Game keeps the final, so the cover offers it beside the Archive
+  const held = cover({ ...base, state: "final", usPoints: 17, themPoints: 20, archiveHref: "#archive=526000600", heldUntil: "2026-09-27T16:00:00Z", now: at("2026-09-27T02:00:00Z") });
+  assert.deepEqual(held.querySelectorAll("a.cover__action").map((a) => text(a)), ["The final on In Game", "Full game in the Archive"]);
+  held.tick(at("2026-09-27T16:00:01Z"));
+  assert.deepEqual(held.querySelectorAll("a.cover__action").map((a) => text(a)), ["Full game in the Archive"], "the button goes at the server's hold time");
+  const unheld = cover({ ...base, state: "final", usPoints: 17, themPoints: 20, archiveHref: "#archive=526000600", heldUntil: null, now: at("2026-09-27T02:00:00Z") });
+  assert.deepEqual(unheld.querySelectorAll("a.cover__action").map((a) => text(a)), ["Full game in the Archive"], "nothing held (a game not watched): the Archive only");
   assert.ok(text(archived).includes("Lost"));
   // a finished game with no line says it plainly
   assert.ok(text(cover({ ...base, state: "final", line: {}, pregame: {}, usPoints: 1, themPoints: 0 })).includes("No line was recorded."));
@@ -415,9 +423,21 @@ scenarios.zones = async () => {
   assert.ok(text(rows[0].childNodes[1]).startsWith("4 att") && text(rows[0].childNodes[1]).includes("25.0% comp"));
   assert.ok(text(rows[1].childNodes[2]).startsWith("0 att"), "a zero is a zero");
   assert.ok(text(rows[0].childNodes[2]).startsWith("–"), "a zone missing from the payload is a dash");
+  // wave 2 (owner 2026-10-10): sized by its own box, the field's shape kept; each cell says less as the box narrows
+  assert.equal(zones.dataset.size, "large");
+  assert.ok(typeof zones.measure === "function", "it measures itself like a stat table");
+  const deepLeft = rows[0].childNodes[1];
+  assert.equal(text(deepLeft.querySelector(".zone__rates--long")), "25.0% comp · 25.0% success");
+  assert.deepEqual(deepLeft.querySelectorAll(".zone__rates--mid small").map(text), ["25.0% comp", "25.0% succ."]);
+  assert.equal(text(deepLeft.querySelector(".zone__rates--short")), "25.0% succ.");
+  assert.ok(!rows[1].childNodes[2].querySelector(".zone__rates") && text(rows[1].childNodes[2]).includes("no throws"), "no throws: the count and the words, at every size");
   const lanes = runLanesTable(FIXTURE.tendencies.runLanes);
   clean("lanes", lanes);
-  assert.ok(text(lanes).includes("12 car") && text(lanes).includes("4.2 yds") && text(lanes).includes("0 car"));
+  assert.ok(text(lanes).includes("12 car") && text(lanes).includes("4.2 Y/C") && text(lanes).includes("0 car"), "the yards are per carry, so they say Y/C");
+  assert.ok(!text(lanes).includes("yds"));
+  const left = lanes.querySelector("tbody td");
+  assert.deepEqual([text(left.querySelector(".zone__rates--long")), text(left.querySelector(".zone__rates--short"))], ["4.2 Y/C · 41.7% success", "4.2 Y/C"]);
+  assert.equal(lanes.dataset.size, "large");
   const block = tendenciesBlock(FIXTURE.tendencies, "GRID");
   assert.ok(text(block).includes("2 passes had no charted zone"));
   clean("junk zones", passZonesTable([null, { depth: "deep", direction: "left", attempts: "x", completionPct: NaN }]));
@@ -490,7 +510,7 @@ scenarios.finalPage = async () => {
   const { root, view } = await mountProgram(data);
   const t = clean("final program", root);
   assert.ok(t.includes("SWT 31") && t.includes("Full game in the Archive"));
-  assert.equal(root.querySelector("a.cover__action").getAttribute("href"), "#archive=526000600");
+  assert.ok(root.querySelectorAll("a.cover__action").some((a) => a.getAttribute("href") === "#archive=526000600"));
   assert.ok(!t.includes("Under way"));
   view.unmount();
   root.remove();
@@ -582,3 +602,11 @@ def test_page_check_has_the_program_routes() -> None:
 def test_the_damaged_payload_is_really_damaged() -> None:
     bad = damaged(payload())
     assert bad["them"]["school"] is None and bad["profile"]["them"] == "nope" and bad["picker"][0] is None
+
+
+def test_the_season_ppa_pairs_lean_on_the_ppa_scale() -> None:
+    """Wave 2 review: PPA per play is a small number either side of zero; without the scale a gap of 0.07 drew a full bar."""
+    source = (Path(__file__).resolve().parent.parent / "static" / "js" / "views" / "program.js").read_text(encoding="utf-8")
+    assert 'import { PPA_SCALE, twoTeamTable } from "../ui/two-team.js";' in source
+    pair_row = source.split("const pairRow = ", 1)[1].split("});", 1)[0]
+    assert "scale: PPA_SCALE" in pair_row

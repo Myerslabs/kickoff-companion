@@ -273,6 +273,17 @@ class Profiles:
             return ranked_list(values, higher, conf_rank)
         return ranked_list(national, higher, nat_rank)
 
+    def conference_rank(self, team: str, key: str, higher: bool) -> tuple[int | None, int | None]:
+        """A team's rank for one key inside its OWN conference (the one its stats name, as the conference list groups it)
+        and how many that conference ranks; (None, None) for a team with no conference or no value (tables wave 3: the
+        matchup sheet's conference column, for any two teams)."""
+        conference = self.conference_of.get(team)
+        if not conference:
+            return None, None
+        _, _, _, conf_rank, conf_of = self._ranks(key, higher, conference)
+        rank = conf_rank.get(team)
+        return rank, (conf_of or None) if rank is not None else None
+
     def row(self, team: str, side: str, label: str, key: str, higher: bool, fmt: str) -> dict[str, Any]:
         _, nat_rank, nat_of, conf_rank, conf_of = self._ranks(key, higher)
         value = self.value(team, key)
@@ -346,13 +357,23 @@ def advanced_key(side: str, attr: str) -> str:
 
 
 def advanced_rows(records: list[AdvancedSeasonStat], team: str) -> list[dict[str, Any]]:
+    """One row per advanced measure for `team`: its value, its national rank and (tables wave 3) its rank inside its own
+    conference, the conference read from the same records the conference list ranks (app/services/national.py _advanced),
+    so the chip and the list it opens agree."""
     rows = []
     mine = next((r for r in records if r.team == team), None)
+    conference = mine.conference if mine is not None and isinstance(mine.conference, str) and mine.conference else None
+    peers = {r.team for r in records if conference is not None and r.conference == conference}
     for side, label, attr, higher, fmt, group in ADVANCED_ROWS:
         values = advanced_values(records, side, attr)
         ranks, of = rank_teams(values, higher)
+        conf_ranks, conf_of = rank_teams({t: v for t, v in values.items() if t in peers}, higher)
         value = _path(getattr(mine, side, None), attr) if mine is not None else None
         ok = isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
         key = advanced_key(side, attr)
-        rows.append({"side": side, "label": label, "key": key, "metric": f"advanced:{key}", "group": group, "value": round(value, 3) if ok else None, "format": fmt, "higherIsBetter": higher, "nationalRank": ranks.get(team) if ok else None, "nationalOf": of or None})
+        rows.append({
+            "side": side, "label": label, "key": key, "metric": f"advanced:{key}", "group": group, "value": round(value, 3) if ok else None, "format": fmt, "higherIsBetter": higher,
+            "nationalRank": ranks.get(team) if ok else None, "nationalOf": of or None,
+            "conferenceRank": conf_ranks.get(team) if ok else None, "conferenceOf": conf_of or None,
+        })
     return rows

@@ -15,17 +15,19 @@ What this adds, how to use it, and how to set up the venue sign-in page.
 
 ## Invite friends
 
-Menu > More > Invite friends (`#invite`): a full-screen QR code by IP number, the address, a warning when the computer looks to be on a public network or sharing a hotspot, and a guide for watching away from home. The Live sheet has a small "Invite" button that shows the same code.
+Menu > Invite friends (`#invite`): a full-screen QR code by IP number, the address, a warning when the computer looks to be on a public network or sharing a hotspot, and a guide for watching away from home. The Live sheet has a small "Invite" button that shows the same code.
 
-A new guest sees one welcome sheet: they can look at anything, only the host changes settings. The "Get your own copy" button appears only after the project is public (`REPO_IS_PUBLIC` in `app/__init__.py`).
+A new guest sees one welcome note at the top of the first page they open (never on the board, and never a sheet that opens by itself): they can look at anything, only the host changes settings. It goes with its × or when they move to another page. The "Get your own copy" button appears only after the project is public (`REPO_IS_PUBLIC` in `app/__init__.py`).
 
 ## The game-day board (a monitor on the server computer)
 
-`#board` is the Live sheet made for a wall: top bar, tabs and touch controls hidden, everything drawn larger (the zoom follows the screen's width), a QR code in the corner. It is the same live view, so it never disagrees with the Live sheet.
+`#board` is the In Game sheet made for a wall (the Big screen button on the In Game sheet opens it), laid out in the owner's arrangement on one 1080p screen: Win probability and Leaders top left, the pass and run charts under them with a small QR code between them and the right half, Team stats and one In Game panel (the Box score until a button below picks another) on the right, and along the bottom the score strip with the radio, the scores ticker, the spoiler-delay line and the twelve panel buttons. The top bar and tabs are hidden; on a smaller screen the same pieces stack and the page scrolls. It is the same live view, so it never disagrees with In Game.
 
-- Settings > Friends and the big screen > Big screen: pick a monitor, "Open the board there". The server starts Edge (or Chrome) in kiosk mode, full screen, on that monitor, with its own profile folder (`data/kiosk-profile`). Alt+F4 on it, or "Close the board", leaves.
+- The way out: on arrival, and whenever you move the mouse, press a key or tap the screen, a "Leave big screen" chip shows in the top-right corner for a few seconds (the mouse pointer comes back with it). It goes back to In Game. Escape, Backspace and a TV remote's Back key do the same, and so does the browser's Back, even when the board was the first page opened (a bookmark, the kiosk window, a cast tab). While the radio plays, its pause button sits beside the chip.
+- Nothing opens by itself over the board: the "Not loaded yet" note belongs to the Pre-Game Program and a guest's welcome note to the first other page.
+- Settings > Friends and the big screen > Big screen: pick a monitor, "Open the board there". The server starts Edge (or Chrome) in kiosk mode, full screen, on that monitor, with its own profile folder (`data/kiosk-profile`). Escape on it goes back to In Game in the same window; Alt+F4 on it, or "Close the board", closes the window.
 - This works from the server computer only; a window cannot be opened on the computer from another device.
-- The board runs in real time. Use the Live sheet's Spoiler delay to match the television.
+- The board runs in real time. Use the In Game sheet's Spoiler delay to match the television.
 - Casting: open `http://<address>/#board` in any browser and cast that tab or window to a television.
 
 ## Watching away from home

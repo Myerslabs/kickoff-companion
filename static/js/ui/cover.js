@@ -11,23 +11,34 @@
 //       liveHref: "Open the Live sheet" under way (primary) and inside the hour (secondary). archiveHref: "Full
 //       game in the Archive" on a final (pass it only when the archive holds the game). prev / next:
 //       { href, label } arrows in the kicker row. extra: a node for the cover's foot (the page's jump list).
-//       Phase 17 #2: crew (text) joins the when line after the network; details (a node, the coaches) sits under it.
+//       Phase 17 #2: crew (text) joins the when line after the network.
+//       The cover redo (owner mockup 2026-10-10): the line and the over/under sit in the centre under the countdown,
+//       the when line (date · time · stadium · TV) under them, larger. staff: { us, them } (nodes, ui/game-staff.js
+//       teamStaff) puts each team's coaches under its own block, level with the when line. The foot is three cells:
+//       the buttons on the left, the pregame win probability in the middle, conditions (a node: the weather and the
+//       stadium's facts) on the right. A narrow cover stacks them.
 //       Each W/L square opens that game (ours: the Archive or the program; any other: its box score), and the
 //       conference record opens the standings (ours on the Season page; another conference's on that team's page).
 //       Phase 17 #4: the logo opens the team's football page on Wikipedia, the name its school's page, the venue
 //       the stadium's page; a "Team page" chip keeps the way to the app's own team page.
 //       The returned section has tick(now = the clock): it redraws the countdown and the buttons in place
 //       (the cover itself is not rebuilt) and returns the state it now shows.
+//       Queue item 11 (owner 2026-10-13, the Top 25 page: "Same initial information for every game that the cover has"):
+//       compact: true draws a smaller card for any two teams: no arrows, no SP+ chip, 64 px logos, no buttons; the
+//       pregame win probability in both teams' own colors for every state; live: { text } (with usPoints and
+//       themPoints) puts the live score and its quarter and clock in the middle, state "live" holds it there; a final
+//       says "Final" (finalNote adds the overtimes), never one side's Won or Lost. label names the card; href makes
+//       the middle (the score or the countdown) a link to the game.
 //   coverState({ state, date, startTimeTbd, now })   "final" | "live" | "soon" | "pre" | "tbd" | "unknown".
 //   coverSkeleton()                                  the loading cover in the cover's real shape.
 //   countdownParts(kickoffIso, now), openingLine(spreadOpen, spread, homeName, awayName)   as before.
 
 import { usLabel } from "../identity.js";
-import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLogo, text } from "./dom.js";
+import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLink, teamLogo, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { pollBadge } from "./stat-table.js";
 import { listLink } from "./two-team.js";
-import { fillWiki, teamPageChip, wikiLink } from "./wiki-links.js";
+import { fillWiki, wikiLink } from "./wiki-links.js";
 
 const SOON_MS = 60 * 60 * 1000;
 
@@ -62,6 +73,7 @@ export function openingLine(spreadOpen, spread, homeName, awayName) {
 /** What the cover shows: "final", "live" (kickoff passed), "soon" (within the hour), "pre", "tbd" or "unknown". */
 export function coverState({ state, date, startTimeTbd, now = new Date(Date.now()) } = {}) {
   if (state === "final") return "final";
+  if (state === "live") return "live"; // the server says the game is on (item 11), whatever the clock says
   const kickoff = new Date(date);
   if (!date || Number.isNaN(kickoff.getTime())) return "unknown";
   if (startTimeTbd) return "tbd"; // the time is a placeholder: never "Under way" or a minute countdown from it
@@ -93,9 +105,39 @@ function finalScore(props, usAbbr, themAbbr) {
   );
 }
 
+/** Item 11: a compact card's final, neither side's Won or Lost (the card is nobody's): "Final", with its overtimes. */
+function neutralFinal(props, usAbbr, themAbbr) {
+  const us = props.usPoints;
+  const them = props.themPoints;
+  const tail = typeof props.finalNote === "string" && props.finalNote ? `, ${props.finalNote}` : "";
+  if (!isNum(us) || !isNum(them)) return el("div", { class: "cover__countdown cover__state cover__state--final" }, el("span", { class: "num" }, "Final"));
+  const side = (won, abbr, points, first) => el("span", { class: `cover__score-side ${won ? "is-winner" : "is-loser"}` }, first ? `${abbr} ${points}` : `${points} ${abbr}`);
+  return el(
+    "div",
+    { class: "cover__countdown cover__state cover__state--final" },
+    el("span", { class: "num cover__score", "aria-label": `Final: ${usAbbr} ${us}, ${themAbbr} ${them}` }, side(us >= them, usAbbr, us, true), el("span", { class: "cover__score-dot" }, " · "), side(them >= us, themAbbr, them, false)),
+    el("small", {}, `Final${tail}`),
+  );
+}
+
+/** Item 11: the live score with its quarter and clock (the full cover only says "Under way"). */
+function liveScore(props, usAbbr, themAbbr) {
+  const us = isNum(props.usPoints) ? props.usPoints : "–";
+  const them = isNum(props.themPoints) ? props.themPoints : "–";
+  const ahead = isNum(props.usPoints) && isNum(props.themPoints) ? Math.sign(props.usPoints - props.themPoints) : 0;
+  const side = (lost, value) => el("span", { class: `cover__score-side ${lost ? "is-loser" : "is-winner"}` }, value);
+  return el(
+    "div",
+    { class: "cover__countdown cover__state cover__state--live cover__state--score" },
+    el("span", { class: "num cover__score", "aria-label": `${usAbbr} ${us}, ${themAbbr} ${them}` }, side(ahead < 0, `${usAbbr} ${us}`), el("span", { class: "cover__score-dot" }, " · "), side(ahead > 0, `${them} ${themAbbr}`)),
+    el("small", {}, el("i", { class: "cover__live-dot", "aria-hidden": "true" }), text(props.live?.text || "Under way")),
+  );
+}
+
 /** The middle block for a state: countdown, "Kickoff in 38 min", "Under way", a TBD date, or the final. */
 function stateBlock(kind, props, now, usAbbr, themAbbr) {
-  if (kind === "final") return finalScore(props, usAbbr, themAbbr);
+  if (kind === "final") return props.compact === true ? neutralFinal(props, usAbbr, themAbbr) : finalScore(props, usAbbr, themAbbr);
+  if (kind === "live" && props.compact === true && props.live && typeof props.live === "object") return liveScore(props, usAbbr, themAbbr);
   const box = (cls, main, sub) => el("div", { class: `cover__countdown cover__state cover__state--${cls}` }, main, sub ? el("small", {}, sub) : null);
   if (kind === "unknown") return box("unknown", el("span", { class: "num" }, "–"), "kickoff not set");
   if (kind === "tbd") {
@@ -111,10 +153,13 @@ function stateBlock(kind, props, now, usAbbr, themAbbr) {
   return box("pre", el("span", { class: "num" }, txt), "to kickoff");
 }
 
-/** The buttons under the hero: the Live sheet while it matters, the Archive after a final it holds. */
-function actions(kind, props) {
+/** The buttons under the hero: In Game while it matters (and after the final while it keeps it), the Archive after a final. */
+function actions(kind, props, now = new Date(Date.now())) {
+  const ms = now instanceof Date && !Number.isNaN(now.getTime()) ? now.getTime() : Date.now();
   const out = [];
-  if (isHash(props.liveHref) && (kind === "live" || kind === "soon")) out.push(el("a", { class: `btn${kind === "live" ? " btn--primary" : ""} cover__action`, href: props.liveHref }, "Open the Live sheet"));
+  const until = Date.parse(props.heldUntil ?? ""); // the server's hold (noon the day after the game, its time zone), never the device's guess
+  const held = kind === "final" && isNum(until) && ms < until;
+  if (isHash(props.liveHref) && (kind === "live" || kind === "soon" || held)) out.push(el("a", { class: `btn${kind === "live" ? " btn--primary" : ""} cover__action`, href: props.liveHref }, held ? "The final on In Game" : "Open the In Game sheet"));
   if (kind === "final" && isHash(props.archiveHref)) out.push(el("a", { class: "btn cover__action", href: props.archiveHref }, "Full game in the Archive"));
   return out;
 }
@@ -127,18 +172,27 @@ function navArrow(which, target) {
   return el("a", { class: `cover__nav cover__nav--${which}`, href: t.href, "aria-label": `${word} program${label ? `: ${label}` : ""}`, title: label ? `${word}: ${label}` : `${word} program` }, which === "prev" ? "‹" : "›");
 }
 
-/** P-15 item 2 (owner look): the pregame win probability as the newspaper's thin bar, ours from the left. */
-function winBar(usWp, usAbbr, themAbbr) {
+/** P-15 item 2 (owner look): the pregame win probability as the newspaper's thin bar, ours from the left. A compact
+ *  card (item 11) paints each side in its own team's color. */
+function winBar(usWp, usAbbr, themAbbr, colors = null) {
   if (!isNum(usWp) || usWp < 0 || usWp > 1) return null;
   const us = Math.round(usWp * 100);
   const them = 100 - us;
+  const paint = (color) => (typeof color === "string" && /^#?[0-9a-f]{6}$/i.test(color.trim()) ? `#${color.trim().replace(/^#/, "")}` : null);
+  const usColor = colors ? paint(colors.us) : null;
+  const themColor = colors ? paint(colors.them) : null;
   return el(
     "div",
     { class: "cover__wp" },
     el("span", { class: "cover__wp-caption" }, "Pregame win probability"),
     el("span", { class: "cover__wp-label cover__wp-label--us" }, `${usAbbr} ${us}%`),
-    el("div", { class: "wpbar cover__wpbar", role: "img", "aria-label": `Pregame win probability: ${usAbbr} ${us}%, ${themAbbr} ${them}%` }, el("div", { class: "wpbar__home wpbar__home--us", style: { width: `${us}%` } }), el("div", { class: "wpbar__away", style: { width: `${them}%` } })),
-    el("span", { class: "cover__wp-label" }, `${them}% ${themAbbr}`),
+    el(
+      "div",
+      { class: `wpbar cover__wpbar${colors ? " cover__wpbar--teams" : ""}`, role: "img", "aria-label": `Pregame win probability: ${usAbbr} ${us}%, ${themAbbr} ${them}%` },
+      el("div", { class: "wpbar__home wpbar__home--us", style: { width: `${us}%`, ...(usColor ? { background: usColor } : {}) } }),
+      el("div", { class: "wpbar__away", style: { width: `${them}%`, ...(themColor ? { background: themColor } : {}) } }),
+    ),
+    el("span", { class: `cover__wp-label${colors ? " cover__wp-label--us" : ""}` }, `${them}% ${themAbbr}`),
   );
 }
 
@@ -196,7 +250,7 @@ export function formGuide(form, { hrefFor } = {}) {
  * Record, conference record, AP poll badge and the SP+ link for one team (each rank opens its list), every
  * one the same chip (Phase 17 #2: only the AP rank had a box, so the line read as mismatched).
  */
-function recordParts(team, usTeam) {
+function recordParts(team, usTeam, { compact = false } = {}) {
   const t = obj(team);
   const parts = [];
   const chip = (value, title) => el("span", { class: "cover-chip", title }, value);
@@ -208,18 +262,23 @@ function recordParts(team, usTeam) {
   }
   if (isNum(t.apRank)) parts.push(pollBadge(t.apRank, "AP", { href: pollHref("AP", { team: t.school }), label: text(t.school) }));
   const sp = obj(t.sp);
-  if (isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover-chip cover-chip--link" }));
-  const page = teamPageChip(t.school);
-  if (page) parts.push(page);
-  return parts;
+  if (!compact && isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover-chip cover-chip--link" }));
+  return parts; // 2026-10-10: no Team page chip; the team's name is the way to its page
+}
+
+/** A node prop, or null (a string or junk draws nothing). */
+function nodeOrNull(value) {
+  return typeof Node !== "undefined" && value instanceof Node ? value : null;
 }
 
 /**
- * cover({ us, them, homeIsUs, date, startTimeTbd, venue, neutralSite, tv, line, pregame, reveal, now, state, usPoints, themPoints, kicker, liveHref, archiveHref, prev, next, extra })
+ * cover({ us, them, homeIsUs, date, startTimeTbd, venue, neutralSite, tv, crew, line, pregame, reveal, now, state, usPoints, themPoints, kicker,
+ *         liveHref, archiveHref, heldUntil, prev, next, staff: { us, them }, conditions, extra })
  */
 export function cover(props) {
   const p = obj(props);
   const { homeIsUs = true, date, startTimeTbd, venue, neutralSite, tv, reveal = false } = p;
+  const compact = p.compact === true;
   const now = p.now instanceof Date ? p.now : new Date(Date.now());
   const us = obj(p.us);
   const them = obj(p.them);
@@ -237,17 +296,20 @@ export function cover(props) {
   const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venueName ? [wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null] : text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]
     .filter(Boolean)
     .flatMap((part, i) => (i ? [" · ", part] : [part]));
-  const details = typeof Node !== "undefined" && p.details instanceof Node ? p.details : null;
+  const staff = obj(p.staff);
+  const usStaff = nodeOrNull(staff.us);
+  const themStaff = nodeOrNull(staff.them);
+  const conditions = nodeOrNull(p.conditions);
 
   // GX-07 (owner pick 2026-09-28): a face-off. Our 112px dark-variant logo on the left, as in every
   // two-team table, the opponent's facing it on the right, each name and record under its logo.
   const teamBlock = (team, side) => {
-    const parts = recordParts(team, us);
+    const parts = recordParts(team, us, { compact });
     return el(
       "div",
       { class: `cover__side cover__side--${side}` },
-      wikiLink("football", { team: team.school }, teamLogo(team, { size: 112, lazy: false, className: "cover__logo cover__logo--hero" })),
-      el("div", { class: "cover__name" }, team.school ? wikiLink("school", { team: team.school }, text(team.school)) : text(null)),
+      wikiLink("football", { team: team.school }, teamLogo(team, { size: compact ? 64 : 112, lazy: compact, className: "cover__logo cover__logo--hero" })),
+      el("div", { class: "cover__name" }, team.school ? teamLink(team.school, text(team.school)) : text(null)), // 2026-10-10: the name opens the team page (the logo keeps Wikipedia)
       el("div", { class: "cover__rec" }, parts.length ? parts : "No record yet"),
       formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) }),
     );
@@ -262,37 +324,52 @@ export function cover(props) {
   if (isNum(line.overUnder)) lineParts.push(el("span", {}, "Over/under ", el("b", { dataset: { k: "cover-total" } }, fmtNum(line.overUnder, 1)), totalMoved ? el("small", { class: "cover__opened" }, ` (opened ${fmtNum(line.overUnderOpen, 1)})`) : null));
   const noLine = kind === "final" ? "No line was recorded." : "No betting line yet.";
 
-  const middle = el("div", { class: "cover__middle" }, stateBlock(kind, p, now, usAbbr, themAbbr));
-  const actionRow = el("div", { class: "cover__actions" }, actions(kind, p));
-  const extra = typeof Node !== "undefined" && p.extra instanceof Node ? p.extra : null;
+  // item 11: a compact card's score opens its game (ours In Game, any other its box score)
+  const middle = compact && isHash(p.href) ? el("a", { class: "cover__middle cover__middle--link", href: p.href, "aria-label": `Open the game: ${text(away.school)} ${neutralSite ? "versus" : "at"} ${text(home.school)}` }, stateBlock(kind, p, now, usAbbr, themAbbr)) : el("div", { class: "cover__middle" }, stateBlock(kind, p, now, usAbbr, themAbbr));
+  const actionRow = el("div", { class: "cover__actions" }, compact ? [] : actions(kind, p, now));
+  const extra = nodeOrNull(p.extra);
+  const wp = compact ? winBar(usWp, usAbbr, themAbbr, { us: us.color, them: them.color }) : kind !== "final" ? winBar(usWp, usAbbr, themAbbr) : null;
 
+  // The owner's mockup (2026-10-10): the two teams face each other with the countdown and the line between them; under
+  // them, level, each team's coaches and the when line; then the foot's three cells (buttons, win probability, conditions).
   const section = el(
     "section",
-    { class: `cover${reveal ? " cover--reveal" : ""}`, "aria-label": "Game program cover", dataset: { state: kind } },
-    el("div", { class: "cover__kicker-row" }, navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Game program")), navArrow("next", p.next)),
+    { class: `cover${reveal ? " cover--reveal" : ""}${compact ? " cover--compact" : ""}`, "aria-label": compact && typeof p.label === "string" && p.label ? p.label : "Pre-Game Program cover", dataset: { state: kind } },
+    el("div", { class: "cover__kicker-row" }, compact ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Pre-Game Program")), compact ? null : navArrow("next", p.next)),
     el("h1", { class: "cover__matchup sr-only" }, `${text(away.school)} ${neutralSite ? "vs" : "at"} ${text(home.school)}`),
     el(
       "div",
       { class: "cover__faceoff" },
       teamBlock(us, "us"),
-      el("div", { class: "cover__center" }, el("span", { class: "cover__vs" }, neutralSite || homeIsUs ? "vs" : "at"), middle),
+      el(
+        "div",
+        { class: "cover__center" },
+        el("span", { class: "cover__vs" }, neutralSite || homeIsUs ? "vs" : "at"),
+        middle,
+        el("div", { class: "cover__line" }, lineParts.length ? lineParts : el("span", {}, noLine)),
+      ),
       teamBlock(them, "them"),
+      usStaff,
+      el("div", { class: "cover__when" }, when),
+      themStaff,
     ),
-    el("div", { class: "cover__when" }, when),
-    details ? el("div", { class: "cover__details" }, details) : null,
-    lineParts.length ? el("div", { class: "cover__line" }, lineParts) : el("div", { class: "cover__line" }, el("span", {}, noLine)),
-    kind !== "final" ? winBar(usWp, usAbbr, themAbbr) : null,
-    el("div", { class: "cover__foot" }, actionRow, extra),
+    el(
+      "div",
+      { class: "cover__foot" },
+      compact ? null : el("div", { class: "cover__foot-start" }, actionRow, extra),
+      wp ? el("div", { class: "cover__foot-mid" }, wp) : null,
+      conditions ? el("div", { class: "cover__conditions" }, conditions) : null,
+    ),
   );
 
-  fillWiki(section); // Phase 17 #4: the searches drawn above become the pages once the server has them
+  if (!compact) fillWiki(section); // Phase 17 #4: the searches drawn above become the pages once the server has them (a page of compact cards keeps the searches: no lookup a card)
 
   /** Redraw the countdown and the buttons in place (P-10): no rebuild, no replayed reveal. */
   section.tick = (at = new Date(Date.now())) => {
     const when2 = at instanceof Date && !Number.isNaN(at.getTime()) ? at : new Date(Date.now());
     const next = coverState({ state: p.state, date, startTimeTbd, now: when2 });
     middle.replaceChildren(stateBlock(next, p, when2, usAbbr, themAbbr));
-    if (next !== kind) actionRow.replaceChildren(...actions(next, p));
+    if (!compact && (next !== kind || next === "final")) actionRow.replaceChildren(...actions(next, p, when2)); // a held final lets go of its In Game button at noon
     kind = next;
     section.dataset.state = next;
     return next;

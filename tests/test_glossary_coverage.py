@@ -68,3 +68,16 @@ def test_every_column_header_is_explained_or_plain(known: set[str]):
 def test_the_check_reads_real_headers():
     headers = front_end_headers()
     assert len(headers) > 60 and "Pos. rank" in headers and "Player" in headers
+
+
+WAVE_3_HEADS = [
+    # tables wave 3 (owner 2026-10-10): the heads the other pages' tables gain, named here before their pages declare them
+    "Role", "Why", "Conf record", "Last opponent", "Next game", "Kickoff", "Fact", "Weight", "Venue", "Next update",
+    "SP+ rank", "Elo rank", "FPI rank", "FBS rank", "AP rank", "Coaches rank", "CFP rank", "National rank", "First-place votes",
+    "Win probability", "Total PPA", "PPA per play", "Points", "Pctl", "Position group", "Fouled by", "Rulebook", "SRS",
+]
+
+
+def test_the_wave_3_heads_are_explained(known: set[str]):
+    missing = [head for head in WAVE_3_HEADS if normalize(head) not in known and normalize(head) not in PLAIN]
+    assert not missing, f"wave 3 heads with no glossary entry or plain word: {missing}"

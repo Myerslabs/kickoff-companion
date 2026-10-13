@@ -27,6 +27,13 @@ def _groups(table: grades.GradeTable) -> list[dict[str, Any]]:
     return [{"id": g, "name": grades.GROUP_NAMES[g], "count": counts.get(g, 0), "basis": grades.SPECS[g].basis} for g in grades.GRADED]
 
 
+def _with_abbr(row: dict[str, Any] | None, abbrs: dict[str, str]) -> dict[str, Any] | None:
+    """A public grade row with its team's abbreviation (None when the team has none)."""
+    if row is not None:
+        row["teamAbbr"] = abbrs.get(row.get("team") or "")
+    return row
+
+
 @router.get("/api/grades")
 async def grade_board(request: Request, group: str = Query("QB", max_length=4), limit: int = Query(50, ge=1, le=200)) -> Any:
     chosen = group.strip().upper()
@@ -36,8 +43,11 @@ async def grade_board(request: Request, group: str = Query("QB", max_length=4), 
     table, parts = await service.table()
     us = request.app.state.settings.team
     rows = table.groups.get(chosen, [])
-    shown = [grades.public(r, components=False) for r in rows[:limit]]
-    ours = [grades.public(r, components=False) for r in rows if r.get("team") == us]
+    # tables wave 3: each row's team abbreviation (from the /teams/fbs part the table already loads), so the Top graded
+    # table keeps the team at small as its abbreviation
+    abbrs = {t.school: t.abbreviation for t in getattr(parts.get("teams"), "records", None) or [] if getattr(t, "school", None) and isinstance(getattr(t, "abbreviation", None), str)}
+    shown = [_with_abbr(grades.public(r, components=False), abbrs) for r in rows[:limit]]
+    ours = [_with_abbr(grades.public(r, components=False), abbrs) for r in rows if r.get("team") == us]
     beyond = [r for r in ours if r["rank"] is not None and r["rank"] > limit]
     spec = grades.SPECS[chosen]
     data = {
@@ -58,7 +68,7 @@ async def grade_board(request: Request, group: str = Query("QB", max_length=4), 
 
 
 @router.get("/api/grades/teams")
-async def players_to_watch(request: Request, teams: str = Query(..., max_length=300), top: int = Query(3, ge=1, le=10)) -> Any:
+async def players_to_watch(request: Request, teams: str = Query(..., max_length=300), top: int = Query(3, ge=1, le=20)) -> Any:
     names = [t.strip() for t in teams.split(",") if t.strip()][:MAX_TEAMS]
     if not names:
         return error_response(422, "bad_teams", "Name at least one team.")

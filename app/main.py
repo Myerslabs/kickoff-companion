@@ -28,6 +28,7 @@ from app.api import demo as demo_api
 from app.api import gamenotes as gamenotes_api
 from app.api import host as host_api
 from app.api import matchup as matchup_api  # Phase 16 BX
+from app.api import prompts as prompts_api
 from app.api import rules as rules_api  # Phase 17 #21
 from app.api import search as search_api
 from app.api import season_notes as season_notes_api  # Phase 17 Part 3a
@@ -49,10 +50,11 @@ from app.maintenance import Maintenance
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
 from app.origin_guard import HostGuard, OriginGuard
 from app.paths import ROOTS
-from app.schedule_setup import build_schedule
+from app.schedule_setup import build_prompt_runs, build_schedule
 from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
 from app.services.connect import print_qr
+from app.services.editions import Editions
 from app.services.gamenotes import GameNotes
 from app.services.grades import GradeService
 from app.services.host import HostAccess
@@ -68,6 +70,7 @@ from app.services.notes_task import NotesRunner, scratch_dir
 from app.services.players import PlayerService
 from app.services.prefs import PrefsStore
 from app.services.program import ProgramService
+from app.services.rankedweek import RankedWeekService
 from app.services.ratings import RatingsService
 from app.services.screens import BoardLauncher
 from app.services.search import SearchService
@@ -105,10 +108,11 @@ def allowed_over_plain_http(path: str) -> bool:
 
 
 class PlainHttpRedirect:
-    """With HTTPS on: plain-HTTP requests go to HTTPS, except the pages a device needs before it
-    trusts the CA. With HTTPS off (the default since public release Phase 4b): an https:// request,
-    which only arrives on an install that kept its old certificates, goes to the same page over HTTP,
-    so a home-screen icon saved before the change still opens the app."""
+    """With HTTPS on (group five, owner 2026-10-09: HTTPS for the owner's own devices): the server answers both
+    schemes on its one port and redirects nothing, so a device that trusted the certificate uses https:// and a guest
+    keeps http://. With HTTPS off (the default since public release Phase 4b): an https:// request, which only arrives
+    on an install that kept its old certificates, goes to the same page over HTTP, so a home-screen icon saved before
+    the change still opens the app."""
 
     def __init__(self, app: ASGIApp, https: bool = True, legacy_tls: bool = False) -> None:
         self.app = app
@@ -118,10 +122,6 @@ class PlainHttpRedirect:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
             scheme = scope.get("scheme")
-            if self.https and scheme == "http" and not allowed_over_plain_http(scope.get("path", "")):
-                target = URL(scope=scope).replace(scheme="https")
-                await RedirectResponse(str(target), status_code=302)(scope, receive, send)
-                return
             if not self.https and self.legacy_tls and scheme == "https":
                 target = URL(scope=scope).replace(scheme="http")
                 await RedirectResponse(str(target), status_code=301)(scope, receive, send)
@@ -267,6 +267,8 @@ async def lifespan(app: FastAPI):
         settings.team, settings.season, settings.conference, settings.timezone,
     )
     log.info("Tablet URL: %s", tablet_url(settings, ip))
+    if settings.https:
+        log.info("Guests, and devices that have not trusted the certificate yet: %s", tablet_url(settings, ip, secure=False))
     for url in other_urls(settings, ip):
         log.info("Also reachable at %s", url)
     if settings.setup_needed:
@@ -299,7 +301,7 @@ async def lifespan(app: FastAPI):
         log.info("Plain HTTP on the home network: a phone or tablet opens the address above, nothing to install.")
         if tls is not None:
             log.info("Old https:// addresses still answer and are sent to http:// (certificates kept in %s).", tls.cert_dir)
-        print_qr(f"{tablet_url(settings, ip)}/")
+        print_qr(f"{tablet_url(settings, ip, secure=False)}/")  # the address anyone can scan; a trusted device types https
     log.info("Log file: %s (%s)", settings.log_dir / LOG_FILE_NAME, settings.log_level)
 
     try:
@@ -335,6 +337,7 @@ async def lifespan(app: FastAPI):
         await app.state.live.stop_background()
         await app.state.notes.stop()
         await app.state.season_runner.stop()
+        await app.state.prompt_runs.stop()
         await app.state.mdns.stop()
         await app.state.myteams.close()
         for task in (recheck, quota_watch, prewarm):
@@ -426,6 +429,7 @@ def create_app(
     shutdown_signal.on_begin(app.state.live.wake_streams)
     app.state.prefs = PrefsStore(settings.data_dir)
     app.state.ticker = TickerService(cfbd, settings, app.state.live, app.state.prefs)  # public release Phase 5b: the ticker mode
+    app.state.rankedweek = RankedWeekService(app.state.program, app.state.ticker, Editions(settings.data_dir, settings.season))  # items 10-12: the Top 25 page and the paper's editions
     app.state.analytics = AnalyticsService(cfbd, settings)
     app.state.ratings = RatingsService(cfbd, settings)
     app.state.national = NationalService(cfbd, settings, app.state.season.fetcher, app.state.players.fetcher, app.state.ratings.fetcher, app.state.prefs)  # Phase 16: zero-call national lists; Phase 5b: My teams scope
@@ -452,7 +456,8 @@ def create_app(
     app.state.gamenotes = GameNotes(settings.data_dir)  # Phase 19: your own notes during a game
     app.state.host_access = HostAccess(settings.data_dir)  # Phase 18.6: guests are view-only once a PIN is set
     app.state.board = BoardLauncher(settings.data_dir)  # Phase 18.6: the game-day board on a chosen monitor
-    app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week, off until switched on
+    app.state.prompt_runs = build_prompt_runs(app)  # the Prompts phase: every prompt in one run (the page, the command line, the schedule's catch-up)
+    app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week; on whenever Claude Code is found (2026-10-13)
     app.state.started_at = datetime.now(timezone.utc)
     app.state.demo_mode = False  # public release Phase 9b: app/demo/run.py serve_embedded sets these for the demo
     app.state.home_data_dir = settings.data_dir
@@ -492,6 +497,7 @@ def create_app(
     app.include_router(rules_api.router)  # Phase 17 #21: the penalty book
     app.include_router(wiki_api.router)  # Phase 17 #4: Wikipedia links for the big headers
     app.include_router(season_notes_api.router)  # Phase 17 Part 3a: the preseason and coaches prompts
+    app.include_router(prompts_api.router)  # the Prompts phase (2026-10-13): the Prompts page and the one run
     app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app
     app.include_router(gamenotes_api.router)  # Phase 19
     app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen

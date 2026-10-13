@@ -117,6 +117,7 @@ html {
   -webkit-tap-highlight-color: transparent; /* our own pressed states replace the browser's blue box */
   scroll-padding-top: calc(var(--sticky-top) + var(--gap)); /* a band scrolled to never hides under the top bar */
   overscroll-behavior-y: contain; /* no browser pull-to-refresh: the app has its own */
+  touch-action: manipulation; /* item 6, step G: a quick double tap (a sort heading tapped twice) never zooms the page off the Menu; pinch zoom stays */
 }
 html.is-locked { overflow: hidden; } /* a side sheet, the player card or the menu is open */
 

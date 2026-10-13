@@ -124,3 +124,33 @@ def test_components_cover_the_design_doc_list():
         "matchupCard", "weatherRow", "teamHeader", "tiles", "starStrip", "impactCard", "newsDigest", "slateList", "rankTone",
     ):
         assert re.search(rf"export function {name}\b", js), name
+
+
+def _calls(source: str, name: str) -> list[str]:
+    """Each `name(...)` call's whole text, by counting brackets (strings in the samples hold no unbalanced ones)."""
+    out = []
+    start = source.find(name + "(")
+    while start >= 0:
+        depth = 0
+        for i in range(start + len(name), len(source)):
+            depth += {"(": 1, ")": -1}.get(source[i], 0)
+            if depth == 0:
+                out.append(source[start : i + 1])
+                break
+        start = source.find(name + "(", start + 1)
+    return out
+
+
+def test_the_samples_draw_through_the_sized_kits():
+    """Tables wave 3 (owner 2026-10-10): every stat table sample in the design system sizes itself by its own box, as the
+    pages do; only the two labelled Before samples stay unsized on purpose. The Table sizes section draws each kit option."""
+    source = (STATIC_DIR / "js" / "styleguide.js").read_text(encoding="utf-8")
+    calls = [call for call in _calls(source, "statTable") if not call.startswith("statTable({ columns, rows, sort, onSort")]
+    assert len(calls) > 15
+    unsized = [call for call in calls if "sizes: true" not in call]
+    assert len(unsized) == 2 and all('caption: "Before"' in call for call in unsized), [call[:120] for call in unsized]
+    section = source.split("function tableSizesSection()", 1)[1].split("\n}\n", 1)[0]
+    for option in ("subLabel:", "order: true", "renderShort:", "onWho:", "whoName:", "person: true", "sortable: false", "isGroup: true"):
+        assert option in section, option
+    assert '["sizes", "Table sizes", tableSizesSection]' in source
+    assert "[1100, " in source and "[570, " in source and "[390, " in source

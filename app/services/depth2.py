@@ -221,7 +221,7 @@ def adjusted_rows(metrics: list[AdjustedTeamMetrics]) -> dict[str, dict[str, Any
 
 
 def adjusted_matchup(metrics: list[AdjustedTeamMetrics], us: str, them: str | None) -> list[dict[str, Any]]:
-    """Rows for the Game program: each adjusted metric for both teams with national ranks."""
+    """Rows for the Pre-Game Program: each adjusted metric for both teams with national ranks."""
     table = adjusted_rows(metrics)
     if us not in table and (them is None or them not in table):
         return []
@@ -463,8 +463,13 @@ def _by_quarter(block: Any) -> dict[str, float | None]:
     return {"total": _r(b.get("total")), **{q: _r(b.get(q)) for q in QUARTERS}}
 
 
-def advanced_box(payload: Any) -> dict[str, Any] | None:
-    """The /game/box/advanced answer, normalized for the tables. None when it is not one."""
+def advanced_box(payload: Any, player_ids: dict[tuple[str, str], str] | None = None) -> dict[str, Any] | None:
+    """The /game/box/advanced answer, normalized for the tables. None when it is not one.
+
+    CFBD names the players without their ids; `player_ids` maps (team, name) to an id (the Pre-Game Program reads it from
+    the game's box score and both teams' season lines), so a player's row can open his card. A player it does not know
+    gets playerId None."""
+    ids = player_ids if isinstance(player_ids, dict) else {}
     body = _dict(payload)
     teams = _dict(body.get("teams"))
     players = _dict(body.get("players"))
@@ -496,6 +501,7 @@ def advanced_box(payload: Any) -> dict[str, Any] | None:
         avg, cum, use = _dict(p.get("average")), _dict(p.get("cumulative")), _dict(usage.get((team, name)))
         out_players.append({
             "player": name,
+            "playerId": ids.get((team, name)),
             "team": team,
             "position": p.get("position") if isinstance(p.get("position"), str) else None,
             "ppa": _r(avg.get("total")),

@@ -62,12 +62,12 @@ export function driveRow({ drive, us, them, current = false, expanded = false })
   return row;
 }
 
-/** " · success 3 of 5 · EPA +0.21/play" from the server's per-drive figures (Phase 12), or nothing. */
+/** " · success 3 of 5 · PPA +0.21/play" from the server's per-drive figures (Phase 12), or nothing. */
 export function driveEfficiency(drive) {
   const counts = drive?.successCounts;
   const parts = [];
   if (isNum(counts?.made) && isNum(counts?.of) && counts.of > 0) parts.push(`success ${counts.made} of ${counts.of}`);
-  if (isNum(drive?.epaPerPlay)) parts.push(`EPA ${drive.epaPerPlay >= 0 ? "+" : ""}${drive.epaPerPlay.toFixed(2)}/play`);
+  if (isNum(drive?.epaPerPlay)) parts.push(`PPA ${drive.epaPerPlay >= 0 ? "+" : ""}${drive.epaPerPlay.toFixed(2)}/play`);
   return parts.length ? ` · ${parts.join(" · ")}` : "";
 }
 

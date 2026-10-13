@@ -1,7 +1,7 @@
 // Who "we" are (public release Phase 3): the configured team's school, mascot, abbreviation and
 // conference from /api/identity, loaded once before the first page draws. Every label for "us"
-// reads ours(), so no team is written into the front end. Until it loads, or if it cannot, the
-// fields are blank and labels fall back to plain words ("Our team", "Conf").
+// reads ours(), so no team is written into the front end. Until it loads, or if it cannot (or it takes
+// more than 5 seconds, item 6), the fields are blank and labels fall back to plain words ("Our team", "Conf").
 
 const APP_NAME = "Kickoff Companion";
 
@@ -68,16 +68,45 @@ export function resetIdentity() {
   current = BLANK;
 }
 
-/** Load /api/identity once. Never throws: a failed load keeps the blank identity and says so in the console. */
-export async function loadIdentity(fetchImpl = globalThis.fetch) {
+/** How long the first page waits for /api/identity (item 6, step E): the same 5 s the settings get (prefs.js). */
+export const IDENTITY_TIMEOUT_MS = 5000;
+
+const LATE = Symbol("late");
+
+/**
+ * Load /api/identity once. Never throws, and never waits longer than `timeoutMs`: a failed or hung load keeps the blank
+ * identity (labels in plain words) and says so in the console, so the app always gets past 'Loading' (item 6, step E: a
+ * request that never answered used to leave the loading screen up for good). The request is aborted at the limit; a
+ * fetch that ignores the abort is left behind by the same timer.
+ */
+export async function loadIdentity(fetchImpl = globalThis.fetch, timeoutMs = IDENTITY_TIMEOUT_MS) {
   if (typeof fetchImpl !== "function") return current;
+  const limit = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : IDENTITY_TIMEOUT_MS;
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  let timer = null;
+  const late = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      if (controller) controller.abort();
+      resolve(LATE);
+    }, limit);
+  });
   try {
-    const response = await fetchImpl("/api/identity", { headers: { Accept: "application/json" } });
-    if (!response || !response.ok) throw new Error(`HTTP ${response ? response.status : "?"}`);
-    const body = await response.json();
+    const ask = (async () => {
+      const response = await fetchImpl("/api/identity", { headers: { Accept: "application/json" }, ...(controller ? { signal: controller.signal } : {}) });
+      if (!response || !response.ok) throw new Error(`HTTP ${response ? response.status : "?"}`);
+      return response.json();
+    })();
+    ask.catch(() => {}); // a load that fails after the limit has nobody left to tell
+    const body = await Promise.race([ask, late]);
+    if (body === LATE) {
+      console.warn(`Team identity did not load within ${Math.round(limit / 1000)} seconds; labels use plain words.`);
+      return current;
+    }
     return setIdentity(body && body.data);
   } catch (error) {
     console.warn("Team identity unavailable; labels use plain words.", error);
     return current;
+  } finally {
+    clearTimeout(timer);
   }
 }

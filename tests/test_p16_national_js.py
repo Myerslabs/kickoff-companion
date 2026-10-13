@@ -162,9 +162,76 @@ scenarios.players = async () => {
   assert.equal(ours.length, 3);
   assert.ok(ours.every((tr) => tr.className.includes("is-us")));
   assert.equal(text(ours[0].querySelector(".rank-chip")), "T131");
-  assert.ok(text(ours[0]).includes("Mudpuppy One") && text(ours[0]).includes("WR · Swampwater Tech"));
+  // wave 3 (decision 1): the position and the team in columns of their own after the name, at large and medium
+  const cellsOf = (tr) => tr.childNodes.filter((n) => n.tagName === "TD");
+  const mine = cellsOf(ours[0]);
+  assert.deepEqual([pnText(mine[1].querySelector(".sz-t--long")), pnText(mine[1].querySelector(".sz-t--short"), "initial"), pnText(mine[1].querySelector(".sz-t--short"), "last"), text(mine[2]), text(mine[3])], ["Mudpuppy One", "M. One", "One", "WR", "Swampwater Tech"], "item 6: the name steps down with the table");
+  assert.ok(mine[3].querySelector("button.team-link") && mine[2].className.includes("st__min-medium") && mine[3].className.includes("st__min-medium"), "the team is its link, both gone at small");
+  assert.equal(text(cellsOf(ours[1])[2]), "–", "no position: a dash");
+  assert.equal(mine[0].querySelector(".sz-t--short").textContent, "T131", "below the cut too: a plain number at small");
+  assert.equal(tbodies[1].querySelector("td").getAttribute("colspan"), "6", "the gap row spans every column the table draws");
+  const heads = node.querySelectorAll("thead th").map((th) => th.dataset.term);
+  assert.deepEqual(heads, ["FBS rank", "Player", "Pos", "Team", "Yards per play", "Pctl"]);
+  assert.equal(node.querySelectorAll("thead th")[4].querySelector(".sz-t--short").textContent, "YPP");
   assert.ok(clean("summary", node.querySelector(".nat-summary")).includes("Swampwater Tech: Mudpuppy One T131 of 358"));
   assert.ok(text(rowsIn(tbodies[0])[3]).includes("Next"), "the next opponent's player is marked");
+  // a recruit with no school yet is uncommitted, never a dash or a blank
+  const recruits = nationalListBody({ data: { ...playerList(), family: "recruit", key: "2027", label: "Recruit rating", valueLabel: "Rating", rows: [{ rank: 1, player: "Five Star", position: "QB", team: null, value: 0.99, detail: { stars: 5 } }], beyond: [] } });
+  const recruit = cellsOf(rowsIn(recruits.querySelector(".stat-table tbody"))[0]);
+  assert.equal(text(recruit[3]), "Uncommitted");
+  assert.ok(recruits.querySelectorAll("thead th").find((th) => th.dataset.term === "Stars").className.includes("st__min-medium"), "the stars from medium");
+};
+
+scenarios.listSizes = async () => {
+  // tables wave 3 (owner 2026-10-10): the national list sizes itself by its own box; its rank is the list's own order
+  const { nationalListBody, listColumns } = await import(moduleUrl("ui/national-sheet.js"));
+  const { applyStatSize } = await import(moduleUrl("ui/stat-table.js"));
+  const marks = (ths) => ths.map((th) => (th.className.includes("st__min-large") ? "L" : th.className.includes("st__min-medium") ? "M" : ""));
+  const cellsOf = (tr) => tr.childNodes.filter((n) => n.tagName === "TD");
+  const team = nationalListBody({ data: { ...teamList(), rows: teamList().rows.map((r) => (r && typeof r === "object" && r.team ? { ...r, abbreviation: r.team === "Diner Tech" ? "DT" : r.team === "Swampwater Tech" ? "SWT" : null, conferenceShort: "BB" } : r)) } });
+  clean("sized team list", team);
+  const wrap = team.querySelector(".stat-table-wrap");
+  assert.equal(wrap.dataset.size, "large");
+  const ths = team.querySelectorAll("thead th");
+  assert.deepEqual(ths.map((th) => th.dataset.term), ["FBS rank", "Team", "Conference", "Yards per play", "Pctl"]);
+  assert.deepEqual(marks(ths), ["", "", "M", "", "L"], "the conference from medium, the percentile at large");
+  assert.deepEqual([ths[0].querySelector(".sz-t--mid").textContent, ths[0].querySelector(".sz-t--short").textContent], ["FBS", "FBS"]);
+  assert.equal(ths[3].querySelector(".sz-t--short").textContent, "YPP");
+  const rows = rowsIn(team.querySelector(".stat-table tbody"));
+  const second = cellsOf(rows[1]);
+  // decision 2: the chip at large and medium, a plain number at small (T for a tie)
+  assert.ok(second[0].querySelector(".sz-t--long.sz-t--mid .rank-chip"));
+  assert.equal(second[0].querySelector(".sz-t--short").textContent, "T2");
+  assert.equal(second[0].querySelector(".sz-t--short .rank-chip"), null, "no chip at small");
+  // the team: its link and the Next tag at large and medium, its abbreviation (still its link) at small
+  assert.equal(second[1].querySelector(".sz-t--long button.team-link").dataset.team, "Diner Tech");
+  assert.ok(text(second[1].querySelector(".sz-t--long")).includes("Next"));
+  assert.equal(second[1].querySelector(".sz-t--short button.team-link").textContent, "DT");
+  assert.equal(second[1].querySelector("small"), null, "the conference is no longer drawn under the team");
+  assert.deepEqual([second[2].querySelector(".sz-t--long").textContent, second[2].querySelector(".sz-t--mid").textContent], ["Biscuit Belt", "BB"], "the whole name at large, the short name at medium");
+  applyStatSize(wrap, "small");
+  assert.equal(wrap.dataset.size, "small");
+  // a conference list: its rank headed by the conference's short name, no conference column, the FBS rank from medium
+  const conf = nationalListBody({ data: teamList({ scope: "conference", conference: "Biscuit Belt", conferenceShort: "BB" }) });
+  clean("conference list", conf);
+  const cths = conf.querySelectorAll("thead th");
+  assert.deepEqual(cths.map((th) => th.dataset.term), ["BB rank", "Team", "Yards per play", "Pctl", "FBS rank"]);
+  assert.deepEqual(marks(cths), ["", "", "", "L", "M"]);
+  assert.equal(cths[0].querySelector(".sz-t--mid").textContent, "BB");
+  assert.equal(cths[4].querySelector(".sz-t--mid").textContent, "FBS");
+  // a poll: its badge at large and medium, a plain number at small; the first-place votes from medium
+  const poll = nationalListBody({ data: pollList() });
+  clean("sized poll", poll);
+  const pths = poll.querySelectorAll("thead th");
+  assert.deepEqual(pths.map((th) => th.dataset.term), ["AP rank", "Team", "Conference", "Points", "1st"]);
+  assert.deepEqual(marks(pths), ["", "", "M", "", "M"]);
+  const top = cellsOf(rowsIn(poll.querySelector(".stat-table tbody"))[1]);
+  assert.ok(top[0].querySelector(".sz-t--long .poll-badge"));
+  assert.equal(top[0].querySelector(".sz-t--short").textContent, "12");
+  // a value label with forms shows its three; one without keeps its words; none at all is "Value"
+  assert.deepEqual(["long", "mid", "short"].map((f) => listColumns({ ...teamList(), valueLabel: "Adjusted passing EPA per play" }).find((c) => c.key === "value")[f === "long" ? "label" : f === "mid" ? "labelMid" : "labelShort"]), ["Adjusted passing EPA per play", "Adj passing EPA/play", "Adj pass EPA"]);
+  assert.equal(listColumns({ ...teamList(), valueLabel: null }).find((c) => c.key === "value").label, "Value");
+  for (const junk of [{ ...teamList(), conferenceShort: 7, rows: [{ rank: "x", team: {}, abbreviation: 5, conference: [], conferenceShort: {} }] }, { ...playerList(), rows: [{ rank: 1, player: null, position: 3, team: [] }], beyond: [null] }]) clean("junk list", nationalListBody({ data: junk }));
 };
 
 scenarios.poll = async () => {
@@ -354,24 +421,26 @@ scenarios.bars = async () => {
   // wired into the list: a Pctl column, bars in the value cells, the strip above a team list
   const list = nationalListBody({ data: { ...data, rows: [...data.rows, { rank: 6, team: "Kansas", conference: "Big 12", value: 5.0 }] } });
   clean("list with bars", list);
-  const heads = list.querySelectorAll("thead th").map((th) => text(th));
-  assert.deepEqual(heads, ["FBS rank", "Team", "Value", "Pctl"]);
+  // wave 3: the value's head is the list's own name in its three forms (it once fell back to "Value"); Pctl at large only
+  const heads = list.querySelectorAll("thead th").map((th) => th.dataset.term);
+  assert.deepEqual(heads, ["FBS rank", "Team", "Conference", "Yards per play", "Pctl"]);
+  assert.ok(list.querySelectorAll("thead th")[4].className.includes("st__min-large"));
   assert.ok(list.querySelector(".nat-strip"));
   assert.ok(list.querySelectorAll(".nat-bar").length >= 5);
   const players = nationalListBody({ data: playerList() });
   assert.equal(players.querySelector(".nat-strip"), null);
   assert.ok(players.querySelector(".nat-beyond .nat-bar--us"), "the Mudpuppies below the cut get bars too");
   const polls = nationalListBody({ data: pollList() });
-  assert.ok(!polls.querySelectorAll("thead th").map((th) => text(th)).includes("Pctl"), "no percentile of a top 25");
+  assert.ok(!polls.querySelectorAll("thead th").map((th) => th.dataset.term).includes("Pctl"), "no percentile of a top 25");
 };
 
 function matchupData() {
   return {
     season: 2026,
-    away: { school: "Diner Tech", abbreviation: "MISS", mascot: "Rebels", conference: "Biscuit Belt", isUs: false, record: { wins: 3, losses: 0, ties: 0 }, conferenceRecord: { wins: 1, losses: 0 }, apRank: 8, coachesRank: 9, cfpRank: null, sp: { rating: 15.2, rank: 20 }, talent: { talent: 886.2, rank: 14, of: 138 }, form: [{ result: "W", points: 31, opponentPoints: 10, opponent: "Kentucky", homeAway: "away" }], logo: null },
-    home: { school: "Swampwater Tech", abbreviation: "SWT", isUs: true, record: { wins: 3, losses: 0 }, sp: { rating: 19.4, rank: 13 }, talent: { talent: 891, rank: 10, of: 138 }, form: [] },
+    away: { school: "Diner Tech", abbreviation: "MISS", mascot: "Rebels", conference: "Pancake Athletic", conferenceShort: "PA", isUs: false, record: { wins: 3, losses: 0, ties: 0 }, conferenceRecord: { wins: 1, losses: 0 }, apRank: 8, coachesRank: 9, cfpRank: null, sp: { rating: 15.2, rank: 20 }, talent: { talent: 886.2, rank: 14, of: 138 }, form: [{ result: "W", points: 31, opponentPoints: 10, opponent: "Kentucky", homeAway: "away" }], logo: null },
+    home: { school: "Swampwater Tech", abbreviation: "SWT", mascot: "Mudpuppies", conference: "Biscuit Belt", conferenceShort: "BB", isUs: true, record: { wins: 3, losses: 0 }, sp: { rating: 19.4, rank: 13 }, talent: { talent: 891, rank: 10, of: 138 }, form: [] },
     rows: [
-      { group: "Per game", side: "offense", label: "Yards per play", key: "ypp", metric: "profile:ypp", format: "1f", higherIsBetter: true, of: 138, away: { value: 6.4, rank: 57 }, home: { value: 8.0, rank: 5 } },
+      { group: "Per game", side: "offense", label: "Yards per play", key: "ypp", metric: "profile:ypp", format: "1f", higherIsBetter: true, of: 138, away: { value: 6.4, rank: 57, confRank: 9, confOf: 12 }, home: { value: 8.0, rank: 5, confRank: 1, confOf: 16 } },
       { group: "Per game", side: "defense", label: "Yards allowed per play", key: "ypp_d", metric: "profile:ypp_d", format: "1f", higherIsBetter: false, of: 138, away: { value: 5.6, rank: 80 }, home: { value: 4.5, rank: 20 } },
     ],
     game: { status: "scheduled", kickoff: "2026-09-26T23:30:00Z", startTimeTbd: false, venue: "Swampwater Tech Memorial Stadium", neutralSite: false, homePoints: null, awayPoints: null },
@@ -387,16 +456,27 @@ scenarios.matchup = async () => {
   const table = good.querySelector(".mx-table");
   assert.ok(table && table.className.includes("tt"), "the two-team table pattern");
   const chips = good.querySelectorAll(".mx-table a.rank-chip--link");
-  assert.equal(chips.length, 4);
+  assert.equal(chips.length, 6, "the FBS chips and the conference chips of the row that has them");
   // final pass: we sit first whenever we are in the game (here we are the home team)
   assert.equal(chips[0].getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech");
-  assert.equal(chips[1].getAttribute("href"), "#national=profile%3Aypp?team=Diner%20Tech");
-  assert.deepEqual([...table.querySelectorAll("thead th")].map(text), ["This season", "SWT", "Edge", "MISS"]);
+  // wave 3 (rule 3): each side's conference rank in its own column at large, opening that team's own conference list
+  assert.equal(chips[1].getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech&scope=conference");
+  assert.equal(chips[2].getAttribute("href"), "#national=profile%3Aypp?team=Diner%20Tech&scope=conference");
+  assert.equal(chips[3].getAttribute("href"), "#national=profile%3Aypp?team=Diner%20Tech");
+  // 2026-10-10: the one-row head (medium and small) names the school, the chip columns say FBS; the large head puts each
+  // team (school and mascot) over its own columns with "FBS rank" and its own conference's rank head under it
+  const mid = (th) => th.querySelector(".tt__t--mid")?.textContent ?? text(th);
+  const long = (th) => th.querySelector(".tt__t--long")?.textContent ?? text(th);
+  assert.deepEqual([...table.querySelectorAll("thead tr.tt__head--one th")].map(mid), ["This season", "FBS", "Swampwater Tech", "Edge", "Diner Tech", "FBS"]);
+  assert.deepEqual([...table.querySelectorAll("thead tr.tt__head--b th")].map(text), ["FBS rank", "BB rank", "", "", "PA rank", "FBS rank"]);
+  assert.deepEqual([...table.querySelectorAll("thead tr.tt__head--a th.tt__team")].map(long), ["Swampwater Tech Mudpuppies", "Diner Tech Rebels"]);
   assert.deepEqual([...table.querySelectorAll("tbody tr.tt__group")].map(text), ["Per game"], "the server's groups, in order");
   const cells = table.querySelectorAll("tbody tr:not(.tt__group)")[1].querySelectorAll("td");
-  assert.ok(cells[1].className.includes("lead") && cells[3].className.includes("trail") && cells[3].className.includes("tt__them"), "the better number is bright; lower is better on defense rows");
-  assert.ok(text(cells[1]).includes("4.5") && text(cells[1]).includes("#20"), text(cells[1]));
-  assert.ok(cells[2].querySelector(".tug__bar--us"), "the tug bar leans our way");
+  assert.ok(cells[3].className.includes("lead") && cells[5].className.includes("trail") && cells[5].className.includes("tt__them"), "the better number is bright; lower is better on defense rows");
+  assert.ok(text(cells[3]).includes("4.5") && text(cells[1]).includes("#20"), text(cells[1]) + text(cells[3]));
+  assert.equal(text(cells[2]), "–", "no conference rank on this row: a dash in its column");
+  assert.ok(cells[4].querySelector(".tug__bar--us"), "the tug bar leans our way");
+  assert.ok(cells[2].className.includes("tt__min-large"), "the conference ranks at large only");
   assert.ok(text(good.querySelector(".mx-at")) === "vs" && good.querySelector(".mx-team").className.includes("mx-team--us"), "we are first and host the game");
   assert.ok(!good.className.includes("mx--neutral"));
   assert.ok(good.querySelector(".mx-team--us"));
@@ -428,7 +508,7 @@ scenarios.matchup = async () => {
   assert.ok(theirs.className.includes("mx--neutral") && text(theirs.querySelector(".mx-at")) === "at");
   assert.equal(theirs.style["--team-us"], "#ff8800");
   assert.equal(theirs.style["--opp"], "#44aaff");
-  assert.equal(text(theirs.querySelector(".mx-table thead th.us")), "MISS");
+  assert.equal(text(theirs.querySelector(".mx-table thead tr.tt__head--one th.us .tt__t--short")), "MISS");
   for (const payload of [null, {}, { data: null }, { data: { away: null, home: { school: "Swampwater Tech" }, parts: { teams: { status: "error", error: "down" } } } }, { data: { away: { school: "x".repeat(80) }, home: { school: "Swampwater Tech" } } }]) {
     const node = matchupBody(payload, { onRetry: () => {} });
     clean("empty matchup", node);
@@ -575,7 +655,7 @@ scenarios.glossary = async () => {
 };
 """
 
-NAMES = ["view", "viewStates", "players", "poll", "sheet", "sheetErrors", "titles", "bars", "matchup", "search", "glossary"]
+NAMES = ["view", "viewStates", "players", "listSizes", "poll", "sheet", "sheetErrors", "titles", "bars", "matchup", "search", "glossary"]
 
 
 @needs_node

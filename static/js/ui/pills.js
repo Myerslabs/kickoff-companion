@@ -9,20 +9,23 @@ const PILL_KINDS = new Set(["live", "delayed", "stale", "offline", "replay", "qu
 /**
  * pill({ kind: "live"|"delayed"|"stale"|"offline"|"replay"|"quiet", label, tap, onClick })
  * With `onClick` the pill is a button (Phase 16 wave 3, DS-12: the top bar's pill opens the status card).
+ * The words sit in their own .pill__label, so the top bar can shorten them with "…" inside the pill (item 6, step F)
+ * without clipping the pill's 44 px press area; the button keeps the whole label as its title.
  */
 export function pill({ kind = "quiet", label, tap = false, onClick } = {}) {
   const safeKind = PILL_KINDS.has(kind) ? kind : "quiet";
+  const words = text(label ?? defaultLabel(safeKind));
   if (typeof onClick === "function") {
     return el(
       "button",
-      { class: `pill pill--${safeKind} pill--button${tap ? " pill--tap" : ""}`, type: "button", "aria-haspopup": "dialog", onclick: onClick },
-      text(label ?? defaultLabel(safeKind)),
+      { class: `pill pill--${safeKind} pill--button${tap ? " pill--tap" : ""}`, type: "button", "aria-haspopup": "dialog", title: words, onclick: onClick },
+      el("span", { class: "pill__label" }, words),
     );
   }
   return el(
     "span",
     { class: `pill pill--${safeKind}${tap ? " pill--tap" : ""}`, role: "status" },
-    text(label ?? defaultLabel(safeKind)),
+    el("span", { class: "pill__label" }, words),
   );
 }
 

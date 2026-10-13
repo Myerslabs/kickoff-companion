@@ -24,9 +24,11 @@ FULL, UPPER, LOWER, EMPTY = "█", "▀", "▄", " "
 
 
 def addresses(settings: Settings, ip: str | None) -> list[str]:
-    """Every address a device can use, best first, each ending in "/"."""
-    first = tablet_url(settings, ip)
-    return [f"{url}/" for url in dict.fromkeys([first, *other_urls(settings, ip)])]
+    """Every address a device can use, best first, each ending in "/". With HTTPS on (group five) the plain address
+    comes first, because it is the one anyone can scan; the https address is for a device that trusted the certificate."""
+    first = tablet_url(settings, ip, secure=False)
+    secure = [tablet_url(settings, ip), *other_urls(settings, ip)] if settings.https else []
+    return [f"{url}/" for url in dict.fromkeys([first, *other_urls(settings, ip, secure=False), *secure])]
 
 
 def local_address(settings: Settings) -> str:

@@ -16,7 +16,6 @@ import { restartFlow } from "../ui/restart.js";
 import { fetchJson } from "./common.js";
 import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, text } from "../ui/dom.js";
 import { band, note, revealBand, subhead } from "../ui/states.js";
-import { statTable } from "../ui/stat-table.js";
 import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
 import { radioHelpBlock, reloadRadioSources } from "../radio.js";
 import { copyText } from "../ui/notes-paste.js";
@@ -114,9 +113,9 @@ export function createSettingsView({ onStatus } = {}) {
       ],
       gameday: [
         row("Spoiler delay", el("div", { class: "setting__slider" }, slider, delayValue), "Every live panel and our line in the ticker run this far behind the broadcast. Audio cannot be delayed."),
-        row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the Live sheet also keeps the screen on while plays come in."),
-        row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Game program uses first. Add stations for any team under Radio stations."),
-        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams on the setup page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
+        row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the In Game sheet also keeps the screen on while plays come in."),
+        row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Pre-Game Program uses first. Add stations for any team under Radio stations."),
+        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams with Change my teams on the My Teams page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
       ],
       display: [
         row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme"), "Charcoal or light; the team's colors mark what is ours either way."),
@@ -126,21 +125,24 @@ export function createSettingsView({ onStatus } = {}) {
           saved.classList.add("setting__saved--ok");
           saved.textContent = `Text size ${size.label.toLowerCase()} on this device.`;
         }, "Text size"), "This device only, so the couch tablet and the desk screen can differ. Saved in this browser."),
-        row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "Stat names with a dotted underline explain themselves when tapped. The Glossary in the menu lists every one."),
+        row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "A small question mark after a stat's name explains it when tapped. The Glossary in the menu lists every one."),
         row("Color-blind friendly colors", toggle(cvdOn(), (value) => setCvd(value), "Color-blind friendly colors"), "Blue and orange instead of green and red, and a shape on every rank chip (up for the top quarter, a dot for the middle, down for the bottom). Only this device."),
         row("Spoiler mode", toggle(spoilerOn(), (value) => setSpoiler(value), "Spoiler mode"), "For a recorded game: this device hides the scores, results, win chance and plays until you tap them. Only this device; the host and other devices are not affected."),
         row("Announcer", toggle(p.announcer !== false, (value) => change({ announcer: value }, "Announcer"), "Announcer"), "A little announcer in a headset calls out each section's stat line the first time it scrolls into view. Nothing moves when the device asks for reduced motion."),
-        row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The live sheet streams regardless."),
+        row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The In Game sheet streams regardless."),
       ],
       start: [
+        // owner 2026-10-10: Device setup is First time setup, here in Settings (the menu's Setup page holds the demo and the rest)
+        row("First time setup", el("a", { class: "btn", href: "/setup" }, "Open"), "Connect a phone, a tablet or a TV: the QR code and the address to open, and, with HTTPS on, trusting the certificate once. Nothing to install."),
         row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
         row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
         auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The server's window hides behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start from the Desktop icon or at login.") : null,
         row("Desktop icon", shortcutButton, iconText(auto)),
         row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
+        row("HTTPS for my devices", httpsControl(meta.network), `${meta.network?.https ? "On: this server also answers https://." : "Off: plain HTTP only."} On, your own devices trust the certificate once on First time setup and then get the screen lock without the video, one-tap paste of the answer and the home-screen app; guests keep http:// and need nothing. Switching restarts the server.`),
         row("Restart the server", restartControl(), "Starts the server over in the same window, for a changed setting or an update pulled while it runs. The page reloads when it's back, usually 10 to 20 seconds."),
         row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "Once a day the server asks GitHub whether a newer release is out and says so under About. It never downloads anything by itself."),
-        row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Game program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt. To use it, install it, or set CLAUDE_COMMAND in the .env file to its full path."),
+        row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Pre-Game Program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt. To use it, install it, or set CLAUDE_COMMAND in the .env file to its full path."),
       ],
     };
   }
@@ -152,6 +154,12 @@ export function createSettingsView({ onStatus } = {}) {
     const last = typeof hk.last === "string" ? `Last backup ${fmtDateTime(hk.last)}.` : "No backup yet; the first one is made soon after the server starts.";
     const problem = typeof hk.error === "string" && hk.error ? ` Problem: ${hk.error}` : "";
     return `Each night a zip of the Archive, notes and settings goes to ${text(hk.folder)}; the newest ${isNum(hk.keep) ? hk.keep : 7} are kept. ${last}${problem} ${awake}`;
+  }
+
+  /** Label-and-value facts as a plain list, as on the status page (tables wave 3, owner 2026-10-10): never a table under
+   *  an empty head row. The value wraps (a sentence, a list of teams, a folder's path breaks anywhere). */
+  function factList(rows, label) {
+    return el("dl", { class: "facts settings-facts", "aria-label": label }, rows.map((r) => [el("dt", {}, text(r.label)), el("dd", {}, text(r.value))]));
   }
 
   function section(id, title, rows, summary = null) {
@@ -186,7 +194,7 @@ export function createSettingsView({ onStatus } = {}) {
       summary: isNum(plan.remaining) ? `${fmtNum(plan.remaining)} calls left` : "",
       state: { status: "ready" },
       body: () => el("div", {},
-        statTable({ compact: true, columns: [{ key: "label", label: "", kind: "text", sortable: false }, { key: "value", label: "", kind: "text", sortable: false }], rows }),
+        factList(rows, "Your CFBD plan"),
         el("ul", { class: "plain-list plan-features" }, featureRows),
         el("p", { class: "note plan-note" }, "Every feature your plan includes is on. A bigger plan adds the rest; nothing else changes. ", el("a", { href: plansUrl, target: "_blank", rel: "noopener" }, "See CFBD's plans")),
         el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", changeKey),
@@ -216,7 +224,7 @@ export function createSettingsView({ onStatus } = {}) {
     rows[0] = { label: "Home team", value: text(s.team) };
     rows.splice(1, 0, { label: "More primary teams", value: extra.length ? extra.join(", ") : names(prefs.primaryTeams).length ? `${names(prefs.primaryTeams).join(", ")}${locked}` : DASH });
     rows.splice(2, 0, { label: "Secondary teams", value: secondary.length ? `${secondary.join(", ")}${locked}` : DASH });
-    return band({ id: "settings-server", title: "Server", collapsible: false, summary: "teams from the setup page; the rest from .env", state: { status: "ready" }, body: () => el("div", {}, statTable({ compact: true, columns: [{ key: "label", label: "", kind: "text", sortable: false }, { key: "value", label: "", kind: "text", sortable: false }], rows }), el("p", { class: "note" }, "Change the home team and the primary and secondary teams on the setup page (the server restarts for a new home team). Only the home team's colors and mascot theme the app. The CFBD key and the network settings live in .env and never show here. The status page has the rest.")) });
+    return band({ id: "settings-server", title: "Server", collapsible: false, summary: "teams from My Teams; the rest from .env", state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Server"), el("p", { class: "note" }, "Change the home team and the primary and secondary teams with Change my teams on the My Teams page (the server restarts for a new home team). Only the home team's colors and mascot theme the app. The CFBD key and the network settings live in .env and never show here. The status page has the rest.")) });
   }
 
   async function saveStations(next, label) {
@@ -333,12 +341,54 @@ export function createSettingsView({ onStatus } = {}) {
   ];
 
   // --- Phase 16 wave 3: restart from here, and the update check ----------------------------------------
+  /** Group five: the HTTPS switch. Server computer only; the server restarts and this page moves to the right address. */
+  function httpsControl(network) {
+    const n = network && typeof network === "object" ? network : {};
+    const said = el("span", { class: "note", role: "status" }, n.canSwitch ? "" : "Switch it from the server computer.");
+    const ask = async (value, force) => {
+      const response = await fetch("/api/settings/https", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ on: value, force }) });
+      let body = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+      return { status: response.status, ok: response.ok, body };
+    };
+    const control = toggle(n.https === true, async (value) => {
+      said.textContent = "Switching…";
+      let r = await ask(value, false);
+      if (r.status === 409 && window.confirm("Our game is under way: the In Game sheet drops for about 15 seconds while the server restarts. Switch now?")) r = await ask(value, true);
+      if (!r.ok) {
+        said.textContent = r.body?.errors?.[0]?.message || `Not switched: the server answered ${r.status}.`;
+        setTimeout(render, 1200);
+        return;
+      }
+      if (!r.body?.data?.restarting) {
+        said.textContent = value ? "Already on." : "Already off.";
+        return;
+      }
+      said.textContent = value
+        ? "Restarting. In 20 seconds this page opens First time setup over http://, which walks this device through trusting the certificate and shows the https:// address."
+        : "Restarting. This page reloads over http:// in 20 seconds.";
+      setTimeout(() => {
+        try {
+          window.location.href = `http://${window.location.host}/${value ? "setup" : "#settings"}`;
+        } catch {
+          // no window (a test): nothing to move
+        }
+      }, 20000);
+    }, "HTTPS for my devices");
+    if (!n.canSwitch) control.querySelector("input")?.setAttribute("disabled", "");
+    return el("div", { class: "restart" }, control, " ", said);
+  }
+
   function restartControl() {
     const said = el("span", { class: "note", role: "status" }, "");
     const sure = el("span", { class: "restart__confirm", hidden: "" },
       el("button", { class: "btn btn--primary", type: "button", onclick: async (event) => {
         event.currentTarget.disabled = true;
-        await restartFlow({ say: (words) => { said.textContent = words; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
+        await restartFlow({ say: (words) => { said.textContent = words; }, confirmDuringGame: async () => window.confirm("Our game is under way: the In Game sheet drops for about 15 seconds while the server restarts. Restart anyway?") });
       } }, "Restart now"),
       " ",
       el("button", { class: "btn", type: "button", onclick: () => { sure.setAttribute("hidden", ""); start.removeAttribute("hidden"); said.textContent = ""; } }, "Cancel"),
@@ -393,11 +443,11 @@ export function createSettingsView({ onStatus } = {}) {
       const recent = (Array.isArray(s.recent) ? s.recent : []).filter((r) => r && typeof r === "object");
       slot.replaceChildren(...[
         el("div", { class: "settings" },
-          row("Run the prompts by themselves", toggle(p.scheduledRuns === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? "About three runs a game week (Monday's notes, then the first and the final availability report) and a few a year (the season load, the coaches, the roster costs). Nothing runs after the game. Each run uses your Claude plan like the buttons do." : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it."),
+          row("Run the prompts by themselves", toggle(s.enabled === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? `On by itself while Claude Code is found on the server computer (owner 2026-10-13)${p.scheduledRuns === false ? ", switched off here" : ""}. Once a day it runs everything that is missing; a game week adds Monday's notes and the availability reports; the season load, the coaches and the roster costs come at their times. Nothing runs after the game. Each run uses your Claude plan like the buttons do. The Prompts page shows what is next and what ran.` : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it, on the Prompts page."),
         ),
         s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
         s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
-        next.length ? el("div", {}, subhead("Next"), el("ul", { class: "plain-list" }, next.map((n) => el("li", {}, el("b", {}, text(n.label)), ` from ${when(n.at)}${p.scheduledRuns === true ? "" : " (off)"}`)))) : el("p", { class: "note" }, "Nothing is planned: no game this week and no season run due."),
+        next.length ? el("div", {}, subhead("Next"), el("ul", { class: "plain-list" }, next.map((n) => el("li", {}, el("b", {}, text(n.label)), ` from ${when(n.at)}${s.enabled === true ? "" : " (off)"}`)))) : el("p", { class: "note" }, "Nothing is planned: no game this week and no season run due."),
         recent.length ? el("div", {}, subhead("Lately"), el("ul", { class: "plain-list" }, recent.map((r) => el("li", {}, `${text(r.key)}: ${r.skipped ? "skipped, " + r.skipped : r.ok ? (r.changed === true ? "done, new information" : r.changed === false ? "done, nothing new" : "done") : "failed" + (typeof r.error === "string" ? ` (${r.error})` : "")} · ${when(r.finishedAt)}`)))) : null,
       ].filter(Boolean));  // replaceChildren would write a null as the word "null"
     }
@@ -457,7 +507,7 @@ export function createSettingsView({ onStatus } = {}) {
       const open = el("button", { class: "btn btn--primary", type: "button", disabled: screens.serverComputer === true && screens.browser === true ? null : true, onclick: async () => {
         try {
           const r = await send("/api/board/open", { screen: pick.value === "" ? null : Number(pick.value) });
-          boardSaid.textContent = r.screen ? `Opened on ${r.screen}. Press Alt+F4 on it, or Close, to leave.` : "Opened. Press Alt+F4 on it, or Close, to leave.";
+          boardSaid.textContent = r.screen ? `Opened on ${r.screen}. Escape on it goes back to In Game; Alt+F4 on it, or Close, shuts the window.` : "Opened. Escape on it goes back to In Game; Alt+F4 on it, or Close, shuts the window.";
         } catch (error) {
           boardSaid.textContent = error?.message || "It did not open.";
         }
@@ -473,7 +523,8 @@ export function createSettingsView({ onStatus } = {}) {
       slot.replaceChildren(
         row("Host PIN", el("div", { class: "setting__stack" }, pin, setPin, removePin), host.pinSet ? "A PIN is set: other devices are view-only. Your own tablet signs in once with it (the \"I'm the host\" link at the top). This computer is always the host." : "No PIN yet, so every device that joins can change settings. Set one (from this computer) to make guests view-only."),
         row("Invite friends", el("a", { class: "btn", href: "#invite" }, "Show the QR code"), "A full-screen QR code by IP number, and a guide for watching away from home."),
-        row("Big screen", el("div", { class: "setting__stack" }, pick, open, close), screens.serverComputer === true ? (screens.browser === true ? "Opens the game-day board full screen on the monitor you pick (Edge or Chrome, kiosk mode). Alt+F4 on it leaves." : "No Edge or Chrome was found on this computer, so the board cannot open itself. Open the address /#board in any browser, full screen.") : "Open the board from the server computer; this device cannot start a window there. You can still open #board in any browser, even to cast it."),
+        row("Away from home", toggle((prefsMeta()?.prefs?.awayFromHome) === true, (value) => change({ awayFromHome: value }, "Away from home"), "Away from home"), "For a venue's or a hotspot's Wi-Fi. On: the network name is not announced, and only devices that scan your code (or open its exact address) can watch; everyone else sees a short page saying the companion is away. Your own devices keep working. Off at home."),
+        row("Big screen", el("div", { class: "setting__stack" }, pick, open, close), screens.serverComputer === true ? (screens.browser === true ? "Opens the game-day board full screen on the monitor you pick (Edge or Chrome, kiosk mode). Escape on it goes back to In Game; Alt+F4 on it closes the window." : "No Edge or Chrome was found on this computer, so the board cannot open itself. Open the address /#board in any browser, full screen.") : "Open the board from the server computer; this device cannot start a window there. You can still open #board in any browser, even to cast it."),
         said,
         boardSaid,
       );

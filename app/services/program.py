@@ -55,7 +55,10 @@ from app.services import context16, gamekeys
 from app.services.analytics import player_rows, season_average, team_game_rows
 from app.services.classes import class_fields
 from app.services.depth2 import adjusted_matchup, advanced_box, portal_index, tendencies, transfer_for
+from app.services.identity import conference_short
+from app.services.injuries import injury_report
 from app.services.leader_lines import RankIndex, game_totals, leader_detail
+from app.services.lines import spread_text
 from app.services.lineup_stats import attach_lineup_stats
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches  # Phase 16 NV: the extra-call lists' keys and ranks
@@ -184,6 +187,34 @@ class ProgramService:
     def _teams(self, part: Part) -> dict[str, dict[str, Any]]:
         return self._teams_from(part.records)
 
+    @staticmethod
+    def _abbreviations(teams: dict[str, dict[str, Any]]) -> dict[str, str]:
+        """School -> abbreviation from the /teams/fbs map (tables wave 2: a small table's opponent); a blank one is left out."""
+        out: dict[str, str] = {}
+        for school, meta in teams.items():
+            short = meta.get("abbreviation") if isinstance(meta, dict) else None
+            if isinstance(short, str) and short.strip():
+                out[school] = short.strip()
+        return out
+
+    @staticmethod
+    def _player_ids(parts: dict[str, Part], game: Game) -> dict[tuple[str, str], str]:
+        """(team, name) -> CFBD player id for the advanced box score, which names its players without ids (tables wave 2: a
+        row opens the player's card). Both teams' season lines first, then this game's own box score, which wins."""
+        ids: dict[tuple[str, str], str] = {}
+        for name in ("playersTeam", "playersOpponent"):
+            part = parts.get(name)
+            for line in part.records if part else []:
+                if isinstance(line, PlayerStat) and line.team and line.player and line.player_id:
+                    ids.setdefault((line.team, line.player), str(line.player_id))
+        _, players = box_sides(None, parts.get("boxPlayers"), game)
+        for team, categories in players.items():
+            for rows in categories.values():
+                for row in rows:
+                    if team and isinstance(row.get("name"), str) and row.get("playerId"):
+                        ids[(team, row["name"])] = str(row["playerId"])
+        return ids
+
     def _teams_from(self, records: list[Any]) -> dict[str, dict[str, Any]]:
         out: dict[str, dict[str, Any]] = {}
         for t in records:
@@ -229,7 +260,8 @@ class ProgramService:
         conference = rec.conference if rec is not None else None
         if not conference or conference.strip().lower() in ("fbs independents", "independent", "independents"):
             return None
-        return {"conference": conference, "rows": standings_rows(parts["records"].records, teams, ranks.get("AP", {}), conference, school)}
+        # tables wave 3: the conference record column is headed by the conference's short name, as on the Season page
+        return {"conference": conference, "conferenceShort": conference_short(conference), "rows": standings_rows(parts["records"].records, teams, ranks.get("AP", {}), conference, school)}
 
     def _team_block(self, name: str | None, teams: dict[str, dict[str, Any]], records: dict[str, TeamRecords], ranks: dict[str, dict[str, int]]) -> dict[str, Any]:
         rec = records.get(name or "")
@@ -309,6 +341,7 @@ class ProgramService:
             parts[part.name] = part
 
         teams = self._teams(parts["teams"])
+        abbreviations = self._abbreviations(teams)
         records = {r.team: r for r in parts["records"].records}
         ranks, poll_week = self._poll_ranks(parts["rankings"])
         # Phase 16: the one factory, so the program ranks the same games as the Season page and the lists
@@ -369,7 +402,7 @@ class ProgramService:
             "us": {**self._team_block(self.team, teams, records, ranks), "sp": self._sp_block(sp_ranked, self.team)},
             "them": {**self._team_block(opponent, teams, records, ranks), "sp": self._sp_block(sp_ranked, opponent)},
             "pollWeek": poll_week,
-            "line": {"spread": line.spread, "formatted": line.formatted_spread, "spreadOpen": line.spread_open, "overUnder": line.over_under, "overUnderOpen": line.over_under_open} if line else None,  # no provider, no moneylines: the owner shows the line, not the book
+            "line": {"spread": line.spread, "formatted": spread_text(line.formatted_spread, line.spread), "spreadOpen": line.spread_open, "overUnder": line.over_under, "overUnderOpen": line.over_under_open} if line else None,  # no provider, no moneylines: the owner shows the line, not the book
             "pregame": {"homeWinProbability": pregame.home_win_probability, "usWinProbability": (pregame.home_win_probability if home_is_us else (1 - pregame.home_win_probability if pregame.home_win_probability is not None else None)), "spread": pregame.spread} if pregame else None,
             "weather": weather,
             "profile": {"us": profiles.rows(self.team), "them": profiles.rows(opponent or ""), "games": {"us": profiles.games_for(self.team), "them": profiles.games_for(opponent or "")}},
@@ -377,13 +410,13 @@ class ProgramService:
             "advanced": {"us": advanced_rows(parts["advanced"].records, self.team), "them": advanced_rows(parts["advanced"].records, opponent or "")},
             "adjusted": adjusted_matchup(parts["adjusted"].records, self.team, opponent),
             "tendencies": tendencies(parts["oppRushes"].records, parts["oppPasses"].records, opponent) if opponent and "oppRushes" in parts else None,
-            "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None) if "advancedBox" in parts else None,
+            "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None, self._player_ids(parts, game)) if "advancedBox" in parts else None,
             "leaders": side_by_side,
             "series": series,
             "notes": self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent),
             "final": final,
-            "ppa": self._ppa_block(parts, opponent, us_week, them_week, us_last, them_last),
-            "commonOpponents": common_opponents(parts["games"].records, self.team, opponent),  # Phase 15
+            "ppa": self._ppa_block(parts, opponent, us_week, them_week, us_last, them_last, abbreviations),
+            "commonOpponents": common_opponents(parts["games"].records, self.team, opponent, abbreviations),  # Phase 15; wave 2: the abbreviations for a small table
             "lastSeason": self._last_season(parts, opponent),  # Phase 15
             "recruiting": {"us": self._team_recruiting(parts, self.team, "us"), "them": self._team_recruiting(parts, opponent, "them") if opponent else None},
             "picker": picker,
@@ -419,11 +452,18 @@ class ProgramService:
             rows.append({"side": spec[0], "label": spec[1], "key": spec[2], "metric": f"profile:{spec[2]}", "metricYear": self.year - 1, "format": spec[4], "higherIsBetter": spec[3], "us": {"value": us.get("value"), "rank": us.get("nationalRank"), "of": us.get("nationalOf")}, "them": {"value": them.get("value"), "rank": them.get("nationalRank"), "of": them.get("nationalOf")}})
         return {"year": self.year - 1, "rows": rows}
 
-    def _ppa_block(self, parts: dict[str, Part], opponent: str | None, us_week: int | None, them_week: int | None, us_last: Game | None = None, them_last: Game | None = None) -> dict[str, Any]:
+    def _ppa_block(self, parts: dict[str, Part], opponent: str | None, us_week: int | None, them_week: int | None, us_last: Game | None = None, them_last: Game | None = None, abbreviations: dict[str, str] | None = None) -> dict[str, Any]:
         """L9 on the program: PPA per play by game and for the season, plus each team's players from its latest game.
-        A postseason latest game's answer covers every postseason game of the team: cut to that game's opponent."""
-        us_games = team_game_rows(parts["ppaUs"].records, self.team) if "ppaUs" in parts else []
-        them_games = team_game_rows(parts["ppaThem"].records, opponent) if opponent and "ppaThem" in parts else []
+        A postseason latest game's answer covers every postseason game of the team: cut to that game's opponent.
+        Tables wave 2: each game names its opponent's abbreviation (None for a school /teams/fbs does not list) for the
+        small table."""
+        abbr = abbreviations if isinstance(abbreviations, dict) else {}
+
+        def with_abbr(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+            return [{**row, "opponentAbbr": abbr.get(row.get("opponent") or "")} for row in rows]
+
+        us_games = with_abbr(team_game_rows(parts["ppaUs"].records, self.team)) if "ppaUs" in parts else []
+        them_games = with_abbr(team_game_rows(parts["ppaThem"].records, opponent)) if opponent and "ppaThem" in parts else []
         us_rows = gamekeys.only_opponent(parts["ppaPlayersUs"].records, us_last, gamekeys.opponent_of(us_last, self.team)) if "ppaPlayersUs" in parts and us_last else []
         them_rows = gamekeys.only_opponent(parts["ppaPlayersThem"].records, them_last, gamekeys.opponent_of(them_last, opponent)) if opponent and "ppaPlayersThem" in parts and them_last else []
         players_us = player_rows(us_rows, self.team)
@@ -728,6 +768,12 @@ class ProgramService:
     # --- the newspaper (N1 to N4) -------------------------------------------------------------------
 
     async def newspaper(self) -> Assembled:
+        data, parts = await self.newspaper_parts()
+        return assemble(data, parts)
+
+    async def newspaper_parts(self) -> tuple[dict[str, Any], dict[str, Part]]:
+        """The newspaper's answer and the parts it came from (the route adds the week's ranked games and the edition,
+        items 10-12, and assembles the envelope from both)."""
         parts = await self._core()
         now_local = self.client._clock().astimezone(self.settings.tzinfo)
         today = now_local.date()
@@ -799,7 +845,7 @@ class ProgramService:
             "parts": statuses(parts, now),
         }
         context16.newspaper_extras(data, parts)  # Phase 16 BX: form on the game cards
-        return assemble(data, parts)
+        return data, parts
 
     def _opponents(self, games: list[Game], next_game: Game | None) -> dict[str, str]:
         """{school: "next" | "future"} for our opponents still to play, so their games today are
@@ -872,7 +918,7 @@ class ProgramService:
                 "gameId": g.id, "week": g.week, "bowl": gamekeys.label(g), "playoffRound": gamekeys.playoff_round(g), "kickoff": g.start_date, "startTimeTbd": bool(g.start_time_tbd), "tv": media.get(g.id), "venue": g.venue, "neutralSite": bool(g.neutral_site), "conferenceGame": g.conference_game,
                 "home": self._team_block(g.home_team, teams, records, ranks), "away": self._team_block(g.away_team, teams, records, ranks),
                 "isUs": self.team in (g.home_team, g.away_team), "completed": bool(g.completed), "homePoints": g.home_points, "awayPoints": g.away_points,
-                "line": {"spread": line.spread, "formatted": line.formatted_spread, "overUnder": line.over_under} if line else None,
+                "line": {"spread": line.spread, "formatted": spread_text(line.formatted_spread, line.spread), "overUnder": line.over_under} if line else None,
                 "homeWinProbability": wp[g.id].home_win_probability if g.id in wp else None,
                 "watch": None if self.team in (g.home_team, g.away_team) else watch,  # "next": our next opponent plays; "future": a later one
                 "stats": {"home": card_rows(g.home_team), "away": card_rows(g.away_team)},  # N2 (final pass)
@@ -882,6 +928,19 @@ class ProgramService:
         return out
 
     # --- the team page (T1) ---------------------------------------------------------------------------
+
+    async def injuries(self, school: str | None = None) -> Assembled | None:
+        """The Injury Report (owner 2026-10-10): a team's injuries from our games' notes, ours by default. Reads only the
+        cached schedule and the notes files; None for a name that is no FBS team."""
+        parts = await self._core()
+        teams = self._teams(parts["teams"])
+        team = school or self.team
+        if team != self.team and team not in teams and parts["teams"].ok:
+            return None
+        data = injury_report(parts["schedule"].records, lambda game_id: load_notes(self.settings.data_dir, game_id), us=self.team, team=team, teams=teams, season=self.year)
+        used = {"schedule": parts["schedule"], "teams": parts["teams"]}
+        data["parts"] = statuses(used, self.client._clock())
+        return assemble(data, used)
 
     async def team_page(self, school: str) -> Assembled | None:
         parts = await self._core()
@@ -923,8 +982,10 @@ class ProgramService:
         transfers = portal_index(parts["portal"].records, school) if "portal" in parts else {}
         today = self.client._clock().astimezone(self.settings.tzinfo).date()
         for p in parts["teamRoster"].records:
+            # item 6 (owner 2026-10-11): CFBD's first and last name ride along, so the team page and every side sheet shorten a
+            # name to "K. Crawford" and the surname from the exact split (a two-word surname with no particle stays whole)
             age, born = self.season_notes.age(school, " ".join(x for x in (p.first_name, p.last_name) if x), today)  # Phase 17 #38
-            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": " ".join(x for x in (p.first_name, p.last_name) if x) or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}"})
+            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": " ".join(x for x in (p.first_name, p.last_name) if x) or None, "firstName": p.first_name or None, "lastName": p.last_name or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "height": int(p.height) if isinstance(p.height, (int, float)) and p.height > 0 else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}"})
         roster.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"] or ""))
         coaches = []
         for c in parts["coaches"].records:
@@ -933,7 +994,8 @@ class ProgramService:
         sp_ranked = sp_tables(parts["sp"].records, fbs_set(parts["teams"].records))["sp"]
         data = {
             "season": self.year,
-            "team": {**self._team_block(school, teams, records, ranks), "sp": self._sp_block(sp_ranked, school), "isUs": school == self.team},
+            # tables wave 3: the short name of the conference the team is ranked in heads its rank columns ("PA rank")
+            "team": {**self._team_block(school, teams, records, ranks), "sp": self._sp_block(sp_ranked, school), "isUs": school == self.team, "conferenceShort": conference_short(conference)},
             "location": self._location(parts["teams"], school),
             "pollWeek": poll_week,
             "profile": {"rows": profiles.rows(school), "games": profiles.games_for(school), "conference": conference},

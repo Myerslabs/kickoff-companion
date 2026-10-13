@@ -2,7 +2,8 @@
 // right) or its runs by lane, with attempts and success rate, from the released plays (so it follows the
 // spoiler delay). The server tallies it (app/live/analysis.py shot_chart); this draws it.
 //
-//   shotChart({ chart, view: "passes"|"runs", onView, team })  the element. chart is one team's
+//   shotChart({ chart, view: "passes"|"runs", onView, team, fixed })  the element (fixed: one view, no Passes/Runs switch,
+//       for the board, which shows both charts side by side, owner mock 2026-10-11). chart is one team's
 //   { passes: {zone: cell}, runs: {lane: cell}, unzoned: {passes, runs}, sacks }; a cell is
 //   { attempts, completions, yards, success {made, of}, successRate, completionRate, yardsPerAttempt }.
 //   successTone(rate)  the band a success rate falls in (for the cell's color).
@@ -36,10 +37,10 @@ function cellEl(cell, { label, passes }) {
   );
 }
 
-export function shotChart({ chart, view = "passes", onView, team } = {}) {
+export function shotChart({ chart, view = "passes", onView, team, fixed = false } = {}) {
   const c = obj(chart);
   const passes = view !== "runs";
-  const seg = el(
+  const seg = fixed ? null : el(
     "div",
     { class: "seg shot-chart__seg", role: "group", "aria-label": "Plays" },
     [["passes", "Passes"], ["runs", "Runs"]].map(([id, label]) =>
@@ -63,6 +64,7 @@ export function shotChart({ chart, view = "passes", onView, team } = {}) {
     { class: "shot-chart" },
     seg,
     grid,
-    el("p", { class: "note" }, total ? `${total} ${passes ? "passes" : "runs"} charted` : `No ${passes ? "passes" : "runs"} yet`, extra.filter(Boolean).length ? `, plus ${extra.filter(Boolean).join(" and ")}` : "", ". Success is CFBD's: half the yards needed on first down, 70% on second, all of them on third or fourth. Plays shown follow the spoiler delay."),
+    // the board (fixed) keeps the count only: the definition of success is In Game's to explain, and a TV cell has no room
+    el("p", { class: "note" }, total ? `${total} ${passes ? "passes" : "runs"} charted` : `No ${passes ? "passes" : "runs"} yet`, extra.filter(Boolean).length ? `, plus ${extra.filter(Boolean).join(" and ")}` : "", fixed ? "." : ". Success is CFBD's: half the yards needed on first down, 70% on second, all of them on third or fourth. Plays shown follow the spoiler delay."),
   );
 }

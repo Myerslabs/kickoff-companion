@@ -12,7 +12,8 @@ from tests.fakedom import needs_node, run_scenario
 SCENARIOS = r"""
 scenarios.flow = async () => {
   const { flow, columnsFor } = await import(moduleUrl("ui/flow.js"));
-  assert.deepEqual([0, 375, 699, 700, 1099, 1100, 1599, 1600, 3440, NaN].map(columnsFor), [1, 1, 1, 2, 2, 3, 3, 4, 4, 1]);
+  // the tablet lock (owner 2026-10-13): a browser wider than the iPad keeps its two columns, never a third or a fourth
+  assert.deepEqual([0, 375, 699, 700, 1099, 1100, 1180, 1599, 1600, 3440, NaN].map(columnsFor), [1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1]);
   const box = (w, h) => () => ({ width: w, height: h, top: 0, left: 0, right: w, bottom: h });
   const page = document.createElement("div");
   page.classList.add("page");
@@ -25,8 +26,8 @@ scenarios.flow = async () => {
   document.body.append(page);
   const f = flow(page, { full: ["weather"], wide: ["tape"] });
   assert.ok(page.className.includes("flow"));
-  assert.equal(page.dataset.cols, "4");
-  assert.equal(page.style["--flow-cols"], "4");
+  assert.equal(page.dataset.cols, "2", "a 1920 px browser: the iPad's two columns, wider");
+  assert.equal(page.style["--flow-cols"], "2");
   assert.equal(cover.style.gridColumn, "1 / -1");
   assert.equal(weather.style.gridColumn, "1 / -1");
   assert.equal(tape.style.gridColumn, "span 2");

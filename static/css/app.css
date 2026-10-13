@@ -38,6 +38,17 @@
 .checks th, .checks td { text-align: left; padding: 8px 12px; border-top: 1px solid var(--rule); vertical-align: top; }
 .checks thead th { border-top: 0; color: var(--fog); font-weight: 600; }
 .checks td.status { white-space: nowrap; font-weight: 600; }
+/* Tables wave 3 (owner 2026-10-10): the status tables follow their panel, never the screen. The prose and the endpoint
+   paths wrap anywhere, so nothing scrolls sideways; in a phone's panel the heads shorten and the rule column goes. */
+.panel--table { container-type: inline-size; }
+.checks td { overflow-wrap: anywhere; }
+.checks__short { display: none; }
+@container (max-width: 480px) {
+  .checks th, .checks td { padding: 8px; }
+  .checks .checks__rule { display: none; }
+  .checks .checks__long { display: none; }
+  .checks .checks__short { display: inline; }
+}
 .status-ok { color: var(--good); }
 .status-degraded { color: var(--stale); }
 .status-down { color: var(--bad); }
@@ -70,15 +81,16 @@
 .welcome__row { display: flex; gap: 8px; flex-wrap: wrap; }
 .welcome__row .input { flex: 1 1 260px; }
 .welcome__key { display: grid; gap: 6px; }
-.welcome__list { display: grid; gap: 2px; max-height: 280px; overflow-y: auto; border: 1px solid var(--rule); border-radius: 4px; }
+/* a short list of matches shown whole, never a scroll box (owner 2026-10-10); typing narrows it (welcome.js SHOWN) */
+.welcome__list { display: grid; gap: 2px; border: 1px solid var(--rule); border-radius: 4px; }
 .welcome__list:empty { display: none; }
-.welcome__list--short { max-height: 180px; }
 .welcome__item { display: flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 0 10px; background: transparent; color: var(--chalk); border: 0; text-align: left; font: inherit; cursor: pointer; }
 .welcome__item:focus-visible { background: var(--panel-raised); }
 @media (hover: hover) { .welcome__item:hover { background: var(--panel-raised); } }
 .welcome__item[aria-selected="true"] { background: var(--panel-raised); box-shadow: inset 3px 0 0 var(--team-accent); }
 .welcome__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid var(--rule-strong); }
 .welcome__meta { color: var(--fog); margin-left: auto; font-size: 14px; }
+.welcome__more { margin: 0; padding: 8px 10px; color: var(--fog); font-size: 14px; }
 .welcome__chosen { font-size: 18px; font-weight: 700; }
 .welcome__optional { font-weight: 400; color: var(--fog); font-size: 14px; }
 .welcome__liked { display: grid; gap: 16px; }
@@ -141,12 +153,24 @@ code {
 }
 
 /* Season view: inside the three-column media-guide grid the middle column is about 520 px
-   wide until very large screens, so the offense and defense tables stack there. Only there (Phase 16,
-   bug 4): the other pages that borrowed the .season wrapper keep their two-up spreads at 1100-1599 px. */
-@media (min-width: 1100px) and (max-width: 1599px) {
+   wide on the iPad, so the offense and defense tables stack there. Only there (Phase 16,
+   bug 4): the other pages that borrowed the .season wrapper keep their two-up spreads. */
+@media (min-width: 1100px) { /* the tablet lock (owner 2026-10-13): the iPad's one column at every width above it too */
   .season__guide .spread--2 { grid-template-columns: minmax(0, 1fr); }
 }
 .plan-features { margin-top: 12px; }
 .plan-feature .note { display: inline; }
 .plan-feature div.note { display: block; }
 .settings__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+
+/* Item 6, step G (owner 2026-10-11): on a touch screen a text box, drop-down or text area under 16 px makes the iPad and
+   the iPhone zoom the page in when it takes focus, and stay zoomed with the Menu off the screen. There every field is
+   16 px or more (a larger text size keeps its own); the 13 px floor holds everywhere else. A type selector alone would
+   lose to the class rules, so each class that sizes a field is raised by its own selector here, last in the cascade;
+   the type rule covers a field no class sizes. */
+@media (pointer: coarse) {
+  :where(input:not([type="range"], [type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="color"], [type="file"], [type="image"]), select, textarea) { font-size: max(16px, 1em); }
+  .input, .form-field input, .setting__select, .setting__text, .search__input, .prompt-paste__fallback { font-size: max(16px, 1em); }
+  .notes-paste .input { font-size: max(16px, calc(14px * var(--ui-scale))); }
+  .depth-card__pick { font-size: max(16px, calc(15px * var(--ui-scale))); }
+}

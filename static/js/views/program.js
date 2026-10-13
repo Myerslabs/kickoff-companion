@@ -9,30 +9,33 @@ import { DASH, el, flashChanges, fmtDate, fmtNum, fmtPct, fmtStat, fmtTime, isNu
 import { availabilityTable, editorial } from "../ui/editorial.js";
 import { hasLineups, lineupSummary } from "../ui/lineups.js";
 import { lineupBlock } from "../ui/lineups_combined.js";
-import { matchupCard, venueLine, weatherRow } from "../ui/matchup-card.js";
-import { crewText, staffLine } from "../ui/game-staff.js";
+import { fullName, matchupCard, venueLine, weatherRow } from "../ui/matchup-card.js";
+import { crewText, teamStaff } from "../ui/game-staff.js";
 import { flow } from "../ui/flow.js";
 import { starStrip } from "../ui/team-page.js";
 import { scheduleList } from "../ui/schedule.js";
 import { backRow, band, note, revealBand, sectionChips, stateBlock, subhead } from "../ui/states.js";
-import { BOX_COLUMNS } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns, with QBR and the returns
+import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one sized box score on every page
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { trendRow } from "../ui/sparkline.js";
+import { seriesTable } from "../ui/series.js";
 import { applyOpponentColors } from "../ui/colors.js";
-import { twoTeamTable } from "../ui/two-team.js";
+import { PPA_SCALE, twoTeamTable } from "../ui/two-team.js";
 import { nationalHref } from "../ui/national-link.js";
 import { edgesSummary } from "../ui/edges.js";
 import { tapeTable } from "../ui/tape.js";
 import { leadersGrid, statLine } from "../ui/leaders.js";
 import { leaderLines } from "../ui/leader-lines.js";
 import { quarterLine, teamStatRows, teamStatsTable } from "../ui/team-stats.js";
-import { loadRadioSources, radioHelpBlock, radioSnapshot, startRadio, stateText, stopRadio, subscribeRadio } from "../radio.js";
+import { radioSnapshot } from "../radio.js";
+import { radioStations } from "../ui/radio-stations.js";
 import { pollMs } from "../prefs.js";
 import { gameNotesPanel } from "../ui/game-notes.js";
 import { printButton } from "../ui/print.js";
 import { newsDigest, newsSkeleton } from "../ui/news.js";
 import { notesPaste } from "../ui/notes-paste.js";
 import { GRADE_NOTE, gradedTable } from "../ui/grade.js";
+import { playValueTable } from "../ui/play-value.js";
 import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common.js";
 import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
@@ -90,7 +93,8 @@ function advancedBoxBand(data) {
     summary: data.advancedBox ? "by quarter, players' value" : "",
     state: partState(data.parts?.advancedBox, Boolean(data.advancedBox)),
     emptyText: "CFBD has not posted the advanced box score for this game.",
-    body: () => advancedBoxBlock(data.advancedBox, { us: data.us?.school || usSchool(), them: data.them?.school, usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them) }),
+    // wave 2: the schools and mascots head the two teams' table at large; a player's row opens his card
+    body: () => advancedBoxBlock(data.advancedBox, { us: data.us?.school || usSchool(), them: data.them?.school, usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them), usName: fullName(data.us), themName: fullName(data.them), onPlayer: (row) => openPlayer(row.playerId, { ...row, boardLabel: "PPA per play", value: fmtStat(row.ppa, "+2f") }) }),
   });
 }
 
@@ -103,10 +107,20 @@ function weatherFromData(w, game, { label } = {}) {
   return weatherRow({ kickoffText, label, tempF: w.tempF, windMph: w.windMph, windDir: typeof w.windDir === "string" ? w.windDir : null, sky: w.sky, precipChance: w.precipChance, indoors: w.dome === true, source, radarUrl: w.radarUrl });
 }
 
-/** The weather row with the venue facts under it (GX-19) and the radar link-out beside it (UX-14). */
-function weatherBand(data) {
-  const g = data.game || {};
-  return el("div", { class: "band program-weather", id: "program-weather", "aria-label": "Weather and venue" }, weatherFromData(data.weather, g), venueLine(g.venueDetail, { us: data.us?.school || usSchool() }));
+/**
+ * The cover's bottom right (owner mockup 2026-10-10, the Weather band retired): the forecast with its Radar link-out (UX-14)
+ * and the stadium's facts under it (GX-19). A finished game shows the kickoff weather when it was observed, else only the
+ * stadium's facts; null when there is neither. Exported for the tests.
+ */
+export function coverConditions(data) {
+  const d = data && typeof data === "object" ? data : {};
+  const g = d.game && typeof d.game === "object" ? d.game : {};
+  const venue = venueLine(g.venueDetail, { us: d.us?.school || usSchool() });
+  if (!g.completed) return el("div", { class: "conditions", "aria-label": "Weather and stadium" }, weatherFromData(d.weather, g), venue);
+  const w = d.weather && typeof d.weather === "object" ? d.weather : null;
+  const observed = Boolean(w && w.available && (isNum(w.tempF) || (typeof w.sky === "string" && w.sky)));
+  if (!observed && !venue) return null;
+  return el("div", { class: "conditions", "aria-label": "Weather and stadium" }, observed ? weatherFromData(w, g, { label: "Kickoff weather" }) : null, venue);
 }
 
 /** "Week 2, Campbell" for a picker game, for the cover's arrows. */
@@ -137,7 +151,12 @@ function coverProps(data, { reveal = false } = {}) {
     neutralSite: g.neutralSite,
     tv: g.tv,
     crew: crewText(data.notes, g), // Phase 17 #2: the announcers from the notes, beside the network
-    details: staffLine(data.notes, { usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them), usSchool: data.us?.school || usSchool(), themSchool: data.them?.school }),
+    // the cover redo (owner mockup 2026-10-10): each team's coaches under its own block, the weather and stadium bottom right
+    staff: {
+      us: teamStaff(data.notes, "us", { abbr: abbrOf(data.us, usLabel()), school: data.us?.school || usSchool() }),
+      them: teamStaff(data.notes, "them", { abbr: abbrOf(data.them), school: data.them?.school }),
+    },
+    conditions: coverConditions(data),
     homeIsUs: g.homeIsUs,
     us: data.us || {},
     them: data.them || {},
@@ -148,6 +167,7 @@ function coverProps(data, { reveal = false } = {}) {
     themPoints: g.themPoints,
     reveal: reveal && !g.completed,
     liveHref: "#live",
+    heldUntil: typeof g.heldUntil === "string" ? g.heldUntil : null, // owner 2026-10-10: the server holds this final on In Game until then
     archiveHref: g.archived === true && (isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? ""))) ? `#archive=${encodeURIComponent(String(g.gameId))}` : null,
     prev: around.prev,
     next: around.next,
@@ -292,7 +312,7 @@ function availabilityBand(data) {
     foldable: true,
     summary: rows.length ? `${rows.length} listed` : "",
     state: { status: "ready" },
-    body: () => (rows.length ? availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt }) : notesNeeded("No availability report for this game yet.", `It comes with the game's notes, from the ${confLabel()} availability report when the conference publishes one.`)),
+    body: () => (rows.length ? availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt, teams: [{ school: data.us?.school || usSchool(), abbreviation: abbrOf(data.us, usLabel()) }, { school: data.them?.school, abbreviation: abbrOf(data.them) }] }) : notesNeeded("No availability report for this game yet.", `It comes with the game's notes, from the ${confLabel()} availability report when the conference publishes one.`)),
   });
 }
 
@@ -336,14 +356,17 @@ function matchup(data) {
   const schemes = data.notes?.schemes || null;
   const tags = [];
   if (data.game?.postseason) tags.push({ label: text(data.game.playoffRound || data.game.postseason || "Bowl game") });
-  else if (data.game?.conferenceGame) tags.push({ label: `${confLabel()} game` });
+  else if (data.game?.conferenceGame) tags.push({ label: confLabel() }); // 2026-10-10: the conference's short name alone
   const teamTags = [];
   if (isNum(them.sp?.rank)) teamTags.push({ label: `SP+ #${them.sp.rank}`, href: nationalHref(typeof them.sp.metric === "string" ? them.sp.metric : "rating:sp", { team: them.school }), rank: them.sp.rank, of: them.sp.of, name: "SP+" });
   const ours = typeof data.us?.school === "string" && data.us.school.trim() ? data.us.school.trim() : usSchool();
+  // the conference rank the profile already carries (inside our conference, so a non-conference opponent has none)
+  const confOf = (r, school, metric) => (isNum(r.conferenceRank) ? { rank: r.conferenceRank, of: r.conferenceOf, conference: confLabel(), href: nationalHref(metric, { team: school, scope: "conference" }) } : null);
   const rows = CARD_ROWS.map(([side, key, label]) => {
     const u = profileRow(usRows, key);
     const t = profileRow(themRows, key);
-    return { label, side, key, metric: u.metric || t.metric || `profile:${key}`, format: u.format || t.format, higherIsBetter: typeof u.higherIsBetter === "boolean" ? u.higherIsBetter : t.higherIsBetter, us: { value: u.value, rank: u.nationalRank, of: u.nationalOf }, them: { value: t.value, rank: t.nationalRank, of: t.nationalOf } };
+    const metric = u.metric || t.metric || `profile:${key}`;
+    return { label, side, key, metric, format: u.format || t.format, higherIsBetter: typeof u.higherIsBetter === "boolean" ? u.higherIsBetter : t.higherIsBetter, us: { value: u.value, rank: u.nationalRank, of: u.nationalOf, conf: confOf(u, data.us?.school, metric) }, them: { value: t.value, rank: t.nationalRank, of: t.nationalOf, conf: confOf(t, them.school, metric) } };
   });
   return matchupCard({
     us: { ...(data.us || {}), abbreviation: abbrOf(data.us, usLabel()) },
@@ -352,8 +375,11 @@ function matchup(data) {
     teamTags,
     tags,
     schemes,
+    onNotes: () => {
+      const notes = document.getElementById("program-notes");
+      if (notes) revealBand(notes); // 2026-10-10: a missing scheme sends the reader to the notes, never a blank
+    },
     rows,
-    foot: schemes ? null : el("p", { class: "note", style: { textAlign: "center", padding: "0" } }, "Each side's offensive and defensive scheme shows once the game's notes are added."),
   });
 }
 
@@ -374,49 +400,15 @@ export function radioSummary(snap) {
   }
 }
 
-const KIND_WORD = { stream: "stream", embed: "station player", link: "opens a tab" };
-
 /** The radio control (X4, owner direction 2026-09-23: on the Game program). The player itself lives in
  *  the shell's dock so the audio keeps playing when the view changes; this band only starts and stops it.
- *  P-12: the summary says what is playing, and each source is one 44px row: name, kind, button. */
+ *  P-12: the summary says what is playing, and each source is one 44px row: name, kind, button. The list is shared with
+ *  In Game's Radio sheet (ui/radio-stations.js, owner 2026-10-11). */
 function radioBand() {
-  const host = el("div", { class: "radio-panel radio-panel--compact" });
-  let attached = false;
   let summary = null;
-  const draw = (snap) => {
-    const current = snap.current;
-    const sources = Array.isArray(snap.sources) ? snap.sources : [];
-    if (summary) summary.textContent = radioSummary(snap);
-    replaceWith(
-      host,
-      snap.loadError ? note(snap.loadError, { kind: "error", lead: "Radio unavailable." }) : null,
-      !snap.loaded && !snap.loadError ? el("p", { class: "note" }, "Loading the radio sources.") : null,
-      snap.loaded && !snap.loadError && sources.length === 0 ? (radioHelpBlock(snap.help) || el("p", { class: "note" }, "No radio station yet. ", el("a", { href: "#settings" }, "Add one in Settings"), ".")) : null,
-      current ? el("p", { class: "radio-now" }, el("b", {}, text(current.name)), ` · ${stateText(snap.state)}${snap.detail ? ` · ${snap.detail}` : ""}. The controls stay in the bar at the bottom of every page.`) : null,
-      sources.map((source) =>
-        el(
-          "div",
-          { class: "radio-source radio-source--row", "aria-current": current?.id === source.id ? "true" : null },
-          el("span", { class: "radio-source__name" }, text(source.name)),
-          el("span", { class: "radio-source__kind" }, KIND_WORD[source.kind] || text(source.kind)),
-          el("button", { class: `btn${current?.id === source.id ? " btn--primary" : ""}`, type: "button", onclick: () => (current?.id === source.id ? stopRadio() : startRadio(source)) }, current?.id === source.id ? "Stop" : source.kind === "link" ? "Open" : "Play"),
-        ),
-      ),
-      snap.note ? el("p", { class: "note" }, snap.note) : null,
-    );
-  };
+  const host = radioStations({ onDraw: (snap) => { if (summary) summary.textContent = radioSummary(snap); } });
   const section = band({ id: "program-radio", title: "Radio", collapsible: true, foldable: true, summary: radioSummary(radioSnapshot()), state: { status: "ready" }, body: () => host });
   summary = section.querySelector(".band__summary");
-  draw(radioSnapshot());
-  const unsubscribe = subscribeRadio((snap) => {
-    if (host.isConnected) attached = true;
-    if (attached && !host.isConnected) {
-      unsubscribe();
-      return;
-    }
-    draw(snap);
-  });
-  loadRadioSources();
   return section;
 }
 
@@ -434,21 +426,65 @@ function ppaTrends(p, data) {
   return el("div", { class: "ppa-trends" }, lines.map((l) => trendRow({ label: l.label, values: l.values, format: "+2f", them: l.side === "them" })), el("p", { class: "ppa-trends__note" }, "PPA per play by game, oldest on the left. Defense: lower is better."));
 }
 
+// The by-game play value (wave 2, owner 2026-10-10): sized by its own box. Large has the whole heads, the defense's saying
+// "allowed" (rule: a defensive measure says so); medium the box words (Off pass, Def rush); small the week, the opponent's
+// abbreviation and the two overall values. A divider sets the defense apart from the offense. A table of games sorts.
+const ppaColumn = (key, label, labelMid, labelShort, extra = {}) => ({ key, label, labelMid, labelShort, format: "+2f", ...extra });
+export const PPA_GAME_COLUMNS = [ // exported for the tests
+  { key: "week", label: "Week", labelMid: "Wk", labelShort: "Wk", dim: true },
+  { key: "opponent", label: "Opponent", labelShort: "Opp", kind: "text", team: true, shortKey: "opponentAbbr" },
+  ppaColumn("offOverall", "Offense, overall", "Off", "Off"),
+  ppaColumn("offPass", "Offense, passing", "Off pass", "Off pass", { size: "medium" }),
+  ppaColumn("offRush", "Offense, rushing", "Off rush", "Off rush", { size: "medium" }),
+  ppaColumn("defOverall", "Defense allowed, overall", "Def", "Def", { divider: true }),
+  ppaColumn("defPass", "Defense allowed, passing", "Def pass", "Def pass", { size: "medium" }),
+  ppaColumn("defRush", "Defense allowed, rushing", "Def rush", "Def rush", { size: "medium" }),
+];
+
+/** A team's graded games as rows for the by-game table, newest first; a missing value is null (a dash). Exported for the tests. */
+export function ppaGameRows(games) {
+  const num = (value) => (isNum(value) ? value : null);
+  return listOf(games).reverse().map((g) => ({
+    week: weekCell(g),
+    opponent: typeof g.opponent === "string" ? g.opponent : null,
+    opponentAbbr: typeof g.opponentAbbr === "string" && g.opponentAbbr.trim() ? g.opponentAbbr.trim() : null,
+    offOverall: num(objOf(g.offense).overall),
+    offPass: num(objOf(g.offense).passing),
+    offRush: num(objOf(g.offense).rushing),
+    defOverall: num(objOf(g.defense).overall),
+    defPass: num(objOf(g.defense).passing),
+    defRush: num(objOf(g.defense).rushing),
+  }));
+}
+
 /** Play value (L9): PPA per play for both teams by game and for the season, and each team's players from its latest game. */
 function ppaBand(data) {
   const p = objOf(data.ppa);
   const usAbbr = abbrOf(data.us, usLabel());
   const themAbbr = abbrOf(data.them);
   const fmt = (v) => (isNum(v) ? fmtStat(v, "+2f") : DASH);
-  const seasonRows = [["Offense", "offense"], ["Defense", "defense"]].flatMap(([label, side]) =>
-    ["overall", "passing", "rushing"].map((key) => ({ label: `${label}, ${key}`, format: "+2f", higherIsBetter: side === "offense", us: { value: p.season?.us?.[side]?.[key] }, them: { value: p.season?.them?.[side]?.[key] } })),
-  );
-  const gameCols = [{ key: "week", label: "Wk", sortable: false, dim: true }, { key: "opponent", label: "Opponent", kind: "text", sortable: false, team: true }, { key: "offOverall", label: "Off", format: "+2f", sortable: false }, { key: "offPass", label: "Pass", format: "+2f", sortable: false }, { key: "offRush", label: "Rush", format: "+2f", sortable: false }, { key: "defOverall", label: "Def", format: "+2f", sortable: false }, { key: "defPass", label: "Pass", format: "+2f", sortable: false }, { key: "defRush", label: "Rush", format: "+2f", sortable: false }];
-  const gameRows = (rows) => (Array.isArray(rows) ? rows.filter((g) => g && typeof g === "object").reverse() : []).map((g) => ({ week: weekCell(g), opponent: g.opponent, offOverall: g.offense?.overall, offPass: g.offense?.passing, offRush: g.offense?.rushing, defOverall: g.defense?.overall, defPass: g.defense?.passing, defRush: g.defense?.rushing }));
-  const playerCols = [{ key: "name", label: "Player", kind: "text", sub: "position", sortable: false }, { key: "all", label: "PPA/play", format: "+2f", sortable: false }, { key: "pass", label: "Pass", format: "+2f", sortable: false }, { key: "rush", label: "Rush", format: "+2f", sortable: false }];
+  // Group five (owner 2026-10-09: the program is a matchup): the season table reads as the pairs the edges use. Offense
+  // PPA and defense PPA allowed are the same measure of the same plays, so our gain per play stands against what their
+  // defense gives up, and the edge goes to the side whose number is better on that pair.
+  const season = (team, side, key) => (isNum(p.season?.[team]?.[side]?.[key]) ? p.season[team][side][key] : null);
+  const pairRow = (label, mine, theirs, side) => ({
+    label,
+    format: "+2f",
+    scale: PPA_SCALE, // PPA per play is a small number: a gap of 0.5 leans the bar all the way
+    us: { value: mine },
+    them: { value: theirs },
+    leads: mine !== null && theirs !== null ? (mine === theirs ? "even" : (side === "offense" ? mine > theirs : mine < theirs) ? "us" : "them") : undefined,
+  });
+  const PAIR_KEYS = [["overall", "Overall"], ["passing", "Passing"], ["rushing", "Rushing"]];
+  const seasonGroups = [
+    { title: `${usAbbr} offense vs ${themAbbr} defense`, note: "our gain per play against what they allow", rows: PAIR_KEYS.map(([key, label]) => pairRow(label, season("us", "offense", key), season("them", "defense", key), "offense")) },
+    { title: `${themAbbr} offense vs ${usAbbr} defense`, note: "what we allow against their gain per play", rows: PAIR_KEYS.map(([key, label]) => pairRow(label, season("us", "defense", key), season("them", "offense", key), "defense")) },
+  ];
   const h3 = (t, school, side) => subhead(t, school ? { team: school, side } : {});
-  const players = (title, rows, them) => el("div", {}, h3(title, them ? data.them?.school : data.us?.school || usSchool(), them ? "them" : "us"), rows.length ? statTable({ compact: true, columns: playerCols, rows, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) }) : note("No player values yet."));
-  const games = (title, rows, them) => el("div", {}, h3(title, them ? data.them?.school : data.us?.school || usSchool(), them ? "them" : "us"), rows.length ? statTable({ compact: true, columns: gameCols, rows }) : note("No graded games yet."));
+  // wave 2 (owner 2026-10-10): the players' tables are the shared play value kit (ui/play-value.js), the season leaders with
+  // their plays and total PPA at large; the games sort (a table of games), newest first to start
+  const players = (title, rows, them, totals) => el("div", {}, h3(title, them ? data.them?.school : data.us?.school || usSchool(), them ? "them" : "us"), rows.length ? playValueTable(rows, { totals, onTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }), caption: title }) : note("No player values yet."));
+  const games = (title, rows, them) => el("div", {}, h3(title, them ? data.them?.school : data.us?.school || usSchool(), them ? "them" : "us"), rows.length ? statTable({ compact: true, sizes: true, columns: PPA_GAME_COLUMNS, rows, caption: title }) : note("No graded games yet."));
   return band({
     id: "program-ppa",
     title: "Play value",
@@ -464,53 +500,64 @@ function ppaBand(data) {
         {},
         note("Predicted points added per play. Positive is good for an offense; negative is good for a defense."),
         ppaTrends(p, data),
-        h3("Season, per play"),
-        twoTeamTable({ rows: seasonRows, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true, labelHead: "PPA per play", caption: "Season PPA per play, both teams" }),
-        el("div", { class: "twocol" }, players(`${text(data.us?.school)} season leaders, PPA per play`, Array.isArray(p.seasonLeaders?.us) ? p.seasonLeaders.us : [], false), players(`${text(data.them?.school)} season leaders, PPA per play`, Array.isArray(p.seasonLeaders?.them) ? p.seasonLeaders.them : [], true)),
-        games(`${text(data.us?.school)} by game`, gameRows(p.games?.us)),
-        games(`${text(data.them?.school)} by game`, gameRows(p.games?.them), true),
-        el("div", { class: "twocol" }, players(`${text(data.us?.school)}, ${isNum(p.players?.usWeek) ? `week ${p.players.usWeek}` : "latest game"}`, Array.isArray(p.players?.us) ? p.players.us : [], false), players(`${text(data.them?.school)}, ${isNum(p.players?.themWeek) ? `week ${p.players.themWeek}` : "latest game"}`, Array.isArray(p.players?.them) ? p.players.them : [], true)),
+        h3("Season, per play: each offense against the defense it faces"),
+        twoTeamTable({ groups: seasonGroups, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true, labelHead: "PPA per play", caption: "Season PPA per play, each offense against the defense it faces" }),
+        el("div", { class: "twocol" }, players(`${text(data.us?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.us), false, true), players(`${text(data.them?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.them), true, true)),
+        games(`${text(data.us?.school)} by game`, ppaGameRows(p.games?.us)),
+        games(`${text(data.them?.school)} by game`, ppaGameRows(p.games?.them), true),
+        el("div", { class: "twocol" }, players(`${text(data.us?.school)}, ${isNum(p.players?.usWeek) ? `week ${p.players.usWeek}` : "latest game"}`, listOf(p.players?.us), false, false), players(`${text(data.them?.school)}, ${isNum(p.players?.themWeek) ? `week ${p.players.themWeek}` : "latest game"}`, listOf(p.players?.them), true, false)),
       ),
   });
+}
+
+// Wave 2 (owner 2026-10-10): each team's stars are a sized stat table, ours at the left hand and theirs at the right (Phase
+// 18.4), stacked when the band is too narrow for two, never a sideways scroll. Large has every star level (about 570 px
+// with the hints); medium keeps the blue chips, the 3-stars, the average and the signee count (the half of a 1080p band);
+// small drops the signee count and the hints too, and the unit reads Off, Def or All.
+const STAR_LEVELS = ["5", "4", "3", "2", "1"];
+const STARS_COLUMNS = [
+  { key: "who", label: "Unit", kind: "text", shortKey: "whoShort", render: (row) => el("span", {}, text(row.who), isNum(row.signees) ? el("small", {}, `${row.signees} signee${row.signees === 1 ? "" : "s"}`) : null) },
+  ...STAR_LEVELS.map((level) => ({
+    key: `s${level}`,
+    label: `${level}-star`,
+    size: level === "2" || level === "1" ? "large" : undefined, // the blue chips and the 3-stars carry the message below large
+    render: (row) => (level === "5" || level === "4" ? el("span", { class: "stars-split__hot" }, String(row[`s${level}`])) : String(row[`s${level}`])),
+  })),
+  { key: "average", label: "Avg stars", labelShort: "Avg", format: "2f" },
+];
+
+/** One unit's star counts as a table row: a missing count is a zero (nobody signed at that level), a missing average null. */
+function starsRow(who, whoShort, s) {
+  const counts = objOf(s.counts);
+  const row = { who, whoShort, signees: isNum(s.signees) ? s.signees : null, average: isNum(s.average) ? s.average : null };
+  for (const level of STAR_LEVELS) row[`s${level}`] = isNum(counts[level]) ? counts[level] : 0;
+  return row;
 }
 
 /** Talent and recruiting, side by side: talent composite with rank, blue-chip ratio, returning production. */
 /** Phase 17 #36: each team's signees in the blue-chip classes by stars, our strip then theirs. */
 /**
  * Phase 17 #36, #24: each team's signees of the last four classes by stars, offense and defense apart (owner:
- * "Separate this into offense and defense for recruiting"): one compact table, a row per team and side. A server
+ * "Separate this into offense and defense for recruiting"): a sized table per team (wave 2), a row per side. A server
  * without the split draws each team's one strip as before.
  */
 export function starsPair(us, them, usAbbr, themAbbr) {
-  const levels = ["5", "4", "3", "2", "1"];
   const tables = [];
   const split = (team) => ["offense", "defense"].some((key) => objOf(objOf(objOf(team).sides)[key]).counts && typeof objOf(objOf(objOf(team).sides)[key]).counts === "object");
   const anySplit = split(us) || split(them); // none: an older server, each team's one strip below
   for (const [team, abbr, side] of [[objOf(us), usAbbr, "us"], [objOf(them), themAbbr, "them"]]) {
     const sides = objOf(team.sides);
-    const rows = ["offense", "defense"].map((key) => ({ who: key[0].toUpperCase() + key.slice(1), s: objOf(sides[key]) })).filter((r) => r.s.counts && typeof r.s.counts === "object");
+    const rows = [["offense", "Offense", "Off"], ["defense", "Defense", "Def"]].filter(([key]) => objOf(sides[key]).counts && typeof objOf(sides[key]).counts === "object").map(([key, who, short]) => starsRow(who, short, objOf(sides[key])));
     const whole = objOf(team.stars);
-    if (anySplit && !rows.length && whole.counts && typeof whole.counts === "object") rows.push({ who: "All", s: { counts: whole.counts, average: whole.average } }); // an older answer has no offense and defense split
+    if (anySplit && !rows.length && whole.counts && typeof whole.counts === "object") rows.push(starsRow("All", "All", { counts: whole.counts, average: whole.average })); // an older answer has no offense and defense split
     if (!rows.length) continue;
+    const caption = `${text(abbr)} signees by stars, last four classes`;
     tables.push(
       el(
-        "table",
-        { class: `stat-table stat-table--compact stars-split__table stars-split__table--${side}` },
-        el("caption", {}, `${text(abbr)} signees by stars, last four classes`),
-        el("thead", {}, el("tr", {}, el("th", { scope: "col" }, ""), levels.map((l) => el("th", { scope: "col" }, `${l}-star`)), el("th", { scope: "col" }, "Avg stars"))),
-        el(
-          "tbody",
-          {},
-          rows.map((r) =>
-            el(
-              "tr",
-              { class: side === "us" ? "is-us" : "is-next" },
-              el("th", { scope: "row" }, r.who, isNum(r.s.signees) ? el("small", {}, ` ${r.s.signees}`) : null),
-              levels.map((l) => el("td", { class: l === "5" || l === "4" ? "stars-split__hot" : null }, isNum(r.s.counts[l]) ? String(r.s.counts[l]) : "0")),
-              el("td", {}, isNum(r.s.average) ? fmtNum(r.s.average, 2) : DASH),
-            ),
-          ),
-        ),
+        "div",
+        { class: `stars-split__team stars-split__team--${side}` },
+        el("p", { class: "stars-split__caption", "aria-hidden": "true" }, caption), // the table's own caption is for screen readers
+        statTable({ compact: true, sizes: true, sortable: false, columns: STARS_COLUMNS, rows, rowClass: () => (side === "us" ? "is-us" : "is-next"), caption }),
       ),
     );
   }
@@ -602,7 +649,7 @@ function tapeBand(data) {
         "div",
         {},
         tapeTable(edges, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school }),
-        note("Each unit's national rank against the unit it faces: our offense against their defense on the left, their offense against our defense on the right. The bar leans to the side with the better rank, longer for a bigger gap; the three biggest edges on each side are marked. Who scores or allows more as a team is on the matchup card above."),
+        note("Each unit's national rank against the unit it faces: our offense against their defense, then our defense against their offense (side by side on a wide screen, one above the other on a narrower one). The bar leans to the side with the better rank, longer for a bigger gap; the three biggest edges on each side are marked. Who scores or allows more as a team is on the matchup card above."),
       ),
   });
 }
@@ -614,29 +661,73 @@ export function programLeader(entry, cat) {
 }
 
 /** Public release Phase 7: each team's best graded players, any position (/api/grades/teams), loaded on its own. */
+// Group five (owner 2026-10-09: the program is a matchup): the grade groups by the side of the ball they play on.
+const WATCH_SIDE = { QB: "offense", RB: "offense", WR: "offense", TE: "offense", OL: "offense", DL: "defense", LB: "defense", DB: "defense" };
+const WATCH_TOP = 3; // the best three of a side
+const WATCH_ASK = 16; // each team's best graded, enough to leave three a side once the leaders are taken out
+
+/** The leaders' players (Leaders side by side) as ids and names, so players to watch never repeats one (owner 2026-10-10).
+    Exported for the tests. */
+export function leaderKeys(leaders) {
+  const keys = new Set();
+  for (const cat of Array.isArray(leaders) ? leaders : []) {
+    for (const side of [cat?.us, cat?.them]) {
+      if (!side || typeof side !== "object") continue;
+      const id = side.playerId === undefined || side.playerId === null ? "" : String(side.playerId).trim();
+      if (id) keys.add(`id:${id}`);
+      const name = typeof side.player === "string" ? side.player : typeof side.name === "string" ? side.name : "";
+      if (name.trim()) keys.add(`name:${name.trim().toLowerCase()}`);
+    }
+  }
+  return keys;
+}
+
+function isLeader(player, keys) {
+  const id = player?.playerId === undefined || player?.playerId === null ? "" : String(player.playerId).trim();
+  const name = typeof player?.name === "string" ? player.name.trim().toLowerCase() : "";
+  return Boolean((id && keys.has(`id:${id}`)) || (name && keys.has(`name:${name}`)));
+}
+
 function watchBand(data) {
   const us = typeof data.us?.school === "string" && data.us.school ? data.us.school : usSchool();
   const them = typeof data.them?.school === "string" && data.them.school ? data.them.school : null;
   const host = el("div", {});
+  const leaders = leaderKeys(data.leaders); // never the same players as Leaders side by side (owner 2026-10-10)
   const draw = (state) => {
     const teams = (Array.isArray(state?.data?.teams) ? state.data.teams : []).filter((t) => t && typeof t === "object" && typeof t.team === "string");
-    const rows = teams.flatMap((t) => (Array.isArray(t.players) ? t.players : []));
+    const byTeam = new Map(teams.map((t) => [t.team, t]));
+    const players = (team, side) => (Array.isArray(byTeam.get(team)?.players) ? byTeam.get(team).players : [])
+      .filter((p) => p && typeof p === "object" && (WATCH_SIDE[p.group] || "specialists") === side && !isLeader(p, leaders))
+      .slice(0, WATCH_TOP);
+    const count = teams.reduce((n, t) => n + (Array.isArray(t.players) ? t.players.length : 0), 0);
+    const cell = (team, side, owner) => {
+      const rows = players(team, side);
+      return el("div", { class: `watch__side watch__side--${owner}` },
+        subhead(`${text(team)} ${side}`, { team, side: owner }),
+        rows.length ? gradedTable(rows, { us, showTeam: false, onTap: (row) => openPlayer(row.playerId, { ...row, isUs: row.team === us }), caption: `${text(team)} ${side}, best stat grades` }) : note(`No ${side} grades for ${text(team)} yet.`),
+      );
+    };
+    const pairs = them
+      ? [[us, "offense", "us", them, "defense", "them"], [them, "offense", "them", us, "defense", "us"]] // each offense beside the defense it faces
+      : [[us, "offense", "us", us, "defense", "us"]];
+    const specialists = players(us, "specialists").length || (them && players(them, "specialists").length);
     host.replaceChildren(band({
       id: "program-watch",
       title: "Players to watch",
       collapsible: true,
       foldable: true,
-      summary: rows.length ? `the best stat grades on each side` : "",
-      state: state?.error ? { status: "error", message: `${state.error}.` } : !state ? { status: "loading" } : rows.length ? { status: "ready" } : { status: "empty" },
+      summary: count ? "the best stat grades beyond the leaders, each offense against the defense it faces" : "",
+      state: state?.error ? { status: "error", message: `${state.error}.` } : !state ? { status: "loading" } : count ? { status: "ready" } : { status: "empty" },
       emptyText: "Grades appear once players have enough plays this season.",
-      body: () => el("div", { class: teams.length > 1 ? "spread spread--2" : "" },
-        teams.map((t) => el("div", {}, subhead(t.team), Array.isArray(t.players) && t.players.length ? gradedTable(t.players, { us, showTeam: false, onTap: (row) => openPlayer(row.playerId, { ...row, isUs: row.team === us }), caption: `${t.team} players to watch` }) : el("p", { class: "note" }, "No player has enough plays to grade yet."))),
+      body: () => el("div", { class: "watch" },
+        pairs.map(([a, aSide, aOwner, b, bSide, bOwner]) => el("div", { class: "twocol watch__pair" }, cell(a, aSide, aOwner), cell(b, bSide, bOwner))),
+        specialists ? el("div", { class: "twocol watch__pair" }, cell(us, "specialists", "us"), them ? cell(them, "specialists", "them") : null) : null,
         el("p", { class: "note" }, GRADE_NOTE),
       ),
     }));
   };
   draw(null);
-  fetchJson(`/api/grades/teams?teams=${encodeURIComponent([us, them].filter(Boolean).join(","))}&top=3`)
+  fetchJson(`/api/grades/teams?teams=${encodeURIComponent([us, them].filter(Boolean).join(","))}&top=${WATCH_ASK}`)
     .then((envelope) => draw({ data: envelope?.data && typeof envelope.data === "object" ? envelope.data : null }))
     .catch((error) => draw({ error: error?.message || "The grades did not load" }));
   return host;
@@ -688,7 +779,7 @@ function leadersBand(data) {
 
 /** Phase 15: teams both sides have played this season. */
 function commonBand(data) {
-  const rows = Array.isArray(data.commonOpponents) ? data.commonOpponents : [];
+  const rows = listOf(data.commonOpponents);
   const us = data.us?.school || usSchool();
   const them = data.them?.school || "Opponent";
   return band({
@@ -698,7 +789,7 @@ function commonBand(data) {
     foldable: true,
     summary: rows.length ? `${rows.length} shared` : "none yet",
     state: partState(data.parts?.games, true),
-    body: () => commonOpponentsBlock(rows, us, them),
+    body: () => commonOpponentsBlock(rows, { usAbbr: abbrOf(data.us, usLabel()), themAbbr: abbrOf(data.them), usTeam: us, themTeam: them, usName: fullName(data.us) || us, themName: fullName(data.them) || them }),
   });
 }
 
@@ -719,38 +810,6 @@ function lastSeasonBand(data) {
   });
 }
 
-const SERIES_COLUMNS = [
-  { key: "season", label: "Year", kind: "text" },
-  { key: "away", label: "Away", kind: "text", team: true },
-  { key: "home", label: "Home", kind: "text", team: true },
-  { key: "score", label: "Score", kind: "text" },
-  { key: "winner", label: "Winner", kind: "text", team: true },
-  { key: "result", label: "Result", kind: "text", render: (row) => (row.result ? el("span", { class: row.won === true ? "res--w" : row.won === false ? "res--l" : null }, row.result) : "–") },
-];
-
-/** The series' last meetings from our side: "W 24-17" / "L 17-24" (P-13 item 1). Exported for the tests. */
-export function seriesRows(series, us = usSchool()) {
-  const games = Array.isArray(series?.lastTen) ? series.lastTen.filter((g) => g && typeof g === "object") : [];
-  return games.map((g) => {
-    const home = typeof g.homeTeam === "string" ? g.homeTeam : null;
-    const away = typeof g.awayTeam === "string" ? g.awayTeam : null;
-    const usHome = home === us;
-    const mine = usHome ? g.homeScore : g.awayScore;
-    const theirs = usHome ? g.awayScore : g.homeScore;
-    const played = (home === us || away === us) && isNum(mine) && isNum(theirs);
-    const won = played ? (mine > theirs ? true : mine < theirs ? false : null) : null;
-    return {
-      season: isNum(g.season) ? String(g.season) : "–",
-      away,
-      home,
-      score: isNum(g.awayScore) && isNum(g.homeScore) ? `${g.awayScore}-${g.homeScore}` : "–",
-      winner: typeof g.winner === "string" && g.winner ? g.winner : null,
-      won,
-      result: played ? `${won === true ? "W" : won === false ? "L" : "T"} ${mine}-${theirs}` : null,
-    };
-  });
-}
-
 function seriesBand(data) {
   const s = data.series && typeof data.series === "object" ? data.series : null;
   return band({
@@ -762,7 +821,13 @@ function seriesBand(data) {
     summary: s ? `${abbrOf(data.us, usLabel())} ${text(s.usWins)}, ${abbrOf(data.them)} ${text(s.themWins)}${s.ties ? `, ${s.ties} ties` : ""}` : "",
     state: partState(data.parts?.series, Boolean(s)),
     emptyText: "No series history between these teams.",
-    body: () => el("div", {}, s.streak ? note(`${text(s.streak.team)} has won ${text(s.streak.games)} straight.`) : null, statTable({ compact: true, sortable: false, columns: SERIES_COLUMNS, rows: seriesRows(s, data.us?.school || usSchool()), rowClass: (row) => (row.won === true ? "is-us" : null) })),
+    body: () => {
+      const abbrs = {};
+      if (typeof data.us?.school === "string") abbrs[data.us.school] = abbrOf(data.us, usLabel());
+      if (typeof data.them?.school === "string") abbrs[data.them.school] = abbrOf(data.them);
+      // the shared series table (ui/series.js, wave 3): the team pages' History reads the same way
+      return el("div", {}, s.streak ? note(`${text(s.streak.team)} has won ${text(s.streak.games)} straight.`) : null, seriesTable(s, { us: data.us?.school || usSchool(), abbrs }));
+    },
   });
 }
 
@@ -773,7 +838,7 @@ function finalBand(data) {
   const themAbbr = abbrOf(data.them);
   const tables = (side, them) => {
     const cats = objOf(f?.players?.[side]);
-    return el("div", {}, Object.entries(BOX_COLUMNS).filter(([name]) => listOf(cats[name]).length).map(([name, columns]) => statTable({ columns, rows: listOf(cats[name]).map((r) => ({ name: r.name, playerId: r.playerId, ...r.stats })), compact: true, sort: { key: columns[2]?.key || columns[1].key, dir: "descending" }, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) })));
+    return boxTables({ categories: cats, onTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) });
   };
   return band({
     id: "program-final",
@@ -788,7 +853,7 @@ function finalBand(data) {
         "div",
         {},
         quarterLine({ us: { abbr: usAbbr, scores: data.game.usLineScores, total: data.game.usPoints }, them: { abbr: themAbbr, scores: data.game.themLineScores, total: data.game.themPoints } }),
-        teamStatsTable({ us: { abbr: usAbbr }, them: { abbr: themAbbr }, rows: teamStatRows(f?.us || {}, f?.them || {}).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${usAbbr} and ${themAbbr}` }), // final pass: rows CFBD's box never has (plays, drives, success) go, as on the Box page
+        teamStatsTable({ us: { abbr: usAbbr, school: data.us?.school, name: fullName(data.us) }, them: { abbr: themAbbr, school: data.them?.school, name: fullName(data.them) }, rows: teamStatRows(f?.us || {}, f?.them || {}).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${usAbbr} and ${themAbbr}` }), // final pass: rows CFBD's box never has (plays, drives, success) go, as on the Box page; wave 2: the schools and mascots head it at large
         el("div", { class: "twocol" }, el("div", {}, subhead(data.us?.school || usSchool(), { team: data.us?.school || usSchool(), side: "us" }), tables("us", false)), el("div", {}, subhead(data.them?.school, { team: data.them?.school, side: "them" }), tables("them", true))),
       ),
   });
@@ -816,22 +881,6 @@ function openProgram(gameId) {
   if (window.location.hash !== hash) window.location.hash = hash;
 }
 
-/** The weather band for a finished game: 'Kickoff weather', or only the venue facts when nothing was observed. */
-function finishedWeatherBand(data) {
-  const g = data.game || {};
-  const w = data.weather && typeof data.weather === "object" ? data.weather : null;
-  const observed = Boolean(w && w.available && (isNum(w.tempF) || (typeof w.sky === "string" && w.sky)));
-  const venue = venueLine(g.venueDetail, { us: data.us?.school || usSchool() });
-  if (!observed && !venue) return null;
-  return el("div", { class: "band program-weather", id: "program-weather", "aria-label": "Weather and venue" }, observed ? weatherFromData(w, g, { label: "Kickoff weather" }) : null, venue);
-}
-
-/**
- * The page in the owner's order (P-04; docs/03-DESIGN.md #14, #15): the cover, the weather directly under it,
- * the radio near the top, the matchup card with the notes and the availability report stacked under it, then
- * the tape, edges and leaders, and the season context. A finished game puts its Final box and Advanced box
- * score right after the weather and moves the radio below them.
- */
 /** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
  *  from the Newspaper's feeds, loaded on their own so the program itself stays fast. */
 function headlinesBand() {
@@ -845,28 +894,31 @@ function headlinesBand() {
   return band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: "from the news feeds", body: () => host });
 }
 
+/** The bands in the owner's order (2026-10-10). The page flows in columns, so this is the reading order across the top,
+    the shortest column next. The bands he left unlisted follow the sixteen, in their earlier order, until he sets it. */
 function sections(data) {
   const done = Boolean(data.game?.completed);
-  const context = [
-    notesBand(data),
-    headlinesBand(), // final pass: the headlines, on the program too (N4)
-    myNotesBand(data), // Phase 19: your own notes about this game
-    availabilityBand(data),
-    lineupsBand(data),
-    tapeBand(data),
-    leadersBand(data),
-    watchBand(data),
-    advancedBand(data),
-    tendenciesBand(data),
-    ppaBand(data),
-    recruitingBand(data),
-    commonBand(data),
-    lastSeasonBand(data),
-    seriesBand(data),
-    pickerBand(data),
+  const listed = [
+    notesBand(data), // 1 Program notes
+    headlinesBand(), // 2 the team's headlines (N4)
+    tapeBand(data), // 3 Tale of the tape
+    watchBand(data), // 4 Players to watch, never the leaders' players
+    leadersBand(data), // 5 Leaders side by side
+    availabilityBand(data), // 6 Availability report
+    recruitingBand(data), // 7 Talent and recruiting
+    lineupsBand(data), // 8 Lineups and depth
+    pickerBand(data), // 9 Programs (the game picker)
+    seriesBand(data), // 10 Series
+    advancedBand(data), // 11 Advanced matchup
+    tendenciesBand(data), // 12 Tendencies
+    ppaBand(data), // 13 Play value
+    commonBand(data), // 14 Common opponents
+    lastSeasonBand(data), // 15 Last season
+    myNotesBand(data), // 16 My notes
   ];
-  if (done) return [finishedWeatherBand(data), finalBand(data), advancedBoxBand(data), radioBand(), matchup(data), ...context];
-  return [weatherBand(data), radioBand(), matchup(data), ...context];
+  // the cover redo (owner 2026-10-10): the weather and the stadium's facts moved into the cover; no Weather band
+  if (done) return [...listed, matchup(data), radioBand(), finalBand(data), advancedBoxBand(data)];
+  return [...listed, matchup(data), radioBand()];
 }
 
 const OPP_VARS = ["--opp", "--opp-alt", "--opp-text"];
@@ -895,7 +947,7 @@ function resetOpponentColors() {
 }
 
 /** The program's bands that span two columns on a wide page (owner pick 2026-10-07: the big side-by-side tables). */
-const PROGRAM_WIDE = ["program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
+const PROGRAM_WIDE = ["program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box", "program-watch", "program-ppa"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
 
 function render(envelope, container, state) {
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
@@ -903,12 +955,11 @@ function render(envelope, container, state) {
   if (!data.game || typeof data.game !== "object") {
     const sched = data.parts && typeof data.parts === "object" ? data.parts.schedule : null; // final pass: CFBD down reads as an error, not an empty schedule
     const state = sched && sched.status === "error" ? { status: "error", message: `${text(sched.error)}. The app keeps retrying.` } : { status: "empty", message: "No games on the schedule yet." };
-    container.replaceChildren(el("div", { class: "page program-page" }, back, band({ title: "Game program", collapsible: false, state, errorLead: "Could not load the schedule." })));
+    container.replaceChildren(el("div", { class: "page program-page" }, back, band({ title: "Pre-Game Program", collapsible: false, state, errorLead: "Could not load the schedule." })));
     return;
   }
   const before = snapshotKeys(container); // the line, the total and the weather flash when a refresh changes them (P-10)
   const page = el("div", { class: "page program-page" });
-  // UX-11: 'On this page' under the cover (in its foot, so the weather stays directly under the cover)
   const coverEl = cover({ ...coverProps(data, { reveal: !state.revealed }) });
   state.revealed = true; // the reveal plays once per visit, not on every refresh (P-10 item 2)
   state.cover = coverEl;
@@ -924,27 +975,53 @@ function render(envelope, container, state) {
   state.chips = sectionChips(page);
   state.chips.refresh();
   container.replaceChildren(state.chips, page);
-  // Phase 17 #7, #28: bands pack into 1 to 4 columns by width; the cover and the weather span the top, the big
-  // tables span two columns once there are three or more
-  state.flow = flow(page, { full: ["program-weather"], wide: PROGRAM_WIDE });
+  // Phase 17 #7, #28: bands pack into 1 to 4 columns by width; the cover spans the top, the big tables span two
+  // columns once there are three or more
+  state.flow = flow(page, { wide: PROGRAM_WIDE });
   flashChanges(before, container, { className: "flash" });
   if (state.focus) {
     const target = document.getElementById(state.focus);
     state.focus = null;
-    if (target) setTimeout(() => target.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    if (target) settleOn(target);
   }
 }
 
-/** The loading page in its real shape, one column: the cover, a weather line, the radio head, the matchup card (P-04 item 5). */
+/**
+ * Bring a band to the top and keep it there while the bands above it load and grow (2026-10-10: the radio band, which the
+ * Setup page's Radio link opens, sits near the end of a flowing page, so one early scroll landed short). Up to four
+ * seconds; any touch, wheel or key from the reader ends it at once.
+ */
+function settleOn(target, ms = 4000) {
+  if (!target || typeof target.scrollIntoView !== "function" || typeof window === "undefined") return;
+  const kinds = ["wheel", "touchstart", "keydown", "pointerdown"];
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+  };
+  for (const kind of kinds) window.addEventListener(kind, stop, { passive: true, capture: true });
+  const until = Date.now() + ms;
+  const step = () => {
+    if (stopped || !target.isConnected || Date.now() > until) {
+      for (const kind of kinds) window.removeEventListener(kind, stop, { capture: true });
+      return;
+    }
+    target.scrollIntoView({ block: "start" });
+    setTimeout(step, 250);
+  };
+  setTimeout(step, 50);
+}
+
+/** The loading page in its real shape (P-04 item 5): the cover, then the first bands of the owner's order (2026-10-10). */
 function loadingPage(state) {
+  const loading = (title, skeleton) => band({ title, collapsible: false, state: { status: "loading" }, skeleton });
   return el(
     "div",
     { class: "page program-page", "aria-busy": "true" },
     state.gameId ? backRow({ label: "Back", fallback: "#program" }) : null,
     coverSkeleton(),
-    el("div", { class: "band program-weather" }, el("div", { class: "skel", style: { width: "min(420px, 80%)", height: "20px", margin: "8px auto" } })),
-    band({ title: "Radio", collapsible: false, state: { status: "loading" }, skeleton: () => el("div", { class: "skel skel--row" }) }),
-    band({ title: `${text(usSchool())}'s opponent`, collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(12, 3) }),
+    loading("Program notes", () => el("div", { class: "skel skel--row" })),
+    loading(`${text(usName())} headlines`, () => el("div", { class: "skel skel--row" })),
+    loading("Tale of the tape", () => statTableSkeleton(8, 3)),
   );
 }
 
@@ -967,7 +1044,8 @@ export function createProgramView({ onStatus, gameId = null, focus = null } = {}
         stopTicking();
         return;
       }
-      if (coverEl.tick() === "final") stopTicking();
+      // a final stops it, unless the cover still offers the held final on In Game: it ticks until that button goes at the hold's end
+      if (coverEl.tick() === "final" && !coverEl.querySelector('a.cover__action[href="#live"]')) stopTicking();
     }, TICK_MS);
   };
   const make = () =>
@@ -979,7 +1057,7 @@ export function createProgramView({ onStatus, gameId = null, focus = null } = {}
         render(envelope, container, state);
         startTicking();
       },
-      renderError: (message, container, retry) => container.replaceChildren(errorPanel("Game program", message, retry)),
+      renderError: (message, container, retry) => container.replaceChildren(errorPanel("Pre-Game Program", message, retry)),
       renderLoading: () => loadingPage(state),
       loadingDetail: "The game: stats, lineups, weather and the notes",
     });

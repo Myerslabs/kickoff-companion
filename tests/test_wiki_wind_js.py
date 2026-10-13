@@ -36,7 +36,7 @@ scenarios.links = async () => {
   assert.equal(links[1].getAttribute("href"), "https://en.wikipedia.org/wiki/Home_University");
   assert.equal(links[2].getAttribute("href"), searchUrl("Away State university"), "an answer off Wikipedia is not followed");
   assert.equal(links[3].getAttribute("href"), "https://en.wikipedia.org/wiki/Pie_Bowl");
-  const chip = root.querySelector(".team-page-chip");
+  const chip = root.querySelector(".team-page-chip"); // the helper still draws one (nothing on a page uses it since 2026-10-10)
   assert.equal(chip.getAttribute("href"), "#team=Home%20U");
   assert.equal(teamPageChip(""), null);
   await fillWiki(root);

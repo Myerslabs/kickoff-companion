@@ -2,6 +2,13 @@
 // everything the app captured live and everything CFBD posted afterwards: score by quarter,
 // team stats with the feed's efficiency block, win probability, play value, drives, the play
 // log with key plays, both box scores, and the notes of the week.
+//
+// Tables wave 3 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): the list sizes itself by its own box. Large: Date |
+// Week | Game | Result | Plays | Win probability; medium: Date | Wk | Game | Result | Plays; small: Date | Game ("SWT at
+// SD", each abbreviation still its team link) | Result. The games sort (the date and week by the kickoff, the result by
+// its margin), newest first. One game's tables are the shared ones: Team stats, the feed's efficiency and each team's play
+// value on the two-team kit with the tug bar (the school and mascot over each side at large), the players' play value
+// (`ui/play-value.js`), the advanced box score and the box score, all sized.
 
 import { isUs, usLabel, usSchool } from "../identity.js";
 import { weekCell, weekLong } from "../ui/weeks.js";
@@ -15,9 +22,12 @@ import { playLog, playLogSkeleton } from "../ui/play-log.js";
 import { backRow, band, note, sectionChips, subhead } from "../ui/states.js";
 import { flow } from "../ui/flow.js";
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
-import { FEED_ROWS, quarterLine, teamStatsSkeleton, teamStatsTable } from "../ui/team-stats.js";
+import { feedEfficiencyTable, quarterLine, teamStatsSkeleton, teamStatsTable } from "../ui/team-stats.js";
 import { winProbabilityChart, winProbabilitySkeleton } from "../ui/wp-chart.js";
 import { advancedBoxBlock } from "../ui/depth2.js";
+import { playValueTable } from "../ui/play-value.js";
+import { teamValueTable } from "../ui/in-game-tables.js";
+import { fullName } from "../ui/matchup-card.js";
 import { errorPanel, fetchJson, partState, poller } from "./common.js";
 import { openPlayer } from "./player.js";
 
@@ -47,21 +57,60 @@ function matchupCell(row) {
   return el("span", {}, team(row.away), " at ", team(row.home));
 }
 
+/** The same at small: each team's abbreviation, still its link ("SWT at SD"), so the tap survives (tables wave 3). */
+function matchupShort(row) {
+  const team = (name, short) => (typeof name === "string" && name ? teamLink(name, short) : DASH);
+  return el("span", {}, team(row.away, row.awayAbbr), " at ", team(row.home, row.homeAbbr));
+}
+
+/** A school's abbreviation: the server's (from the cached /teams/fbs), ours, else its first four letters. */
+function shortOf(school, given) {
+  if (typeof given === "string" && given.trim()) return given.trim();
+  if (isUs(school)) return usLabel();
+  return typeof school === "string" && school.trim() ? school.trim().slice(0, 4).toUpperCase() : DASH;
+}
+
+/** The school and mascot for a two-team table's large head when the program's block is that school, else the school. */
+function named(block, school) {
+  const b = obj(block);
+  return typeof school === "string" && b.school === school ? fullName(b) || school : school;
+}
+
 // --- the list ----------------------------------------------------------------------------------------
 
-/** The value when it is a plain object, else an empty one: archive files are read back as untrusted. */
+// The list's columns (tables wave 3): the date at every size, the week and plays from medium, the win probability's
+// source at large. The date and the week sort by the kickoff, the result by its margin.
+const LIST_COLUMNS = [
+  { key: "dateText", label: "Date", kind: "text", sortKey: "kickoff" },
+  { key: "week", label: "Week", labelMid: "Wk", labelShort: "Wk", dim: true, size: "medium", sortKey: "kickoff" },
+  { key: "matchup", label: "Game", kind: "text", render: matchupCell, renderShort: matchupShort },
+  { key: "result", label: "Result", kind: "text", render: resultCell, sortKey: "margin" },
+  { key: "plays", label: "Plays", size: "medium" },
+  { key: "wp", label: "Win probability", labelMid: "Win prob.", kind: "text", size: "large" },
+];
+
+/** One archived game as a list row, every field guarded (archive summaries are read back as untrusted). Exported for the
+ *  tests. */
+export function archiveRow(g) {
+  const kickoff = typeof g.kickoff === "string" && g.kickoff ? g.kickoff : null;
+  return {
+    ...g,
+    kickoff,
+    week: weekCell(g),
+    dateText: kickoff ? fmtDate(kickoff, "short") : DASH,
+    matchup: `${text(g.away)} at ${text(g.home)}`,
+    awayAbbr: shortOf(g.away, g.awayAbbr),
+    homeAbbr: shortOf(g.home, g.homeAbbr),
+    result: resultText(g),
+    margin: isNum(g.usScore) && isNum(g.themScore) ? g.usScore - g.themScore : null,
+    wp: g.hasWinProbability === true ? "Saved at the final" : "From CFBD",
+  };
+}
+
 /** The value when it is an array of records, else an empty list; malformed records are skipped. */
 function listView(data) {
   const games = records(data.games);
-  const columns = [
-    { key: "dateText", label: "Date", kind: "text", sortable: false },
-    { key: "week", label: "Wk", sortable: false, dim: true },
-    { key: "matchup", label: "Game", kind: "text", sortable: false, render: matchupCell },
-    { key: "result", label: "Result", kind: "text", sortable: false, render: resultCell },
-    { key: "plays", label: "Plays", sortable: false },
-    { key: "wp", label: "Win prob.", kind: "text", sortable: false },
-  ];
-  const rows = games.map((g) => ({ ...g, week: weekCell(g), dateText: g.kickoff ? fmtDate(g.kickoff, "short") : DASH, matchup: `${text(g.away)} at ${text(g.home)}`, result: resultText(g), wp: g.hasWinProbability ? "yes" : "after the final" }));
+  const rows = games.map(archiveRow);
   return el(
     "div",
     { class: "season", style: { gridTemplateColumns: "minmax(0, 1fr)" } },
@@ -71,21 +120,12 @@ function listView(data) {
       collapsible: false,
       summary: games.length ? `${games.length} game${games.length === 1 ? "" : "s"} this app watched` : "",
       state: games.length ? { status: "ready" } : { status: "empty", message: "No games yet. A game lands here when the app watches it to the final; nothing is back-filled." },
-      body: () => el("div", {}, statTable({ compact: true, columns, rows, onRowTap: (row) => { window.location.hash = `archive=${row.gameId}`; }, caption: "Archived games" }), isNum(data.skipped) && data.skipped > 0 ? el("p", { class: "note note--error" }, `${data.skipped} archive file${data.skipped === 1 ? "" : "s"} could not be read; see the log.`) : null),
+      body: () => el("div", {}, statTable({ compact: true, sizes: true, columns: LIST_COLUMNS, rows, sort: { key: "dateText", dir: "descending" }, onRowTap: (row) => { window.location.hash = `archive=${row.gameId}`; }, caption: "Archived games" }), isNum(data.skipped) && data.skipped > 0 ? el("p", { class: "note note--error" }, `${data.skipped} archive file${data.skipped === 1 ? "" : "s"} could not be read; see the log.`) : null),
     }),
   );
 }
 
 // --- one game ---------------------------------------------------------------------------------------
-
-function feedRows(feed, usName, themName) {
-  if (!feed || typeof feed !== "object") return [];
-  const us = feed[usName] || {};
-  const them = feed[themName] || {};
-  // No success rate here: the team table above shows it (CFBD's own from Phase 10a on), as on the Live sheet.
-  const spec = FEED_ROWS; // final pass: the same rows and names as the Live sheet
-  return spec.map(([label, key, format]) => ({ label, usText: isNum(us[key]) ? fmtStat(us[key], format) : DASH, themText: isNum(them[key]) ? fmtStat(them[key], format) : DASH, has: isNum(us[key]) || isNum(them[key]) })).filter((r) => r.has);
-}
 
 function gameView(data) {
   const s = obj(data.state);
@@ -96,6 +136,9 @@ function gameView(data) {
   const usAbbr = typeof data.us?.abbreviation === "string" && data.us.abbreviation ? data.us.abbreviation : usLabel();
   const usSide = { name: US, abbr: usAbbr };
   const themSide = { name: themName, abbr: themAbbr };
+  // the two-team tables' heads: the abbreviation at small, the school at medium, the school and mascot at large
+  const usHeads = { team: US, abbr: usAbbr, school: US, name: named(data.us, US) };
+  const themHeads = { team: themName, abbr: themAbbr, school: themName, name: named(data.them, themName) };
   // successCounts is null from Phase 10a on (the rate is CFBD's); the team table reads only the rate.
   const usBox = { ...obj(obj(s.box)[US]), ...Object.fromEntries(Object.entries(obj(obj(s.boxScore)[US])).filter(([, v]) => v !== null && v !== undefined)) };
   const themBox = { ...obj(obj(s.box)[themName]), ...Object.fromEntries(Object.entries(obj(obj(s.boxScore)[themName])).filter(([, v]) => v !== null && v !== undefined)) };
@@ -108,8 +151,9 @@ function gameView(data) {
   const availability = records(notes.availability);
   const g = obj(data.game);
   const h3 = (t, team, side) => subhead(t, { team, side }); // DS-14: the shared sub-heading, a team's title its link
-  const players = (title, rows, them) => el("div", {}, h3(title, title, them ? "them" : "us"), rows.length ? statTable({ compact: true, columns: [{ key: "name", label: "Player", kind: "text", sub: "position", sortable: false }, { key: "all", label: "PPA/play", format: "+2f", sortable: false }, { key: "pass", label: "Pass", format: "+2f", sortable: false }, { key: "rush", label: "Rush", format: "+2f", sortable: false }], rows, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }) }) : note("No player values."));
-  const teamRows = [["Offense", "offense"], ["Defense", "defense"]].flatMap(([label, side]) => ["overall", "passing", "rushing"].map((key) => ({ label: `${label}, ${key}`, us: ppa.teams?.us?.[side]?.[key], them: ppa.teams?.them?.[side]?.[key] })));
+  const players = (title, rows, them) => el("div", {}, h3(title, title, them ? "them" : "us"), rows.length ? playValueTable(rows, { onTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }), caption: `${text(title)}, PPA per play` }) : note("No player values.")); // wave 2: the shared play value table, sized
+  const teamValues = obj(ppa.teams);
+  const hasTeamValues = ["us", "them"].some((side) => ["offense", "defense"].some((unit) => Object.values(obj(obj(teamValues[side])[unit])).some(isNum)));
   const boxFor = (side) => obj(final.players?.[side] || s.playerStats?.[side === "us" ? US : themName]);
   // Final pass: a band whose CFBD part failed says so (and a stale one its age) instead of reading as "not posted"
   const parts = obj(data.parts);
@@ -128,7 +172,7 @@ function gameView(data) {
     el("div", { class: "archive-top flow-full" }, backRow({ label: "All archived games", fallback: "#archive" }), el("span", { class: "note archive-top__saved" }, `Saved ${text(data.savedAt ? fmtDate(data.savedAt, "short") : DASH)}`)), // DS-03
     el("div", { class: "flow-full" }, cover({ kicker: `${weekLong({ ...g, week: data.week, seasonType: data.seasonType })} archive`, week: data.week, date: data.kickoff, venue: g.venue, neutralSite: g.neutralSite, tv: g.tv, homeIsUs: usHome, us: data.us || { school: US, abbreviation: usAbbr }, them: data.them || { school: themName, abbreviation: themAbbr }, line: data.line || {}, pregame: { homeWinProbability: data.pregame?.homeWinProbability }, state: "final", usPoints: data.usScore, themPoints: data.themScore, reveal: false })),
     band({ id: "archive-score", title: "Score by quarter", collapsible: false, summary: "Final", body: () => quarterLine({ us: { abbr: usAbbr, scores: usHome ? s.homeLineScores : s.awayLineScores, total: data.usScore }, them: { abbr: themAbbr, scores: usHome ? s.awayLineScores : s.homeLineScores, total: data.themScore } }) }),
-      band({ id: "archive-stats", title: "Team stats", collapsible: false, foldable: true, body: () => el("div", {}, teamStatsTable({ us: { abbr: usAbbr, box: usBox }, them: { abbr: themAbbr, box: themBox } }), feedRows(s.feedStats, US, themName).length ? el("div", {}, h3("Efficiency, from the live feed"), statTable({ compact: true, columns: [{ key: "label", label: "Statistic", kind: "text", sortable: false }, { key: "usText", label: usAbbr, kind: "text", sortable: false }, { key: "themText", label: themAbbr, kind: "text", sortable: false }], rows: feedRows(s.feedStats, US, themName) })) : null) }),
+      band({ id: "archive-stats", title: "Team stats", collapsible: false, foldable: true, body: () => { const feed = feedEfficiencyTable({ feed: s.feedStats, us: usHeads, them: themHeads }); return el("div", {}, teamStatsTable({ us: { ...usHeads, box: usBox }, them: { ...themHeads, box: themBox } }), feed ? el("div", {}, h3("Efficiency, from the live feed"), feed) : null); } }), // wave 2: both tables on the two-team kit, sized; wave 3: the mascot heads at large
       band({ id: "archive-wp", title: "Win probability", collapsible: false, foldable: true, state: stateOr(parts.wp, Boolean(wp.available), { updatedText: wp.source || "CFBD's post-game model" }, wp.note || "No win probability for this game."), body: () => winProbabilityChart({ series: Array.isArray(wp.series) ? wp.series : [], homeIsUs: usHome, usAbbr, pregame: data.pregame?.usWinProbability, final: true, plays }) }),
     band({
       id: "archive-advanced-box",
@@ -137,7 +181,7 @@ function gameView(data) {
       foldable: true,
       summary: "by quarter, line play, players' value",
       state: stateOr(parts.advancedBox, Boolean(data.advancedBox), null, "CFBD has not posted the advanced box score for this game."),
-      body: () => advancedBoxBlock(data.advancedBox, { us: US, them: themName, usAbbr, themAbbr }),
+      body: () => advancedBoxBlock(data.advancedBox, { us: US, them: themName, usAbbr, themAbbr, usName: usHeads.name, themName: themHeads.name, onPlayer: (row) => openPlayer(row.playerId, { ...row, boardLabel: "PPA per play", value: fmtStat(row.ppa, "+2f") }) }),
     }),
     band({
       id: "archive-ppa",
@@ -145,14 +189,15 @@ function gameView(data) {
       collapsible: false,
       foldable: true,
       state: stateOr(parts.ppaUs, Boolean(ppa.available), null, ppa.note || "No play value for this game."),
-      body: () => el("div", {}, teamRows.some((r) => isNum(r.us) || isNum(r.them)) ? statTable({ compact: true, columns: [{ key: "label", label: "PPA per play", kind: "text", sortable: false }, { key: "us", label: usAbbr, format: "+2f", sortable: false }, { key: "them", label: themAbbr, format: "+2f", sortable: false }], rows: teamRows }) : null, el("div", { class: "twocol" }, players(text(US), records(ppa.players?.us), false), players(text(themName), records(ppa.players?.them), true))),
+      // wave 3: each team's play value is In Game's table, the two-team kit with the tug bar (the defense's rows say allowed)
+      body: () => el("div", {}, hasTeamValues ? teamValueTable(teamValues, { us: usHeads, them: themHeads }) : null, el("div", { class: "twocol" }, players(text(US), records(ppa.players?.us), false), players(text(themName), records(ppa.players?.them), true))),
     }),
       band({ id: "archive-drives", title: "Drives", collapsible: false, foldable: true, summary: `${text(s.counts?.drives)} drives`, body: () => (drives.length ? driveList({ drives, us: usSide, them: themSide, currentId: null }) : note("No drives were captured.")) }),
-      band({ id: "archive-plays", title: "Play by play", collapsible: false, foldable: true, summary: `${text(s.counts?.plays)} plays, key plays under the filter`, body: () => (plays.length ? playLog({ plays: [...plays], us: usSide, them: themSide, maxHeight: 640 }) : note("No plays were captured.")) }),
+      band({ id: "archive-plays", title: "Play by play", collapsible: false, foldable: true, summary: `${text(s.counts?.plays)} plays, key plays under the filter`, body: () => (plays.length ? playLog({ plays: [...plays], us: usSide, them: themSide }) : note("No plays were captured.")) }),
     band({ id: "archive-box", title: "Box score", collapsible: false, foldable: true, summary: final?.available ? "CFBD's final box" : "from the live box polls", body: () => el("div", { class: "twocol" }, el("div", {}, h3(text(US), US, "us"), boxTables({ categories: boxFor("us"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: true }) })), el("div", {}, h3(text(themName), typeof themName === "string" ? themName : null, "them"), boxTables({ categories: boxFor("them"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: false }) }))) }),
       isNum(data.gameId) ? band({ id: "archive-mynotes", title: "My notes", collapsible: false, foldable: true, state: { status: "ready" }, body: () => gameNotesPanel({ gameId: data.gameId }) }) : null,
       band({ id: "archive-notes", title: "Program notes of the week", collapsible: false, foldable: true, collapsed: true, state: notes.present ? { status: "ready" } : { status: "empty", message: "No notes file for this game." }, body: () => editorial({ byline: { author: notes.author, writtenAt: notes.writtenAt }, sources: Array.isArray(notes.sources) ? notes.sources : [], sections: Array.isArray(notes.sections) ? notes.sections : [] }) }),
-      band({ id: "archive-availability", title: "Availability report", collapsible: false, foldable: true, collapsed: true, state: availability.length ? { status: "ready" } : { status: "empty", message: "No availability report was filed." }, body: () => availabilityTable({ rows: availability, source: notes.availabilitySource, updatedAt: notes.availabilityUpdatedAt }) }),
+      band({ id: "archive-availability", title: "Availability report", collapsible: false, foldable: true, collapsed: true, state: availability.length ? { status: "ready" } : { status: "empty", message: "No availability report was filed." }, body: () => availabilityTable({ rows: availability, source: notes.availabilitySource, updatedAt: notes.availabilityUpdatedAt, teams: [{ school: US, abbreviation: usAbbr }, { school: themName, abbreviation: themAbbr }] }) }),
   );
 }
 
@@ -170,7 +215,7 @@ function gameSkeleton() {
   );
 }
 
-const ARCHIVE_WIDE = ["archive-stats", "archive-wp", "archive-advanced-box", "archive-drives", "archive-plays", "archive-box"]; // the data-heavy bands take two columns
+const ARCHIVE_WIDE = ["archive-stats", "archive-wp", "archive-advanced-box", "archive-ppa", "archive-drives", "archive-plays", "archive-box"]; // the data-heavy bands take two columns (wave 3: play value too, as on the Pre-Game Program, so each team's table and the two players' tables have the room)
 
 export function createArchiveView({ onStatus, gameId = null } = {}) {
   const id = gameId && /^\d+$/.test(String(gameId)) ? String(gameId) : null;

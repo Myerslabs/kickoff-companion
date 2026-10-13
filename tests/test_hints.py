@@ -72,6 +72,14 @@ def test_aliases_point_at_one_entry_each(glossary: dict):
             owner[key] = entry["id"]
 
 
+def test_box_score_yards_and_team_yards_open_different_entries(glossary: dict):
+    """Wave 2 review: a box score's Yards head carries the term "Yards (box score)"; the Team stats row "Yards" keeps total yards."""
+    owner = {re.sub(r"\s+", " ", n).strip().lower(): e["id"] for e in glossary["entries"] for n in [e["term"], *e["aliases"]]}
+    assert owner["yards (box score)"] == "box-yards"
+    assert owner["yards"] == "total-yards"
+    assert 'term: "Yards (box score)"' in (STATIC_JS / "ui" / "box-columns.js").read_text(encoding="utf-8")
+
+
 def test_the_glossary_never_mentions_betting(glossary: dict):
     words = re.compile(r"\b(bet|bets|betting|sportsbook|odds|wager|spread)\b", re.IGNORECASE)
     for entry in glossary["entries"]:

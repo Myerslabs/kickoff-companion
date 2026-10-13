@@ -80,6 +80,9 @@ def setup_qr(request: Request, url: str | None = Query(default=None, max_length=
     settings: Settings = request.app.state.settings
     known = addresses(settings, lan_ip())
     target = url if url is not None else known[0]
-    if target not in known:
+    base, joined, code = target.partition("/join/")
+    access = getattr(request.app.state, "host_access", None)
+    is_join = bool(joined) and f"{base}/" in known and access is not None and access.valid_join(code)  # group five: the invite link while away
+    if target not in known and not is_join:
         return error_response(404, "not_found", "Only this server's own addresses get a QR code.")
     return Response(qr_svg(target), media_type="image/svg+xml", headers={"Cache-Control": "no-cache"})

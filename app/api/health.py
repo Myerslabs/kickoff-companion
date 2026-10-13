@@ -210,7 +210,7 @@ def _live_check(engine: Any) -> dict[str, str]:
     if state == "no_live_key":
         return _check("live", "degraded", f"{who}: window open but the key has no live plays")
     if state == "waiting":
-        waiting = "waiting for a viewer to open the Live sheet" if not status.get("clientsConnected") else "waiting for the first answer"
+        waiting = "waiting for a viewer to open the In Game sheet" if not status.get("clientsConnected") else "waiting for the first answer"
         return _check("live", "ok", f"{who}: window open, {waiting}; {tally}")
     return _check("live", "ok", f"{who}: feed answering; {tally}")
 

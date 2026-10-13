@@ -2,18 +2,23 @@
 // box score"). A W or L square on a cover opens our own games in the Archive or the program; every other game
 // opens here: #box=<game id>, from /api/box/<id>. The two teams with the final score, the score by quarter, the
 // team stats, and each side's player lines. Ours on the left when the game is ours, else the visitor first.
+// Tables wave 3 (owner 2026-10-10): the team stats are the shared two-team kit with the tug bar in these two teams'
+// colors, the school and mascot over each side at large, the school at medium, the abbreviation at small; the player
+// lines are the shared sized box score (`ui/box-columns.js`), each side's band half the page from the iPad up.
 //
 //   createBoxView({ onStatus, gameId })  -> the shared poller view (views/common.js)
 //   boxHead(data)                         the header: logos, names, score, date and venue (exported for the tests)
 
 import { isUs } from "../identity.js";
 import { boxTables } from "../ui/box-columns.js";
-import { DASH, el, fmtDate, isNum, obj, teamLogo, text } from "../ui/dom.js";
+import { fullName } from "../ui/matchup-card.js";
+import { teamBarColors } from "../ui/colors.js";
+import { DASH, el, fmtDate, isNum, obj, teamLink, teamLogo, text } from "../ui/dom.js";
 import { backRow, band, note } from "../ui/states.js";
 import { statTableSkeleton } from "../ui/stat-table.js";
 import { quarterLine, teamStatRows, teamStatsTable } from "../ui/team-stats.js";
 import { weekLong } from "../ui/weeks.js";
-import { fillWiki, teamPageChip, wikiLink } from "../ui/wiki-links.js";
+import { fillWiki, wikiLink } from "../ui/wiki-links.js";
 import { errorPanel, partState, poller } from "./common.js";
 import { openPlayer } from "./player.js";
 
@@ -45,9 +50,8 @@ export function boxHead(data) {
       "div",
       { class: `box-head__side box-head__side--${where}${winner === where ? " box-head__side--won" : ""}` },
       wikiLink("football", { team: side.team.school }, teamLogo(side.team, { size: 64, lazy: false })), // Phase 17 #4
-      el("div", { class: "box-head__name" }, side.team.school ? wikiLink("school", { team: side.team.school }, text(side.team.school)) : text(null)),
+      el("div", { class: "box-head__name" }, side.team.school ? teamLink(side.team.school, text(side.team.school)) : text(null)), // 2026-10-10: the name is the way to the team page; no Team page chip
       el("div", { class: "box-head__score", dataset: { k: `box-${side.key}` } }, scoreOf(side.team)),
-      teamPageChip(side.team.school),
     );
   const venue = typeof g.venue === "string" && g.venue.trim() ? g.venue.trim() : null;
   const when = [weekLong(g), g.kickoff ? fmtDate(g.kickoffLocal || g.kickoff, "long") : null, venue ? [wikiLink("stadium", { venue }, venue), g.neutralSite ? " (neutral site)" : null] : null, g.conferenceGame === true ? "Conference game" : null]
@@ -73,7 +77,9 @@ function render(envelope, container) {
   const leftAbbr = abbr(left.team);
   const rightAbbr = abbr(right.team);
   const ours = g.isOurs === true;
-  const programLink = ours && (isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? ""))) ? el("a", { class: "btn btn--quiet", href: `#program=${g.gameId}` }, "Open the Game program") : null;
+  // each side's heads for the two-team table: its abbreviation (small), school (medium), school and mascot (large)
+  const heads = (side, short) => ({ abbr: short, school: typeof side.team.school === "string" ? side.team.school : undefined, name: fullName(side.team) || undefined });
+  const programLink = ours && (isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? ""))) ? el("a", { class: "btn btn--quiet", href: `#program=${g.gameId}` }, "Open the Pre-Game Program") : null;
   const boxState = partState(data.parts?.boxTeams, Boolean(final.available));
   const playerBand = (side) =>
     band({
@@ -89,7 +95,8 @@ function render(envelope, container) {
   container.replaceChildren(
     el(
       "div",
-      { class: "page box-page" },
+      // wave 2 review: the team stats' bars wear these two teams' colors (ours keeps its own when we play), not the week's opponent's
+      { class: "page box-page", style: teamBarColors(left.team, right.team, { leftIsUs: isUs(left.team.school) }) },
       backRow({ fallback: "#program" }),
       boxHead(data),
       band({
@@ -105,8 +112,8 @@ function render(envelope, container) {
             {},
             quarterLine({ us: { abbr: leftAbbr, scores: left.team.lineScores, total: left.team.points }, them: { abbr: rightAbbr, scores: right.team.lineScores, total: right.team.points } }),
             // CFBD's box has no plays, drives or success rate (those come from the live feed): rows empty on both sides go
-            teamStatsTable({ us: { abbr: leftAbbr }, them: { abbr: rightAbbr }, rows: teamStatRows(obj(final[left.key]), obj(final[right.key])).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${leftAbbr} and ${rightAbbr}` }),
-            programLink ? el("p", { class: "note" }, "This is one of our games: the Game program has the full matchup. ", programLink) : null,
+            teamStatsTable({ us: heads(left, leftAbbr), them: heads(right, rightAbbr), rows: teamStatRows(obj(final[left.key]), obj(final[right.key])).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${leftAbbr} and ${rightAbbr}` }),
+            programLink ? el("p", { class: "note" }, "This is one of our games: the Pre-Game Program has the full matchup. ", programLink) : null,
           ),
       }),
       el("div", { class: "spread spread--2" }, playerBand(left), playerBand(right)),

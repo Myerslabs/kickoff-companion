@@ -73,17 +73,17 @@ function driveHeader(group, { us, them }) {
 }
 
 /**
- * playLog({ plays, us: {name, abbr}, them: {name, abbr}, filter, onFilter(id), maxHeight, limit, freshIds })
+ * playLog({ plays, us: {name, abbr}, them: {name, abbr}, filter, onFilter(id), limit, freshIds })
  * Returns the element; element.setFilter(id), element.getFilter(), and element.addPlay(play) to
  * prepend one. `filter` is the starting filter and `onFilter` hears the reader's changes, so a
  * view that rebuilds the log keeps the filter. `freshIds` (a Set) names the plays that slide in.
+ * The list is never a scroll box (owner 2026-10-10, his phone): every play is on the page and the band folds.
  */
-export function playLog({ plays = [], us, them, filter = "all", onFilter, maxHeight, limit = 200, freshIds = null }) {
+export function playLog({ plays = [], us, them, filter = "all", onFilter, limit = 200, freshIds = null }) {
   const fresh = freshIds instanceof Set ? new Set(freshIds) : new Set(); // Phase 16 wave 3: plays new since the last draw slide in
   let current = FILTERS.some((f) => f.id === filter) ? filter : "all";
   plays = Array.isArray(plays) ? plays.filter((play) => play && typeof play === "object") : []; // a malformed record is skipped, not drawn
   const list = el("ul", { class: "plays", "aria-live": "polite" });
-  if (maxHeight) list.style.setProperty("--plays-max", typeof maxHeight === "number" ? `${maxHeight}px` : maxHeight);
 
   const matches = (play) => {
     if (current === "us") return play.offense === us.name;

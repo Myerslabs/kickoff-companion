@@ -33,6 +33,7 @@ class NoteSection(NotesModel):
 
 class AvailabilityRow(NotesModel):
     name: str
+    team: str | None = None  # 2026-10-10 (the Injury Report page): the player's school; older files name it in the note
     position: str | None = None
     status: str | None = None  # Phase 17: a chat that finds no published status leaves it out; the row is kept, "Not reported"
     note: str | None = None
@@ -56,11 +57,20 @@ class Visitors(NotesModel):
     updatedAt: str | None = None
 
 
+class SideSchemes(NotesModel):
+    """One team's scheme labels (2026-10-10: the opponent's beside ours, each under its own columns)."""
+
+    offense: str | None = None
+    defense: str | None = None
+
+
 class Schemes(NotesModel):
-    """Scheme labels the sim showed and CFBD does not carry: written by the weekly task or by hand."""
+    """Scheme labels the sim showed and CFBD does not carry: written by the weekly task or by hand.
+    `offense` and `defense` are ours; `opponent` carries the other team's (an older file has none)."""
 
     offense: str | None = None  # e.g. "Spread, 11 personnel, up-tempo"
     defense: str | None = None  # e.g. "4-2-5, quarters"
+    opponent: SideSchemes | None = None
     source: str | None = None
 
 

@@ -7,6 +7,7 @@
 //
 //   leaderLines(cat, { usAbbr, themAbbr, usTeam, themTeam, usConfGames, themConfGames })  -> <div class="lines"> or null
 //   confGamesText(category, stats)   "410 yds, 31/45, 3 TD, 1 int" from season-style totals, or null
+//   confGamesShort(category, stats)  "410 yds", the line's lead number alone for a small table (wave 2), or null
 
 import { el, isNum, obj, text } from "./dom.js";
 import { leaderLine } from "./leaders.js";
@@ -26,6 +27,14 @@ export function confGamesText(category, stats) {
   if (category === "passing" && isNum(s.COMPLETIONS) && isNum(s.ATT)) box["C/ATT"] = `${s.COMPLETIONS}/${s.ATT}`;
   const line = leaderLine(category, box);
   return [line.hero, line.rest].filter((part) => typeof part === "string" && part.trim() && !/^(–|-)?\s*(yds|tkl)?$/.test(part.trim())).join(", ") || null;
+}
+
+/** "410 yds": the conference-game line's lead number alone, so a phone's table keeps its width (tables wave 2). */
+export function confGamesShort(category, stats) {
+  const s = obj(stats);
+  if (!Object.values(s).some(isNum)) return null;
+  const hero = leaderLine(category, { ...s }).hero;
+  return typeof hero === "string" && hero.trim() && !/^(–|-)?\s*(yds|tkl)?$/.test(hero.trim()) ? hero.trim() : null;
 }
 
 /** One side of a row: the value, the FBS chip (linked to the stat's national list) and the conference chip. */
@@ -63,9 +72,10 @@ export function leaderLines(cat, { usAbbr = "", themAbbr = "", usTeam, themTeam,
       label: "Conference games",
       sub: same ? games(usConfGames) : "",
       rowClass: "lines__conf",
-      us: { text: usConf ? `${usConf}${!same && games(usConfGames) ? ` (${games(usConfGames)})` : ""}` : null },
-      them: { text: themConf ? `${themConf}${!same && games(themConfGames) ? ` (${games(themConfGames)})` : ""}` : null },
+      us: { text: usConf ? `${usConf}${!same && games(usConfGames) ? ` (${games(usConfGames)})` : ""}` : null, textShort: usConf ? confGamesShort(category, obj(obj(c.us).conferenceGames).stats) : null },
+      them: { text: themConf ? `${themConf}${!same && games(themConfGames) ? ` (${games(themConfGames)})` : ""}` : null, textShort: themConf ? confGamesShort(category, obj(obj(c.them).conferenceGames).stats) : null },
     });
   }
-  return el("div", { class: "lines" }, twoTeamTable({ rows, usAbbr, themAbbr, usTeam, themTeam, tug: true, labelHead: "Season", caption: `${text(c.label)}: each leader's whole line` }));
+  // centered (owner 2026-10-10): the stat over its bar in the middle, under the two leaders' own halves, one center line down the band
+  return el("div", { class: "lines" }, twoTeamTable({ rows, usAbbr, themAbbr, usTeam, themTeam, tug: true, centered: true, labelHead: "Season", caption: `${text(c.label)}: each leader's whole line` }));
 }

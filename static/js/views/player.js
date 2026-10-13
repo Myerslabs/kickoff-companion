@@ -6,6 +6,15 @@
 // order with plain labels (LRP-06); the game log as Wk | Opp | Result | stats with the opponent a team link
 // and the right vs/at (LRP-11); Play value numbers as numbers; each Stats heading with a sparkline of that
 // stat by game (LRP-16 c, GX-13 restrained).
+//
+// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every table on the card sizes itself by its own box
+// (about 600 px from a 700 px screen, a phone's width below). The stat columns follow ui/stat-labels.js (CATEGORY_SIZES for
+// the seasons, GAME_SIZES for the game log); the opponent reads "at DT" at small, still its team link; a bowl's week is
+// "Bowl" or its playoff round ("CFP" at small), its whole name on hover; the game log's result shows from medium (a phone
+// holds the week, the opponent and four stats); the game log and play value by game sort (the week by the game's place in
+// the season, the result by its margin, the latest game first); the splits keep their order and shorten their names
+// (ui/sizes.js). Decision 3: the server sends the earlier seasons too, so each Stats table's Career row sums real seasons
+// (shown from two seasons up); a season that could not be loaded is named in the card's note.
 
 import { DASH, el, fmtDate, fmtStat, isNum, teamLink, text } from "../ui/dom.js";
 import { cardHeading, openPlayerCard, playerCard } from "../ui/player-card.js";
@@ -68,7 +77,7 @@ function seasonsTables(seasons, gameLog) {
     return {
       title: categoryTitle(category),
       columns,
-      rows: [...list].sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0)).map((season) => ({ year: text(season.year), ...(season.stats && typeof season.stats === "object" ? season.stats : {}) })), // newest first (owner, 2026-10-08)
+      rows: [...list].sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0)).map((season) => ({ ...(season.stats && typeof season.stats === "object" ? season.stats : {}), year: text(season.year) })), // newest first (owner, 2026-10-08); a stat named "year" never takes the Year cell
       trend: want ? { values: trendValues(gameLog, category), label: want.label, format: "0f" } : null,
     };
   });
@@ -79,9 +88,16 @@ function atOrVs(homeAway) {
   return homeAway === "away" ? "at" : "vs";
 }
 
-function oppCell(row) {
+/** "at" or "vs" and the opponent as a team link: the school at large and medium, its abbreviation at small ("at DT", the
+ *  school when it has none), so the tap survives on a phone. */
+function oppCell(row, { short = false } = {}) {
   if (!row.opponent) return null;
-  return el("span", { class: "gl-opp" }, el("span", { class: "gl-opp__at" }, `${row.at} `), teamLink(row.opponent, text(row.opponent)));
+  const name = short && row.opponentAbbr ? row.opponentAbbr : row.opponent;
+  return el("span", { class: "gl-opp" }, el("span", { class: "gl-opp__at" }, `${row.at} `), teamLink(row.opponent, text(name)));
+}
+
+function oppShortCell(row) {
+  return oppCell(row, { short: true });
 }
 
 function resultCell(row) {
@@ -90,38 +106,81 @@ function resultCell(row) {
   return el("span", { class: `gl-result gl-result--${m[1].toLowerCase()}` }, el("b", {}, m[1]), m[2] ? ` ${m[2]}` : "");
 }
 
-/** The first columns of every by-game table: Wk, Opp (a team link with at or vs), Result. */
+/** A result's margin for sorting ("W 31-14" is 17, "L 20-24" is -4); null when the result has no score. Exported for the tests. */
+export function resultMargin(result) {
+  const m = typeof result === "string" ? /^[WLT]\s+(\d+)\s*-\s*(\d+)$/.exec(result.trim()) : null;
+  return m ? Number(m[1]) - Number(m[2]) : null;
+}
+
+/** The week: its number, or a postseason game's short name ("Bowl", "Semifinal") with the whole name on hover. */
+function weekCell(row, { short = false } = {}) {
+  const word = short ? row.wkShort || row.wk : row.wk;
+  return row.wkName ? el("span", { title: row.wkName }, text(word)) : text(word);
+}
+
+/** The first columns of every by-game table: Wk (sorting by the game's place in the season, so a bowl sorts after the
+ *  regular season), Opp (a team link with at or vs), Result (sorting by the margin; from medium, so a phone keeps four of
+ *  the player's numbers beside the week and the opponent). */
 function gameColumns({ result = true } = {}) {
   return [
-    { key: "wk", label: "Wk", kind: "text" },
-    { key: "opponent", label: "Opp", kind: "text", render: oppCell },
-    ...(result ? [{ key: "result", label: "Result", kind: "text", render: resultCell }] : []),
+    { key: "wk", label: "Wk", kind: "text", sortKey: "order", render: weekCell, renderShort: (row) => weekCell(row, { short: true }) },
+    { key: "opponent", label: "Opp", kind: "text", render: oppCell, renderShort: oppShortCell },
+    ...(result ? [{ key: "result", label: "Result", kind: "text", render: resultCell, sortKey: "margin", size: "medium" }] : []),
   ];
 }
 
-function gameRow(game) {
-  const label = typeof game.postseason === "string" && game.postseason.trim() ? game.postseason.trim() : null;
-  return { wk: label || (isNum(game.week) ? String(game.week) : DASH), opponent: typeof game.opponent === "string" && game.opponent.trim() ? game.opponent.trim() : null, at: atOrVs(game.homeAway), result: typeof game.result === "string" ? game.result : null };
+/** A by-game table's starting order: the latest game first (owner, 2026-10-08), the Wk head marked. */
+const LATEST_FIRST = { key: "wk", dir: "descending" };
+
+function str(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-/** The game log laid out like the season tables (owner direction 2026-09-23): one table per category, one row per game. */
+function gameRow(game, order) {
+  const result = typeof game.result === "string" ? game.result : null;
+  const name = str(game.postseason); // a postseason game's whole name ("Pasta Bowl", "College Football Playoff Semifinal at ...")
+  const short = name ? str(game.postseasonShort) || "Bowl" : null;
+  return {
+    wk: short || (isNum(game.week) ? String(game.week) : DASH),
+    wkShort: short ? (short === "Bowl" ? "Bowl" : "CFP") : null,
+    wkName: name && name !== short ? name : null,
+    order,
+    opponent: str(game.opponent),
+    opponentAbbr: str(game.opponentAbbr),
+    at: atOrVs(game.homeAway),
+    result,
+    margin: resultMargin(result),
+  };
+}
+
+// a by-game row's own fields: a box-score stat by one of these names is left out, never drawn over the week or the opponent
+const GAME_FIELDS = new Set(["wk", "wkShort", "wkName", "order", "opponent", "opponentAbbr", "at", "result", "margin"]);
+
+/** The game log laid out like the season tables (owner direction 2026-09-23): one table per category, one row per game,
+ *  the latest first and sorting (tables wave 3). */
 function gameLogTables(gameLog) {
   const byCategory = new Map();
-  for (const game of games(gameLog)) {
+  games(gameLog).forEach((game, order) => {
     for (const line of linesOf(game)) {
       if (!byCategory.has(line.category)) byCategory.set(line.category, []);
-      byCategory.get(line.category).push({ game, stats: line.stats && typeof line.stats === "object" ? line.stats : {} });
+      byCategory.get(line.category).push({ game, order, stats: line.stats && typeof line.stats === "object" ? line.stats : {} });
     }
-  }
+  });
   return [...byCategory.entries()].map(([category, entries]) => {
     const keys = [];
-    for (const entry of entries) for (const key of Object.keys(entry.stats)) if (!keys.includes(key)) keys.push(key);
+    for (const entry of entries) for (const key of Object.keys(entry.stats)) if (!keys.includes(key) && !GAME_FIELDS.has(key)) keys.push(key);
     return {
       title: categoryTitle(category),
-      columns: [...gameColumns(), ...categoryColumns(category, keys)],
-      rows: entries.map((entry) => ({ ...gameRow(entry.game), ...Object.fromEntries(Object.entries(entry.stats).map(([k, v]) => [k, normalizeStat(k, v)])) })).reverse(), // the latest game first (owner, 2026-10-08)
+      columns: [...gameColumns(), ...categoryColumns(category, keys, { log: true })],
+      rows: entries.map((entry) => ({ ...Object.fromEntries(keys.map((k) => [k, normalizeStat(k, entry.stats[k])])), ...gameRow(entry.game, entry.order) })).reverse(), // the latest game first (owner, 2026-10-08)
+      sort: LATEST_FIRST,
     };
   });
+}
+
+/** PPA per play in its three forms (rule 5: PPA per play, PPA/play, PPA). */
+function ppaColumn(key) {
+  return { key, label: "PPA per play", labelMid: "PPA/play", labelShort: "PPA", format: "+2f" };
 }
 
 const PPA_SPLITS = [["all", "All plays"], ["pass", "Passing"], ["rush", "Rushing"], ["firstDown", "First down"], ["secondDown", "Second down"], ["thirdDown", "Third down"], ["standardDowns", "Standard downs"], ["passingDowns", "Passing downs"]];
@@ -135,12 +194,13 @@ function extraPanels(data) {
   const avg = season && season.average && typeof season.average === "object" ? season.average : {};
   const total = season && season.total && typeof season.total === "object" ? season.total : {};
   const seasonRows = season ? PPA_SPLITS.map(([key, label]) => ({ label, avg: avg[key], total: total[key] })) : [];
-  // the by-game rows carry no home or away: the game log's row for that week says which
+  // the by-game rows carry no home or away and no abbreviation: the game log's row for that week says which
   const where = new Map(games(data.gameLog).filter((g) => isNum(g.week)).map((g) => [g.week, g]));
-  const gameRows = (Array.isArray(ppa.games) ? ppa.games : []).filter((g) => g && typeof g === "object").slice().reverse().map((g) => { // the latest game first
+  const gameRows = (Array.isArray(ppa.games) ? ppa.games : []).filter((g) => g && typeof g === "object").map((g, order) => {
     const game = where.get(g.week);
-    return { wk: isNum(g.week) ? String(g.week) : DASH, opponent: typeof g.opponent === "string" && g.opponent.trim() ? g.opponent.trim() : null, at: atOrVs(game && game.opponent === g.opponent ? game.homeAway : null), all: g.all, pass: g.pass, rush: g.rush };
-  });
+    const same = Boolean(game) && game.opponent === g.opponent;
+    return { wk: isNum(g.week) ? String(g.week) : DASH, order, opponent: str(g.opponent), opponentAbbr: same ? str(game.opponentAbbr) : null, at: atOrVs(same ? game.homeAway : null), all: g.all, pass: g.pass, rush: g.rush };
+  }).reverse(); // the latest game first
   const usageRows = usage ? USAGE_SPLITS.map(([key, label]) => ({ label, share: usage[key] })) : [];
   const body = el(
     "div",
@@ -148,9 +208,11 @@ function extraPanels(data) {
     season
       ? el("p", { class: "note" }, `${isNum(season.plays) ? `${season.plays} plays graded. ` : ""}`, el("span", { class: "hint-term" }, "PPA per play"), ` ${fmtStat(avg.all, "+2f")}${isNum(ppa.teamRank) ? `, #${ppa.teamRank} of ${text(ppa.teamOf)} on the team` : ""}. Predicted points added per play: positive is good, and a season average settles down after a few games.`) // Phase 17 #20: the term in the sentence opens its entry
       : el("p", { class: "note" }, "No play value yet. CFBD grades players after each game; a player needs a handful of plays before an average means anything."),
-    seasonRows.length ? el("div", { class: "player-card__block" }, cardHeading("Season by split"), statTable({ compact: true, columns: [{ key: "label", label: "Split", kind: "text" }, { key: "avg", label: "Per play", format: "+2f" }, { key: "total", label: "Total", format: "+2f" }], rows: seasonRows })) : null,
-    gameRows.length ? el("div", { class: "player-card__block" }, cardHeading("By game"), statTable({ compact: true, sortable: false, columns: [...gameColumns({ result: false }), { key: "all", label: "PPA/play", format: "+2f" }, { key: "pass", label: "Pass", format: "+2f" }, { key: "rush", label: "Rush", format: "+2f" }], rows: gameRows })) : null,
-    usageRows.length ? el("div", { class: "player-card__block" }, cardHeading("Usage, share of the team's plays"), statTable({ compact: true, columns: [{ key: "label", label: "Split", kind: "text" }, { key: "share", label: "Share", format: "pct" }], rows: usageRows })) : null,
+    // wave 3: the splits keep their order and shorten their names by size (ui/sizes.js: All, 1st, 2nd, Std downs); one name
+    // per stat, PPA per play (PPA/play at medium, PPA at small) and Total PPA
+    seasonRows.length ? el("div", { class: "player-card__block" }, cardHeading("Season by split"), statTable({ compact: true, sizes: true, columns: [{ key: "label", label: "Split", kind: "text" }, ppaColumn("avg"), { key: "total", label: "Total PPA", labelShort: "Total", format: "+2f" }], rows: seasonRows, caption: "Play value by split" })) : null,
+    gameRows.length ? el("div", { class: "player-card__block" }, cardHeading("By game"), statTable({ compact: true, sizes: true, columns: [...gameColumns({ result: false }), ppaColumn("all"), { key: "pass", label: "Pass", format: "+2f" }, { key: "rush", label: "Rush", format: "+2f" }], rows: gameRows, sort: LATEST_FIRST, caption: "Play value by game" })) : null,
+    usageRows.length ? el("div", { class: "player-card__block" }, cardHeading("Usage, share of the team's plays"), statTable({ compact: true, sizes: true, columns: [{ key: "label", label: "Split", kind: "text" }, { key: "share", label: "Share", format: "pct" }], rows: usageRows, caption: "Usage" })) : null,
   );
   const grade = data.grade && typeof data.grade === "object" ? data.grade : null; // public release Phase 7
   const graded = gradeValue(grade);
@@ -177,6 +239,14 @@ export function cardPropsFrom(data) {
   const d = data && typeof data === "object" ? data : {};
   const p = d.player && typeof d.player === "object" ? d.player : {};
   const missing = Array.isArray(d.missingWeeks) ? d.missingWeeks.filter((w) => isNum(w)) : [];
+  const lost = Array.isArray(d.missingSeasons) ? d.missingSeasons.filter((y) => isNum(y)) : []; // decision 3: an earlier season that failed
+  const rosters = Array.isArray(d.missingHistory) ? d.missingHistory.filter((y) => isNum(y)) : []; // an earlier roster that did not load
+  const notes = [
+    missing.length ? `Box scores for week${missing.length > 1 ? "s" : ""} ${missing.join(", ")} could not be loaded.` : null,
+    lost.length ? `Stats for ${lost.join(", ")} could not be loaded, so the career rows leave ${lost.length > 1 ? "those seasons" : "that season"} out.` : null,
+    // "may": a roster that failed does not prove he was on the team that year
+    rosters.length ? `Rosters for ${rosters.join(", ")} could not be loaded, so History and the career rows may leave ${rosters.length > 1 ? "those seasons" : "that season"} out.` : null,
+  ].filter(Boolean);
   return {
     player: { ...p, height: p.heightText || p.height },
     seasons: seasonsTables(d.seasons, d.gameLog),
@@ -184,7 +254,7 @@ export function cardPropsFrom(data) {
     extras: extraPanels(d),
     history: (Array.isArray(d.history) ? d.history : []).filter((row) => row && typeof row === "object").map((row) => ({ ...row, year: text(row.year) })),
     them: p.isUs === false,
-    note: missing.length ? `Box scores for week${missing.length > 1 ? "s" : ""} ${missing.join(", ")} could not be loaded.` : null,
+    note: notes.length ? notes.join(" ") : null,
   };
 }
 

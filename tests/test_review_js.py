@@ -1,5 +1,5 @@
-"""Phase 19 in the fake browser: Season in review (the facts from a schedule, every missing score skipped, nothing played)
-and the game-notes panel."""
+"""Phase 19 in the fake browser: Season in review (the facts from a schedule, every missing score skipped, nothing played;
+tables wave 3: its three sized tables) and the game-notes panel."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from tests.fakedom import needs_node, run_scenario
 SCENARIOS = r"""
 const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 const text = (node) => (node ? node.textContent : "");
+const cls = (node) => String(node.getAttribute("class") || "");
+const form = (cell, which) => { const t = cell.querySelector(`.sz-t--${which}`); return t ? t.textContent : text(cell); }; // a sized table's words
 const flush = async () => { for (let i = 0; i < 6; i += 1) await new Promise((resolve) => setImmediate(resolve)); };
 
 const game = (id, date, result, us, them, school, extra = {}) => ({ gameId: id, date, completed: true, result, usPoints: us, themPoints: them, homeAway: "home", opponent: { school, apRank: null }, ...extra });
@@ -47,15 +49,58 @@ scenarios.facts = async () => {
 };
 
 scenarios.body = async () => {
-  const { reviewBody } = await import(moduleUrl("views/review.js"));
-  const node = reviewBody({ schedule: SCHEDULE, record: { overall: { wins: 4, losses: 1, ties: 0 } } });
+  const { reviewBody, reviewGameRow } = await import(moduleUrl("views/review.js"));
+  const node = reviewBody({ schedule: SCHEDULE, record: { overall: { wins: 4, losses: 1, ties: 0 } }, polls: [{ poll: "AP" }, null] });
   document.body.append(node);
   const t = text(node);
   assert.ok(!RAW.test(t), t.slice(0, 500));
   assert.ok(t.includes("4-1") && t.includes("Best win"));
-  assert.ok(t.includes("Alpha: W 45-10") && t.includes("at #3 Charlie: L 14-38"), t.slice(0, 700));
   assert.ok(t.includes("134 points scored and 106 allowed over 5 games"));
   assert.equal(node.querySelectorAll("tbody tr").length >= 5, true);
+  // tables wave 3 (rule 3): the season in a few lines is two sized tables, every data point in its own column
+  const wraps = node.querySelectorAll(".stat-table-wrap");
+  assert.equal(wraps.length, 3, "the games that stood out, the splits, every game");
+  assert.ok(wraps.every((w) => w.dataset.size === "large"), "each table sizes itself");
+  assert.ok(wraps.slice(0, 2).every((w) => w.closest(".score-words")), "the facts keep the spoiler blur");
+  const heads = (wrap) => [...wrap.querySelectorAll("thead th")];
+  const words = (wrap, which) => heads(wrap).map((th) => form(th, which));
+  assert.deepEqual(words(wraps[0], "long"), ["Fact", "Site", "AP rank", "Opponent", "Result", "Date"]);
+  assert.deepEqual(words(wraps[0], "mid"), ["Fact", "Site", "AP", "Opponent", "Result", "Date"]);
+  assert.ok(cls(heads(wraps[0])[2]).includes("st__min-medium") && cls(heads(wraps[0])[5]).includes("st__min-large"), "the AP rank from medium, the date at large");
+  assert.deepEqual(words(wraps[1], "long"), ["Fact", "Value"]);
+  assert.ok(!wraps[0].querySelector("thead button") && !wraps[1].querySelector("thead button"), "the facts keep their written order");
+  const cells = (wrap, i) => [...wrap.querySelectorAll("tbody tr")[i].querySelectorAll("td")];
+  const loss = cells(wraps[0], 2);
+  assert.deepEqual([form(loss[0], "long"), form(loss[1], "long"), form(loss[1], "short"), text(loss[2]), text(loss[3]), text(loss[4]), text(loss[5])], ["Hardest loss", "Away", "A", "#3", "Charlie", "L 14-38", "Sep 19"]);
+  assert.ok(loss[2].querySelector(".poll-badge") && loss[3].querySelector(".team-link") && loss[4].querySelector(".res--l"), "the poll's badge, the team's link, the result's color");
+  assert.deepEqual([form(cells(wraps[0], 1)[0], "mid"), form(cells(wraps[0], 1)[0], "short")], ["Best ranked win", "Ranked win"], "the facts' shorter words below large");
+  assert.equal(text(cells(wraps[0], 0)[2]), "NR", "an unranked opponent in a loaded poll");
+  const split = wraps[1].querySelectorAll("tbody tr").map((tr) => tr.querySelectorAll("td").map((td) => form(td, "long")));
+  assert.deepEqual(split, [["Against ranked teams", "2-1"], ["Games decided by 8 or fewer", "3-0"], ["Longest winning streak", "2 games"], ["Current streak", "W2"]], "a game still to play: the current streak");
+  wraps[0].querySelectorAll("tbody tr")[2].click();
+  assert.equal(window.location.hash, "box=3", "a game that stood out opens its box score");
+  // every game: the season's order first; the result sorts by its margin, the date by its day
+  const games = wraps[2];
+  assert.deepEqual(words(games, "long"), ["#", "Date", "Wk", "Site", "AP rank", "Opponent", "Result", "Margin"]);
+  assert.deepEqual(heads(games).map((th) => ["st__min-medium", "st__min-large"].find((c) => cls(th).includes(c)) || ""), ["st__min-medium", "st__min-large", "st__min-large", "", "st__min-medium", "", "", ""]);
+  assert.equal(heads(games)[0].getAttribute("aria-sort"), "ascending");
+  const order = () => games.querySelectorAll("tbody tr").map((tr) => text(tr.querySelectorAll("td")[5]));
+  assert.deepEqual(order(), ["Alpha", "Bravo", "Charlie", "Delta", "Echo"]);
+  heads(games)[6].querySelector("button").click();
+  assert.deepEqual(order(), ["Alpha", "Delta", "Echo", "Bravo", "Charlie"], "the result sorts by its margin, the biggest win first");
+  heads(games)[1].querySelector("button").click();
+  assert.deepEqual(order(), ["Echo", "Delta", "Charlie", "Bravo", "Alpha"], "the date sorts by its day, the latest first");
+  assert.ok(games.querySelectorAll(".score-words").length === 5, "every margin keeps the spoiler blur");
+  // no poll loaded: an unranked opponent is a dash, never NR; the season over: the run it ended on
+  const over = reviewBody({ schedule: SCHEDULE.filter((g) => g && g.gameId !== 6) });
+  const [first, splits] = over.querySelectorAll(".stat-table-wrap");
+  assert.equal(text(first.querySelectorAll("tbody tr")[0].querySelectorAll("td")[2]), "\u2013");
+  assert.equal(form(splits.querySelectorAll("tbody tr")[3].querySelector("td"), "long"), "The season ended on");
+  // a row from a damaged game never prints a raw value
+  for (const junk of [null, "x", { opponent: "x", result: "W", usPoints: "7" }, { opponent: { school: 4, apRank: "1" }, homeAway: "moon" }]) {
+    const row = reviewGameRow(junk, 1);
+    assert.ok(!RAW.test(JSON.stringify([row.site, row.result, row.dateText])) && row.margin === null && row.apRank === null, JSON.stringify(row));
+  }
   const empty = text(reviewBody({ schedule: [] }));
   assert.ok(empty.includes("nothing to review") && !RAW.test(empty));
   assert.ok(!RAW.test(text(reviewBody(null))));

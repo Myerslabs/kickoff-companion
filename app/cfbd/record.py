@@ -15,6 +15,8 @@
       --extra search    Phase 15: CFBD's player search, a narrow and a broad term (2)
       --extra national  Phase 16: every recruit in five classes (this year -3 to next year) and every
                         team's returning production, for the national lists (6)
+      --extra top25     items 10-12 (2026-10-13): every head coach of the year, and CFBD's weather for
+                        a whole week of FBS games, the next week (forecasts) and the week before (observed) (3)
 
 Runs on the owner's machine with the key from .env, through the normal client (quota guard,
 ledger, breaker), with the cache bypassed so every sample is fresh. Errors are recorded too:
@@ -129,7 +131,7 @@ class Recorder:
         self.rows.append(row)
         return payload
 
-    EXTRA_SETS = ("week", "players", "program", "live", "stats", "depth2", "postseason", "search", "national")
+    EXTRA_SETS = ("week", "players", "program", "live", "stats", "depth2", "postseason", "search", "national", "top25")
 
     async def extras(self, year: int, team: str, next_week: int, sets: tuple[str, ...] = EXTRA_SETS, opponent: str | None = None) -> None:
         """Additions after the first recording.
@@ -143,7 +145,14 @@ class Recorder:
         /live/plays serves it after the final, the FBS scoreboard, and CFBD's game weather.
         stats (2026-09-23, Phase 10): player season PPA and usage for both teams, team talent, returning
         production, and the opponent's last four recruiting classes for the blue-chip ratio.
+        top25 (2026-10-13, items 10-12): /coaches for the whole year (every team's head coach in one call)
+        and /games/weather for a whole week of FBS games, for the Top 25 page's cards and the paper's matchups.
         """
+        if "top25" in sets:
+            await self.capture("/coaches", {"year": year}, suffix="year")
+            await self.capture("/games/weather", {"year": year, "week": next_week, "classification": "fbs"}, suffix="week")
+            if next_week > 1:
+                await self.capture("/games/weather", {"year": year, "week": next_week - 1, "classification": "fbs"}, suffix="week_before")
         if "week" in sets:
             await self.capture("/games", {"year": year, "week": next_week}, suffix="week")
             await self.capture("/lines", {"year": year, "week": next_week}, suffix="week")

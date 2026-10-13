@@ -15,7 +15,7 @@ router = APIRouter(tags=["archive"])
 @router.get("/api/archive")
 async def archive_list(request: Request) -> Any:
     service: ArchiveService = request.app.state.archive
-    return envelope(service.list(), source="live")
+    return envelope(await service.list(), source="live")
 
 
 @router.get("/api/archive/{game_id}")

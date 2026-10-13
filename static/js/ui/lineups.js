@@ -144,12 +144,12 @@ function startersTable(lineup, unit, availability, onPlayer, who) {
   const columns = [
     { key: "slot", label: "Slot", kind: "text" },
     { key: "number", label: "No." },
-    { key: "name", label: "Starter", kind: "text", sub: "classYear" },
-    { key: "chips", label: "Season", kind: "text", render: chipsCell },
-    ...(noted ? [{ key: "note", label: "Note", kind: "text", render: noteCell }] : []),
+    { key: "name", label: "Starter", kind: "text", sub: "classYear", person: { notes: true } }, // item 6: the notes' words, shortened only when they read cleanly
+    { key: "chips", label: "Season", kind: "text", render: chipsCell, size: "medium" },
+    ...(noted ? [{ key: "note", label: "Note", kind: "text", render: noteCell, size: "medium" }] : []),
   ];
   const tap = typeof onPlayer === "function" ? (row) => (row.playerId ? onPlayer(row) : null) : undefined;
-  return statTable({ compact: true, sortable: false, columns, rows, caption: `${unit} starters`, onRowTap: tap, rowClass: (row) => (row.playerId ? null : "is-static") });
+  return statTable({ compact: true, sortable: false, sizes: true, columns, rows, caption: `${unit} starters`, onRowTap: tap, rowClass: (row) => (row.playerId ? null : "is-static") });
 }
 
 /** One team's full chart on one unit: a row per slot, the names across (Starter, Second, Third...). */
@@ -157,13 +157,14 @@ function depthTable(lineup, unit, availability) {
   const slots = lineupSlots(lineup).filter((slot) => slot.unit === unit && slot.players.length);
   if (!slots.length) return note("No chart written for this unit.");
   const deep = Math.min(DEPTH_HEADS.length, Math.max(2, ...slots.map((slot) => slot.players.length)));
-  const columns = [{ key: "slot", label: "Slot", kind: "text" }, ...DEPTH_HEADS.slice(0, deep).map((head, i) => ({ key: `p${i}`, label: head, kind: "text" }))];
+  // sizes: the starter and the second always, the third from medium, the rest at large (owner 2026-10-10: no side scrolling)
+  const columns = [{ key: "slot", label: "Slot", kind: "text" }, ...DEPTH_HEADS.slice(0, deep).map((head, i) => ({ key: `p${i}`, label: head, kind: "text", size: i >= 3 ? "large" : i === 2 ? "medium" : undefined }))];
   const rows = slots.map((s) => {
     const row = { slot: s.slot };
     for (let i = 0; i < deep; i += 1) row[`p${i}`] = s.players[i] ? playerText(s.players[i], availability) : DASH;
     return row;
   });
-  return statTable({ compact: true, sortable: false, columns, rows, caption: `${unit} depth chart` });
+  return statTable({ compact: true, sortable: false, sizes: true, columns, rows, caption: `${unit} depth chart` });
 }
 
 /** "Swampwater Tech offense" over a side of a pair; the team name is its link. */

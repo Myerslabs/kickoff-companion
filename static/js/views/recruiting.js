@@ -11,14 +11,25 @@
 //   GX-20   (restrained) 'Where they're from': State | Commits | Avg rating | 5/4/3 stars per class, with the
 //           in-state share, from the class's byState and inState.
 //   DS-14   the visitors' sub-headings name their team as a link; DS-06 the .page container.
+//
+// Tables wave 3 (owner 2026-10-10): every table sizes itself by its own box, each data point in its own column.
+//   The class: its national rank is the class's own order (decision 2: the chip at large and medium, a plain number at
+//     small) | Recruit (stepping down with the table, item 6) | Pos (decision 1: its own column, gone at small) | Stars | Rating | High
+//     school (large) | Hometown, Ht, Wt (from medium). The recruits sort; the reader's order survives a refresh.
+//   Where they're from: State (its name, the code at small) | Commits | Avg rating | 5-star | 4-star | 3-star, one count
+//     per column (the old "1 / 0 / 0" cell held three), nothing dropped.
+//   Visitors: Recruit (the notes' words, shortened only when they read cleanly) | Pos (gone at small) | Class | Stars | High school (large) | Hometown
+//     (from medium) | Status. A table of players, so it sorts.
 
 import { usSchool } from "../identity.js";
-import { el, fmtDate, fmtPct, isNum, recall, remember, text } from "../ui/dom.js";
+import { el, fmtDate, fmtPct, isNum, recall, remember, str, text } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band, note, revealBand, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
+import { visitorRows } from "../ui/in-game-tables.js";
 import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { starStrip } from "../ui/team-page.js";
+import { stateName } from "../us-states.js";
 import { errorPanel, partState, poller } from "./common.js";
 
 /** " Class rank #17 of 221 (250.98 points, 247Sports)." or nothing (Phase 13). Exported for the tests. */
@@ -38,22 +49,22 @@ function recruitLink(row) {
 }
 
 const COMMIT_COLUMNS = [
-  { key: "nationalRank", label: "National rank", kind: "rank", link: recruitLink },
-  { key: "name", label: "Recruit", kind: "text", sub: "position" },
+  { key: "nationalRank", label: "National rank", labelMid: "Nat", labelShort: "Nat", kind: "rank", order: true, link: recruitLink }, // "Nat" from medium: the iPad's two-wide band keeps the hometown
+  { key: "name", label: "Recruit", kind: "text", person: true, sub: "position", subLabel: "Pos" },
   { key: "stars", label: "Stars", format: "stars" },
   { key: "rating", label: "Rating", format: "rating100" },
-  { key: "highSchool", label: "High school", kind: "text" },
-  { key: "hometown", label: "Hometown", kind: "text" },
-  { key: "heightText", label: "Ht", kind: "text" },
-  { key: "weight", label: "Wt" },
-];
+  { key: "highSchool", label: "High school", kind: "text", size: "large" },
+  { key: "hometown", label: "Hometown", kind: "text", size: "medium" },
+  { key: "heightText", label: "Ht", size: "medium", sortKey: "height" }, // a number column: it sorts by inches, tallest first
+  { key: "weight", label: "Wt", size: "medium" },
+].map((column) => ({ ...column, tieKey: "name" }));
 
 const VISITOR_COLUMNS = [
-  { key: "name", label: "Recruit", kind: "text", sub: "position" },
+  { key: "name", label: "Recruit", kind: "text", person: { notes: true }, sub: "position", subLabel: "Pos" }, // the notes' words (item 6)
   { key: "classYear", label: "Class", kind: "text" },
   { key: "stars", label: "Stars", format: "stars" },
-  { key: "highSchool", label: "High school", kind: "text" },
-  { key: "hometown", label: "Hometown", kind: "text" },
+  { key: "highSchool", label: "High school", kind: "text", size: "large" },
+  { key: "hometown", label: "Hometown", kind: "text", size: "medium" },
   { key: "status", label: "Status", kind: "text" },
 ];
 
@@ -61,8 +72,48 @@ function rows(list) {
   return (Array.isArray(list) ? list : []).filter((r) => r && typeof r === "object");
 }
 
+/** A class's commits as the table's rows: guarded fields. Exported for the tests. */
+export function commitRows(list) {
+  return rows(list).map((c) => {
+    const name = str(c.name);
+    return {
+      ...c,
+      name,
+      position: str(c.position),
+      nationalRank: isNum(c.nationalRank) ? c.nationalRank : null,
+      stars: isNum(c.stars) ? c.stars : null,
+      rating: isNum(c.rating) ? c.rating : null,
+      highSchool: str(c.highSchool),
+      hometown: str(c.hometown),
+      heightText: str(c.heightText),
+      height: isNum(c.height) ? c.height : null,
+      weight: isNum(c.weight) ? c.weight : null,
+    };
+  });
+}
+
+/** The class's commits, sized (wave 3), in national-rank order to start. `sorts` keeps the reader's order. Exported for the
+ *  design system, which draws the page's own table. */
+export function commitsTable(commits, { sorts } = {}) {
+  const kept = sorts && typeof sorts === "object" ? sorts : {};
+  return statTable({
+    columns: COMMIT_COLUMNS,
+    rows: commitRows(commits),
+    sort: kept.commits || { key: "nationalRank", dir: "ascending" },
+    onSort: (sort) => {
+      kept.commits = sort;
+    },
+    compact: true,
+    sizes: true,
+    caption: "Commits",
+  });
+}
+
 function visitorsBlock(visitors, team) {
-  const side = (title, school, kind, list) => el("div", {}, subhead(title, { team: school, side: kind }), rows(list).length ? statTable({ compact: true, sortable: false, columns: VISITOR_COLUMNS, rows: rows(list) }) : note("No visitors listed."));
+  const side = (title, school, kind, list) => {
+    const shaped = visitorRows(list); // the notes' visitors, guarded as In Game guards them (ui/in-game-tables.js)
+    return el("div", {}, subhead(title, { team: school, side: kind }), shaped.length ? statTable({ compact: true, sizes: true, columns: VISITOR_COLUMNS, rows: shaped, caption: title }) : note("No visitors listed."));
+  };
   const opponent = typeof visitors.opponent === "string" && visitors.opponent.trim() ? visitors.opponent.trim() : null;
   const source = visitors.source
     ? el("p", { class: "note" }, "Source: ", typeof visitors.sourceUrl === "string" && /^https?:\/\//.test(visitors.sourceUrl) ? el("a", { href: visitors.sourceUrl, target: "_blank", rel: "noopener" }, text(visitors.source)) : text(visitors.source), visitors.updatedAt ? ` · updated ${text(visitors.updatedAt)}` : "")
@@ -107,13 +158,15 @@ function classSummary(cls, team) {
   return el("span", { class: "class-sum" }, chip, " nationally", counts ? ` · ${counts}` : "");
 }
 
-/** The by-state rows of a class, guarded: a missing state reads "Unknown", counts must be numbers. Exported for the tests. */
+/** The by-state rows of a class, guarded: a missing state reads "Unknown", counts must be numbers. Each star count has its
+ *  own field (s5, s4, s3: one column each, wave 3; the old "1 / 0 / 0" cell held three) and stateName is the state's name
+ *  for large and medium (the code at small). Exported for the tests. */
 export function whereRows(cls) {
   return rows(cls?.byState).map((r) => {
     const stars = r.stars && typeof r.stars === "object" ? r.stars : {};
     const n = (k) => (isNum(stars[k]) ? stars[k] : 0);
     const state = typeof r.state === "string" && r.state.trim() ? r.state.trim().slice(0, 24) : "Unknown";
-    return { state, commits: isNum(r.commits) ? r.commits : null, averageRating: isNum(r.averageRating) ? r.averageRating : null, starMix: `${n("5")} / ${n("4")} / ${n("3")}` };
+    return { state, stateName: stateName(state), commits: isNum(r.commits) ? r.commits : null, averageRating: isNum(r.averageRating) ? r.averageRating : null, s5: n("5"), s4: n("4"), s3: n("3") };
   });
 }
 
@@ -129,24 +182,35 @@ export function inStateLine(cls) {
   return parts.join(" ");
 }
 
-function whereBlock(cls) {
+const WHERE_COLUMNS = [
+  { key: "stateName", label: "State", kind: "text", shortKey: "state" },
+  { key: "commits", label: "Commits", labelShort: "#" }, // a phone: "#" keeps the six columns in its band
+  { key: "averageRating", label: "Avg rating", labelShort: "Avg", format: "rating100" },
+  { key: "s5", label: "5-star" },
+  { key: "s4", label: "4-star" },
+  { key: "s3", label: "3-star" },
+].map((column) => ({ ...column, tieKey: "stateName" }));
+
+/** Where a class is from, sized (wave 3), the most commits first, with the in-state line under it. `sorts` keeps the
+ *  reader's order. Exported for the design system, which draws the page's own table. */
+export function whereBlock(cls, { sorts } = {}) {
   const list = whereRows(cls);
   const line = inStateLine(cls);
   if (!list.length) return note(line || "No home states on record for this class yet.");
+  const kept = sorts && typeof sorts === "object" ? sorts : {};
   return el(
     "div",
     {},
     statTable({
       compact: true,
-      columns: [
-        { key: "state", label: "State", kind: "text" },
-        { key: "commits", label: "Commits" },
-        { key: "averageRating", label: "Avg rating", format: "rating100" },
-        { key: "starMix", label: "5-, 4-, 3-star", kind: "text", sortable: false },
-      ],
+      sizes: true,
+      columns: WHERE_COLUMNS,
       rows: list,
-      sort: { key: "commits", dir: "descending" },
-      caption: `Where the ${text(cls.year)} class is from`,
+      sort: kept.where || { key: "commits", dir: "descending" },
+      onSort: (sort) => {
+        kept.where = sort;
+      },
+      caption: `Where the ${text(cls?.year)} class is from`,
     }),
     line ? el("p", { class: "note" }, line) : null,
   );
@@ -204,7 +268,7 @@ function render(envelope, container, state) {
             {},
             classHeadline(current, team),
             starStrip({ counts: current.starCounts && typeof current.starCounts === "object" ? current.starCounts : {}, average: current.average, note: `${text(current.count)} commits in the ${text(current.year)} class.` }),
-            statTable({ columns: COMMIT_COLUMNS, rows: commits, sort: { key: "nationalRank", dir: "ascending" }, compact: true, caption: "Commits" }),
+            commitsTable(commits, { sorts: state.sorts }),
           ),
       }),
       current
@@ -215,7 +279,7 @@ function render(envelope, container, state) {
             summary: current.inState && isNum(current.inState.share) ? `${fmtPct(current.inState.share)} in-state` : "",
             state: partState(part, whereRows(current).length > 0 || Boolean(inStateLine(current))),
             emptyText: "No home states on record for this class yet.",
-            body: () => whereBlock(current),
+            body: () => whereBlock(current, { sorts: state.sorts }),
           })
         : null,
       band({
@@ -235,7 +299,7 @@ function render(envelope, container, state) {
 /** The view. `arg` is the route's focus ("national", "2027", "where", "visitors"). */
 export function createRecruitingView({ onStatus, arg } = {}) {
   const asked = parseRecruitingArg(arg);
-  const state = { year: asked.year ?? recall(CLASS_KEY, null), part: asked.part, revealed: false };
+  const state = { year: asked.year ?? recall(CLASS_KEY, null), part: asked.part, revealed: false, sorts: {} }; // sorts: the reader's order, kept across refreshes
   const view = poller({
     url: "/api/recruiting",
     refreshMs: 60 * 60 * 1000,

@@ -51,11 +51,11 @@ Prefer plain pip? Make a virtual environment named `.venv` in the folder and ins
 
 ## 3. Configure (in the browser)
 
-Nothing to edit. A fresh install opens the demo first; **Use my own team** on its welcome page (`/demo`) opens the setup page (`/welcome`). The menu's **Demo** item switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
+Nothing to edit. A fresh install opens the demo first; **Use my own team** on its welcome page (`/demo`) opens the setup page (`/welcome`). **Demo** on the menu's **Setup** page switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
 
 1. **Your CFBD key.** Get one free at [collegefootballdata.com/key](https://collegefootballdata.com/key): sign up with an email address and CFBD mails it. Paste it and the page checks it with CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
-2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Game program and the Live sheet follow it, and only its colors and mascot theme the app. The conference comes along.
-3. **More primary teams** (a Tier 2 key, up to four): teams you follow closely. Their team pages load as soon as a device connects and sit one tap away in the menu, under My teams.
+2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and only its colors and mascot theme the app. The conference comes along.
+3. **More primary teams** (a Tier 2 key, up to four): teams you follow closely. Their team pages load as soon as a device connects and sit one tap away on the **My Teams** page.
 4. **Secondary teams** (a Tier 2 key): more schools, whole conferences, or every school in a state. Nothing is loaded for them until a page asks. They fill the My teams page, the My teams view of every ranked list, and the ticker when it is set to My teams.
 5. **The score ticker**: National (every FBS game, the default) or My teams (a Tier 2 key).
 
@@ -67,7 +67,7 @@ You can still set everything in `.env` by hand; `.env.example` lists every setti
 
 **Radio.** No station is built in. In Settings, Radio stations, add your team's official player page, stream or web page. For a team with no station the app offers a web search, a TuneIn search and a **Request your team's radio** button, which opens a short form in the project's GitHub issues; stations people ask for are added to the app's list for everyone.
 
-**Game notes.** The Game program has a notes band: schemes, program notes, the injury report, recruits visiting and both depth charts. To fill it, tap **Copy the prompt**, paste it into any AI chat that can search the web, wait for its answer, copy the whole answer, paste it back, **Check it**, then **Save the notes**. It works from a phone or tablet. Settings, Notes prompt, lets you change what it asks for.
+**Game notes.** The Pre-Game Program has a notes band: schemes, program notes, the injury report, recruits visiting and both depth charts. To fill it, tap **Copy the prompt**, paste it into any AI chat that can search the web, wait for its answer, copy the whole answer, paste it back, **Check it**, then **Save the notes**. It works from a phone or tablet. Settings, Notes prompt, lets you change what it asks for.
 
 ## 4. Start
 
@@ -120,7 +120,11 @@ The app keeps the screen awake during games once you tap anywhere on it.
 The app serves plain HTTP on your home network, the way most programs on a home network do, so no device has to install or accept a certificate. If you want HTTPS anyway:
 
 - **Tailscale** (free for personal use, [tailscale.com](https://tailscale.com)): install it on the host and on each device, and turn on HTTPS certificates in the Tailscale admin console (DNS page). `tailscale serve --bg 8642` on the host gives an HTTPS address like `https://your-pc.your-tailnet.ts.net` with a real certificate, trusted everywhere with no prompts, and it works away from home too.
-- **The app's own certificate:** `HTTPS=on` in `.env`. The server makes a certificate authority for your home, and each device trusts it once from `http://kickoff.local:8642/setup`, which then shows the steps for iPhone and iPad, Android, Windows, Mac, Linux and Firefox.
+- **The app's own certificate** (Settings, "HTTPS for my devices", or `HTTPS=on` in `.env`): the server answers both `http://` and `https://` on its one port and redirects nothing. Your own devices trust the certificate once from the setup page (`http://kickoff.local:8642/setup`) and use `https://`, which brings the screen lock without the video, one-tap paste of a prompt's answer and the home-screen app. Guests keep `http://` and install nothing; the QR codes point there.
+
+### Away from home
+
+For a tailgate hotspot or a venue's Wi-Fi, turn on **Away from home** in Settings (Friends and the big screen). The network name is not announced, and only a device that scanned your code, or opened the exact address in it, can watch; anyone else on that Wi-Fi sees a short page saying the companion is away. Your own devices keep working. Turn it off at home. The Windows firewall rule for the Public profile (section 5) still applies on such a network.
 
 ## 8. Start at login and a desktop icon
 

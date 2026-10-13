@@ -60,7 +60,7 @@ def test_the_season_routes_save_everything_at_once(client, league):  # noqa: F81
 
 
 def status_with(**kw):
-    base = {"season": 2026, "preseason": [{"school": TEAM, "savedAt": "2026-08-01T00:00:00Z"}], "coachesSaved": 136, "coachesOf": 136, "costsSaved": 136}
+    base = {"season": 2026, "preseason": [{"school": TEAM, "savedAt": "2026-08-01T00:00:00Z"}], "coachesSaved": 136, "coachesOf": 136, "costsSaved": 136, "factsSaved": 136}
     return {**base, **kw}
 
 
@@ -78,8 +78,8 @@ def test_the_list_names_each_gap_with_a_link():
     ids = [i["id"] for i in result["items"]]
     assert ids == ["season", "costs", "notes"] and not result["ready"]
     season = result["items"][0]
-    assert "preseason for" in season["detail"] and "100 of 136" in season["detail"] and season["href"] == "#preseason"
-    assert result["items"][2]["href"] == "#program" and "Beta" in result["items"][2]["title"]
+    assert "preseason for" in season["detail"] and "100 of 136" in season["detail"] and season["href"] == "#prompts"
+    assert result["items"][2]["href"] == "#prompts" and "Beta" in result["items"][2]["title"]
 
 
 def test_half_written_notes_list_exactly_what_is_missing():

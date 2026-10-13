@@ -16,18 +16,28 @@
 //   nationalApiUrl({ metric, team, year, scope })  the API path of a list.
 //   nationalListBody(envelope, { onScope, onYear, onRetry })  the list itself: the label as th[scope=row] (so
 //       its glossary hint works) with the summary line, the All FBS / conference and this season / last season
-//       switches, the table (Rk chip with T for ties, team links with the conference under them, the value),
-//       and for player lists the top 100, a gap row and every one of ours below the cut in a second tbody.
+//       switches, the table, and for player lists the top 100, a gap row and every one of ours below the cut in a
+//       second tbody.
+//   The table sizes itself by its own box (tables wave 3, owner 2026-10-10; docs/03-DESIGN.md "Table sizes"). The rank is
+//       the list's own order (decision 2): its chip (T for ties; a poll's badge) at large and medium, a plain number at
+//       small, headed "FBS rank", "<conference> rank" or "<poll> rank" at large and the population alone below. A team is
+//       its link (the abbreviation at small) with its conference in a column of its own at large and medium (decision 1:
+//       the whole name at large, the short name at medium); a player is his name (stepping down with the table, item 6) with his
+//       position and team in columns of their own at large and medium. The value keeps its bar at every size under its
+//       label's three forms; the stars, a poll's first-place votes and a conference list's FBS rank from medium, the
+//       percentile at large.
 //   summaryText(data), listTitle(data), centerRow(root, { scroller })   exported for the view and the tests.
 
 import { usSchool } from "../identity.js";
 import { ageSeconds, fetchPatient } from "../views/common.js";
-import { DASH, el, fmtNum, frag, isNum, obj, teamLink, text } from "./dom.js";
+import { DASH, el, fmtNum, isNum, obj, personName, teamLink, text } from "./dom.js";
 import { barCell, barScale, distributionStrip, pctlText, percentile } from "./national-bars.js"; // GX-04 (owner look)
 import { isListHref, isMetric, nationalHref, nationalRoute, parseRoute, pollName, pollsPageHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
+import { labelForms } from "./sizes.js";
 import { band, stateBlock } from "./states.js";
-import { pollBadge, statTable, statTableSkeleton } from "./stat-table.js";
+import { ownColumns, pollBadge, statTable, statTableSkeleton } from "./stat-table.js";
+import { conferenceColumn, teamAbbrLink } from "./team-page.js";
 
 
 function list(value) {
@@ -151,49 +161,74 @@ function nextTag(row) {
   return row.isNext === true ? el("span", { class: "next-tag", title: "The next opponent" }, "Next") : null;
 }
 
-function teamCell(row) {
-  return frag(teamLink(typeof row.team === "string" && row.team ? row.team : null, text(row.team)), nextTag(row), typeof row.conference === "string" && row.conference ? el("small", {}, row.conference) : null);
+function teamOf(row) {
+  return typeof row.team === "string" && row.team.trim() ? row.team.trim() : null;
 }
 
+/** A team's cell at large and medium: its link and the Next tag (its conference has a column of its own, decision 1). */
+function teamCell(row) {
+  return el("span", {}, teamLink(teamOf(row), text(row.team)), nextTag(row));
+}
+
+/** A player's name in its four forms (item 6: it steps down with the table), with the Next tag (his position and team
+ *  have columns of their own). */
 function playerCell(row) {
-  const sub = [];
-  if (typeof row.position === "string" && row.position) sub.push(row.position);
-  const team = typeof row.team === "string" && row.team ? row.team : null;
-  return frag(
-    el("span", { class: "nat-player" }, text(row.player)),
-    nextTag(row),
-    el("small", {}, sub.length ? `${sub.join(" ")} · ` : "", team ? teamLink(team, team) : "Uncommitted"),
-  );
+  return el("span", {}, el("span", { class: "nat-player" }, personName(row.player)), nextTag(row));
+}
+
+/** A player's team: its link, or "Uncommitted" for a recruit with no school yet. */
+function playerTeam(row) {
+  const team = teamOf(row);
+  return team ? teamLink(team, team) : "Uncommitted";
 }
 
 function rowClass(row) {
   return [row.isUs === true ? "is-us" : null, row.isFocus === true ? "is-focus" : null, row.isNext === true ? "is-next" : null].filter(Boolean).join(" ") || null;
 }
 
+const words = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+
+/** The value's head in its three forms (ui/sizes.js): the list's own name for its number ("Passing yards", "Pass yds"),
+ *  "Value" when the server names none. Wave 3: the forms replace the old cut to "Value" for a long label. */
 function valueHead(d) {
-  const label = typeof d.valueLabel === "string" && d.valueLabel.trim() ? d.valueLabel.trim() : "Value";
-  return label === d.label || label.length > 18 ? "Value" : label;
+  return labelForms(words(d.valueLabel) || "Value");
 }
 
-/** The table's columns: Rk, Team (or Player), the value (with its GX-04 data bar when a scale is given),
- *  Pctl, and the national rank on a conference list. */
+/** The rank column's heads: the population with "rank" at large ("FBS rank", "BB rank", "AP rank"), the population alone
+ *  at medium and small (rule 4; a conference by its short name). */
+function rankHeads(d) {
+  const poll = d.family === "poll";
+  const word = poll ? pollName(d.key) || "Poll" : d.scope === "conference" ? words(d.conferenceShort) || words(d.conference) || "Conf" : "FBS";
+  return { label: `${word} rank`, labelMid: word, labelShort: word };
+}
+
+/** The table's columns, sized by the table's own box (wave 3): the rank (the list's own order), the team or the player
+ *  (each fact beside it in a column of its own), the value with its GX-04 data bar when a scale is given, the stars of a
+ *  recruit list, the percentile, a poll's first-place votes and a conference list's FBS rank. */
 export function listColumns(d, scale = null) {
   const player = d.unit === "player";
   const poll = d.family === "poll";
   // final pass: a rank column is headed by its population (FBS rank, <Conf> rank, <Poll> rank), never Rk or Nat
-  const rankHead = poll ? `${pollName(d.key) || "Poll"} rank` : d.scope === "conference" ? `${typeof d.conference === "string" && d.conference ? d.conference : "Conf"} rank` : "FBS rank";
+  const heads = rankHeads(d);
   const columns = [
     poll
-      ? { key: "rank", label: rankHead, stick: true, tieKey: "team", render: (r) => pollBadge(r.rank, d.key, { showPoll: false }) || DASH }
-      : { key: "rank", label: rankHead, kind: "rank", of: isNum(d.of) ? d.of : undefined, tie: "tied", stick: true, tieKey: player ? "player" : "team" },
-    { key: player ? "player" : "team", label: player ? "Player" : "Team", kind: "text", stick: true, render: player ? playerCell : teamCell },
+      ? { key: "rank", ...heads, order: true, tieKey: "team", render: (r) => pollBadge(r.rank, d.key, { showPoll: false }) || DASH }
+      : { key: "rank", ...heads, kind: "rank", order: true, of: isNum(d.of) ? d.of : undefined, tie: "tied", tieKey: player ? "player" : "team" },
   ];
+  if (player) {
+    columns.push({ key: "player", label: "Player", kind: "text", person: true, render: playerCell, renderShort: (r) => personName(r.player), sub: "position", subLabel: "Pos" }); // small: the name alone, no tag
+    columns.push({ key: "team", label: "Team", kind: "text", size: "medium", render: playerTeam });
+  } else {
+    columns.push({ key: "team", label: "Team", kind: "text", render: teamCell, renderShort: (r) => teamAbbrLink(r.team, r.abbreviation) });
+    if (d.scope !== "conference") columns.push(conferenceColumn()); // a conference list's teams share one conference
+  }
   const format = typeof d.format === "string" && d.format !== "rank" ? d.format : "2f";
-  if (d.valueless !== true) columns.push({ key: "value", label: valueHead(d), format, render: scale ? (r) => barCell(r, { scale, format }) : undefined });
-  if (d.family === "recruit") columns.push({ key: "stars", label: "Stars", format: "stars" });
-  if (scale && !poll) columns.push({ key: "pctl", label: "Pctl", render: (r) => pctlText(r.pctl) });
-  if (poll) columns.push({ key: "firstPlaceVotes", label: "1st", format: "0f" });
-  if (d.scope === "conference") columns.push({ key: "nationalRank", label: "FBS rank", kind: "rank" });
+  const value = valueHead(d);
+  if (d.valueless !== true) columns.push({ key: "value", label: value.long, labelMid: value.mid, labelShort: value.short, format, render: scale ? (r) => barCell(r, { scale, format }) : undefined });
+  if (d.family === "recruit") columns.push({ key: "stars", label: "Stars", format: "stars", size: "medium" });
+  if (scale && !poll) columns.push({ key: "pctl", label: "Pctl", size: "large", render: (r) => pctlText(r.pctl) });
+  if (poll) columns.push({ key: "firstPlaceVotes", label: "1st", format: "0f", size: "medium" });
+  if (d.scope === "conference") columns.push({ key: "nationalRank", label: "FBS rank", labelMid: "FBS", kind: "rank", size: "medium" });
   return columns;
 }
 
@@ -243,13 +278,14 @@ export function nationalListBody(envelope, { onScope, onYear, onRetry } = {}) {
   }
   const scale = listScale(d);
   const columns = listColumns(d, scale);
-  const wrap = statTable({ columns, rows: shapeRows(rows, d), rowClass, compact: true, caption: listTitle(d) });
+  const wrap = statTable({ columns, rows: shapeRows(rows, d), rowClass, compact: true, sizes: true, caption: listTitle(d) });
   if (beyond.length) {
+    // ours below the cut: the same sized cells (their size classes and forms), kept under the first table's head and size
     const table = wrap.querySelector("table");
-    const second = statTable({ columns, rows: shapeRows(beyond, d), rowClass, compact: true, sortable: false }).querySelector("tbody");
+    const second = statTable({ columns, rows: shapeRows(beyond, d), rowClass, compact: true, sizes: true, sortable: false }).querySelector("tbody");
     if (table && second) {
       second.classList.add("nat-beyond");
-      table.append(gapRow(d, beyond, columns.length), second);
+      table.append(gapRow(d, beyond, ownColumns(columns).length), second);
     }
   }
   return el("div", { class: "nat" }, head, distributionStrip(d, scale), wrap, notes(d));
@@ -265,7 +301,9 @@ export function listState(envelope) {
 function scrollerOf(root) {
   let node = root;
   while (node && node !== document.body && node !== document.documentElement) {
-    if (node.classList && (node.classList.contains("side-sheet__body") || node.classList.contains("stat-table-wrap--box"))) return node;
+    // item 8: a sheet lies on the page and scrolls with it; only a sheet body that scrolls itself (the styleguide's
+    // inline sample) is the scroller, otherwise the page is
+    if (node.classList && node.classList.contains("side-sheet__body")) return typeof getComputedStyle === "function" && /(auto|scroll)/.test(getComputedStyle(node).overflowY || "") ? node : null;
     node = node.parentNode;
   }
   return null;

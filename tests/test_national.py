@@ -130,6 +130,75 @@ def test_every_advanced_key_agrees_with_the_season_and_the_program(client: TestC
     assert values == sorted(values)  # lower is better: the best defense first
 
 
+def test_advanced_conference_ranks_agree_with_the_conference_lists(client: TestClient, pages):
+    """Tables wave 3: the advanced table's conference rank (its own column at large) is the rank the conference list it
+    opens gives: ours inside our conference, another team's inside its own."""
+    rows = pages["/api/season/overview"]["advanced"]["rows"]
+    assert len(rows) == 32 and all(r["conferenceRank"] is not None and r["conferenceOf"] for r in rows)
+    for row in rows:
+        data = listing(client, row["metric"], scope="conference")
+        assert data["conference"] == "Biscuit Belt" and data["us"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
+    other = pages["/api/team/Diner%20Tech"]
+    theirs = [r for r in other["advanced"]["rows"] if r["conferenceRank"] is not None]
+    assert theirs
+    for row in theirs[:8]:
+        data = listing(client, row["metric"], team="Diner Tech", scope="conference")
+        assert data["conference"] == "Pancake Athletic" and data["focus"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
+
+
+def test_last_season_conference_ranks_agree_with_each_seasons_conference_list(client: TestClient, pages):
+    """Tables wave 3: This season and last carries each season's conference rank, the one its conference list gives (last
+    season's with ?year=)."""
+    profile = {r["key"]: r for r in pages["/api/season/overview"]["profile"]["rows"]}
+    rows = pages["/api/season/overview"]["lastSeason"]["rows"]
+    assert rows and any(r["last"]["confRank"] is not None for r in rows)
+    for row in rows:
+        assert row["now"]["confRank"] == profile[row["key"]]["conferenceRank"] and row["now"]["confOf"] == profile[row["key"]]["conferenceOf"], row["key"]
+        if row["last"]["confRank"] is None:
+            continue
+        data = listing(client, row["metric"], year=SEASON - 1, scope="conference")
+        assert data["year"] == SEASON - 1 and data["us"]["rank"] == row["last"]["confRank"] and data["of"] == row["last"]["confOf"], row["key"]
+
+
+def test_team_pages_and_polls_name_conferences_short(pages):
+    """Tables wave 3: a team page's rank columns are headed by the short name of the conference it is ranked in, and a
+    poll's conference column shows each team's short name at medium."""
+    from app.services.identity import conference_short
+
+    ours = pages["/api/team/Swampwater Tech"]
+    other = pages["/api/team/Diner%20Tech"]
+    assert ours["team"]["conferenceShort"] == conference_short(ours["profile"]["conference"]) == "BB"
+    assert other["team"]["conferenceShort"] == conference_short(other["profile"]["conference"]) == "PA"
+    # the polls' conference column reads the short name at medium
+    ranks = [r for poll in pages["/api/season/overview"]["polls"] for r in poll["ranks"]]
+    assert ranks and all(r["conferenceShort"] == conference_short(r["conference"]) for r in ranks)
+    assert any(r["conferenceShort"] and r["conferenceShort"] != r["conference"] for r in ranks)
+
+
+def test_wave_3_tables_get_their_columns_from_the_server(client: TestClient, pages):
+    """Tables wave 3, step 3: the conference's short name for the columns that show it at medium (the national lists,
+    Ratings, a team page's standings), each team page standings row's last five, the Leaders head's mascot, and the play
+    value board's list rows with both ranks (the conference top 10 shows each player's FBS rank)."""
+    from app.services.identity import conference_short
+
+    ypp = listing(client, "profile:ypp")
+    assert ypp["rows"] and all(r["conferenceShort"] == conference_short(r["conference"]) for r in ypp["rows"])
+    conf = listing(client, "profile:ypp", scope="conference")
+    assert conf["conferenceShort"] == conference_short(conf["conference"]) == "BB" and ypp["conferenceShort"] is None
+    ratings = pages["/api/ratings"]["rows"]
+    assert all(r["conferenceShort"] == conference_short(r["conference"]) for r in ratings)
+    other = pages["/api/team/Diner%20Tech"]["standings"]
+    assert other["conferenceShort"] == conference_short(other["conference"])
+    assert all(isinstance(r["form"], list) for r in other["rows"]) and any(r["form"] for r in other["rows"])
+    teams = {t["school"]: t for t in fixture_payload("teams_fbs")}
+    leaders = pages["/api/season/leaders"]
+    assert leaders["team"]["mascot"] == teams["Swampwater Tech"]["mascot"] and leaders["opponent"]["mascot"] == teams[leaders["opponent"]["school"]]["mascot"]
+    ppa = next(b for b in leaders["extraBoards"] if b["id"] == "ppa:all")
+    national = {r["playerId"]: r["rank"] for r in listing(client, "board:ppa:all")["rows"]}
+    assert ppa["conference"] and all(r["nationalRank"] == national.get(r["playerId"]) for r in ppa["conference"])
+    assert all(r["nationalRank"] == r["rank"] for r in ppa["national"])
+
+
 def test_adjusted_keys_agree_with_the_program(client: TestClient, pages):
     rows = pages["/api/program/next"]["adjusted"]
     assert rows and all(r["metric"] == f"adjusted:{r['key']}" for r in rows)

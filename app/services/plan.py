@@ -25,10 +25,10 @@ TIER2 = 2
 # id, label, the tier that shows it, what it is. "available" comes from the key itself.
 FEATURES: list[tuple[str, str, int, str]] = [
     ("core", "Schedule, standings, polls, ratings, stats, rosters, recruiting, team pages", 0, "Every season page. A free key refreshes them less often, so its calls last the month."),
-    ("postgame", "Box scores, play-by-play and win probability after each game", 0, "The Archive and the Game program after the final."),
+    ("postgame", "Box scores, play-by-play and win probability after each game", 0, "The Archive and the Pre-Game Program after the final."),
     ("weather", "CFBD game weather", 1, "Forecast and conditions from CFBD. Without it the app uses the National Weather Service, free."),
-    ("scoreboard", "Live scores across the country", 1, "The ticker and the Live sheet's scores while games are on. Without it scores refresh from the schedule."),
-    ("live_plays", "Live play-by-play for your game", 2, "The Live sheet follows every snap: drives, plays, box score and win probability as they happen."),
+    ("scoreboard", "Live scores across the country", 1, "The ticker and the In Game sheet's scores while games are on. Without it scores refresh from the schedule."),
+    ("live_plays", "Live play-by-play for your game", 2, "The In Game sheet follows every snap: drives, plays, box score and win probability as they happen."),
     ("liked", "More primary teams, secondary teams and the My teams ticker", 2, "Up to four more primary teams, their pages ready the moment a device connects; secondary schools, conferences and states on the My teams page and in the My teams view of every ranked list; a ticker of just your teams."),
 ]
 

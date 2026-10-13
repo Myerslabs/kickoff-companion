@@ -1,6 +1,6 @@
 """Phase 17 #17 in the fake browser: under each pair of Game program leaders, the whole line with FBS and
-conference rank chips, and the line over conference games; damaged entries draw as dashes, and nothing is drawn
-for a category with no stats."""
+conference rank chips, and the line over conference games (its lead number alone at small, tables wave 2); damaged
+entries draw as dashes, and nothing is drawn for a category with no stats."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 const text = (node) => (node ? node.textContent : "");
 
 scenarios.lines = async () => {
-  const { leaderLines, confGamesText } = await import(moduleUrl("ui/leader-lines.js"));
+  const { leaderLines, confGamesShort, confGamesText } = await import(moduleUrl("ui/leader-lines.js"));
   const cat = {
     label: "Passing yards", category: "passing", stat: "YDS",
     us: { detail: { stats: [{ stat: "YDS", value: 1204, national: { rank: 8, of: 130 }, conference: { rank: 2, of: 14, conference: "Big Pie" }, metric: "board:passing:YDS" }, { stat: "TD", value: 11, national: null, conference: { rank: "x" } }, { stat: "PCT", value: 0.652 }, null, { value: 3 }] }, conferenceGames: { stats: { YDS: 610, TD: 5, INT: 1, COMPLETIONS: 40, ATT: 60 } } },
@@ -26,19 +26,34 @@ scenarios.lines = async () => {
   const t = text(node);
   assert.ok(!RAW.test(t), t);
   assert.ok(node.querySelector("table").className.includes("tt--tug"), "the shared two-team table with the tug bar");
-  assert.deepEqual([...node.querySelectorAll("thead th")].map(text), ["Season", "SWT", "Edge", "OPP"]);
+  // 2026-10-10: the chips in their own headed columns; the one-row head (medium, small) and the large head's second row
+  const shown = (cell, form) => { const t = cell.querySelector(`.tt__t--${form}`); return t ? t.textContent + [...cell.querySelectorAll("small")].map((s) => s.textContent).join("") : text(cell); };
+  // centered (2026-10-10): the stat over its bar in the middle column, the teams mirrored around it, one center line down the band
+  assert.ok(node.querySelector("table").className.includes("tt--centered"));
+  assert.deepEqual([...node.querySelectorAll("thead tr.tt__head--one th")].map((th) => shown(th, "short")), ["FBS", "SWT", "Season", "OPP"], "the opponent's rows carry no rank: no chip columns on that side");
+  assert.deepEqual([...node.querySelectorAll("thead tr.tt__head--a th")].map((th) => shown(th, "long")), ["Swampwater Tech", "Season", "Diner Tech"]);
+  assert.deepEqual([...node.querySelectorAll("thead tr.tt__head--b th")].map(text), ["FBS rank", "Big Pie rank", "", ""], "our conference's own name heads our conference column");
   const rows = node.querySelectorAll("tbody tr");
-  assert.deepEqual(rows.map((r) => text(r.querySelector("td.tt__label"))), ["Yds", "TD", "Comp %", "INT", "Conference games3 games"]);
+  assert.ok(rows.every((r) => !r.querySelector("td.tt__label") && r.querySelector("td.tt__mid .tug")), "no label column: the stat sits over its bar");
+  assert.deepEqual(rows.map((r) => shown(r.querySelector("td.tt__mid .tt__mid-words"), "long")), ["Yds", "TD", "Comp %", "INT", "Conference games3 games"]);
+  assert.deepEqual(rows.map((r) => shown(r.querySelector("td.tt__mid .tt__mid-words"), "short")), ["Yds", "TD", "Comp %", "INT", "Conf games3 games"]);
+  assert.deepEqual([...rows[0].querySelectorAll("td")].map((td) => td.className.split(" ")[0]), ["tt__rank", "tt__rank", "num", "tt__tug", "num"], "our chips and value, the middle, their value");
   const links = rows[0].querySelectorAll("a.rank-chip--link");
   assert.equal(links.length, 2, "FBS and conference chips, both linked to the board's list");
-  assert.equal(links[0].getAttribute("href"), "#national=board%3Apassing%3AYDS?team=Swampwater%20Tech&scope=conference", "the conference chip sits outside with the tug bar");
-  assert.equal(links[1].getAttribute("href"), "#national=board%3Apassing%3AYDS?team=Swampwater%20Tech");
-  assert.ok(rows[0].querySelector(".tt__conf small") && text(rows[0].querySelector(".tt__conf")).includes("Conf"));
+  assert.equal(links[0].getAttribute("href"), "#national=board%3Apassing%3AYDS?team=Swampwater%20Tech", "the national chip outside");
+  assert.equal(links[1].getAttribute("href"), "#national=board%3Apassing%3AYDS?team=Swampwater%20Tech&scope=conference", "the conference chip in its own column, next in");
+  assert.ok(links[0].closest("td").className.includes("tt__rank--natl") && links[1].closest("td").className.includes("tt__rank--conf"));
   assert.ok(!rows[0].querySelector("td.lead") && !rows[0].querySelector("td.trail"), "one side missing: nothing to compare, no edge");
   assert.equal(rows[1].querySelectorAll("a.rank-chip--link").length, 0, "a damaged rank draws no chip");
-  assert.equal(rows[1].querySelectorAll(".tt__conf").length, 0);
+  assert.ok(rows[1].querySelector("td.tt__rank--conf .tt__norank") && !rows[1].querySelector("td.tt__rank--conf .rank-chip"), "a dash in the chip's place, never a blank square");
   assert.ok(text(rows[4]).includes("610 yds") && text(rows[4]).includes("40/60") && text(rows[4]).includes("5 TD"));
   assert.ok(rows[4].className.includes("lines__conf"));
+  // wave 2: the conference-game line's lead number alone at small, so a phone's table keeps its width
+  const confCell = rows[4].querySelector("td.tt__cell.tt__us");
+  assert.deepEqual([text(confCell.querySelector(".tt__t--short")), confCell.querySelector(".tt__t--long").className.includes("tt__t--mid")], ["610 yds", true]);
+  assert.ok(text(confCell.querySelector(".tt__t--long")).includes("40/60"), "the whole line at large and medium");
+  assert.equal(confGamesShort("passing", { YDS: 610, TD: 5 }), "610 yds");
+  for (const junk of [null, "x", { YDS: "x" }]) assert.equal(confGamesShort("rushing", junk), null);
   assert.equal(confGamesText("passing", null), null);
   assert.equal(confGamesText("rushing", { YDS: "x" }), null);
   assert.equal(leaderLines({ category: "passing", us: {}, them: null }), null);

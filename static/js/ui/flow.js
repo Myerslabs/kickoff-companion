@@ -1,11 +1,13 @@
-// The flowing page (Phase 17 #7, #10, #28): bands pack into 1 to 4 columns by the page's width, across the top
-// first, each band dropping into the earliest free spot, so a wide monitor shows more and nothing leaves a hole.
+// The flowing page (Phase 17 #7, #10, #28): bands pack into 1 or 2 columns by the page's width, across the top
+// first, each band dropping into the earliest free spot, so nothing leaves a hole. The tablet lock (owner 2026-10-13,
+// "I don't want it to go to three or four columns"): a browser wider than the iPad draws the iPad's two columns, wider;
+// only the game-day board (views/board.js) has a layout of its own for a big screen.
 //
 //   flow(page, { wide = [], full = [] })  turns `page` (a .page element) into a flowing page and keeps it laid out
 //       as its width or any band's height changes. Children whose id is in `full`, or that carry .flow-full, span
 //       every column (the cover, the back row); ids in `wide`, or .flow-wide, span two columns once there are two
 //       or more (a big two-team table is cramped in one tablet column). Returns { relayout, stop }.
-//   columnsFor(width)  1 under 700 px, 2 under 1100, 3 under 1600, else 4 (the owner's cap, 2026-10-07).
+//   columnsFor(width)  1 under 700 px, else 2 (the tablet lock, 2026-10-13; 3 from 1100 and 4 from 1600 until then).
 //   mountFlow(ui, container, page, { wide, full, chips = true })  (final pass) the one way a view mounts a flowing
 //       page: stops the layout kept in `ui` from the last draw, pins the section chips above the page (chips: false
 //       for a page with one band), replaces the container's children and starts the flow. `ui` keeps { flow, chips }.
@@ -18,7 +20,7 @@
 import { sectionChips } from "./states.js";
 
 const ROW = 4;
-const BREAKS = [[1600, 4], [1100, 3], [700, 2]];
+const BREAKS = [[700, 2]];
 
 export function columnsFor(width) {
   const w = Number.isFinite(width) ? width : 0;

@@ -71,7 +71,7 @@ function playerItem(p, close, query) {
   const tag = p.canOpen ? null : el("span", { class: "tag" }, p.current ? "Not FBS" : "Former"); // cards cover this season's FBS players
   const body = [
     el("span", { class: "search__num" }, isNum(p.number) ? `#${p.number}` : DASH),
-    el("span", { class: "search__name" }, el("span", {}, marked(p.name, query)), el("small", {}, sub || DASH)),
+    el("span", { class: "search__name" }, el("span", { class: "pn", title: typeof p.name === "string" ? p.name : null }, marked(p.name, query)), el("small", {}, sub || DASH)), // item 6: one line, the whole name
     el("span", { class: "search__meta" }, tag),
   ];
   if (!p.canOpen) return el("li", {}, el("div", { class: "search__item search__item--quiet" }, body, el("span", { class: "search__go" })));

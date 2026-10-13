@@ -159,7 +159,7 @@ class DualProtocolServer(uvicorn.Server):
             self._accept_tasks.append(loop.create_task(self._accept_loop(sock, create_protocol)))
             host, port = sock.getsockname()[:2]
             if https and self.tls:
-                mode = "HTTPS, with plain HTTP redirected"
+                mode = "HTTPS for devices that trust the certificate, plain HTTP for the rest"
             elif self.tls:
                 mode = "plain HTTP; old https:// links are sent to http://"
             else:

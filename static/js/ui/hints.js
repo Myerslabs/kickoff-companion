@@ -13,7 +13,7 @@ import { GLOSSARY } from "../glossary-data.js";
 import { el, text } from "./dom.js";
 import { nationalHref } from "./national-link.js";
 
-const LABELS = "td.txt:first-child, th[scope=row], thead th, .sit__label, .success__source, .verdict, .hint-term, .kp"; // .hint-term: a term inside a sentence (Phase 17); .kp: a key-play badge (Phase 16 wave 3)
+const LABELS = "td.txt:first-child, td.tt__mid, th[scope=row], thead th, .success__source, .verdict, .hint-term, .kp"; // .hint-term: a term inside a sentence (Phase 17); .kp: a key-play badge (Phase 16 wave 3); .tt__mid: a centered two-team table's label (2026-10-10)
 // the Success / Failed verdict explains the success rule; an edges row's label names two units, so it opens Edges
 // a lineup's slot labels (EDGE, STAR, JACK, PK) are positions, not stats: they open the Depth chart entry
 const BY_CLASS = [[".verdict", "success-rate"], [".tt--edges td.tt__label", "edges"], [".tape td.tape__label", "edges"], [".tape th.tape__pair", "edges"], [".lineup td.txt:first-child", "depth-chart"], [".tt__ladder", "percentile"], [".grade-parts thead th:last-child", "percentile"]]; // Phase 17: the ladder head and the grade parts' percentile head
@@ -50,8 +50,10 @@ function hintsOff() {
   return document.documentElement.classList.contains("hints-off");
 }
 
-/** The label's own words: its text nodes, so a cell's small sub-line (a position, a note) does not spoil the match. */
+/** The label's own words: its data-term when a table shortens the label by size (ui/sizes.js), else its text
+    nodes, so a cell's small sub-line (a position, a note) does not spoil the match. */
 function ownText(node) {
+  if (typeof node.dataset?.term === "string" && node.dataset.term.trim()) return node.dataset.term;
   const own = [...node.childNodes].filter((n) => n.nodeType === Node.TEXT_NODE).map((n) => n.textContent).join("");
   return own.trim() ? own : node.textContent;
 }
@@ -95,7 +97,8 @@ function mark(node) {
   }
   node.dataset.hint = entry.id;
   if (!node.hasAttribute("tabindex")) node.tabIndex = 0;
-  node.append(questionMark(entry));
+  const words = typeof node.querySelector === "function" ? node.querySelector(".tt__mid-words") : null; // a centered two-team table: beside the stat's name, not under its bar
+  (words || node).append(questionMark(entry));
 }
 
 /** The small "?" after a term: it opens the card; the term itself goes to the term's list. */
@@ -208,6 +211,7 @@ function onClick(event) {
 
 function onKey(event) {
   if (event.key === "Escape") {
+    if (card) event.preventDefault(); // item 6: one Escape closes one layer; the sheet under the card stays open
     close();
     return;
   }
@@ -277,4 +281,5 @@ export function enableHints(root = document.body) {
   window.addEventListener("scroll", close, { capture: true, passive: true });
   window.addEventListener("resize", close, { passive: true });
   window.addEventListener("hashchange", close);
+  window.addEventListener("popstate", close); // item 6 review: Back that closes a sheet moves no hash, so the card closes with it
 }

@@ -16,14 +16,15 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
+from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
 from app import REPO_IS_PUBLIC, REPO_URL
 from app.api.envelope import envelope, error_response
-from app.guests import is_host, on_server_computer
+from app.guests import AWAY_PAGE, is_host, on_server_computer
 from app.netinfo import http_url, lan_ip
 from app.services import screens
-from app.services.host import COOKIE, COOKIE_SECONDS, HostAccess, LockedOut, PinError
+from app.services.host import COOKIE, COOKIE_SECONDS, JOIN_COOKIE, JOIN_SECONDS, HostAccess, LockedOut, PinError
 
 router = APIRouter(tags=["host"])
 
@@ -113,7 +114,9 @@ def _private(ip: str | None) -> bool:
 async def invite(request: Request) -> Any:
     settings = request.app.state.settings
     ip = lan_ip()
-    url = f"{http_url(ip, settings.port)}/" if ip else None
+    access = _access(request)
+    away = bool(getattr(request.app.state.prefs.prefs, "awayFromHome", False)) if getattr(request.app.state, "prefs", None) else False
+    url = (f"{http_url(ip, settings.port)}/join/{access.join_token()}" if away else f"{http_url(ip, settings.port)}/") if ip else None  # group five: away from home, the link carries the code
     warnings: list[str] = []
     if ip is None:
         warnings.append("This computer has no network address right now, so no device can join. Connect it to Wi-Fi or a cable.")
@@ -121,7 +124,6 @@ async def invite(request: Request) -> Any:
         warnings.append(f"This computer's address ({ip}) is not a home-network address. It may be on a public network, where other devices usually cannot reach it. Use your own router, a hotspot, or a travel router.")
     elif ip.startswith("192.168.137."):
         warnings.append("This computer is sharing its connection as a hotspot: friends join the hotspot's Wi-Fi, not the venue's.")
-    access = _access(request)
     if not access.pin_set:
         warnings.append("No host PIN is set, so everyone who joins can change settings. Set a PIN in Settings to make guests view-only.")
     return envelope(
@@ -130,11 +132,24 @@ async def invite(request: Request) -> Any:
             "qrPath": f"/setup/qr.svg?url={url}" if url else None,
             "port": settings.port,
             "pinSet": access.pin_set,
+            "away": away,
             "warnings": warnings,
             "copyUrl": REPO_URL if REPO_IS_PUBLIC else None,  # "get your own copy" only once the project is public
         },
         source="live",
     )
+
+
+@router.get("/join/{code}", include_in_schema=False)
+async def join(code: str, request: Request) -> Any:
+    """Group five, away from home: the link in the host's code. The right code sets the join cookie and opens the app;
+    a wrong one gets the away page. At home the link simply opens the app."""
+    access = _access(request)
+    if not access.valid_join(code):
+        return HTMLResponse(AWAY_PAGE, status_code=403, headers={"Cache-Control": "no-store"})
+    response = RedirectResponse("/", status_code=303)
+    response.set_cookie(JOIN_COOKIE, code, max_age=JOIN_SECONDS, httponly=True, samesite="lax", path="/")
+    return response
 
 
 @router.get("/api/board/screens")

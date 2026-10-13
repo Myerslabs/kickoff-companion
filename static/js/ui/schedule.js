@@ -157,7 +157,7 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
         ? el("span", { class: `sched__res res--${game.result.toLowerCase()}`, "data-k": `res:${text(game.gameId)}` }, `${game.result} ${text(game.usPoints)}-${text(game.themPoints)}`)
         : el("span", { class: "sched__res" }, fmtDate(game.date, "short"), el("small", {}, game.startTimeTbd ? "time TBD" : fmtTime(game.date)));
       const href = tappable ? gameHref(game) : null;
-      const where = game.completed && game.archived === true ? "Open the archived game" : "Open the game program";
+      const where = game.completed && game.archived === true ? "Open the archived game" : "Open the Pre-Game Program";
       const li = el(
         "li",
         {

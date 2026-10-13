@@ -183,7 +183,7 @@ function renderPublished(list) {
     const rule = typeof s.recheckMinutes === "number"
       ? `then every ${s.recheckMinutes >= 60 ? `${Math.round(s.recheckMinutes / 60)} h` : `${s.recheckMinutes} min`} until it changes${s.prewarm ? "; the server refreshes it" : ""}`
       : "once per update time";
-    cell(`${typeof s.keys === "number" ? `${s.keys} kept; ` : ""}${rule}`);
+    cell(`${typeof s.keys === "number" ? `${s.keys} kept; ` : ""}${rule}`).className = "checks__rule"; // gone in a phone's panel
     const changes = Array.isArray(s.changes) ? s.changes.map(obj).slice(0, 3) : [];
     cell(changes.length ? changes.map((c) => `${text(c.endpoint)} ${shortTime(c.changedAt)}${lateText(c.afterSlotMinutes) ? ` (${lateText(c.afterSlotMinutes)})` : ""}`).join("; ") : "none yet");
     els.published.append(tr);
@@ -229,7 +229,7 @@ function render(data) {
     ["CA fingerprint", ca.fingerprint_sha256, "mono"],
     ["Certificate valid until", localDate(cert.not_after)],
     ["Covers", covers],
-    ["New device setup", server.setup_url],
+    ["First time setup", server.setup_url],
   ] : [
     ["HTTPS", tls.enabled === false ? "off: plain HTTP on the home network" : DASH],
     ["Devices", "nothing to install; open the address or scan the code"],
@@ -380,7 +380,7 @@ if (restartButton) {
   restartButton.addEventListener("click", async () => {
     if (!window.confirm("Restart the server? Every device's page reloads once it's back (10 to 20 seconds).")) return;
     restartButton.disabled = true;
-    await restartFlow({ say: (words) => { if (restartSaid) restartSaid.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the Live sheet drops for about 15 seconds. Restart anyway?") });
+    await restartFlow({ say: (words) => { if (restartSaid) restartSaid.textContent = ` ${words}`; }, confirmDuringGame: async () => window.confirm("Our game is under way: the In Game sheet drops for about 15 seconds. Restart anyway?") });
     restartButton.disabled = false;
   });
 }

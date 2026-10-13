@@ -60,7 +60,7 @@ async def restart_server(body: RestartRequest, request: Request) -> Any:
         wait = int(MIN_SECONDS_BETWEEN - (now - _last["at"])) + 1
         return error_response(429, "too_soon", f"The server restarted less than a minute ago. Try again in {wait} s.")
     if _game_under_way(request) and not body.force:
-        return error_response(409, "game_under_way", "Our game is under way: the Live sheet drops for about 15 seconds while the server restarts.")
+        return error_response(409, "game_under_way", "Our game is under way: the In Game sheet drops for about 15 seconds while the server restarts.")
     _last["at"] = now
     client = request.client.host if request.client else "unknown"
     log.warning("Restart asked from the app by %s%s", client, " during the game" if body.force else "")

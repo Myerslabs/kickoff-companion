@@ -653,7 +653,13 @@ def test_the_matchup_sheet_costs_nothing_once_the_season_page_has_loaded(app, cl
     for r in fixture_payload("stats_season_fbs"):
         stats.setdefault(r["team"], {})[r["statName"]] = r["statValue"]
     ypg = {t: round(v["totalYards"] / v["games"], 3) for t, v in stats.items() if v.get("games") and "totalYards" in v}
-    assert len(data["rows"]) == 26 + 6 and rows["ypg"]["home"] == {"value": ypg[US], "rank": 1 + sum(v > ypg[US] for v in ypg.values())}
+    home = rows["ypg"]["home"]
+    assert len(data["rows"]) == 26 + 6 and (home["value"], home["rank"]) == (ypg[US], 1 + sum(v > ypg[US] for v in ypg.values()))
+    # tables wave 3: each side also carries its rank inside its own conference (the sheet's conference column at large)
+    conf_of = {r["team"]: r["conference"] for r in fixture_payload("stats_season_fbs") if r.get("conference")}
+    peers = {t: v for t, v in ypg.items() if conf_of.get(t) == conf_of[US]}
+    assert (home["confRank"], home["confOf"]) == (1 + sum(v > ypg[US] for v in peers.values()), len(peers))
+    assert data["home"]["conferenceShort"] and data["away"]["conferenceShort"]
     assert rows["ypg"]["away"]["rank"] == 1 + sum(v > ypg["Diner Tech"] for v in ypg.values()) and rows["ypg"]["of"] == len(ypg)
     assert rows["offense_success_rate"]["group"] == "Offense" and rows["offense_success_rate"]["home"]["rank"]
     assert data["game"]["gameId"] == NEXT_GAME and data["game"]["status"] == "scheduled" and data["game"]["homePoints"] is None

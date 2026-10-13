@@ -78,15 +78,30 @@
 /* Phase 17: the top bar fits a phone (it ran past 375 px before the LIVE flag, and further with it): the
    wordmark drops "Companion", then "Kickoff", and shrinks last; the status pill can shorten */
 .wordmark { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-@media (max-width: 1199px) { .wordmark__long { display: none; } }
+.wordmark__long { display: none; } /* the tablet lock: the iPad sideways (1180 px) has no room for it, so no screen shows it */
 .tab { white-space: nowrap; }
+/* Item 6, step F (owner 2026-10-11): the Menu is never squeezed. The bar's buttons (Menu, Search, Reload while the app
+   loads, a standalone page's way back) keep their own width at every width and text size; the status pill gives way
+   instead, its words ending in "…" (all of it is in its card, a tap away). The words shorten inside the pill, so the
+   pill's 44 px press area is never clipped. Search drops its word below 900 px, where the Newspaper tab leaves. */
+.topbar > .btn { flex: none; }
+.topbar > .wordmark { flex: 1000 1 3em; max-width: max-content; } /* the wordmark gives way before the pill's words: it asks for 3em, takes the spare room up to its whole width before the spacer gets any, and only below 3em shrinks along with the pill */
+.topbar [hidden] { display: none; } /* a .btn's own display would show it (the welcome page's way back before the setup is done) */
+/* a standalone page's header buttons say it in a word on a phone ("The app", "Status", "Connect"), so two fit at 320 px
+   with the largest text; each keeps its whole name for a screen reader (aria-label) */
+.btn__short { display: none; }
+@media (max-width: 479px) { .topbar .btn__long { display: none; } .topbar .btn__short { display: inline; } }
+.topbar__status { min-width: 0; }
+.topbar__status .pill { max-width: 100%; }
+.topbar__status .pill::before { flex: none; }
+.topbar__status .pill__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 899px) { .search-button__label { display: none; } }
 @media (max-width: 699px) { .topbar { gap: var(--sp-2); padding: 0 var(--sp-3); } }
 @media (max-width: 479px) {
   .wordmark em { display: none; }
   .wordmark { font-size: calc(19px * var(--ui-scale)); }
   .topbar { gap: 6px; padding: 0 10px; }
-  .topbar__status { min-width: 0; max-width: 34vw; overflow: hidden; }
-  .topbar__status .pill { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar__status { max-width: 34vw; }
 }
 .tabs { display: none; gap: 2px; margin-left: var(--sp-2); }
 @media (min-width: 700px) { .tabs { display: flex; } }
@@ -115,7 +130,7 @@
 @media (min-width: 700px) { .live-flag:not([hidden]) { display: none; } }
 @keyframes live-ping { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
-.menu-button { border-color: rgba(242, 244, 250, 0.35); }
+.menu-button { border-color: color-mix(in srgb, var(--chalk) 35%, transparent); } /* brighter than a plain button's edge, in both themes (item 6: a fixed near-white vanished on the light bar) */
 
 .drawer { position: fixed; inset: 0; z-index: 40; display: none; }
 .drawer[open] { display: block; }
@@ -336,7 +351,16 @@
 
 /* --- stat table ---------------------------------------------------------------------- */
 
-.stat-table-wrap { overflow: auto; max-height: var(--table-max, none); overscroll-behavior-x: contain; }
+/* 2026-10-10 (owner: tables bounced under a finger on the iPad and the Live sheet grew a scroll bar): a wrap is plain, never a
+   scroll box, unless the kit measured its table wider than the room (--scrolls). A scroll box with nothing to scroll still
+   rubber-bands on a touch screen and shows a bar for the chips' and hints' invisible press areas, which poke a few pixels past
+   the last row. min-width: a grid or flex item never grows to its table's content.
+   The same evening (owner, his phone): nothing on a page scrolls up and down inside itself. No table has a height (every row
+   is on the page and the band folds), and a table wider than its room scrolls sideways only: overflow-x alone would make its
+   up-and-down overflow auto too, and the press areas poking past the last row made a box that kept the finger. */
+.stat-table-wrap { overflow: visible; overscroll-behavior-x: contain; min-width: 0; max-width: 100%; }
+.stat-table-wrap--scrolls { overflow-x: auto; overflow-y: hidden; }
+.stat-table-wrap:not(.stat-table-wrap--fits):not(.stat-table-wrap--scrolls) > .stat-table th { position: static; } /* a plain wrap's head has no box to stick in */
 .stat-table { width: 100%; border-collapse: separate; border-spacing: 0; }
 .stat-table th {
   position: sticky;
@@ -378,6 +402,7 @@
   white-space: nowrap;
 }
 .stat-table td.txt { font-family: var(--font-body); font-size: var(--text-body); font-weight: 500; white-space: normal; }
+.stat-table th + th, .stat-table td + td { border-left: 1px solid var(--row-rule); } /* owner 2026-10-10: a thin line between every column, in every table */
 .stat-table td.txt small { display: block; color: var(--fog); font-size: var(--text-caption); font-weight: 400; }
 .stat-table td.dim { color: var(--fog); font-weight: 500; }
 .stat-table tr[tabindex] { cursor: pointer; }
@@ -436,7 +461,7 @@
   font-weight: 700;
 }
 .number-badge--them { background: var(--opp); color: var(--opp-text); }
-.player-card__name { font-family: var(--font-cond); font-size: calc(26px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
+.player-card__name { font-family: var(--font-cond); font-size: calc(26px * var(--ui-scale)); font-weight: 700; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; } /* owner 2026-10-11: one line only, the name steps down */
 .player-card__bio { color: var(--fog); font-size: var(--text-label); margin-top: var(--sp-1); }
 .player-card--inline { position: static; width: 100%; border: 1px solid var(--rule); border-radius: var(--radius); }
 
@@ -528,22 +553,10 @@
 .kp--fourth { color: var(--chalk); }
 .kp--penalty { color: var(--stale); }
 
-/* --- situation grid ------------------------------------------------------------------------- */
-
-.sit-wrap { display: grid; grid-template-columns: minmax(0, 1fr); }
-@container (min-width: 700px) { .sit-wrap { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--sp-4); } }
-.sit { display: grid; grid-template-columns: 1fr auto auto; align-items: center; }
-.sit__head { padding: var(--sp-2) var(--sp-3); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; color: var(--fog); text-align: right; border-bottom: 1px solid var(--rule-strong); }
-.sit__head--label { text-align: left; }
-.sit__label { padding: 8px var(--sp-3); color: var(--fog); border-bottom: 1px solid var(--rule); }
-.sit__val { padding: 8px var(--sp-3); min-width: 76px; text-align: right; font-family: var(--font-cond); font-size: var(--text-stat); font-weight: 600; border-bottom: 1px solid var(--rule); }
-.sit__val--lead { color: var(--chalk); }
-.sit__val--trail { color: var(--fog); }
-
 /* --- play log ----------------------------------------------------------------------------------- */
 
-.play-tools { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--rule); overflow-x: auto; }
-.plays { list-style: none; margin: 0; padding: 0; max-height: var(--plays-max, 440px); overflow: auto; }
+.play-tools { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--rule); overflow-x: auto; overflow-y: hidden; }
+.plays { list-style: none; margin: 0; padding: 0; } /* every play on the page, never a box (owner 2026-10-10); the band folds */
 .play { display: grid; grid-template-columns: 52px 1fr auto; gap: 2px var(--sp-2); padding: 8px var(--sp-3); border-bottom: 1px solid var(--rule); }
 .play--us { box-shadow: inset 3px 0 0 var(--team-us); }
 .play--them { box-shadow: inset 3px 0 0 var(--opp); }
@@ -560,6 +573,7 @@
 .play-drive { display: flex; justify-content: space-between; gap: var(--sp-2); padding: 10px var(--sp-3) 4px; border-bottom: 1px solid var(--rule-strong); font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); }
 .play-drive__team { color: var(--chalk); }
 .play-log > .play-tools { position: sticky; top: 0; z-index: 2; background: var(--panel); }
+.page .band .play-log > .play-tools { top: calc(var(--sticky-top) + var(--band-head-h, 45px)); } /* on a page the filters pin under the band's own pinned head (the play list is whole since 2026-10-10) */
 
 /* --- ticker ------------------------------------------------------------------------------------ */
 
@@ -599,6 +613,8 @@
 .editorial h3 { margin-top: var(--sp-3); }
 .editorial__sources { list-style: none; margin: var(--sp-3) 0 0; padding: 0; color: var(--fog); font-size: var(--text-caption); }
 .editorial__sources li::before { content: "\2014 "; color: var(--mist); }
+/* tables wave 3: at small the note gives up some of its least room, so a phone keeps the player, the team and the status beside it */
+.avail-report .stat-table-wrap[data-size="small"] td.st__wrap { min-width: 88px; }
 .avail--out { color: var(--bad); }
 .avail--doubtful { color: var(--bad); }
 .avail--questionable { color: var(--stale); }
@@ -680,6 +696,22 @@
 /* Starting lineups and depth charts (ui/lineups.js, 2026-10-02): a sub-heading per team, a small unit title
    over each table, the source line under them. Tables only, like the availability report. */
 .lineups__side { min-width: 0; }
+/* lineups as matchups (owner 2026-10-10): one table per pairing, each starter beside the man he faces; the starter's cell is his
+   name, class and the next man; the small table keeps the slot and the surname only */
+.lineups { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); } /* item 6 (N11): one column that never takes the experience table's width, so the matchup tables measure the band */
+.lineups__matchup { display: grid; gap: 2px; min-width: 0; }
+.lu-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.lu-head .subhead { display: inline; padding: 0; }
+.lu-head__vs { color: var(--fog); font: 600 14px/1 var(--font-cond); }
+.lu-who { display: grid; gap: 1px; line-height: 1.25; }
+.lu-who b, .lu-who .lu-name { font-weight: 600; }
+.lu-who .lu-name { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; text-decoration: underline; text-decoration-color: var(--fog); text-underline-offset: 3px; }
+.lu-who small { color: var(--fog); font-size: var(--text-caption); }
+.lu-who em { color: var(--fog); font-style: normal; font-size: var(--text-caption); white-space: normal; min-width: min-content; max-width: 220px; } /* item 6: never narrower than its longest name */
+.lu-who .lu-next { white-space: nowrap; } /* item 6: the line breaks between the men behind the starter, never inside a name */
+.stat-table td .lu-vs { display: inline-block; color: var(--fog); font: 600 15px/1 var(--font-cond); }
+.stat-table-wrap[data-size="small"] .lu-vs { font-size: 13px; }
+.stat-table-wrap[data-size] td.txt .lu-who { white-space: nowrap; }
 .lineup__unit-title { margin: 0; padding: var(--sp-3) var(--sp-3) 2px; font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--fog); }
 .lineup__scheme { padding-bottom: 0; }
 .lineup .stat-table-wrap { margin-bottom: 0; }
@@ -718,12 +750,10 @@
 .game-info__dot { color: var(--mist); }
 .game-info__hint { margin: 0; font-size: var(--text-caption); color: var(--mist); }
 .game-info__hint a { color: var(--fog); }
-/* Phase 17 #2: the coaches under the program header's when line */
-.cover__details { text-align: center; }
-.game-staff { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 0 4px; color: var(--fog); font-size: var(--text-label); }
+/* Phase 17 #2: the coaches; the cover redo (owner mockup 2026-10-10) puts each team's under its own block */
+.game-staff { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 4px; color: var(--fog); font-size: var(--text-label); }
 .game-staff b { color: var(--chalk); font-weight: 600; }
-.game-staff__bar { color: var(--mist); }
-.live-tools { display: flex; justify-content: flex-end; padding: 4px var(--sp-3); }
+.live-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; padding: 4px var(--sp-3); } /* 2026-10-10: a fourth button (Big screen); the row wraps on a phone */
 .delay-button { min-height: 36px; font-size: var(--text-label); }
 .shot-chart { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .shot-chart__seg { justify-self: start; }
@@ -755,7 +785,7 @@
 .qline__val--tot { font-weight: 700; font-size: calc(21px * var(--ui-scale)); }
 .qline__row--them .qline__val { color: var(--fog); }
 .qline__row--them .qline__val--tot { color: var(--chalk); }
-@media (max-width: 699px) { .qline { grid-template-columns: minmax(0, 1fr) repeat(var(--q, 4), 40px) 52px; } }
+@container (max-width: 699px) { .qline { grid-template-columns: minmax(0, 1fr) repeat(var(--q, 4), 40px) 52px; } } /* table sizes (2026-10-10): narrower by its own band, never the screen, so a one-column band on the iPad and a side sheet step down like a phone */
 
 /* --- remote bar and side sheet -------------------------------------------------------------- */
 
@@ -769,6 +799,7 @@
   background: var(--panel-raised);
   border-top: 1px solid var(--rule-strong);
   overflow-x: auto;
+  overflow-y: hidden; /* sideways only: a strip never keeps an up-and-down swipe (owner 2026-10-10) */
   scrollbar-width: none;
 }
 .remote::-webkit-scrollbar { display: none; }
@@ -984,7 +1015,7 @@
 .impact { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: var(--sp-3); align-items: center; padding: var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); color: inherit; text-align: left; cursor: pointer; }
 @media (hover: hover) { .impact:hover { background: var(--panel-raised); } }
 .impact .number-badge, .impact .headshot { width: 64px; height: 64px; font-size: calc(26px * var(--ui-scale)); }
-.impact__name { font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; }
+.impact__name { font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } /* item 6: one line, the name fitted before any ellipsis */
 .impact__name .tag { margin-left: 6px; vertical-align: middle; }
 .impact__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .chip { display: inline-block; padding: 2px 8px; border-radius: 3px; background: var(--panel-raised); color: var(--chalk); font-size: calc(14px * var(--ui-scale)); white-space: nowrap; }
@@ -1002,7 +1033,7 @@
 
 .news { list-style: none; margin: 0; padding: 0; }
 .news__item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--sp-3); align-items: baseline; padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--rule); }
-.news__item a { font-weight: 600; text-decoration: none; }
+.news__item a { display: flex; align-items: center; min-height: var(--tap); font-weight: 600; text-decoration: none; } /* a headline is a press target: 44 px tall (the page check, 2026-10-13; a one-line headline in the two-column lock measured 23) */
 @media (hover: hover) { .news__item a:hover { text-decoration: underline; } }
 .news__meta { color: var(--fog); font-size: var(--text-caption); white-space: nowrap; }
 
@@ -1064,17 +1095,68 @@
 .mcard__group th small { color: var(--fog); font-family: var(--font-body); font-size: calc(13px * var(--ui-scale)); font-weight: 400; }
 .mcard--thin .mcard__foot { padding-top: var(--sp-2); }
 
-/* --- two-team table: value and rank together, a divider before the opponent (2026-09-23) --------- */
-
+/* --- two-team table (ui/two-team.js; 2026-09-23, redrawn 2026-10-10): every data point its own column, a thin line
+   between every column, the rank chips mirrored outward from the bar, three sizes by the table's own box (ui/sizes.js):
+   large (both chips, whole heads and names), medium (the national chip, the school, middle stat names), small (the
+   values and the bar, the abbreviation, the shortest stat names, no hints). Nothing wraps; a table that cannot fit even
+   at small shows at small anyway, the minimal table (owner 2026-10-10). ------------------------------------------ */
 .tt td.num { white-space: nowrap; text-align: right; }
-.tt td.num .rank-chip { margin-left: 6px; }
-.tt .tt__them { border-left: 2px solid var(--rule-strong); }
-/* Phase 16 (DS-02 item 2): the opponent's numbers right-aligned like ours, so both columns line up */
-.tt th.tt__them, .tt td.tt__them { text-align: right; padding-left: var(--sp-4); }
+.tt th, .tt td.tt__label { white-space: nowrap; } /* nothing wraps: the words shorten, then the columns drop */
+.tt .tt__t { display: none; } /* one of a label's three forms shows */
+.tt-wrap[data-size="large"] .tt__t--long, .tt-wrap[data-size="medium"] .tt__t--mid, .tt-wrap[data-size="small"] .tt__t--short { display: inline; }
+.tt-wrap[data-size="medium"][data-names="short"] th.us .tt__t--mid, .tt-wrap[data-size="medium"][data-names="short"] th.them .tt__t--mid { display: none; } /* a school too long for its column: its abbreviation */
+.tt-wrap[data-size="medium"][data-names="short"] th.us .tt__t--short, .tt-wrap[data-size="medium"][data-names="short"] th.them .tt__t--short { display: inline; }
+.tt-wrap[data-size="small"] .tt__min-medium, .tt-wrap[data-size="small"] .tt__min-large, .tt-wrap[data-size="medium"] .tt__min-large { display: none; }
+.tt-wrap[data-size="small"] .hint__q { display: none; } /* the question mark only where there is room */
+.tt-wrap:not([data-size="large"]) tr.tt__head--a, .tt-wrap:not([data-size="large"]) tr.tt__head--b { display: none; }
+.tt-wrap[data-size="large"] tr.tt__head--one { display: none; }
+.tt thead th { position: static; } /* 2026-10-10: a two-row head cannot stick cleanly in a scrolled band (its rows drifted apart on the iPad); these tables are short, so no row sticks */
+.tt tr.tt__head--a th[rowspan] { vertical-align: bottom; } /* "This season" and "Edge" sit on the rank heads' line, as the mock had them */
+.tt--tug thead th.them { border-left: 1px solid var(--row-rule); } /* with the bar there is no divider before the opponent: the same thin line as every column */
+.tt th.tt__team { font-size: calc(16px * var(--ui-scale)); color: var(--chalk); border-bottom: 1px solid var(--row-rule); }
+.tt th.tt__blank { padding: 0; }
+.tt th.tt__rank, .tt td.tt__rank { text-align: center; width: 1%; padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.tt td.tt__rank .rank-chip { margin: 0; }
+.tt td.tt__rank .tt__norank { display: inline-block; min-width: 44px; color: var(--fog); font-family: var(--font-cond); font-weight: 600; } /* no rank: a dash the chip's width, never a blank square (owner 2026-10-10) */
+.tt td.tt__cell { width: 1%; }
+.tt th.us, .tt td.tt__us { text-align: right; }
+.tt th.them, .tt td.tt__them { text-align: left; }
+/* a player on each side (tables wave 3, Leaders' "vs opponent" boards): outermost, the name or its face and position at large and
+   medium, the name alone at small, stepping down like every name (item 6); a button that opens the card */
+.tt th.tt__who, .tt td.tt__who { text-align: left; white-space: nowrap; }
+.tt th.tt__pos, .tt td.tt__pos { text-align: left; white-space: nowrap; } /* wave 3: the player's position beside him, from medium */
+.tt td.tt__who .tt__who-btn { display: inline-flex; align-items: center; min-height: 40px; max-width: 100%; padding: 0; background: none; border: 0; color: var(--chalk); font: inherit; text-align: left; cursor: pointer; }
+@media (hover: hover) { .tt td.tt__who .tt__who-btn:hover { color: var(--team-accent); } }
+.tt--tug th.us, .tt--tug td.tt__cell.tt__us { padding-right: var(--sp-2); }
+.tt--tug th.them, .tt--tug td.tt__cell.tt__them { padding-left: var(--sp-2); }
+.tt:not(.tt--tug) td.tt__cell.tt__them, .tt:not(.tt--tug) th.them { border-left: 2px solid var(--rule-strong); } /* no bar: a divider before the opponent */
 .tt th.tt__better { text-align: left; padding-left: var(--sp-3); }
 .tt td.tt__better { color: var(--fog); }
 .tt td.tt__better.lead { color: var(--chalk); font-weight: 700; }
-.tt th.us { text-align: right; }
+.tt th + th, .tt td + td, .tt tbody th + td, .tt tr.tt__head--b th:first-child { border-left: 1px solid var(--row-rule); } /* a line between every column, the Edge column included (owner 2026-10-10) */
+/* a stat table that declares sizes (statTable({ sizes: true }): columns with size "medium" or "large", heads with labelMid and
+   labelShort) draws the same way: three sizes by its own box, nothing wraps, the question mark only with room, the minimal table when even small will not fit */
+.stat-table-wrap[data-size] td.txt, .stat-table-wrap[data-size] th { white-space: nowrap; }
+.stat-table-wrap[data-size] td.st__wrap { white-space: normal; width: 100%; min-width: 120px; } /* a column of prose (the depth names) wraps and takes what the others leave */
+.stat-table-wrap[data-size] .sz-t { display: none; }
+.stat-table-wrap[data-size="large"] .sz-t--long, .stat-table-wrap[data-size="medium"] .sz-t--mid, .stat-table-wrap[data-size="small"] .sz-t--short { display: inline; }
+.stat-table-wrap[data-size="small"] .st__min-medium, .stat-table-wrap[data-size="small"] .st__min-large, .stat-table-wrap[data-size="medium"] .st__min-large { display: none; }
+.stat-table-wrap[data-size="small"] .hint__q { display: none; }
+.stat-table-wrap[data-size="small"] th, .stat-table-wrap[data-size="small"] td { padding-left: 6px; padding-right: 6px; }
+.stat-table-wrap--dropped > .stat-table { display: none; }
+.stat-table-wrap--dropped > .size-note { margin: var(--sp-2) 0; text-align: center; }
+/* player names (item 6, owner 2026-10-11; ui/dom.js personName): a name is one line, never broken, not even at its hyphen
+   ("One line only, reduce the name"). Its four forms are drawn once; the data-pn of the table (or the card's own) shows one:
+   full "Keegan Crawford", initial "K. Crawford", last "Crawford", reduced "Brackwater-M."; clip, the last resort, cuts the reduced
+   form at the width the table measured (--pn-max) with an ellipsis, the full name in its title and for a screen reader */
+.pn { white-space: nowrap; }
+.pn__f { display: none; }
+.pn__f--full { display: inline; }
+[data-pn] .pn__f--full { display: none; }
+[data-pn="full"] .pn__f--full, [data-pn="initial"] .pn__f--initial, [data-pn="last"] .pn__f--last, [data-pn="reduced"] .pn__f--reduced, [data-pn="clip"] .pn__f--reduced { display: inline; }
+.pn[data-pn] > .pn__f { display: none; }
+.pn[data-pn="full"] > .pn__f--full, .pn[data-pn="initial"] > .pn__f--initial, .pn[data-pn="last"] > .pn__f--last, .pn[data-pn="reduced"] > .pn__f--reduced { display: inline; }
+[data-pn="clip"] .pn { display: inline-block; max-width: var(--pn-max, none); overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 
 /* --- Phase 8: the radio dock, the ticker on the live sheet, play value ------------------------- */
 
@@ -1143,11 +1225,12 @@
 .switch:checked { background: var(--team-us); }
 .switch:checked::before { transform: translateX(20px); }
 .switch:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 2px; }
-.setting__saved { position: sticky; top: calc(var(--topbar) + 4px); z-index: 4; min-height: 20px; margin: 0; }
+.setting__saved { position: sticky; top: calc(var(--topbar) + 4px); z-index: 4; min-height: 20px; margin: 0; padding: 2px 0; background: var(--ground); overflow-wrap: anywhere; } /* a long message covers what it sits on, never shows through it (bug 2026-10-13) */
 .setting__saved--ok { color: var(--good); }
 .page.settings-page { max-width: 1000px; grid-template-columns: minmax(0, 1fr); align-items: start; }
+.page.myteams-page { max-width: 1600px; } /* tables wave 3: My Teams' one band is a 13-column table whose large needs about 1,420 px: a 1080p screen gives it that much, and no more, so its columns stay close */
 .settings-main { display: grid; gap: var(--gap); min-width: 0; }
-.settings-nav { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.settings-nav { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
 .settings-nav__item { flex: none; padding: 6px 12px; border-radius: 4px; border-left: 3px solid transparent; color: var(--fog); text-decoration: none; white-space: nowrap; }
 @media (hover: hover) { .settings-nav__item:hover { color: var(--chalk); background: var(--panel); } }
 .settings-nav__item.is-current { color: var(--chalk); background: var(--panel-raised); border-left-color: var(--team-us); }
@@ -1158,7 +1241,7 @@
 @media (max-width: 699px) { .setting { grid-template-columns: minmax(0, 1fr); } .setting__control { justify-content: flex-start; } }
 .notes-task { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .notes-task__row { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
-.notes-task__log { margin: var(--sp-2) 0 0; padding: var(--sp-2); max-height: 120px; overflow: auto; background: var(--ground); border: 1px solid var(--rule); border-radius: 4px; color: var(--fog); font-size: calc(13px * var(--ui-scale)); white-space: pre-wrap; }
+.notes-task__log { margin: var(--sp-2) 0 0; padding: var(--sp-2); background: var(--ground); border: 1px solid var(--rule); border-radius: 4px; color: var(--fog); font-size: calc(13px * var(--ui-scale)); white-space: pre-wrap; overflow-wrap: anywhere; } /* the last four lines, whole: a long line wraps */
 
 /* Stat hints and the Glossary (owner request 2026-09-26). A dotted underline marks a stat name
    with a definition; tapping it opens a small card. Settings can switch the marks off. */
@@ -1222,11 +1305,12 @@ th .hint__q { margin-left: 2px; }
 .sync__choices .btn { justify-content: flex-start; text-align: left; border-color: var(--rule-strong); color: var(--chalk); min-height: 44px; }
 .fourth-down { border-top: 1px solid var(--rule); margin-top: var(--sp-2); }
 /* a floating card above the remote bar, so it never covers the top bar, the strip, or the remote */
-.update-banner { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(76px + var(--dock-h, 0px) + env(safe-area-inset-bottom, 0px)); z-index: 40; width: min(520px, calc(100% - 32px)); display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--panel-raised); border: 1px solid var(--rule-strong); border-left: 3px solid var(--team-accent); border-radius: 6px; box-shadow: 0 6px 24px rgba(0, 0, 0, .45); color: var(--chalk); }
-.update-banner span { flex: 1; }
+/* the update and restart reminders are page notes since the Prompts phase (owner 2026-10-13: one format for every reminder) */
+.page-note__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.page-note__row > span:first-child { flex: 1 1 240px; }
 .game-card__watch { font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); letter-spacing: .06em; text-transform: uppercase; color: var(--team-accent); margin-bottom: var(--sp-1); }
 /* Phase 13: headings inside the stats-depth tables */
-.d2 { display: grid; gap: var(--sp-2); }
+.d2 { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); } /* wave 3: one column as wide as the band, never as wide as a large table (a sized table measures its own box) */
 .d2-head { font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); letter-spacing: .04em; text-transform: uppercase; color: var(--fog); padding: var(--sp-3) var(--sp-3) var(--sp-1); margin: 0; }
 .cover__opened { color: var(--fog); font-weight: 400; }
 
@@ -1270,8 +1354,7 @@ th .hint__q { margin-left: 2px; }
 /* --- Phase 15: search ------------------------------------------------------------------------ */
 
 .search-button { display: inline-flex; align-items: center; gap: 6px; margin-right: var(--sp-2); }
-.search-button__icon { font-size: calc(20px * var(--ui-scale)); line-height: 1; }
-@media (max-width: 699px) { .search-button__label { display: none; } }
+.search-button__icon { font-size: calc(20px * var(--ui-scale)); line-height: 1; } /* the word "Search" shows from 900 px (the top bar, item 6) */
 .search { display: grid; gap: var(--sp-3); padding: var(--sp-3); }
 .search__bar { display: flex; gap: var(--sp-2); }
 .search__input {
@@ -1322,6 +1405,7 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .search__num { font-family: var(--font-cond); font-weight: 600; color: var(--fog); text-align: center; }
 .search__name { display: grid; font-weight: 600; min-width: 0; }
 .search__name small { color: var(--fog); font-weight: 400; font-size: var(--text-caption); }
+.search__name > .pn { min-width: 0; overflow: hidden; text-overflow: ellipsis; } /* item 6: a player's whole name on one line, never broken at its hyphen */
 .search__meta { font-family: var(--font-cond); color: var(--fog); font-size: calc(14px * var(--ui-scale)); }
 /* G3-15: the old results dim while a search runs; openable rows end in a chevron; a favorite team's star */
 .search__results.is-pending { opacity: 0.55; transition: opacity 120ms ease-out; }
@@ -1387,7 +1471,7 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .stat-table tbody tr[tabindex]:active td, .sched__game[role="button"]:active, .sched__game[role="button"]:nth-child(even):active { background-color: var(--press); }
 
 /* scrolling panels keep their scroll to themselves: the page underneath never moves */
-.side-sheet__body, .drawer__panel, .player-card, .plays, .stat-table-wrap--box { overscroll-behavior: contain; }
+.side-sheet__body, .drawer__panel, .player-card { overscroll-behavior: contain; }
 
 /* --- side sheet, player card and menu slide in and out (DS-10 item 1, LRP-07 d) -------------------------
    Closing layers are renamed *-closing by retireLayer() in dom.js; reduced motion turns it all off (tokens.css). */
@@ -1448,6 +1532,9 @@ button.search__item:focus-visible { background: var(--row-hover); }
 /* A table that fits its width has no scroll box, so its header sticks under the top bar (or at the top of
    the side sheet or player card it scrolls in). */
 .stat-table-wrap--fits { overflow: visible; }
+/* owner 2026-10-10: a table that fits never moves under a finger (no rubber band on a touch screen). Not overflow-x: hidden alone:
+   that would turn the other axis into a scroll box and the chips' press areas (which poke past the last row) into a scrollbar */
+.stat-table-wrap[data-size]:not(.stat-table-wrap--dropped) { overflow: visible; } /* a sized table never scrolls sideways at all */
 .stat-table-wrap--fits > .stat-table th { top: var(--sticky-top); z-index: 2; }
 .side-sheet__body .stat-table-wrap--fits > .stat-table th, .player-card .stat-table-wrap--fits > .stat-table th { top: 0; }
 /* Phase 17 #23: on a page, a band's title rides along under the top bar while you scroll through the band, and
@@ -1522,7 +1609,7 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .page.flow[data-cols="1"] { grid-auto-rows: auto; row-gap: var(--gap); }
 .page.flow > * { min-width: 0; }
 /* #10a: a table never stretches past a readable width, so a stat's name and its numbers stay close */
-.page.flow .stat-table-wrap:not(.stat-table-wrap--box) { width: 100%; max-width: 100%; } /* width: a grid item with auto margins would shrink to its content */
+.page.flow .stat-table-wrap { width: 100%; max-width: 100%; } /* width: a grid item with auto margins would shrink to its content */
 .page--wide { max-width: none; }
 .back-row { display: flex; }
 .back-row__link { display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 var(--sp-3); border-radius: var(--radius); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-title); font-weight: 600; text-decoration: none; }
@@ -1537,7 +1624,9 @@ button.search__item:focus-visible { background: var(--row-hover); }
 /* Phase 17 #5 (owner pick B): the page's sections as a row of chips pinned under the top bar; the section on screen
    is outlined in our color; swipe for more. The page under it pins its band titles below the row. */
 .chips-row { position: sticky; top: var(--topbar); z-index: 25; background: var(--ground); border-bottom: 1px solid var(--rule); --chips-h: 41px; }
-.chips-row__list { display: flex; gap: 6px; overflow-x: auto; padding: 6px var(--gap); scrollbar-width: none; overscroll-behavior-x: contain; }
+/* sideways only (owner 2026-10-10, his phone): the chips' press areas poke a pixel past the strip, and overflow-x alone made the
+   pinned strip scroll up and down by two pixels and keep the finger, so the page under it would not move */
+.chips-row__list { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; padding: 6px var(--gap); scrollbar-width: none; overscroll-behavior-x: contain; }
 .chips-row__list::-webkit-scrollbar { display: none; }
 .chips-row__chip { flex: none; display: inline-flex; align-items: center; min-height: 28px; padding: 0 12px; border: 1px solid var(--rule); border-radius: 14px; color: var(--fog); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; text-decoration: none; white-space: nowrap; }
 @media (hover: hover) { .chips-row__chip:hover { color: var(--chalk); border-color: var(--rule-strong); } }
@@ -1569,26 +1658,7 @@ button.search__item:focus-visible { background: var(--row-hover); }
    multiply with the width; small pixel pictures (crisp, scaled up), always smaller than the headline. The serif
    is the system's (Georgia, Times or the phone's own), so nothing is downloaded. */
 .paper-page { --paper-serif: Georgia, "Times New Roman", "Noto Serif", serif; }
-.paper-mast { padding: var(--sp-4) var(--sp-4) var(--sp-2); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; text-align: center; }
-.paper-mast__name { margin: 0; font-family: var(--paper-serif); font-size: clamp(30px, 5vw, 54px); font-weight: 700; line-height: 1.05; letter-spacing: 0.01em; color: var(--chalk); text-wrap: balance; }
-.paper-mast__line { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px var(--sp-4); margin-top: var(--sp-2); padding-top: 6px; border-top: 1px solid var(--rule); color: var(--fog); font-size: var(--text-caption); }
-.paper-earlier { display: flex; align-items: center; gap: var(--sp-3); margin: var(--sp-2) 0 0; font-family: var(--paper-serif); font-size: calc(18px * var(--ui-scale)); font-style: italic; font-weight: 400; color: var(--fog); }
-.paper-earlier::after { content: ""; flex: 1; border-top: 3px double var(--rule-strong); }
-.paper-week { display: grid; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
-.paper-lead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-4); align-items: start; padding-bottom: var(--sp-3); border-bottom: 3px double var(--rule-strong); }
-.paper-lead__head { margin: 0; font-family: var(--paper-serif); font-size: clamp(22px, 2.4vw, 34px); font-weight: 700; line-height: 1.15; text-wrap: balance; }
-.paper-lead__head a, .paper-story__head a { color: var(--chalk); text-decoration: none; }
-@media (hover: hover) { .paper-lead__head a:hover, .paper-story__head a:hover { text-decoration: underline; text-decoration-color: var(--team-accent); } }
-.paper-lead__words { display: grid; gap: var(--sp-1); min-width: 0; }
-.paper-cols { column-width: 300px; column-gap: var(--sp-5); column-rule: 1px solid var(--rule); }
-.paper-story { display: flex; gap: var(--sp-3); align-items: flex-start; break-inside: avoid; margin: 0 0 var(--sp-3); padding: 0 0 var(--sp-3); border-bottom: 1px solid var(--row-rule); }
-.paper-story__words { display: grid; gap: 2px; min-width: 0; }
-.paper-story__head { margin: 0; font-family: var(--paper-serif); font-size: calc(16px * var(--ui-scale)); font-weight: 700; line-height: 1.25; }
-.paper-story__line { margin: 0; color: var(--fog); font-size: var(--text-caption); }
 .px-pic { display: block; flex: none; image-rendering: pixelated; image-rendering: crisp-edges; border: 1px solid var(--rule); border-radius: 3px; background: var(--panel-raised); }
-.px-pic--lead { width: 160px; height: 96px; }
-.px-pic--small { width: 64px; height: 38px; }
-@container (max-width: 520px) { .px-pic--lead { width: 104px; height: 62px; } .paper-week { padding: var(--sp-3); } }
 
 /* Phase 17 #12: the notes band, compact */
 .notes-paste { display: grid; gap: var(--sp-2); }
@@ -1611,17 +1681,16 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .stars-pair__team--us .starstrip { box-shadow: inset 3px 0 0 var(--team-us); }
 .stars-pair__team--them .starstrip { box-shadow: inset 3px 0 0 var(--opp); }
 .stars-split { padding: var(--sp-2) var(--sp-3) 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); } /* Phase 18.4: our table left, theirs right */
-@container (max-width: 560px) { .stars-split { grid-template-columns: minmax(0, 1fr); overflow-x: auto; } } /* too narrow for two: stack them */
-.stars-split__table { width: 100%; }
-.stars-split__table caption { padding: 0 0 6px; color: var(--fog); font-size: var(--text-caption); text-align: left; }
-.stars-split__table th[scope="row"] { text-align: left; white-space: nowrap; }
-.stars-split__table th[scope="row"] small { color: var(--fog); }
-.stars-split__table td { text-align: right; font-variant-numeric: tabular-nums; }
+@container (max-width: 560px) { .stars-split { grid-template-columns: minmax(0, 1fr); } } /* too narrow for two: stack them; each table sizes itself (wave 2), never a sideways scroll */
+.stars-split__team { min-width: 0; }
+.stars-split__caption { margin: 0 0 6px; color: var(--fog); font-size: var(--text-caption); }
 .stars-split__hot { color: var(--team-accent); font-weight: 700; }
 
 /* Phase 17 #35: the roster breakdown: positions down, classes across, each player a name chip with our grade */
-.rgrid-wrap { overflow-x: auto; padding: var(--sp-2) var(--sp-3) var(--sp-3); }
-.rgrid { width: 100%; min-width: 820px; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+/* tables wave 3: sized by its own box (ui/roster-grid.js: the class names, then the surnames, then the class codes), so it
+   never scrolls sideways; table-layout auto, so a chip wider than its cell widens the table and the next size is tried */
+.rgrid-wrap { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.rgrid { width: 100%; border-collapse: separate; border-spacing: 0; }
 .rgrid thead th:first-child { width: 64px; }
 .rgrid thead th.rgrid__total { width: 80px; }
 .rgrid thead th { padding: 12px 10px; background: var(--table-head); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-th); font-weight: 600; text-align: right; }
@@ -1644,6 +1713,10 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .rgrid__total { width: 64px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; text-align: right; }
 .rgrid tfoot th { color: var(--chalk); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; text-align: left; }
 .rgrid__grand { color: var(--chalk); }
+.rgrid__count { display: none; color: var(--chalk); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rgrid-fit[data-size="small"] .rgrid__stack { display: none; } /* a phone: each cell its count (ui/roster-grid.js) */
+.rgrid-fit[data-size="small"] .rgrid__count { display: inline; }
+.rgrid-wrap[data-size="small"] .rgrid__note--chips, .rgrid-wrap:not([data-size="small"]) .rgrid__note--counts { display: none; }
 :root[data-theme="light"] .rgrid__grade--elite { color: #1D8A3A; }
 :root[data-theme="light"] .rgrid__grade--very-good { color: #4E7A00; }
 :root[data-theme="light"] .rgrid__grade--good { color: #8A6A00; }
@@ -1680,16 +1753,16 @@ button.search__item:focus-visible { background: var(--row-hover); }
 
 /* Phase 17 #17: each pair of leaders' whole line: ranks among FBS and the conference, and conference games */
 .leader-cat__detail { grid-column: 1 / -1; min-width: 0; } /* final pass: the kit's wrap scrolls a too-wide table itself; no second scroll box, so the head pins to the page */
-.lines .stat-table-wrap { max-height: none; } /* final pass: a short table, shown whole */
+/* group five: players to watch as matchup rows, each offense beside the defense it faces */
+.watch { display: grid; gap: var(--gap); }
+.watch__pair { align-items: start; }
+.watch__side { min-width: 0; }
+.watch__side .stat-table-wrap { max-width: none; margin: 0; }
+.watch__side .stat-table { max-width: none; }
 .lines .tt { max-width: none; } /* the shared two-team table, the whole band's width */
-.lines .tt td.tt__label { white-space: nowrap; } /* short stat names: never a label broken over three lines */
-.lines tr.lines__conf td { color: var(--fog); font-weight: 400; white-space: normal; }
+.lines tr.lines__conf td.tt__cell { color: var(--fog); font-weight: 400; white-space: normal; min-width: 150px; } /* the conference line is prose: two lines in its cell, never one word a line, never the table's size (2026-10-10) */
 .lines tr.lines__conf td.tt__cell .tt__val { font-family: var(--font-body); font-size: var(--text-label); }
-/* the conference chip: its own tap target beside the national one (the national chip's target is the whole cell) */
-.tt .tt__conf { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 3px; margin: 0 0 0 6px; }
-.tt--tug td.tt__us .tt__conf { margin: 0 6px 0 0; }
-.tt .tt__conf .rank-chip { margin: 0; }
-.tt .tt__conf small { color: var(--fog); font-size: var(--text-caption); }
+.lines .tt-wrap[data-size="small"] tr.lines__conf td.tt__cell { min-width: 0; white-space: nowrap; } /* small (wave 2): the line's lead number alone ("940 yds"), so a phone's table keeps its box */
 
 /* Phase 17 #15: the announcer before each stat blurb; he talks for a moment when the blurb first shows */
 .announcer { display: inline-block; width: 26px; height: 26px; margin-right: 6px; vertical-align: -8px; overflow: visible; }
@@ -1801,17 +1874,122 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .setting__stack { display: grid; gap: 8px; min-width: 0; }
 .guest-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; padding: 6px 12px; background: var(--panel-2, #1c1f26); border-bottom: 1px solid var(--rule); font-size: 0.9rem; }
 body[data-role="guest"] :is(.settings .setting__control, .notes-paste, .prompt-paste, .gamenotes form, .gamenotes button, .station-form, .notes-task__row, .season-load__tools, .delay, .sync) { pointer-events: none; opacity: 0.55; } /* final pass: the host sets the delay (decision, 2026-10-09) and writes the notes; a guest sees the controls dimmed, not failing */
-.board__corner { position: fixed; right: 18px; bottom: 18px; z-index: 5; display: grid; justify-items: center; gap: 4px; padding: 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.6); }
-.board__corner .invite { padding: 0; gap: 4px; }
-.board__corner .invite__qr { width: 150px; max-width: 150px; padding: 4px; }
-.board__corner .invite__url { font-size: 0.8rem; max-width: 170px; }
+/* the QR (queue item 7, owner mock 2026-10-11: "in the middle, but smaller"): the board's middle cell, the caption on top,
+   the code and its address at the foot by the score strip */
+.board__corner { display: flex; flex-direction: column; align-items: center; gap: 8px; height: 100%; padding: 14px 8px 10px; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); }
+.board__corner .invite { margin-top: auto; display: grid; justify-items: center; gap: 6px; padding: 0; }
+.board__corner .invite__qr { width: 104px; max-width: 104px; height: auto; padding: 4px; }
+.board__corner .invite__url { max-width: 116px; font-size: calc(14px * var(--ui-scale)); font-weight: 600; line-height: 1.25; text-align: center; overflow-wrap: anywhere; }
 .board__corner .invite > button, .board__corner .invite .note { display: none; }
-.board__join { margin: 0; font-size: 0.9rem; color: var(--chalk, #fff); }
-body.board-mode .topbar, body.board-mode .tabs, body.board-mode .shell__radio, body.board-mode .radio-bar, body.board-mode .guest-bar, body.board-mode .live-tools, body.board-mode .remote-bar, body.board-mode .remote, body.board-mode .jump, body.board-mode .section-chips, body.board-mode .chips-row { display: none !important; } /* final pass: .remote and .chips-row are the real class names */
-body.board-mode .shell__main { zoom: var(--board-zoom, 1); padding-bottom: 180px; cursor: none; }
+.board__join { margin: 0; font-family: var(--font-cond); font-size: calc(22px * var(--ui-scale)); font-weight: 700; line-height: 1.1; text-align: center; color: var(--chalk); }
+body.board-mode .topbar, body.board-mode .tabs, body.board-mode .shell__radio, body.board-mode .radio-bar, body.board-mode .guest-bar, body.board-mode .page-notes, body.board-mode .live-tools, body.board-mode .remote-bar, body.board-mode .remote, body.board-mode .jump, body.board-mode .section-chips, body.board-mode .chips-row { display: none !important; } /* final pass: .remote and .chips-row are the real class names */
+body.board-mode .shell__main { zoom: var(--board-zoom, 1); cursor: none; }
+/* item 6, step A (owner 2026-10-11): the board's way out, a chip outside the zoomed page, top right. Hidden (opacity 0, still focusable, no taps) until the mouse moves, a key is pressed or
+   the screen is tapped (body.board-awake, views/board.js), then gone after a few seconds; shown while it has keyboard
+   focus. The same moment brings the mouse pointer back. (Item 7: the chip sits top right, clear of the bars along the
+   bottom; the radio moved to the score strip's bar.) */
+body.board-mode.board-awake .shell__main { cursor: auto; }
+.board-exit { position: fixed; right: 18px; top: 18px; right: calc(18px + env(safe-area-inset-right, 0px)); top: calc(18px + env(safe-area-inset-top, 0px)); z-index: 35; display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-start; gap: 8px; max-width: calc(100vw - 36px); pointer-events: none; }
+.board-exit > .btn { flex: none; opacity: 0; pointer-events: none; gap: 6px; padding: 0 16px 0 10px; background: var(--panel-raised); border-color: var(--rule-strong); border-radius: 999px; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45); color: var(--chalk); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 600; transition: opacity 250ms ease-out, background-color 120ms ease-out, transform 60ms ease-out; }
+body.board-awake .board-exit > .btn { opacity: 1; pointer-events: auto; }
+.board-exit > .btn:focus-visible { opacity: 1; pointer-events: auto; } /* its own rule: a browser without :focus-visible still shows the chip */
+.board-exit > .btn[hidden], body:not(.board-mode) .board-exit { display: none; }
+.board-exit .icon { width: 20px; height: 20px; flex: none; }
+.board-exit__short { display: none; }
+@media (max-width: 599px) { .board-exit__long { display: none; } .board-exit__short { display: inline; } } /* a phone: the short words fit beside the QR corner at every text size */
+/* --- the board (queue item 7, the owner's mock of 2026-10-11; views/live.js buildTv) ---------------------------------
+   One 1080p screen with nothing to scroll: Win probability and Leaders top left, the pass chart, the run chart and the QR
+   under them, Team stats and one In Game panel (the Box score until a menu button picks another) as the right half's two
+   full-height columns; along the bottom, edge to edge and tinted with a little of our color: the score strip with the
+   radio at its left, the ticker, the spoiler-delay line and the twelve menu buttons. The long columns step through their
+   rows on their own (views/live.js stepTv). Smaller than a TV: the same cells stack and the page scrolls, the score bar
+   stays at the foot of the screen. */
+.tv { --tint-us: color-mix(in srgb, var(--team-us) 22%, var(--panel)); --tint-us-soft: color-mix(in srgb, var(--team-us) 12%, var(--panel)); --tint-us-faint: color-mix(in srgb, var(--team-us) 7%, var(--panel)); display: grid; min-width: 0; padding-bottom: 72px; }
+.tv--empty .tv__cell, .tv--empty .tv__lower, .tv--empty .tv__bar--note, .tv--empty .tv__bar--menu { display: none; }
+.tv:not(.tv--empty) .tv__empty { display: none; }
+.tv__main { display: grid; gap: var(--gap); padding: var(--gap); grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.tv__empty { grid-column: 1 / -1; display: grid; gap: var(--gap); }
+.tv__cell { min-width: 0; min-height: 0; }
+.tv__cell > .band { margin: 0; height: 100%; }
+.tv__lower { display: grid; gap: var(--gap); grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.tv__cell--qr { display: flex; justify-content: center; }
+.tv__cell--panel { border: 1px solid var(--rule); }
+.tv__cell--panel > .board-panel__title { min-height: var(--tap); align-items: center; padding: 0 var(--sp-2) 0 var(--sp-3); background: var(--band-head); border-left: 4px solid var(--rule-strong); font-size: var(--text-title); }
+.tv__cell--panel > .board-panel__title small { margin-left: auto; font-size: var(--text-label); text-align: right; }
+.tv__cell--split > .board-panel__body > .band:not(:only-child) > .band__head { display: flex; } /* the box score: each team named */
+.tv__cell--split > .board-panel__body > .band + .band { border-top: 2px solid var(--rule-strong); }
+.tv__cell--pass .shot-chart > .note, .tv__cell--runs .shot-chart > .note { margin: 0; }
+.tv__bars { display: grid; min-width: 0; }
+.tv__bar { min-width: 0; border-top: 1px solid var(--rule-strong); }
+.tv__bar--strip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3); background: var(--tint-us); border-top: 3px solid var(--team-accent); }
+.tv__strip { flex: 1 1 auto; min-width: 0; }
+.tv__strip .strip { position: static; background: transparent; border: 0; justify-content: center; padding: 4px 0; }
+.tv__radio { flex: none; display: flex; }
+.tv__radio .board-exit__radio { display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 4px 14px 4px 6px; border: 1px solid var(--rule-strong); border-radius: 999px; background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--chalk); font-family: var(--font-cond); font-size: calc(19px * var(--ui-scale)); font-weight: 700; }
+.tv__radio .board-exit__radio .icon { width: 32px; height: 32px; padding: 7px; border-radius: 50%; background: var(--team-accent); color: var(--ground); fill: currentColor; }
+.tv__radio .board-exit__short { display: none; }
+.tv__radio .board-exit__long { display: inline; }
+@media (max-width: 599px) { .tv__radio .board-exit__long { display: none; } .tv__radio .board-exit__radio { padding: 4px; } } /* a phone: the play mark alone, its name in aria-label */
+.tv__bar--ticker { background: var(--tint-us-soft); }
+.tv__bar--ticker .live-ticker { margin: 0; }
+.tv__bar--ticker .ticker { background: transparent; border: 0; border-radius: 0; }
+.tv__bar--note { background: var(--tint-us-faint); }
+@media (max-width: 599px) { .tv { padding-bottom: 132px; } } /* a phone: the fixed score bar wraps to three lines; the page ends above it */
+.tv__note > p, .tv__note > .note { margin: 0; padding: 7px var(--sp-4); max-width: none; color: var(--chalk); font-size: calc(17px * var(--ui-scale)); text-align: center; }
+.tv__delay { color: var(--team-accent); }
+.tv__bar--menu { background: var(--tint-us); }
+.tv__menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; padding: 8px var(--sp-3) 9px; }
+.tv__menu-btn { display: grid; justify-items: center; align-content: center; gap: 2px; min-width: 0; min-height: 62px; padding: 4px 6px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--chalk); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; line-height: 1.1; cursor: pointer; }
+.tv__menu-btn small { color: var(--fog); font-family: var(--font-body); font-size: calc(15px * var(--ui-scale)); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tv__menu-btn[aria-pressed="true"] { border-color: var(--team-accent); box-shadow: inset 0 -3px 0 var(--team-accent); }
+@media (hover: hover) { .tv__menu-btn:hover { border-color: var(--fog); } }
+.tv__menu-btn:focus-visible { outline: 3px solid var(--team-accent); outline-offset: 2px; }
+@media (min-width: 700px) {
+  .tv__main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tv__lower { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 140px; }
+}
+/* the TV: one screen, nothing to scroll; the cells take the room above the four bars */
+@media (min-width: 1400px) and (min-height: 700px) {
+  body.board-mode { overflow: hidden; }
+  .tv { height: calc(100vh / var(--board-zoom, 1)); grid-template-rows: minmax(0, 1fr) auto; padding-bottom: 0; }
+  .tv__main { min-height: 0; gap: 10px; padding: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: max-content minmax(0, 1fr); grid-template-areas: "wp leaders stats panel" "lower lower stats panel"; }
+  .tv__cell--wp { grid-area: wp; }
+  .tv__cell--leaders { grid-area: leaders; }
+  .tv__lower { grid-area: lower; min-height: 0; gap: 10px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px; }
+  .tv__cell--stats { grid-area: stats; overflow: hidden; }
+  .tv__cell--panel { grid-area: panel; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .tv__cell--panel > .board-panel__body { min-height: 0; overflow: hidden; }
+  .tv__cell--split > .board-panel__body { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+  .tv__cell--split > .board-panel__body > .band { min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 0; }
+  .tv__cell--split > .board-panel__body > .band > .band__body { flex: 1 1 0; min-height: 0; overflow: hidden; }
+  .tv__cell--stats > .band { height: auto; min-height: 100%; }
+  .tv__cell--stats > .band > .band__head { position: sticky; top: 0; z-index: 2; } /* the column steps through its rows: its title stays */
+  .tv__cell--split .band__body > .note { display: none; } /* the box score's source line: Leaders says the same */
+  .tv__cell--pass, .tv__cell--runs { height: 100%; overflow: hidden; }
+  :is(.tv__cell--pass, .tv__cell--runs) > .band { display: flex; flex-direction: column; }
+  :is(.tv__cell--pass, .tv__cell--runs) .band__body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  :is(.tv__cell--pass, .tv__cell--runs) .shot-chart-host, :is(.tv__cell--pass, .tv__cell--runs) .shot-chart { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  :is(.tv__cell--pass, .tv__cell--runs) .shot-field { flex: 1 1 0; min-height: 0; max-width: none; width: 100%; grid-template-rows: repeat(var(--tv-rows, 1), minmax(0, 1fr)) auto; }
+  .tv__cell--pass .shot-field { --tv-rows: 2; } /* deep over short; the run chart's one row stands the whole height */
+  :is(.tv__cell--pass, .tv__cell--runs) .shot-row { min-height: 0; }
+  .tv__bar--strip { position: static; }
+  .tv__bars { min-height: 0; }
+  /* compact rows on a TV: the 44 px press height is for a finger */
+  .tv .stat-table tr[role="button"] > :is(td, th) { height: auto; }
+  .tv__cell--panel .stat-table tbody :is(td, th) { padding-top: 3px; padding-bottom: 3px; }
+}
+.board-panel { min-width: 0; display: grid; grid-template-rows: auto 1fr; background: var(--panel); border-radius: var(--radius); overflow: hidden; }
+.board-panel__title { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--rule); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
+.board-panel__title small { color: var(--fog); font-family: var(--font-body); font-size: var(--text-caption); font-weight: 400; }
+.board-panel__body { min-width: 0; }
+.board-panel__body > .band { border-radius: 0; }
+.board-panel__body .band__head { display: none; } /* the pane's own title stands in */
+/* no top bar on the board, so nothing sticks under one: the score strip at the very top, never pushed down over the game
+   line and the row under it (owner bug 2026-10-10: "the score bar covers part of the screen constantly") */
+body.board-mode { --topbar: 0px; --sticky-top: 0px; }
 
 /* Phase 19: spoiler mode (ui/spoiler.js lists the same classes) */
-body.spoiler-on:not(.spoiler-all) :is(.cover__score, .cover__state--final, .cover__result, .form-guide, .sched__res, .res--w, .res--l, .res--t, .scores__pts--win, .scores__pts--lose, .scores__pts, .qline, .form__sq, .score-words, .ticker__game, .strip__score, .strip__final, .box-head__score, .wpbar, .wp, .cover__wp-label, .play-log, .gl-result):not(.spoiler-shown) { filter: blur(0.45em); cursor: pointer; user-select: none; }
+body.spoiler-on:not(.spoiler-all) :is(.cover__score, .cover__state--final, .cover__result, .form-guide, .sched__res, .res--w, .res--l, .res--t, .scores__pts--win, .scores__pts--lose, .scores__pts, .qline, .form__sq, .score-words, .ticker__game, .strip__score, .strip__final, .box-head__score, .wpbar, .wp, .cover__wp-label, .play-log, .gl-result, .paper-score, .paper-status__score, .paper-head--final, .paper-kicker--final, .paper-wp):not(.spoiler-shown) { filter: blur(0.45em); cursor: pointer; user-select: none; }
 body.spoiler-on:not(.spoiler-all) :is(.play-log, .wp):not(.spoiler-shown) { filter: blur(0.6em); }
 .spoiler-bar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 6; display: flex; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 999px; background: var(--panel-2, #1c1f26); border: 1px solid var(--rule); font-size: 0.9rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); }
 body.board-mode .spoiler-bar { display: none; }
@@ -1860,7 +2038,7 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
 .print-field { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .program-tools { display: flex; justify-content: flex-end; }
 @media print {
-  .topbar, .tabs, .shell__radio, .radio-bar, .remote, .sheet-layer, .guest-bar, .spoiler-bar, .board__corner, .live-tools, .jump, .section-chips, .chips-row, .band__toggle, .pull-line, .ticker, .live-ticker, .program-tools, .back-row, button, .btn, .icon-btn { display: none !important; }
+  .topbar, .tabs, .shell__radio, .radio-bar, .remote, .sheet-layer, .guest-bar, .page-notes, .spoiler-bar, .board__corner, .board-exit, .live-tools, .jump, .section-chips, .chips-row, .band__toggle, .pull-line, .ticker, .live-ticker, .program-tools, .back-row, button, .btn, .icon-btn { display: none !important; }
   html, body { background: #fff !important; color: #000 !important; }
   .shell__main { padding: 0 !important; zoom: 1 !important; }
   .flow { display: block !important; }
@@ -1874,25 +2052,20 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
 }
 
 /* Phase 19: newspaper story sizes and the masthead banner */
-.px-pic--medium { width: 100%; max-width: 240px; height: auto; aspect-ratio: 40 / 24; }
-.px-pic--feature { width: 200px; height: auto; aspect-ratio: 40 / 24; }
 .px-pic--banner { width: 100%; max-width: 560px; height: auto; aspect-ratio: 160 / 18; margin: 0 auto var(--sp-2); border-radius: 2px; }
-.paper-story--m { display: grid; gap: var(--sp-2); }
-.paper-story--m .paper-story__head { font-size: calc(19px * var(--ui-scale)); }
-.paper-story--l { column-span: all; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--sp-4); align-items: center; padding: var(--sp-3) 0; border-top: 2px solid var(--rule-strong); border-bottom: 2px solid var(--rule-strong); }
-.paper-story__head--feature { font-size: calc(26px * var(--ui-scale)); line-height: 1.15; }
-@container (max-width: 520px) { .paper-story--l { grid-template-columns: minmax(0, 1fr); } .px-pic--feature { width: 100%; max-width: 240px; } }
 
 /* Phase 19: nothing stretches across a wide band (owner 2026-10-08, after "Leaders side by side" put each label far from its value) */
-.tt { max-width: 720px; }
+.tt { max-width: none; } /* 2026-10-10 (owner, the tape on the iPad: "why doesn't this expand to fit the page?"): a two-team table fills its band; the bar takes the room */
+.tt:not(.tt--tug) { width: auto; max-width: 100%; margin-inline: auto; } /* no bar to take the room: the table is only as wide as its words and numbers, centered, so no label sits far from its value */
+.tt:not(.tt--tug) td.tt__label, .tt:not(.tt--tug) th.tt__label, .tt:not(.tt--tug) td.tt__cell, .tt:not(.tt--tug) td.tt__rank, .tt:not(.tt--tug) th.tt__rank { width: auto; } /* no percentage widths here: a shrink-to-fit table with a 1% column fills its box instead of shrinking */
 .rgrid { max-width: 1000px; }
 .shot-field { max-width: 560px; margin-inline: auto; }
 .settings-main { max-width: 860px; }
 
 /* Phase 19: press targets reach 44 px (docs/03-DESIGN.md, touch and accessibility) without growing the small things themselves: an
    invisible area around each one makes up the difference, as the rank chips already do. And no text under 13 px. */
-:where(button.team-link, .chips-row__chip, a.cover-chip, a.list-link, a.tag, .poll-badge--link, .form-guide__game--link, a.form-guide__game, .record-box__link, .team-head__link, a.wiki-link, button.pill, .leader-who--btn, input.switch, .notes-paste__path, a.wordmark, .rank-chip--link) { position: relative; }
-:where(button.team-link, .chips-row__chip, a.cover-chip, a.list-link, a.tag, .poll-badge--link, a.form-guide__game, .record-box__link, .team-head__link, a.wiki-link, button.pill, .leader-who--btn, input.switch, .notes-paste__path, a.wordmark, .rank-chip--link)::after { content: ""; position: absolute; inset: var(--slop-44); }
+:where(button.team-link, .chips-row__chip, a.cover-chip, a.list-link, a.tag, .poll-badge--link, .form-guide__game--link, a.form-guide__game, .record-box__link, .team-head__link, a.wiki-link, button.pill, .leader-who--btn, button.tt__who-btn, input.switch, .notes-paste__path, a.wordmark, .rank-chip--link, button.tt__get, a.tt__get, a.live-flag) { position: relative; }
+:where(button.team-link, .chips-row__chip, a.cover-chip, a.list-link, a.tag, .poll-badge--link, a.form-guide__game, .record-box__link, .team-head__link, a.wiki-link, button.pill, .leader-who--btn, button.tt__who-btn, input.switch, .notes-paste__path, a.wordmark, .rank-chip--link, button.tt__get, a.tt__get, a.live-flag)::after { content: ""; position: absolute; inset: var(--slop-44); }
 :root { --slop-44: min(0px, calc((100% - 44px) / 2)); } /* the invisible margin that brings a small thing to a 44 px press target */
 .stat-table tr[role="button"] > td, .stat-table tr[role="button"] > th { height: 44px; }
 .settings-nav__item, .depth-card__pick, .rgrid__chip { min-height: 44px; }
@@ -1900,17 +2073,115 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
 small, .cover__opened { font-size: max(13px, 0.85em); }
 
 .stat-table th button, .seg button { min-width: 44px; }
-.paper-lead__head a, .paper-story__head a { display: inline-block; padding-block: 10px; }
 .settings a:not(.btn) { display: inline-block; padding-block: 11px; }
 input[type="range"] { min-height: 44px; }
 
 /* Phase 19, second pass (owner 2026-10-08: shrinking every table to its content left a hole beside it): a table is capped by how
    many columns it has and CENTERED in its band, so a small table never stretches and never hugs one edge; a wide one fills. */
-.stat-table:not(:has(thead th:nth-child(5))) { max-width: 640px; margin-inline: auto; }
-.stat-table:has(thead th:nth-child(5)):not(:has(thead th:nth-child(7))) { max-width: 680px; margin-inline: auto; }
-.stat-table:has(thead th:nth-child(7)):not(:has(thead th:nth-child(9))) { max-width: 880px; margin-inline: auto; }
+.stat-table:not(.tt):not(:has(thead th:nth-child(5))) { max-width: 640px; margin-inline: auto; } /* 2026-10-10: a two-team table (.tt) fills its band instead */
+.stat-table:not(.tt):has(thead th:nth-child(5)):not(:has(thead th:nth-child(7))) { max-width: 680px; margin-inline: auto; }
+.stat-table:not(.tt):has(thead th:nth-child(7)):not(:has(thead th:nth-child(9))) { max-width: 880px; margin-inline: auto; }
 .tt { margin-inline: auto; }
 .rgrid { margin-inline: auto; }
+
+/* The menu's pages (owner 2026-10-10): the Setup page's links, the Injury Report in a team's side sheet */
+.setup-links { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: var(--gap); padding: var(--gap); }
+.setup-links > .note { grid-column: 1 / -1; margin: 0; }
+.setup-link { display: grid; gap: 4px; align-content: start; min-height: 72px; padding: var(--sp-3); border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel-raised); color: var(--chalk); text-decoration: none; }
+@media (hover: hover) { .setup-link:hover { border-color: var(--team-accent); } }
+.setup-link:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 2px; }
+.setup-link__label { font-family: var(--font-cond); font-size: calc(19px * var(--ui-scale)); font-weight: 700; }
+.setup-link__note { color: var(--fog); font-size: calc(14px * var(--ui-scale)); line-height: 1.4; }
+.injury-game { display: grid; gap: var(--sp-2); padding-bottom: var(--sp-3); }
+.injury-game > * { min-width: 0; } /* tables wave 3: a grid item would grow to the table's widest size; the table sizes by the sheet's width */
+.injury-game + .injury-game { border-top: 1px solid var(--rule); padding-top: var(--sp-2); }
+
+/* --- item 6, steps B to D (owner 2026-10-11): the Menu stays in reach ------------------------------------------ */
+/* B. From 700 px up (the iPad both ways, the big screen) every side sheet and the player card, and their scrims, start at
+   the top bar's bottom edge: --layer-top, measured when a layer opens (ui/layers.js placeLayers; it counts a demo banner
+   or a guest line above the bar), never under the page's own pinned rows. The top bar sits above the layers, so the Menu,
+   Search and the tabs keep working while one is open; the menu drawer still covers everything. A phone keeps
+   full-screen sheets (item 8 redoes their close and size); the board hides the top bar, so its layers start at 0; the
+   styleguide's inline sample stays where it is drawn. */
+@media (min-width: 700px) {
+  .topbar { z-index: 60; }
+  .drawer { z-index: 62; }
+  .sheet-layer:not(.sheet-layer--inline), .sheet-layer-closing, .card-layer, .card-layer-closing { top: var(--layer-top, var(--topbar)); }
+  body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer-closing) { top: 0; }
+}
+/* --- item 8 (owner 2026-10-10): side sheets and the player card ---------------------------------------------------
+   No small x: a > at the left of the head slides the sheet away (a swipe right still does). A sheet is as wide as its
+   content (360 to 780 px; a phone's whole width) and as tall as its content: it lies on the page where the reader is
+   (--sheet-top, set when it opens: ui/dom.js sheetAnchor), so a long one is read by scrolling the page, never inside a
+   box, and the page underneath is not locked (only the menu drawer locks it). The dimmed scrim covers the screen below
+   the top bar; the sheet's head (and the card's bar and tabs) stay at the top while the page scrolls. */
+:root { --sheet-sticky: 0px; }
+@media (min-width: 700px) { :root { --sheet-sticky: var(--layer-top, var(--topbar)); } }
+.sheet-layer:not(.sheet-layer--inline), .sheet-layer-closing, .card-layer, .card-layer-closing { position: absolute; top: 0; left: 0; right: 0; bottom: auto; height: 0; overflow: visible; }
+.sheet-layer:not(.sheet-layer--inline) > .sheet-layer__scrim, .sheet-layer-closing > .sheet-layer__scrim, .card-layer > .card-layer__scrim, .card-layer-closing > .card-layer__scrim { position: fixed; inset: 0; top: var(--sheet-sticky); }
+body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer-closing) > :is(.sheet-layer__scrim, .card-layer__scrim) { top: 0; }
+.sheet-layer:not(.sheet-layer--inline) > .side-sheet, .sheet-layer-closing > .side-sheet { top: var(--sheet-top, 0px); bottom: auto; width: fit-content; min-width: min(360px, 100vw); max-width: min(780px, 100vw); border-bottom: 1px solid var(--rule-strong); border-bottom-left-radius: var(--radius); }
+.sheet-layer:not(.sheet-layer--inline) > .side-sheet > .side-sheet__body, .sheet-layer-closing > .side-sheet > .side-sheet__body { flex: none; overflow: visible; }
+.sheet-layer:not(.sheet-layer--inline) > .side-sheet > .side-sheet__head, .sheet-layer-closing > .side-sheet > .side-sheet__head { position: sticky; top: var(--sheet-sticky); z-index: 3; }
+.side-sheet__head { padding: 0 var(--sp-4) 0 var(--sp-1); }
+.side-sheet__close, .player-card__close { min-width: var(--tap); min-height: var(--tap); }
+.side-sheet__close .icon, .player-card__close .icon { width: 24px; height: 24px; }
+.sheet-layer:not(.sheet-layer--inline) .side-sheet__body .stat-table-wrap--fits > .stat-table th { top: calc(var(--sheet-sticky) + var(--topbar)); }
+.card-layer > .player-card, .card-layer-closing > .player-card { top: var(--sheet-top, 0px); bottom: auto; overflow: visible; border-bottom: 1px solid var(--rule-strong); border-bottom-left-radius: var(--radius); }
+.card-layer .player-card__bar { top: var(--sheet-sticky); justify-content: flex-start; padding: 4px var(--sp-4) 4px var(--sp-1); }
+.card-layer .player-card__tabs { top: calc(var(--sheet-sticky) + var(--card-bar)); }
+.card-layer .player-card .stat-table-wrap--fits > .stat-table th { top: calc(var(--sheet-sticky) + var(--card-bar) + var(--card-tabs)); }
+@media (max-width: 699px) { /* a phone: the whole width the page has (100vw would count a scrollbar and run past it) */
+  .sheet-layer:not(.sheet-layer--inline) > .side-sheet, .sheet-layer-closing > .side-sheet, .card-layer > .player-card, .card-layer-closing > .player-card { left: 0; right: 0; width: auto; min-width: 0; max-width: none; border-bottom-left-radius: 0; }
+}
+/* C. Nothing opens by itself over the page: notes above it instead (ui/page-notes.js), in a slot between the top bar and
+   the page that shows only while a note does. "Not loaded yet" on the Pre-Game Program (ui/readiness.js), a guest's
+   welcome on the page it lands on (ui/guest.js). Never on the board (the hide list above), never printed. */
+.page-notes { display: grid; gap: var(--gap); width: 100%; max-width: 1320px; margin-inline: auto; padding: var(--gap) var(--gap) 0; box-sizing: border-box; }
+.page-notes[hidden], .page-note[hidden] { display: none; }
+.page-note { display: grid; gap: var(--sp-2); min-width: 0; padding: var(--sp-2) var(--sp-2) var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule-strong); border-left: 3px solid var(--team-accent); border-radius: var(--radius); }
+.page-note__head { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); }
+.page-note__title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; }
+.page-note__close { flex: none; }
+.page-note__body { display: grid; gap: var(--sp-2); padding-right: var(--sp-2); color: var(--chalk); }
+.page-note__body > p { margin: 0; max-width: 75ch; }
+.page-note__body > p.note { padding: 0; }
+/* --- the Prompts page (views/prompts.js, the Prompts phase 2026-10-13) ------------------------------------------- */
+.prompts__card { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.prompts__state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.prompts__missing { color: var(--fog); font-size: var(--text-caption); }
+.pill--loaded { color: var(--good); border-color: var(--good); }
+.pill--partial { color: var(--chalk); border-color: var(--rule-strong); }
+.pill--missing { color: var(--bad); border-color: var(--bad); }
+.pill--none { color: var(--fog); }
+.prompts__tools { display: grid; gap: var(--sp-2); }
+.prompts__said:empty { display: none; }
+.prompts__conferences { list-style: none; margin: var(--sp-2) 0 0; padding: 0; display: grid; gap: var(--sp-2); }
+.prompts__conferences[hidden] { display: none !important; }
+.prompts__conference { display: grid; gap: 6px; padding: var(--sp-2) 0; border-top: 1px solid var(--row-rule); }
+.prompts__conference-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.prompts__conference-head small { color: var(--fog); }
+.prompts__runlist { margin: 0; padding-left: 18px; color: var(--fog); font-size: var(--text-caption); }
+.prompts__runitem.is-saved, .prompts__runitem.is-done { color: var(--good); }
+.prompts__runitem.is-failed { color: var(--bad); }
+.prompts__run, .prompts__schedule { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.prompts__run .prompts__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+/* school history and facts (ui/school-facts.js): a label and its value, the value wrapping */
+.facts { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.facts__table th[scope="row"] { width: 38%; white-space: normal; text-align: left; color: var(--fog); font-weight: 600; vertical-align: top; }
+.facts__table td.facts__value { white-space: normal; overflow-wrap: anywhere; }
+.facts__sources { margin: 0; }
+.page-note .readiness, .status-card .readiness { display: grid; gap: var(--sp-3); margin: 0; padding: 0; list-style: none; }
+.page-note .readiness { grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr)); gap: var(--sp-3) var(--gap); } /* side by side where they fit: the note stays short above the page */
+.page-note .readiness__item { align-content: start; }
+.page-note .readiness__item, .status-card .readiness__item { display: flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-3); }
+.page-note .readiness__item > b, .status-card .readiness__item > b { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; }
+.page-note .readiness__detail, .status-card .readiness__detail { flex-basis: 100%; order: 2; margin: 0; color: var(--fog); }
+.page-note .readiness__item > .btn, .status-card .readiness__item > .btn { order: 1; }
+/* the dot on the status pill: something new to look at (the card lists it) */
+.pill--notice .pill__notice { position: absolute; top: 1px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--team-accent); box-shadow: 0 0 0 2px var(--topbar-bg); pointer-events: none; } /* in the pill's own corner: it takes no width from the label */
+.status-card__notice { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
+.status-card__subtitle { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); }
 
 /* === NV: national list view, national sheet, search and glossary polish === */
 
@@ -1931,6 +2202,8 @@ input[type="range"] { min-height: 44px; }
 .nat .stat-table tbody.nat-gap td:first-child { width: auto; }
 /* the gap between the top 100 and ours below the cut; its own tbody, so the zebra never flips */
 .stat-table tbody.nat-gap td { padding: 6px var(--sp-3); background-color: var(--row-group); border-top: 1px dashed var(--rule-strong); border-bottom: 1px dashed var(--rule-strong); color: var(--fog); font-size: var(--text-caption); text-align: center; }
+/* a gap row is a note across the table, not data: it wraps, so it never sets a sized table's width (wave 3) */
+.stat-table-wrap[data-size] tbody.nat-gap td, .stat-table-wrap[data-size] tr.gap-row td { white-space: normal; }
 /* the tapped team's row when it is not ours (an opponent's chip): the opponent's edge */
 .stat-table tbody tr.is-focus:not(.is-us) td, .stat-table tbody tr.is-focus:not(.is-us) td.stick { background-color: color-mix(in srgb, var(--opp) 30%, var(--panel)); }
 .stat-table tbody tr.is-focus:not(.is-us) td:first-child { box-shadow: inset 4px 0 0 var(--opp-alt); }
@@ -1989,6 +2262,12 @@ input[type="range"] { min-height: 44px; }
 .mx-game b { color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-title); }
 .mx-game small { color: var(--fog); font-size: var(--text-caption); }
 .mx-table { max-width: none; } /* final pass: the shared two-team table, as wide as the sheet */
+/* tables wave 3 (measured 2026-10-11): the 780 px side sheet draws its tables at large (rule 10). A recruit list's stars and
+   percentile need the cells' side padding at 6 px, as at small; the matchup's conference columns under each school and
+   mascot need 4 px and a narrower bar's minimum (the bar still takes whatever room the sheet has left) */
+.nat-sheet .nat .stat-table th, .nat-sheet .nat .stat-table td { padding-left: 6px; padding-right: 6px; }
+.mx-table .tt th, .mx-table .tt td { padding-left: 4px; padding-right: 4px; }
+.mx-table .tt td.tt__tug { min-width: 40px; }
 @media (max-width: 600px) { .mx-teams { grid-template-columns: minmax(0, 1fr); } .mx-at { display: none; } }
 
 /* === SEASON: Season, Team page, Ratings === */
@@ -2013,13 +2292,10 @@ input[type="range"] { min-height: 44px; }
 .trend__avg { color: var(--fog); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; margin-left: 4px; }
 .trend__wait { width: 96px; color: var(--mist); font-size: var(--text-caption); line-height: 1.2; text-align: center; }
 
-/* value and chip as one unit (G3-02): the conference chip sits in its own narrow column, a shade dimmer */
-.prof td.dim > .rank-chip { opacity: 0.8; }
+/* the Season tables' cells (wave 3: every rank in its own column, so no chip shares a value's cell): unranked in fog */
+.road-ahead { max-width: 1200px; } /* wave 3: the full-width band on a 1080p screen would spread nine short columns a hand apart */
 .nr { color: var(--mist); font-weight: 500; }
 .seeded__seed { color: var(--fog); font-family: var(--font-cond); font-weight: 600; }
-.form-results { display: inline-flex; flex-wrap: wrap; gap: 2px var(--sp-3); }
-.form-result { white-space: nowrap; }
-.form-result b { font-family: var(--font-cond); font-weight: 700; }
 td .poll-badge { margin-left: 0; }
 
 /* the Season grid's columns and page rows (the three-column layout itself is .season, above) */
@@ -2040,12 +2316,8 @@ td .poll-badge { margin-left: 0; }
 /* the series from our side: the result in its color, a win in bold */
 .series-res { font-family: var(--font-cond); font-weight: 600; }
 .series-res--win { font-weight: 700; }
-/* Ratings (G3-04): our row stays pinned at the box's top or bottom edge while the box scrolls, on an
-   opaque warm fill so nothing shows through; the header stays above it; a team arrived at gets a chalk edge */
-.ratings .stat-table-wrap--box thead th { z-index: 4; }
-.ratings .stat-table-wrap--box thead th.stick { z-index: 5; }
-.ratings .stat-table-wrap--box tbody tr.is-us td { position: sticky; top: var(--th-h, 45px); bottom: 0; z-index: 2; background-color: color-mix(in srgb, var(--team-accent) 13%, var(--panel)); }
-.ratings .stat-table-wrap--box tbody tr.is-us td.stick { z-index: 3; }
+/* Ratings (G3-04): every team on the page (2026-10-10: no box, so no pinned row); a team arrived at gets a chalk edge */
+.ratings .stat-table tbody tr.is-us td { background-color: color-mix(in srgb, var(--team-accent) 13%, var(--panel)); }
 .stat-table tbody tr.is-focus td:first-child { box-shadow: inset 4px 0 0 var(--chalk); }
 /* a favorite team's row (profiles, N2): a thin fog edge, quieter than our accent */
 .stat-table tbody tr.is-fav td:first-child { box-shadow: inset 3px 0 0 var(--fog); }
@@ -2078,10 +2350,17 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 /* ~~ owner look slot: GX-14 SP+ scatter ~~
    the offense vs defense chart inside the SP+ band at 1100 px and wider. The commit that fills this slot can be dropped on its own:
    each slot is kept apart from the next so a dropped commit never touches its neighbours. */
+/* 2026-10-10 (the Ratings tables size themselves): by the band's own width, not the screen's. Beside the table only where the
+   band is 1000 px or wider (the table keeps room for its medium size); above it, centred, in a narrower band (the iPad); none
+   on a phone-width band. */
 .scatter { display: none; margin: 0; }
-@media (min-width: 1100px) {
-  .ratings__sp { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: var(--gap); align-items: start; }
-  .scatter { display: grid; gap: var(--sp-2); position: sticky; top: calc(var(--sticky-top) + var(--gap)); padding: var(--sp-2) var(--sp-2) var(--sp-3) 0; }
+@container (min-width: 700px) {
+  .ratings__sp { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); } /* the table never grows past the band */
+  .ratings__sp > .scatter { display: grid; gap: var(--sp-2); order: -1; justify-self: center; padding: var(--sp-2) var(--sp-2) 0; }
+}
+@container (min-width: 1000px) {
+  .ratings__sp { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; }
+  .ratings__sp > .scatter { order: 0; justify-self: stretch; position: sticky; top: calc(var(--sticky-top) + var(--band-head-h, 45px) + var(--gap)); padding: var(--sp-2) var(--sp-2) var(--sp-3) 0; }
 }
 .scatter__svg { display: block; width: 280px; height: 280px; overflow: visible; }
 .scatter__frame { fill: var(--panel); stroke: var(--rule); }
@@ -2096,20 +2375,21 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .scatter__cap { color: var(--mist); font-size: var(--text-caption); line-height: 1.35; }
 
 /* ~~ owner look slot: GX-22 bracket rounds ~~
-   the playoff round tables side by side at 1100 px and wider. The commit that fills this slot can be dropped on its own:
-   each slot is kept apart from the next so a dropped commit never touches its neighbours. */
-.bracket { display: grid; gap: var(--sp-2); }
-.bracket td small { display: none; }
+   the playoff round tables side by side in a band 1,000 px wide and wider. The commit that fills this slot can be dropped on
+   its own: each slot is kept apart from the next so a dropped commit never touches its neighbours.
+   Tables wave 3 (owner 2026-10-10): the band decides, never the screen (a container query on the Playoff block), and each
+   round's table sizes itself by its own box (the Winner at large, the Game from medium), so no column is hidden by position. */
+.playoff { container: playoff / inline-size; }
+.playoff__rankings { max-width: 640px; } /* two or three columns of names read as a list, never stretched across the band */
+.bracket { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-2); }
 .seeded--won .team-link { font-weight: 700; }
 .seeded--lost .team-link { color: var(--fog); }
-@media (min-width: 1100px) {
+@container playoff (min-width: 1000px) {
   .bracket { grid-template-columns: repeat(var(--rounds, 4), minmax(0, 1fr)); gap: var(--sp-2); align-items: start; }
   .bracket .stat-table th, .bracket .stat-table td { padding-left: 6px; padding-right: 6px; }
-  .bracket .stat-table th:nth-child(n+4), .bracket .stat-table td:nth-child(n+4) { display: none; }
   .bracket .stat-table tbody td { height: 80px; vertical-align: middle; }
   .bracket .stat-table tbody tr.span-2 td { height: 161px; }
   .bracket .stat-table tbody tr.span-4 td { height: 323px; }
-  .bracket td small { display: block; color: var(--fog); font-size: var(--text-caption); white-space: normal; }
 }
 
 /* ~~ owner look slot: G3-12 trend marks ~~
@@ -2135,64 +2415,58 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 
 /* === PROGRAM: Game program, two-team table beyond the base, edges, leaders grid === */
 
-/* --- the shared two-team table (ui/two-team.js; P-02, P-06, DS-02) ---------------------------------------
-   Value and chip are one unit in one cell; the better value is bold chalk, the other fog (its chip keeps its
-   quartile tone); ties stay neutral. A linked chip's hit area covers its whole cell (P-01 item 2). */
-.tt td.tt__cell { position: relative; }
-/* Phase 17 #14, #16: the tug-of-war. The two cells bracket the bar: ours right-aligned with the chip outside, the
-   opponent's left-aligned, mirrored; no divider, so the numbers sit against the bar's ends. */
-.tt--tug .tt__them { border-left: 0; }
-.tt--tug th.tt__them, .tt--tug td.tt__them { text-align: left; padding-left: var(--sp-2); }
-.tt--tug th.us, .tt--tug td.tt__us { text-align: right; padding-right: var(--sp-2); }
-.tt--tug td.tt__us .rank-chip { margin: 0 6px 0 0; }
-.tt--tug td.tt__them .rank-chip { margin: 0 0 0 6px; }
+/* --- the shared two-team table beyond the base (ui/two-team.js; P-02, P-06, DS-02; sizes 2026-10-10) -------------
+   Phase 17 #14, #16: the tug-of-war. The value cells bracket the bar, ours right-aligned and the opponent's left,
+   the chips outside in their own columns; the bar leans to the leader in that team's color. */
 .tt th.tt__tug { text-align: center; color: var(--fog); }
-.tt td.tt__tug { width: 28%; min-width: 72px; padding-left: 0; padding-right: 0; }
+/* the bar is the one column without a set width, so it takes every pixel the words and chips leave: a table that fills its
+   band (owner 2026-10-10) grows its bars, never the gap between a label and its chip */
+.tt td.tt__label, .tt th.tt__label { width: 1%; }
+.tt td.tt__tug { width: auto; min-width: 72px; padding-left: var(--sp-2); padding-right: var(--sp-2); }
+.tt-wrap[data-size="small"] td.tt__tug { min-width: 32px; } /* the minimal table always shows (owner 2026-10-10): the bar gives up its room before anything else */
+.tt-wrap[data-size="small"] .tt th, .tt-wrap[data-size="small"] .tt td { padding-left: 6px; padding-right: 6px; }
+.tt-wrap[data-size="small"] .tt td.tt__label { font-size: calc(15px * var(--ui-scale)); }
+.tt-wrap[data-size="small"] .tt tr.is-sub td.tt__label { padding-left: 16px; } /* Team stats (wave 2): the sub-rows' indent gives up half its room at small */
 .tug { position: relative; display: block; height: 8px; border-radius: 4px; background: var(--table-head); }
 .tug__mid { position: absolute; left: 50%; top: -3px; bottom: -3px; width: 1px; background: var(--fog); }
 .tug__bar { position: absolute; top: 0; height: 8px; border-radius: 4px; }
 .tug__bar--us { right: 50%; background: var(--team-us); }
 .tug__bar--them { left: 50%; background: var(--opp); }
-/* a band in a narrow column: the bar gives its room to the labels */
-@container (max-width: 520px) {
-  .tt td.tt__tug { width: 16%; min-width: 40px; }
-  .tt--edges td.tt__label small { font-size: var(--text-caption); }
-}
 .tt td.tt__cell .tt__val { font-variant-numeric: tabular-nums; }
 .tt td.lead { color: var(--chalk); font-weight: 700; }
 .tt td.trail { color: var(--fog); font-weight: 500; }
-.tt td.tt__cell--link .rank-chip--link { position: static; }
-.tt td.tt__cell--link .rank-chip--link::after { inset: 0; }
-.tt td.tt__cell--link .rank-chip--link:active { transform: none; }
-.tt td.tt__cell--link:active { background-color: var(--press); }
-@media (hover: hover) { .tt td.tt__cell--link:hover .rank-chip--link { border-color: currentColor; } }
 .tt td.tt__label small { display: block; color: var(--fog); font-size: var(--text-caption); font-weight: 400; }
+.tt--edges td.tt__label small { font-size: var(--text-caption); }
 .tt th.tt__better, .tt td.tt__better { width: 1%; white-space: nowrap; }
-.tt tr.tt__group th { position: static; text-align: left; padding: 10px var(--sp-3) 4px; background: var(--panel); border-bottom: 1px solid var(--rule-strong); color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-th); font-weight: 700; }
+/* a group row: the title, and at medium and large each team's own line (its scheme) under its own columns; where a side
+   has none, the way to go get it (owner 2026-10-10: never a blank, link the reader to the notes) */
+.tt tr.tt__group th, .tt tr.tt__group td { position: static; text-align: left; padding: 10px var(--sp-3) 4px; background: var(--panel); border-bottom: 1px solid var(--rule-strong); color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-th); font-weight: 700; vertical-align: bottom; }
 .tt tr.tt__group th small { color: var(--fog); font-family: var(--font-body); font-size: var(--text-caption); font-weight: 400; }
+.tt tr.tt__group th { white-space: normal; } /* a group's note is a sentence: it wraps, and never forces the table wide */
+.tt tr.tt__group .tt__note { contain: inline-size; display: block; margin-top: 2px; } /* contained: the note's length never counts toward the table's natural width */
+.tt tr.tt__group td.tt__scheme { color: var(--fog); font-family: var(--font-body); font-size: var(--text-caption); font-weight: 400; white-space: nowrap; }
+.tt tr.tt__group td.tt__scheme.tt__us { text-align: right; padding-right: var(--sp-2); }
+.tt tr.tt__group td.tt__scheme.tt__them { text-align: left; padding-left: var(--sp-2); }
+.tt tr.tt__group td.tt__scheme-gap, .tt tr.tt__group td.tt__scheme-tail { padding: 0; }
+/* centered (owner 2026-10-10, the leader lines): the stat name over its bar in the middle column, the center line one straight
+   line down the band; both teams' columns mirror around it */
+.tt--centered td.tt__mid, .tt--centered th.tt__mid { width: auto; text-align: center; white-space: nowrap; padding-left: var(--sp-3); padding-right: var(--sp-3); }
+.tt--centered td.tt__mid .tt__mid-words { display: block; margin-bottom: 4px; font-family: var(--font-body); font-size: var(--text-body); font-weight: 500; color: var(--chalk); }
+.tt--centered td.tt__mid .tt__mid-words small { display: block; color: var(--fog); font-size: var(--text-caption); font-weight: 400; }
+.tt--centered th.tt__mid { color: var(--fog); }
+.tt--centered tr.tt__group th.tt__mid { text-align: center; }
+.tt-wrap[data-size="small"] .tt--centered td.tt__mid .tt__mid-words { font-size: calc(15px * var(--ui-scale)); }
+.tt .tt__get { display: inline-block; padding: 0; border: 0; background: none; color: var(--team-accent); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tt .tt__get--plain { color: var(--fog); text-decoration: none; cursor: default; }
 
 /* --- the tale of the tape, Offense | Defense side by side (P-11 item 2, owner look) ------------------------ */
-.tt-pair { display: grid; grid-template-columns: minmax(0, 1fr); }
-@container (min-width: 860px) { .tt-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--sp-4); } }
+.tt-pair { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: var(--sp-3); }
+@container (min-width: 1100px) { .tt-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--sp-4); } } /* sizes 2026-10-10: two columns only when each still gets the FBS chips */
 
-/* --- the Tale of the tape (ui/tape.js; owner 2026-10-09): both matchups in one row, a tug bar each, the rank chips
-   in their own headed columns a space from the values; a stronger rule between the two matchups, thin rules
-   between rank and value (decision 13), none across the bars; "top 3" under the biggest edges per side --------- */
-.stat-table-wrap--tape { max-width: none; }
-.tape { width: auto; min-width: 100%; }
-.tape th.tape__pair { text-align: center; font-size: calc(14px * var(--ui-scale)); }
-.tape th.tape__pair--off { border-left: 1px solid var(--row-rule); }
-.tape th.tape__pair--def, .tape th.tape__first, .tape td.tape__rank--them:nth-child(7) { border-left: 2px solid var(--rule-strong); }
-.tape td.tape__rank, .tape th.num { text-align: center; }
-.tape td.tape__rank { padding-left: 10px; padding-right: 10px; border-left: 1px solid var(--row-rule); }
-.tape td.tape__val { padding-left: 12px; padding-right: 12px; border-left: 1px solid var(--row-rule); font-family: var(--font-cond); font-size: var(--text-stat-compact); }
-.tape td.tape__val.lead { font-weight: 700; }
-.tape td.tape__val.trail { color: var(--fog); }
-.tape td.tape__tug { padding: 4px 8px; border: 0; vertical-align: middle; text-align: center; }
-.tape td.tape__tug .tug { width: 84px; }
-.tape td.tape__val + td.tape__rank { border-left: 0; }
-.tape__top { display: block; margin-top: 2px; color: var(--team-accent); font: 600 calc(13px * var(--ui-scale)) / 15px var(--font-cond); letter-spacing: 0.04em; text-transform: uppercase; }
-.tape th.tape__who { color: var(--chalk); }
+/* --- the Tale of the tape (ui/tape.js; owner 2026-10-09, sizes 2026-10-10): the two matchups as two tables on the shared
+   kit, side by side only when each still gets its FBS chips (medium, about 550 px each), stacked under that; our unit
+   first in both; "top 3" under the biggest edges' bars ------------------------------------------------------------- */
+.tt td.tt__tug .tt__tag { display: block; margin-top: 2px; color: var(--team-accent); font: 600 calc(13px * var(--ui-scale)) / 15px var(--font-cond); letter-spacing: 0.04em; text-transform: uppercase; text-align: center; }
 /* --- Biggest edges (ui/edges.js; P-11, L-02): signed edge, the side it favours ----------------------------- */
 .tt th.tt__edge, .tt td.tt__edge { text-align: right; padding-left: var(--sp-4); border-left: 2px solid var(--rule-strong); }
 .tt th.tt__edge-to, .tt td.tt__edge-to { text-align: left; white-space: nowrap; }
@@ -2213,12 +2487,22 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 /* --- the opponent's throws and runs (GX-15, restrained): tables laid out like the field ------------------- */
 .zones-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); padding: 0 0 var(--sp-2); }
 @container (min-width: 900px) { .zones-pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+/* the advanced box score's two quarter tables (wave 2): side by side only where each keeps its whole table (large needs
+   about 680 px), so the iPad's and the 1080p screen's two-wide bands stack them at large instead of pairing them at small */
+.adv-quarters { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: var(--sp-4); }
+/* the tablet lock (owner 2026-10-13): stacked at every width; the pair needed a 1400 px band, which no tablet has */
+/* small (a phone): six columns of five-character values; the cells give up a little padding and the stat names a pixel of
+   size, as the two-team kit's do, so the minimal table fits a 357 px box instead of running 19 px past it */
+.adv-quarters .stat-table-wrap[data-size="small"] th, .adv-quarters .stat-table-wrap[data-size="small"] td { padding-left: 4px; padding-right: 4px; }
+.adv-quarters .stat-table-wrap[data-size="small"] td.txt { font-size: calc(15px * var(--ui-scale)); }
 .zones th[scope="row"] { position: static; background: var(--table-head); border-bottom: 1px solid var(--row-rule); }
 .zones th:not(.txt) { text-align: center; }
-.zones td.zone { text-align: center; white-space: normal; }
+.zones td.zone { text-align: center; white-space: nowrap; } /* wave 2: nothing wraps; each cell says less as the table's box narrows */
 .zones td.zone b { display: block; font-size: var(--text-stat-compact); font-weight: 700; }
 .zones td.zone small { display: block; color: var(--fog); font-family: var(--font-body); font-size: var(--text-caption); font-weight: 400; }
 .zones td.zone--none b { color: var(--fog); font-weight: 500; }
+.zones td.zone .zone__rates { display: none; } /* the rates in three forms: one line at large, a line each at medium, the one that matters at small */
+.zones-wrap[data-size="large"] td.zone .zone__rates--long, .zones-wrap[data-size="medium"] td.zone .zone__rates--mid, .zones-wrap[data-size="small"] td.zone .zone__rates--short { display: block; }
 
 /* --- the cover knows the game state (P-03, P-10, L-11) ---------------------------------------------------- */
 .cover__kicker-row { display: flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); margin: calc(var(--sp-2) * -1) 0; }
@@ -2236,8 +2520,17 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .cover__score .is-winner { color: var(--chalk); }
 .cover__score-dot { color: var(--mist); }
 .cover__result { font-weight: 700; }
-.cover__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
-.cover__foot:not(:has(> .cover__actions > *, > :not(.cover__actions))) { display: none; } /* no buttons, no jump list: no empty row */
+/* the cover redo (owner mockup 2026-10-10): the foot's three cells, the buttons left, the win probability in the middle, the
+   weather and the stadium right; an empty cell leaves its place, an empty foot leaves no row */
+.cover__foot { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-areas: "start mid end"; align-items: end; gap: var(--sp-3) var(--sp-4); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
+.cover__foot-start { grid-area: start; display: flex; flex-wrap: wrap; align-items: center; align-self: center; gap: var(--sp-2) var(--sp-3); }
+.cover__foot-start:not(:has(> .cover__actions > *, > :not(.cover__actions))) { display: none; }
+.cover__foot-mid { grid-area: mid; align-self: center; }
+.cover__conditions { grid-area: end; min-width: 0; }
+.cover__foot:not(:has(> .cover__foot-mid, > .cover__conditions, > .cover__foot-start > .cover__actions > *, > .cover__foot-start > :not(.cover__actions))) { display: none; }
+@media (max-width: 959px) {
+  .cover__foot { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "end" "start"; }
+}
 .cover__actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); flex: 1; }
 .cover__actions:empty { display: none; }
 .cover__action { text-decoration: none; }
@@ -2251,13 +2544,13 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .skel--logo { width: 56px; height: 56px; flex: none; margin: 0; border-radius: 50%; }
 .cover--skeleton { border-top-color: var(--rule-strong); }
 
-/* --- the weather row with its radar link-out and the venue facts (UX-14, GX-19 restrained) ----------------- */
-.program-weather { padding: var(--sp-2) var(--sp-3); }
+/* --- the weather row with its radar link-out and the venue facts (UX-14, GX-19 restrained), in the cover's foot ---- */
+.conditions { display: grid; gap: var(--sp-1); }
 .weather__radar { min-height: var(--tap); text-decoration: none; }
 .venue-line { margin: var(--sp-1) 0 0; padding-top: var(--sp-2); border-top: 1px solid var(--row-rule); color: var(--fog); font-size: var(--text-label); text-align: center; }
-.program-weather > .venue-line:first-child { margin: 0; padding-top: 0; border-top: 0; }
+.conditions > .venue-line:first-child { margin: 0; padding-top: 0; border-top: 0; }
 .venue-line__name { color: var(--chalk); font-weight: 600; }
-.cover__foot > .jump { margin-left: auto; }
+.cover__foot-start > .jump { margin-left: auto; }
 
 /* --- the radio band shows its state; one 44px row per source (P-12 item 2) -------------------------------- */
 .radio-panel--compact { gap: 6px; }
@@ -2296,15 +2589,10 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .grade-block__basis { color: var(--fog); font-size: var(--text-caption); }
 .grade-block__reason { margin: 0; font-weight: 600; }
 .grade-block__fine { margin: 0; color: var(--fog); font-size: var(--text-caption); }
-.grade-parts { width: 100%; border-collapse: collapse; font-size: var(--text-label); table-layout: fixed; }
-.grade-parts th, .grade-parts td { padding: 6px 8px; border-bottom: 1px solid var(--row-rule); text-align: left; vertical-align: middle; }
-.grade-parts th[scope="row"] { font-weight: 600; color: var(--chalk); }
-.grade-parts thead th { color: var(--fog); font-weight: 600; font-size: var(--text-caption); }
-.grade-parts thead th:first-child { width: 46%; }
-.grade-parts thead th.num { width: 16%; }
-.grade-parts .num { text-align: right; font-variant-numeric: tabular-nums; }
-.grade-parts__label { margin-right: 6px; }
-.grade-weight { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--rule); border-radius: 3px; color: var(--fog); font-size: var(--text-caption); font-weight: 500; white-space: nowrap; }
+/* Tables wave 3 (owner 2026-10-10): the parts are a sized stat table (ui/grade.js gradeParts), the weight in its own column;
+   the bar keeps room for itself at every size and its column takes what the others leave */
+.grade-parts td:last-child { width: 100%; }
+.grade-parts .grade-bar { min-width: 96px; }
 .grade-bar { display: flex; align-items: center; gap: var(--sp-2); }
 .grade-bar__track { flex: 1; height: 6px; border-radius: 3px; background: var(--table-head); overflow: hidden; }
 .grade-bar__fill { display: block; height: 6px; }
@@ -2337,7 +2625,7 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .ppa-trends__note { grid-column: 1 / -1; margin: 0; color: var(--mist); font-size: var(--text-caption); }
 
 /* --- the opponent's color on its column head only (GX-03 restrained, P-06 part 3) ----------------------------- */
-.tt thead th.them { box-shadow: inset 0 3px 0 var(--opp); }
+.tt thead th.them:not(.tt__blank) { box-shadow: inset 0 3px 0 var(--opp); } /* the opponent's stripe on its head only, never on the empty cell under it (owner 2026-10-10) */
 
 /* --- the cover's pregame win probability as a thin bar (P-15 item 2, owner look) ---------------------------- */
 .cover__wp { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px var(--sp-2); width: min(100%, 420px); margin: 0 auto; }
@@ -2377,7 +2665,24 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .form-guide__game--t { color: var(--fog); background: var(--panel-raised); }
 
 /* --- the face-off cover (GX-07, owner pick 2026-09-28): two 112px logos facing each other ------------------ */
-.cover__faceoff { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: start; gap: var(--sp-3) var(--sp-4); }
+/* the cover redo (owner mockup 2026-10-10): row one the two teams and the countdown with the line under it; row two, level,
+   each team's coaches and the when line, which sets the middle's width up to 680 px (44% of a narrower cover, so the
+   teams keep their room) and wraps past it */
+.cover__faceoff { display: grid; grid-template-columns: minmax(0, 1fr) fit-content(min(680px, 44%)) minmax(0, 1fr); grid-template-areas: "us center them" "us-staff when them-staff"; align-items: start; gap: var(--sp-3) var(--sp-4); }
+.cover__side--us { grid-area: us; }
+.cover__side--them { grid-area: them; }
+.cover__center { grid-area: center; }
+.cover__staff--us { grid-area: us-staff; }
+.cover__staff--them { grid-area: them-staff; }
+.cover__staff { align-self: center; text-align: center; }
+.cover__faceoff > .cover__when { grid-area: when; align-self: center; color: var(--chalk); font-size: calc(22px * var(--ui-scale)); line-height: 1.25; text-wrap: balance; }
+/* an iPad held upright: the middle keeps a third, each team's coaches sit right under it, and the when line runs the
+   whole width under them, so neither the chips nor the when line wrap into a column */
+@media (min-width: 700px) and (max-width: 959px) {
+  .cover__faceoff { grid-template-columns: minmax(0, 1fr) fit-content(min(600px, 36%)) minmax(0, 1fr); grid-template-areas: "us center them" "us-staff center them-staff" "when when when"; }
+  .cover__staff { align-self: start; }
+}
+.cover__center .cover__line { justify-content: center; width: 100%; margin-top: var(--sp-2); }
 .cover__side { display: grid; justify-items: center; align-content: start; gap: 6px; min-width: 0; text-align: center; }
 .cover__logo.cover__logo--hero { width: var(--logo-size, 112px); height: var(--logo-size, 112px); }
 .cover__side .cover__name { font-size: clamp(22px, 2.4vw, 30px); }
@@ -2386,17 +2691,30 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .cover__vs { color: var(--fog); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 600; }
 .cover__center .cover__countdown, .cover__center .cover__countdown small { text-align: center; }
 .cover__when { color: var(--fog); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 600; text-align: center; }
-.cover__faceoff + .cover__when + .cover__line { justify-content: center; }
 .cover--skeleton .cover__side .skel--logo { width: 112px; height: 112px; }
 .cover--skeleton .cover__when { display: flex; justify-content: center; }
-.mcard__hero .mcard__name { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
-.mcard__hero .mcard__name small { flex-basis: 100%; }
-.mcard__hero .mcard__facts { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-2); } /* Phase 17 #11: the conference record and the team's SP+ on one line */
-.mcard__rec { color: var(--fog); font-weight: 600; }
+/* 2026-10-10: the hero is one name line and one line of chips at every size, nothing wrapped; the card follows its table's
+   size (data-size): the mascot and the last five show at large, the logo and the name shrink at medium and small */
+.mcard__hero { justify-content: center; }
+.mcard__who { display: grid; gap: 4px; min-width: 0; }
+.mcard__hero .mcard__name { display: flex; flex-wrap: nowrap; align-items: baseline; gap: 0 6px; white-space: nowrap; }
+.mcard__hero .mcard__name .team-link { color: inherit; }
+.mcard__mascot { display: none; }
+.mcard[data-size="large"] .mcard__mascot { display: inline; }
+.mcard__rec { color: var(--fog); font-weight: 600; font-size: 0.85em; }
+.mcard__chips { display: flex; flex-wrap: nowrap; align-items: center; gap: var(--sp-2); white-space: nowrap; }
+.mcard__last5 { display: none; align-items: center; gap: 6px; color: var(--fog); font: 600 calc(13px * var(--ui-scale)) / 1 var(--font-cond); }
+.mcard[data-size="large"] .mcard__last5 { display: inline-flex; }
+.mcard__last5 .form-guide { gap: 2px; }
+.mcard[data-size="medium"] .mcard__logo { width: 48px; height: 48px; }
+.mcard[data-size="medium"] .mcard__name { font-size: calc(22px * var(--ui-scale)); }
+.mcard[data-size="small"] .mcard__logo { width: 36px; height: 36px; }
+.mcard[data-size="small"] .mcard__name { font-size: calc(20px * var(--ui-scale)); }
+.mcard[data-size="small"] .mcard__chips { gap: 6px; }
 .tag.tag--link { color: var(--chalk); text-decoration: underline dotted; text-decoration-color: var(--mist); text-underline-offset: 3px; }
 @media (max-width: 699px) {
-  .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .cover__center { grid-column: 1 / -1; grid-row: 2; }
+  .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "us them" "us-staff them-staff" "center center" "when when"; }
+  .cover__faceoff > .cover__when { font-size: calc(20px * var(--ui-scale)); }
   .cover__logo.cover__logo--hero, .cover--skeleton .cover__side .skel--logo { --logo-size: 72px; width: 72px; height: 72px; }
 }
 
@@ -2408,22 +2726,18 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .chips-row + .page.leaders { --sticky-top: calc(var(--topbar) + 41px + var(--leaders-bar)); }
 .chips-row + .page.leaders > .leaders__scope { top: calc(var(--topbar) + 41px); }
 .leaders__scope { position: sticky; top: var(--topbar); z-index: 6; box-sizing: border-box; display: flex; align-items: center; height: var(--leaders-bar); margin: calc(-1 * var(--gap)) calc(-1 * var(--gap)) 0; padding: var(--sp-2) var(--gap); background: var(--ground); border-bottom: 1px solid var(--rule); }
-.leaders__scope .seg { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; }
+.leaders__scope .seg { flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }
 .leaders__scope .seg button { flex: none; white-space: nowrap; }
 .leaders-sum { white-space: nowrap; }
 .leaders-sum .rank-chip { margin: 0 2px; }
-/* a small "Nat" caption over our scope's value chips; generated text, so the header's hint still matches */
-.leaders-table--team .stat-table thead th:nth-child(3)::after { content: "Nat"; position: absolute; right: 8px; top: 2px; color: var(--mist); font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); font-weight: 600; letter-spacing: 0.04em; pointer-events: none; }
 /* the next opponent's players in the conference and national lists: the --opp edge, as in the play log */
 .stat-table tbody tr.is-opp td:first-child { box-shadow: inset 4px 0 0 var(--opp); }
 /* ours below the cut: their own tbody after a quiet gap row, so the zebra above never flips */
 .stat-table tbody.stat-table__window { border-top: 2px solid var(--rule-strong); }
 .stat-table tbody tr.gap-row td { padding-top: 4px; padding-bottom: 4px; background: var(--table-head); color: var(--mist); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.02em; }
-/* vs opponent: ours beside the opponent, value and chip together, a 2 px divider before the opponent */
-.leaders-table--versus .stat-table th.col-div, .leaders-table--versus .stat-table td.col-div { border-left: 2px solid var(--rule-strong); padding-left: var(--sp-3); }
 .leader-who { display: inline-flex; align-items: center; gap: var(--sp-2); min-width: 0; max-width: 100%; vertical-align: middle; }
 .leader-who__text { display: grid; min-width: 0; }
-.leader-who__name { min-width: 15ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } /* final pass: a name is never cut to its initial; the stat columns scroll instead */
+.leader-who__name { white-space: nowrap; } /* tables wave 3: the name beside the face at large and medium; item 6: its forms step down with the table */
 .leader-who--btn { display: inline-flex; min-height: 40px; max-width: 100%; padding: 0; background: none; border: 0; color: var(--chalk); font: inherit; text-align: left; cursor: pointer; }
 /* LRP-16 b: 28 px faces in our and the vs-opponent scopes (a round crop; the badge fallback matches it) */
 .leader-who .face { width: 28px; height: 28px; border-radius: 50%; }
@@ -2502,6 +2816,214 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .ticker__game .st { padding: 0 5px; border: 1px solid var(--rule-strong); border-radius: 3px; }
 .ticker__star .icon { width: 13px; height: 13px; color: #F2C21B; vertical-align: -1px; margin-right: 2px; }
 
+/* --- the Newspaper, redone (queue items 10 to 12, mock approved 2026-10-13) ------------------------------------------
+   The owner's whiteboard: the masthead across the page; row 1 our lead story with a pixel stadium (0-35%) beside the
+   week's top-ranked game (37-100%), its two helmets facing each other; row 2 the player feature (0-50%) and the coach's
+   story (51-100%); then rows of two mixing stories and ranked games. Each row is a grid whose columns are his numbers,
+   and each box's inside is his numbers again (the lead: 17 words, 17 stadium, 1 margin). Every box in a row is one
+   height and its type is fitted to it (ui/paper-fit.js); the pictures fill their cells (ui/pixel-art.js fillPicture).
+   A phone stacks the boxes in the same order. */
+.paper { --paper-gap: clamp(8px, 1vw, 20px); --paper-pad: clamp(8px, 0.75vw, 16px); gap: var(--paper-gap); }
+.paper-mast { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--sp-4); padding: var(--paper-pad) var(--sp-5); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; border-bottom: 3px double var(--rule-strong); }
+.paper-mast__center { display: grid; justify-items: center; gap: 2px; min-width: 0; }
+.paper-mast .px-pic--banner { width: min(560px, 100%); max-width: none; margin: 0 0 2px; border: 0; }
+.paper-mast__name { margin: 0; font-family: var(--paper-serif); font-size: clamp(30px, 3.4vw, 64px); font-weight: 700; line-height: 1.02; letter-spacing: 0.01em; color: var(--chalk); white-space: nowrap; }
+.paper-mast__line { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 10px; margin: 4px 0 0; color: var(--fog); font-family: var(--paper-serif); font-style: italic; font-size: clamp(14px, 0.95vw, 18px); }
+.paper-mast__orn { color: var(--team-accent); font-style: normal; }
+.paper-mast__nav { display: inline-flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); color: var(--chalk); text-decoration: none; font-family: var(--font-cond); }
+.paper-mast__nav--prev { justify-self: start; }
+.paper-mast__nav--next { justify-self: end; text-align: right; }
+.paper-mast__nav.is-off { visibility: hidden; }
+.paper-mast__arrow { display: inline-grid; place-items: center; width: clamp(44px, 3.2vw, 60px); height: clamp(44px, 3.2vw, 60px); border: 1px solid var(--rule-strong); border-radius: 50%; font-size: clamp(30px, 2.4vw, 44px); line-height: 1; padding-bottom: 0.12em; }
+@media (hover: hover) { a.paper-mast__nav:hover .paper-mast__arrow { border-color: var(--team-accent); } }
+.paper-mast__navtext { display: grid; line-height: 1.15; }
+.paper-mast__navtext b { font-size: clamp(16px, 1.2vw, 22px); font-weight: 600; white-space: nowrap; }
+.paper-mast__navtext small { color: var(--fog); font-size: clamp(13px, 0.85vw, 16px); white-space: nowrap; }
+.paper-back { margin: 0; }
+
+.paper-row { display: grid; align-items: start; }
+.paper-row--a { grid-template-columns: 35fr 63fr; column-gap: 2%; }
+.paper-row--b, .paper-row--rest { grid-template-columns: 50fr 49fr; column-gap: 1%; }
+.paper-row--one { grid-template-columns: minmax(0, 1fr); }
+
+.paper-box { position: relative; display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; padding-block: calc(var(--paper-pad) + 3px) var(--paper-pad); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.paper-box::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--team-us); }
+.paper-match::before { background: linear-gradient(90deg, var(--c-away) 0 50%, var(--c-home) 50% 100%); }
+.paper-lead { grid-template-columns: 17fr 17fr 1fr; }
+.paper-row--one > .paper-lead { grid-template-columns: 50fr 48fr 1fr; }
+.paper-match--big { grid-template-columns: 2fr 15fr 29fr 15fr 2fr; }
+.paper-feat--player { grid-template-columns: 3fr 16fr 31fr; }
+.paper-feat--coach { grid-template-columns: 2fr 13fr 34fr; }
+.paper-art--left { grid-template-columns: 2fr 20fr 27fr; }
+.paper-art--right { grid-template-columns: 27fr 20fr 2fr; }
+.paper-match--half { grid-template-columns: 1fr 12fr 24fr 12fr 1fr; }
+.paper-m { min-width: 0; }
+.paper .paper-nw { white-space: nowrap; }
+.paper-box--skel { min-height: 220px; }
+.paper-box--skel .skel { width: 100%; height: 100%; margin: 0; }
+
+/* the pictures fill their cells, crisp; a fill picture is drawn on a grid shaped like its cell */
+.paper-pic { position: relative; min-width: 0; min-height: 0; }
+.paper-pic > canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; image-rendering: pixelated; border: 0; border-radius: 3px; background: var(--panel-raised); }
+
+/* the words: the kicker at the top, the headline, the source at the foot */
+.paper-words { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0; padding-inline: var(--paper-pad); }
+.paper-kicker { margin: 0; color: var(--team-accent); font-family: var(--font-cond); font-size: calc(14px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.paper-head { margin: 0; font-family: var(--paper-serif); font-size: calc(20px * var(--ui-scale)); font-weight: 700; line-height: 1.12; text-wrap: pretty; }
+.paper-head a { display: block; min-height: var(--tap); color: var(--chalk); text-decoration: none; }
+@media (hover: hover) { .paper-head a:hover { text-decoration: underline; text-decoration-color: var(--team-accent); } }
+.paper-head--lead { font-size: calc(30px * var(--ui-scale)); line-height: 1.08; }
+.paper-head--feat { font-size: calc(26px * var(--ui-scale)); }
+.paper-source { margin: 0; color: var(--fog); font-size: calc(14px * var(--ui-scale)); }
+.paper-empty { margin: 0; color: var(--fog); font-size: calc(18px * var(--ui-scale)); line-height: 1.4; }
+
+/* a ranked game: the helmets face each other, the details between */
+.paper-helm { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.paper-pic--helm { flex: 1 1 auto; min-height: 110px; }
+.paper-match--big .paper-pic--helm { min-height: 150px; }
+.paper-who { display: grid; justify-items: center; gap: 2px; min-width: 0; text-align: center; }
+.paper-who__line { display: flex; justify-content: center; }
+.paper-rank { display: inline-flex; align-items: baseline; gap: 3px; padding: 1px 8px; border: 1px solid var(--rule-strong); border-radius: 3px; background: var(--panel-raised); color: var(--chalk); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; line-height: 20px; }
+.paper-rank__ap { color: var(--fog); font-size: 0.82em; font-weight: 600; }
+.paper-rank--nr { color: var(--fog); font-weight: 600; }
+.paper-who__name { width: 100%; overflow-x: clip; overflow-y: visible; color: var(--chalk); font-family: var(--font-cond); font-size: calc(22px * var(--ui-scale)); font-weight: 700; line-height: 1.15; white-space: nowrap; }
+.paper-who__name .team-link { font: inherit; color: inherit; }
+.paper-match--big .paper-who__name { font-size: calc(28px * var(--ui-scale)); }
+.paper-who.is-us .paper-who__name { color: var(--team-us); }
+.paper-who__rec { color: var(--fog); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
+
+/* the middle is sized as one: everything in it is in em of the fitted size, the kicker apart */
+.paper-mid { display: flex; flex-direction: column; justify-content: space-between; gap: 0.3em; min-width: 0; padding-inline: var(--paper-pad); text-align: center; font-size: 22px; }
+.paper-mid .paper-kicker { color: var(--fog); }
+.paper-mid .paper-kicker--live { color: var(--bad); }
+.paper-match--us .paper-mid .paper-kicker { color: var(--team-us); }
+.paper-head--match { font-size: 1em; line-height: 1.14; }
+.paper-score { display: grid; justify-items: center; gap: 0; }
+.paper-score__num { font-family: var(--font-cond); font-size: min(1.6em, var(--paper-top, 99px)); font-weight: 700; line-height: 1; white-space: nowrap; }
+.paper-match--big .paper-score__num { font-size: min(2.1em, var(--paper-top, 99px)); } /* never bigger than the lead's headline */
+.paper-score .is-loser { color: var(--fog); }
+.paper-score__dot { color: var(--mist); }
+.paper-score__state { color: var(--fog); font-family: var(--font-cond); font-size: max(13px, 0.48em); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+.paper-status { display: grid; justify-items: center; align-content: center; gap: 0.15em; min-height: var(--tap); color: var(--chalk); text-decoration: none; }
+.paper-status__score { font-family: var(--font-cond); font-size: min(2.1em, var(--paper-top, 99px)); font-weight: 700; line-height: 1; white-space: nowrap; }
+.paper-status__clock { display: inline-flex; align-items: center; gap: 0.4em; color: var(--chalk); font-family: var(--font-cond); font-size: max(15px, 0.82em); font-weight: 600; white-space: nowrap; }
+.paper-live-dot, .top25-live-dot, .cover__live-dot { display: inline-block; flex: none; width: 0.55em; height: 0.55em; min-width: 8px; min-height: 8px; border-radius: 50%; background: var(--bad); }
+.paper-facts { margin: 0; color: var(--fog); font-size: max(14px, 0.6em); line-height: 1.35; text-wrap: balance; }
+.paper-facts b { color: var(--chalk); font-family: var(--font-cond); font-size: 1.12em; font-weight: 600; }
+.paper-facts--when { color: var(--chalk); font-family: var(--font-cond); font-size: max(15px, 0.72em); font-weight: 600; }
+.paper-wp { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 2px 8px; }
+.paper-wp__cap { grid-column: 1 / -1; color: var(--fog); font-size: max(13px, 0.52em); }
+.paper-wp__lab { color: var(--chalk); font-family: var(--font-cond); font-size: max(15px, 0.68em); font-weight: 600; white-space: nowrap; }
+.paper-wp__bar { display: flex; height: max(8px, 0.36em); overflow: hidden; border-radius: 4px; background: var(--rule); }
+.paper-wp__bar i { display: block; height: 100%; }
+.paper-wp__bar i + i { border-left: 2px solid var(--panel); }
+/* the top game's score by quarter (ui/team-stats.js quarterLine), sized with the middle */
+.paper-qline.qline { grid-template-columns: minmax(0, auto) repeat(var(--q, 4), minmax(0, 2.1em)) minmax(0, 2.6em); justify-content: center; padding: 0; font-size: max(13px, 0.62em); }
+.paper-qline .qline__head { padding: 2px 0; font-size: max(13px, 0.9em); }
+.paper-qline .qline__team { padding: 3px 0.6em 3px 0; font-size: 1.05em; text-align: left; }
+.paper-qline .qline__team--them { color: var(--chalk); }
+.paper-qline .qline__val { padding: 3px 0; font-size: 1.1em; }
+.paper-qline .qline__val--tot { font-size: 1.2em; }
+
+/* a phone: one column, the boxes stacked in the same order */
+@media (max-width: 699px) {
+  .paper-mast { grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-3) var(--sp-2); }
+  .paper-mast__name { font-size: clamp(22px, 7vw, 30px); white-space: normal; text-align: center; text-wrap: balance; }
+  .paper-mast__navtext { display: none; }
+  .paper-mast__arrow { width: 44px; height: 44px; font-size: 30px; }
+  .paper-mast__line { font-size: 13px; gap: 0 10px; }
+  .paper-mast__orn { display: none; }
+  .paper-row--a, .paper-row--b, .paper-row--rest { grid-template-columns: minmax(0, 1fr); row-gap: var(--paper-gap); }
+  .paper-box { padding: calc(var(--sp-3) + 3px) var(--sp-3) var(--sp-3); gap: var(--sp-3); }
+  .paper-m { display: none; }
+  .paper-words { padding-inline: 0; gap: 6px; }
+  .paper-lead, .paper-row--one > .paper-lead { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; }
+  .paper-lead .paper-pic { order: -1; aspect-ratio: 16 / 9; }
+  .paper-head--lead { font-size: 28px; }
+  .paper-feat, .paper-art--left { grid-template-columns: 38fr 62fr; grid-template-rows: auto; }
+  .paper-art--right { grid-template-columns: 62fr 38fr; }
+  .paper-feat .paper-pic, .paper-art .paper-pic { min-height: 150px; }
+  .paper-head--feat { font-size: 22px; }
+  .paper-head--art { font-size: 20px; }
+  .paper-match { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "away home" "mid mid"; row-gap: var(--sp-3); column-gap: var(--sp-3); }
+  .paper-match .paper-helm--away { grid-area: away; }
+  .paper-match .paper-helm--home { grid-area: home; }
+  .paper-match .paper-mid { grid-area: mid; padding-inline: 0; }
+  .paper-pic--helm, .paper-match--big .paper-pic--helm { flex: none; min-height: 0; aspect-ratio: 6 / 5; }
+  .paper-who__name, .paper-match--big .paper-who__name { font-size: 20px; }
+  .paper-mid { font-size: 21px; }
+}
+
+/* --- the Top 25 page (queue item 11, mock approved 2026-10-13) ----------------------------------------------------------
+   Every game of the week with an AP Top 25 team as a compact Pre-Game Program cover (ui/cover.js compact): three a row on
+   a 1080p screen, two on the iPad held sideways, one on a phone; a last card alone in its row takes the whole row. */
+.top25 { gap: var(--sp-3); }
+.top25-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--team-us); border-radius: 6px; }
+.top25-head__title { margin: 0; font-family: var(--font-cond); font-size: calc(30px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
+.top25-head__line { margin: 2px 0 0; color: var(--fog); font-size: var(--text-label); }
+.top25-head__counts { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: flex-end; }
+.top25-count { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px; border: 1px solid var(--rule-strong); border-radius: 16px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
+.top25-head__delay { grid-column: 1 / -1; margin: 0; padding-top: var(--sp-2); border-top: 1px solid var(--rule); color: var(--fog); font-size: var(--text-label); }
+.top25-off { margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; color: var(--fog); font-size: var(--text-label); line-height: 1.8; }
+.top25-off b { color: var(--chalk); font-family: var(--font-cond); font-weight: 600; }
+.top25-off__team { white-space: nowrap; color: var(--chalk); }
+.top25-off__team.is-us { color: var(--team-us); }
+
+/* two across at every tablet width and above (the tablet lock, owner 2026-10-13: three across from 1500 px until then) */
+.top25-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); align-items: stretch; }
+.top25-grid > :last-child:nth-child(2n + 1) { grid-column: 1 / -1; }
+@media (max-width: 699px) {
+  .top25-grid { grid-template-columns: minmax(0, 1fr); }
+  .top25-grid > :last-child:nth-child(2n + 1) { grid-column: auto; }
+  .top25-head { grid-template-columns: minmax(0, 1fr); }
+  .top25-head__counts { justify-content: flex-start; }
+}
+.top25-card--skel { min-height: 300px; padding: var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
+.top25-card--skel .skel { width: 100%; height: 100%; margin: 0; }
+
+/* a compact cover: the cover's own classes and look, scaled down */
+.cover--compact { position: relative; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--sp-2); padding: calc(var(--sp-3) + 3px) var(--sp-3) var(--sp-3); border-top: 1px solid var(--rule); overflow: hidden; }
+.cover--compact::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--c-away, var(--rule-strong)) 0 50%, var(--c-home, var(--rule-strong)) 50% 100%); }
+.cover--compact .cover__kicker-row { min-height: 0; margin: 0; justify-content: center; }
+.cover--compact .cover__kicker { font-family: var(--font-cond); font-size: calc(14px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); text-align: center; }
+.top25-card--us .cover__kicker { color: var(--team-us); }
+.top25-card--live .cover__kicker { color: var(--bad); }
+.cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "us center them" "us-staff center them-staff" "when when when"; align-content: center; gap: var(--sp-2) var(--sp-3); }
+.cover--compact .cover__staff { align-self: start; font-size: calc(14px * var(--ui-scale)); }
+.cover--compact .cover__logo.cover__logo--hero { width: 64px; height: 64px; }
+.cover--compact .cover__side { gap: 4px; }
+.cover--compact .cover__side .cover__name { width: 100%; overflow-x: clip; overflow-y: visible; font-size: calc(23px * var(--ui-scale)); line-height: 1.15; white-space: nowrap; }
+.cover--compact .cover__side--us .cover__name { color: var(--chalk); }
+.cover--compact .cover__rec { gap: 4px; line-height: 1.4; }
+.cover--compact .cover-chip { min-height: 20px; padding: 1px 5px; line-height: 16px; }
+.cover--compact .form-guide__game { width: 18px; height: 18px; }
+.cover--compact .cover__vs { font-size: calc(16px * var(--ui-scale)); }
+.cover--compact .cover__countdown .num { font-size: calc(34px * var(--ui-scale)); }
+.cover--compact .cover__center { grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; }
+.cover--compact .cover__center > *, .cover--compact .cover__middle > * { min-width: 0; max-width: 100%; }
+.cover--compact .cover__center .num { overflow: hidden; white-space: nowrap; }
+.cover--compact .cover__middle--link { display: block; min-height: var(--tap); color: inherit; text-decoration: none; border-radius: 4px; }
+@media (hover: hover) { .cover--compact .cover__middle--link:hover { background: var(--panel-raised); } }
+.cover--compact .cover__center .cover__line { flex-direction: column; align-items: center; gap: 0; margin-top: 4px; padding-top: 4px; }
+.cover--compact .cover__line b { font-size: calc(17px * var(--ui-scale)); }
+.cover--compact .cover__faceoff > .cover__when { font-size: calc(17px * var(--ui-scale)); line-height: 1.3; padding-top: var(--sp-2); border-top: 1px solid var(--row-rule); text-wrap: balance; }
+.cover--compact .cover__foot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid end"; align-items: center; gap: var(--sp-2) var(--sp-3); padding-top: var(--sp-2); }
+.cover--compact .cover__wp { width: 100%; }
+.cover--compact .cover__wp-label { font-size: calc(16px * var(--ui-scale)); }
+.cover__wpbar--teams { display: flex; height: 8px; border-radius: 4px; }
+.cover__wpbar--teams > div { position: static; height: 100%; }
+.cover__wpbar--teams > div + div { border-left: 2px solid var(--panel); }
+.cover--compact .cover__conditions { align-self: center; }
+.cover__state--score small { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; }
+.top25-weather { color: var(--chalk); font-size: var(--text-label); text-align: center; text-wrap: balance; }
+.top25-weather__label { color: var(--fog); }
+.cover--compact .cover__logo.cover__logo--hero { width: 56px; height: 56px; } /* the tablet lock: the iPad's size at every width */
+.cover--compact .cover__side .cover__name { font-size: calc(21px * var(--ui-scale)); }
+@media (max-width: 699px) {
+  .cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "us them" "us-staff them-staff" "center center" "when when"; }
+  .cover--compact .cover__foot { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "end"; }
+}
+
 /* === LIVE: Live sheet and Archive === */
 /* Phase 16 wave 3 (L-11, DS-03): the archive game's Back row with the saved date beside it */
 .archive-top { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
@@ -2524,8 +3046,7 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .game-card__watch,
 .box-head__kicker,
 .preseason__h,
-.notes-paste__step h4,
-.leaders-table--team .stat-table thead th:nth-child(3)::after {
+.notes-paste__step h4 {
   font-family: var(--font-cond);
   font-size: calc(13px * var(--ui-scale));
   font-weight: 600;
@@ -2537,7 +3058,7 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 /* Phase 16 wave 3 (DS-12): the top bar's pill opens a small status card */
 .pill--button { background: transparent; cursor: pointer; }
 .pill--button:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 2px; }
-.status-card { position: fixed; z-index: 60; top: calc(var(--topbar-h, 56px) + 8px); right: 12px; width: min(340px, calc(100vw - 24px)); padding: var(--sp-3); background: var(--panel-raised); border: 1px solid var(--rule-strong); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); }
+.status-card { position: fixed; z-index: 60; top: calc(var(--layer-top, var(--topbar)) + 8px); right: 12px; width: min(340px, calc(100vw - 24px)); max-height: calc(100vh - var(--layer-top, var(--topbar)) - 24px); overflow: auto; overscroll-behavior: contain; padding: var(--sp-3); background: var(--panel-raised); border: 1px solid var(--rule-strong); border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); } /* item 6: it hangs from the top bar's bottom edge (--layer-top, ui/layers.js) and scrolls itself when the Not loaded yet list is long */
 .status-card__title { display: block; font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); }
 .status-card__detail { margin: 6px 0 var(--sp-3); color: var(--fog); }
 .status-card__actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
@@ -2545,10 +3066,12 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 /* Phase 16 wave 3 (DS-13): the boot outline in index.html, shown until the app draws */
 .boot__title { display: block; width: 160px; height: 16px; margin: 0; }
 @media (min-width: 1100px) { .boot__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .boot__grid > .band:first-child { grid-column: 1 / -1; } }
+/* item 6, step E: when the app does not start, its outline gives way to the reason and a Reload (index.html's watchdog) */
+.boot [hidden] { display: none !important; }
+.boot__failed { grid-column: 1 / -1; }
 
 /* Phase 16 wave 3: the success verdict's mark, drawn (a filled dot for success, a hollow one for a miss) */
 .verdict--yes::before, .verdict--no::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; vertical-align: 0; border: 2px solid currentColor; }
 .verdict--yes::before { background: currentColor; }
 
 /* === DS: shell, pill, icons, band-head fold, hints, sort headers === */
-

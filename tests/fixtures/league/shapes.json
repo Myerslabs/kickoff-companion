@@ -227,6 +227,134 @@
   },
   "status": 200
  },
+ "coaches_year": {
+  "empty": false,
+  "endpoint": "/coaches",
+  "shape": {
+   "i": {
+    "k": {
+     "firstName": {
+      "t": [
+       "str"
+      ]
+     },
+     "hireDate": {
+      "t": [
+       "str"
+      ]
+     },
+     "id": {
+      "t": [
+       "int"
+      ]
+     },
+     "lastName": {
+      "t": [
+       "str"
+      ]
+     },
+     "seasons": {
+      "i": {
+       "k": {
+        "conference": {
+         "t": [
+          "str"
+         ]
+        },
+        "games": {
+         "t": [
+          "int"
+         ]
+        },
+        "losses": {
+         "t": [
+          "int"
+         ]
+        },
+        "postseasonRank": {
+         "t": [
+          "null"
+         ]
+        },
+        "preseasonRank": {
+         "t": [
+          "null"
+         ]
+        },
+        "school": {
+         "t": [
+          "str"
+         ]
+        },
+        "spDefense": {
+         "t": [
+          "float",
+          "int"
+         ]
+        },
+        "spOffense": {
+         "t": [
+          "float",
+          "int"
+         ]
+        },
+        "spOverall": {
+         "t": [
+          "float",
+          "int"
+         ]
+        },
+        "srs": {
+         "t": [
+          "float",
+          "int"
+         ]
+        },
+        "teamId": {
+         "t": [
+          "int"
+         ]
+        },
+        "ties": {
+         "t": [
+          "int"
+         ]
+        },
+        "winPercentage": {
+         "t": [
+          "null"
+         ]
+        },
+        "wins": {
+         "t": [
+          "int"
+         ]
+        },
+        "year": {
+         "t": [
+          "int"
+         ]
+        }
+       },
+       "t": [
+        "dict"
+       ]
+      },
+      "t": [
+       "list"
+      ]
+     }
+    },
+    "t": [
+     "dict"
+    ]
+   },
+   "t": [
+    "list"
+   ]
+  },
+  "status": 200
+ },
  "drives": {
   "empty": false,
   "endpoint": "/drives",
@@ -13919,6 +14047,271 @@
      "windSpeed": {
       "t": [
        "float"
+      ]
+     }
+    },
+    "t": [
+     "dict"
+    ]
+   },
+   "t": [
+    "list"
+   ]
+  },
+  "status": 200
+ },
+ "games_weather_week": {
+  "empty": false,
+  "endpoint": "/games/weather",
+  "shape": {
+   "i": {
+    "k": {
+     "awayConference": {
+      "t": [
+       "str"
+      ]
+     },
+     "awayTeam": {
+      "t": [
+       "str"
+      ]
+     },
+     "dewPoint": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "gameIndoors": {
+      "t": [
+       "bool"
+      ]
+     },
+     "homeConference": {
+      "t": [
+       "str"
+      ]
+     },
+     "homeTeam": {
+      "t": [
+       "str"
+      ]
+     },
+     "humidity": {
+      "t": [
+       "int"
+      ]
+     },
+     "id": {
+      "t": [
+       "int"
+      ]
+     },
+     "precipitation": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "pressure": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "season": {
+      "t": [
+       "int"
+      ]
+     },
+     "seasonType": {
+      "t": [
+       "str"
+      ]
+     },
+     "snowfall": {
+      "t": [
+       "int"
+      ]
+     },
+     "startTime": {
+      "t": [
+       "str"
+      ]
+     },
+     "temperature": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "venue": {
+      "t": [
+       "str"
+      ]
+     },
+     "venueId": {
+      "t": [
+       "int"
+      ]
+     },
+     "weatherCondition": {
+      "t": [
+       "null",
+       "str"
+      ]
+     },
+     "weatherConditionCode": {
+      "t": [
+       "int"
+      ]
+     },
+     "week": {
+      "t": [
+       "int"
+      ]
+     },
+     "windDirection": {
+      "t": [
+       "int"
+      ]
+     },
+     "windSpeed": {
+      "t": [
+       "float",
+       "int"
+      ]
+     }
+    },
+    "t": [
+     "dict"
+    ]
+   },
+   "t": [
+    "list"
+   ]
+  },
+  "status": 200
+ },
+ "games_weather_week_before": {
+  "empty": false,
+  "endpoint": "/games/weather",
+  "shape": {
+   "i": {
+    "k": {
+     "awayConference": {
+      "t": [
+       "str"
+      ]
+     },
+     "awayTeam": {
+      "t": [
+       "str"
+      ]
+     },
+     "dewPoint": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "gameIndoors": {
+      "t": [
+       "bool"
+      ]
+     },
+     "homeConference": {
+      "t": [
+       "str"
+      ]
+     },
+     "homeTeam": {
+      "t": [
+       "str"
+      ]
+     },
+     "humidity": {
+      "t": [
+       "int"
+      ]
+     },
+     "id": {
+      "t": [
+       "int"
+      ]
+     },
+     "precipitation": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "pressure": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "season": {
+      "t": [
+       "int"
+      ]
+     },
+     "seasonType": {
+      "t": [
+       "str"
+      ]
+     },
+     "snowfall": {
+      "t": [
+       "int"
+      ]
+     },
+     "startTime": {
+      "t": [
+       "str"
+      ]
+     },
+     "temperature": {
+      "t": [
+       "float",
+       "int"
+      ]
+     },
+     "venue": {
+      "t": [
+       "str"
+      ]
+     },
+     "venueId": {
+      "t": [
+       "int"
+      ]
+     },
+     "weatherCondition": {
+      "t": [
+       "str"
+      ]
+     },
+     "weatherConditionCode": {
+      "t": [
+       "int"
+      ]
+     },
+     "week": {
+      "t": [
+       "int"
+      ]
+     },
+     "windDirection": {
+      "t": [
+       "int"
+      ]
+     },
+     "windSpeed": {
+      "t": [
+       "float",
+       "int"
       ]
      }
     },

@@ -20,7 +20,7 @@ const clean = (label, node) => {
 };
 
 scenarios.ui = async () => {
-  const { gradeBlock, gradeChip, gradeTier, gradeValue, gradedTable } = await import(moduleUrl("ui/grade.js"));
+  const { gradeBlock, gradeChip, gradeParts, gradeTier, gradeValue, gradedTable } = await import(moduleUrl("ui/grade.js"));
   assert.equal(gradeTier(93), "elite");
   assert.equal(gradeTier(40), "average");
   assert.equal(gradeTier(null), null);
@@ -46,6 +46,24 @@ scenarios.ui = async () => {
   assert.ok(t.includes("9.1") && t.includes("66.7%") && t.includes("no number"));
   assert.ok(t.includes("31.4 passes a game (14.0 needed"));
   assert.equal(good.querySelectorAll("tbody tr").length, 4, "junk parts are skipped, the rest drawn");
+  // tables wave 3: the parts are a sized stat table, the weight in its own column (gone at small), the names shortening
+  const wrap = good.querySelector(".stat-table-wrap.grade-parts");
+  assert.ok(wrap && wrap.dataset.size === "large", "a sized table");
+  const ths = [...wrap.querySelector("thead").querySelectorAll("th")];
+  const form = (node, which) => { const f = node.querySelector(`.sz-t--${which}`); return f ? text(f) : text(node); };
+  assert.deepEqual(ths.map((th) => [form(th, "long"), form(th, "mid"), form(th, "short")]), [["Part", "Part", "Part"], ["Weight", "Weight", "Weight"], ["Value", "Value", "Value"], ["Percentile among FBS quarterbacks", "Percentile", "Pctl"]]);
+  assert.deepEqual(ths.map((th) => th.className.includes("st__min-medium")), [false, true, false, false], "the weight waits for medium; the bar shows at every size");
+  assert.deepEqual(ths.map((th) => th.dataset.term), ["Part (weight)", "Weight", "Value", "Percentile"], "the heads' hints: the grade's entry and the percentile's");
+  assert.equal(ths.filter((th) => th.querySelector("button")).length, 0, "the parts keep the server's weight order");
+  const parts = [...wrap.querySelector("tbody").querySelectorAll("tr")].map((tr) => [...tr.querySelectorAll("td")]);
+  assert.deepEqual(parts.map((tds) => [form(tds[0], "long"), form(tds[0], "short")]), [["Yards per attempt", "Y/A"], ["Completion rate", "Comp %"], ["Opponent-adjusted passing value", "Adj pass"], ["Longest field goal", "Long FG"]]);
+  assert.equal(parts[0][0].dataset.term, "Yards per attempt", "the hint keeps the whole name");
+  assert.deepEqual(parts.map((tds) => text(tds[1])), ["20%", "10%", "10%", "–"], "a whole percent, a dash for a weight that is not one");
+  assert.deepEqual(parts.map((tds) => text(tds[2])), ["9.1", "66.7%", "–", "–"]);
+  assert.ok(parts[0][3].querySelector(".grade-bar .grade-bar__fill--mid") && text(parts[0][3]) === "73");
+  assert.equal(text(parts[2][3]), "no number");
+  assert.equal(gradeParts([], "quarterbacks"), null, "no parts, no table");
+  assert.ok(text(gradeParts([{ label: "Sacks a game", value: 0.5, percentile: 80, weight: 0.3 }], null).querySelector("thead")).includes("Percentile among FBS players at the position"));
   const missing = gradeBlock({ grade: null, reason: "Offensive linemen have no individual stats in CFBD's data, so they get no stat grade." });
   assert.ok(clean("missing", missing).includes("Offensive linemen"));
   clean("empty block", gradeBlock(undefined));

@@ -3,7 +3,8 @@
 // gives a result away: the cover's score and final, the W/L squares, the schedule results, the score ticker and Scores
 // table, the live strip and win probability, the box-score header, the play log; since the final pass also the
 // score-by-quarter line, every live game's points in Scores, the W/L squares on team headers and standings, the
-// band summaries that carry a score (.score-words), and Season in review. A tap on a blurred item shows that
+// band summaries that carry a score (.score-words), and Season in review; since items 10 to 12 the newspaper's ranked
+// games (their scores, their final headlines, their win probability). A tap on a blurred item shows that
 // item; "Show all" in the small bar at the bottom shows everything until the switch is turned back on.
 //
 //   spoilerOn() / setSpoiler(on)    read and change the switch (and the page class that does the blurring)
@@ -13,7 +14,7 @@
 import { el } from "./dom.js";
 
 const KEY = "kickoff.spoiler";
-export const SPOILER_SELECTORS = [".cover__score", ".cover__state--final", ".cover__result", ".form-guide", ".sched__res", ".res--w", ".res--l", ".res--t", ".scores__pts--win", ".scores__pts--lose", ".scores__pts", ".qline", ".form__sq", ".score-words", ".ticker__game", ".strip__score", ".strip__final", ".box-head__score", ".wpbar", ".wp", ".cover__wp-label", ".play-log", ".gl-result"];
+export const SPOILER_SELECTORS = [".cover__score", ".cover__state--final", ".cover__result", ".form-guide", ".sched__res", ".res--w", ".res--l", ".res--t", ".scores__pts--win", ".scores__pts--lose", ".scores__pts", ".qline", ".form__sq", ".score-words", ".ticker__game", ".strip__score", ".strip__final", ".box-head__score", ".wpbar", ".wp", ".cover__wp-label", ".play-log", ".gl-result", ".paper-score", ".paper-status__score", ".paper-head--final", ".paper-kicker--final", ".paper-wp"];
 
 let on = false;
 let bar = null;

@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from app.cfbd.models import Game, PlayerStat
 from app.services import grades
-from tests.conftest import ROLES, FakeCfbd, league
+from tests.conftest import ROLES, FakeCfbd, fixture_payload, league
 from tests.test_national import route_all
 
 
@@ -113,6 +113,9 @@ def test_grades_cost_no_call_once_season_and_leaders_have_loaded(loaded: TestCli
     ours = {r["playerId"] for r in data["ours"]}
     assert ROLES["QBID"] in ours and all(r["team"] == "Swampwater Tech" for r in data["ours"])
     assert {g["id"] for g in data["groups"]} == set(grades.GRADED) and "components" not in data["rows"][0]
+    # tables wave 3: each row names its team's abbreviation, so the Top graded table keeps the team at small
+    abbrs = {t["school"]: t["abbreviation"] for t in fixture_payload("teams_fbs") if t.get("abbreviation")}
+    assert all(r["teamAbbr"] == abbrs.get(r["team"]) for r in data["rows"] + data["ours"]) and any(r["teamAbbr"] for r in data["rows"])
     assert loaded.get("/api/grades?group=OL").status_code == 404
 
 

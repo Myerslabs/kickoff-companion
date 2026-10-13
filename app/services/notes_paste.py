@@ -48,9 +48,9 @@ Search the web and answer with ONE JSON object in a single ```json code block, n
 {shape}
 
 What to fill:
-1. "schemes": one short label each for {team}'s offense and defense (for example "Spread, 11 personnel, up-tempo" or "4-2-5, quarters coverage").
+1. "schemes": one short label each for {team}'s offense and defense (for example "Spread, 11 personnel, up-tempo" or "4-2-5, quarters coverage"), and under "opponent" the same two labels for {opponent}.
 2. "sections": program notes. A section each for the coaching matchup, key matchups, the betting line and how it moved, and anything notable this week. Plain football language, one or two short paragraphs per section.
-3. "availability": the {conference} availability report where the conference publishes one, else the latest injury news, for both teams. One row per player with name, position, status (Out, Doubtful, Questionable or Probable) and a short note. Fill "availabilitySource" and "availabilityUpdatedAt".
+3. "availability": the {conference} availability report where the conference publishes one, else the latest injury news, for both teams. One row per player with team (the school's name, {team} or {opponent}), name, position, status (Out, Doubtful, Questionable or Probable) and a short note. Fill "availabilitySource" and "availabilityUpdatedAt".
 4. "visitors": recruits reported to be visiting for this game, under "home" or "away", with the source.
 5. "lineups": both teams' published depth charts, {team} under "us" and {opponent} under "them". Copy the chart the team released this week (its game notes, or a beat report of it) or a depth-chart site. One entry per slot with the slot label as printed (QB, WR-X, LT, JACK, STAR, NB, PK, P, KR) and the names in the printed order, the starter first, with jersey number and class where printed.
 6. "broadcast": the TV crew calling this game: the network, the play-by-play voice, the analyst and the sideline reporter(s). TV only, not radio.
@@ -69,9 +69,9 @@ def shape_example(team: str, opponent: str, conference: str) -> str:
         "author": "Assistant name",
         "writtenAt": "2026-01-01T12:00:00Z",
         "sources": [{"label": f"{conference} availability report", "url": "https://..."}],
-        "schemes": {"offense": "Spread, 11 personnel, up-tempo", "defense": "4-2-5, quarters coverage", "source": "Where the labels come from"},
+        "schemes": {"offense": "Spread, 11 personnel, up-tempo", "defense": "4-2-5, quarters coverage", "opponent": {"offense": "Pro-style, under center", "defense": "3-4, man coverage"}, "source": "Where the labels come from"},
         "sections": [{"heading": "Coaching matchup", "paragraphs": ["One or two short paragraphs."]}],
-        "availability": [{"name": "Player Name", "position": "WR", "status": "Questionable", "note": "ankle"}],
+        "availability": [{"team": "School name", "name": "Player Name", "position": "WR", "status": "Questionable", "note": "ankle"}],
         "availabilitySource": f"{conference} availability report, Thursday",
         "availabilityUpdatedAt": "2026-01-01",
         "visitors": {"home": [{"name": "Recruit Name", "position": "WR", "stars": 4, "highSchool": "School", "hometown": "City, ST", "classYear": 2027, "status": "confirmed"}], "away": [], "source": "Where the list comes from", "sourceUrl": "https://...", "updatedAt": "2026-01-01"},
@@ -267,9 +267,9 @@ The game: {away} at {home}, kickoff {kickoff} (the app's game id is {game_id}, s
 
 Search the web for the newest {conference} availability report for this game, or the latest injury news if the conference publishes none, for both teams. Answer with ONE JSON object in a single ```json code block, nothing else, in exactly this shape:
 
-{{"gameId": {game_id}, "author": "assistant name", "writtenAt": "UTC time", "availability": [{{"name": "Player Name", "position": "WR", "status": "Questionable", "note": "ankle"}}], "availabilitySource": "Where it was published", "availabilityUpdatedAt": "UTC time of the report", "sources": [{{"label": "Conference availability report", "url": "https://..."}}]}}
+{{"gameId": {game_id}, "author": "assistant name", "writtenAt": "UTC time", "availability": [{{"team": "{opponent}", "name": "Player Name", "position": "WR", "status": "Questionable", "note": "ankle"}}], "availabilitySource": "Where it was published", "availabilityUpdatedAt": "UTC time of the report", "sources": [{{"label": "Conference availability report", "url": "https://..."}}]}}
 
-One row per player with name, position, status (Out, Doubtful, Questionable, Probable, Available or Game-time decision) and a short note. If no report or injury news is published yet, answer with "availability" as an empty list. Never invent a player or a status. Valid JSON only: no comments, no trailing commas.
+One row per player with team (the school's name, {team} or {opponent}), name, position, status (Out, Doubtful, Questionable, Probable, Available or Game-time decision) and a short note. If no report or injury news is published yet, answer with "availability" as an empty list. Never invent a player or a status. Valid JSON only: no comments, no trailing commas.
 """
 
 

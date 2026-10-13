@@ -21,7 +21,7 @@
 // value is a rank chip placed beside the row's button, never inside it.
 
 import { usSchool } from "../identity.js";
-import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, recall, remember, text } from "../ui/dom.js";
+import { DASH, el, fitNames, fmtNum, fmtPct, fmtStat, isNum, personName, recall, remember, settleNames, text, watchNames } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { recruitHref } from "../ui/player-card.js";
 import { band, note, subhead } from "../ui/states.js";
@@ -81,11 +81,10 @@ const SORTS = [
 ];
 const SORT_KEY = (pos) => `roster:sort:${pos}`;
 
-function shortName(p) {
-  const first = typeof p.firstName === "string" ? p.firstName.trim() : "";
-  const last = typeof p.lastName === "string" ? p.lastName.trim() : "";
-  if (first && last) return `${first[0]}. ${last}${p.redshirt === true ? " (RS)" : ""}`;
-  return `${text(p.name)}${p.redshirt === true ? " (RS)" : ""}`;
+/** A depth card's name (item 6, owner 2026-10-11): fitted in its own row, the full name first, then "K. Crawford", the surname
+ *  and the reduced surname before the row's ellipsis; CFBD's split, "(RS)" after whichever form shows. */
+function cardName(p) {
+  return personName({ name: p.name, firstName: p.firstName, lastName: p.lastName }, { after: p.redshirt === true ? " (RS)" : "", fit: true });
 }
 
 function sortedPlayers(players, sort) {
@@ -122,11 +121,13 @@ function positionCard(pos, label, players) {
         el(
           "li",
           { class: `depth-li${chip || sort.id === "recruit" ? " depth-li--chip" : ""}` },
-          el("button", { class: "depth-row", type: "button", title: `${text(p.name)}, #${isNum(p.number) ? p.number : DASH}, ${text(p.classYear)}`, onclick: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }, el("span", { class: "depth-row__num" }, isNum(p.number) ? String(p.number) : DASH), el("span", { class: "depth-row__name" }, shortName(p)), value),
+          el("button", { class: "depth-row", type: "button", title: `${text(p.name)}, #${isNum(p.number) ? p.number : DASH}, ${text(p.classYear)}`, onclick: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }, el("span", { class: "depth-row__num" }, isNum(p.number) ? String(p.number) : DASH), el("span", { class: "depth-row__name" }, cardName(p)), value),
           chip || (sort.id === "recruit" ? el("span", { class: "depth-row__val depth-row__val--none" }, DASH) : null),
         ),
       );
     }
+    settleNames(list.querySelectorAll(".depth-row__name")); // two on one card who would read alike get a second letter
+    if (list.isConnected) fitNames(list); // a new order on the page: fit its names now (the chart's watcher fits the first draw)
   };
   // the select shows its choice ("Rating", "Plays"): it names the number on the right and sorts by it
   const select = el(
@@ -167,10 +168,12 @@ export function depthSkeleton() {
 
 /** The depth chart for a roster (exported for the styleguide). */
 export function depthChart(players) {
-  return el(
-    "div",
-    { class: "depth" },
-    depthUnits(players).map((unit) => el("div", { class: "depth__unit" }, unit.map((card) => positionCard(card.pos, card.label, card.players)))),
+  return watchNames(
+    el(
+      "div",
+      { class: "depth" },
+      depthUnits(players).map((unit) => el("div", { class: "depth__unit" }, unit.map((card) => positionCard(card.pos, card.label, card.players)))),
+    ),
   );
 }
 
@@ -186,21 +189,24 @@ export function blueChipNote(bc) {
 
 function tableColumns() {
   const cols = [
-    { key: "number", label: "No." },
-    { key: "name", label: "Player", kind: "text", render: (row) => `${text(row.name)}${row.redshirt === true ? " (RS)" : ""}` },
+    // 2026-10-10 (owner: "size them now"): the roster sizes itself by its own box, never scrolling sideways, its head pinned
+    // under the band's; size names the smallest size that still shows a column (docs/03-DESIGN.md, Table sizes)
+    { key: "number", label: "No.", labelShort: "#" },
+    // item 6: the name steps down with the table from CFBD's split ("K. Crawford", the surname), "(RS)" after whichever form shows
+    { key: "name", label: "Player", kind: "text", person: { first: "firstName", last: "lastName", after: (row) => (row.redshirt === true ? " (RS)" : "") } },
     { key: "position", label: "Pos", kind: "text" },
     { key: "classYear", label: "Class", kind: "text" },
-    { key: "age", label: "Age" }, // Phase 17 #38: from the preseason load's birthdates
-    { key: "heightText", label: "Ht", kind: "text", sortable: false },
-    { key: "weight", label: "Wt" },
-    { key: "hometown", label: "Hometown", kind: "text" },
-    { key: "highSchool", label: "High school", kind: "text" },
-    { key: "transferFrom", label: "Transfer from", kind: "text", team: true },
-    { key: "stars", label: "Stars", format: "stars" },
-    { key: "recruitRank", label: "Recruit rank", kind: "rank", link: recruitHref },
-    { key: "ppaPerPlay", label: "PPA/play", format: "+2f" },
-    { key: "usageShare", label: "Usage", format: "pct" },
-    { key: "gradeValue", label: "Grade", render: (row) => gradeChip(row.grade) }, // public release Phase 7: our stat grade
+    { key: "age", label: "Age", size: "medium" }, // Phase 17 #38: from the preseason load's birthdates
+    { key: "heightText", label: "Ht", kind: "text", sortKey: "height", size: "medium" }, // sorts by inches: "6-10" after "6-2"
+    { key: "weight", label: "Wt", size: "medium" },
+    { key: "hometown", label: "Hometown", kind: "text", size: "large" },
+    { key: "highSchool", label: "High school", kind: "text", size: "large" },
+    { key: "transferFrom", label: "Transfer from", kind: "text", team: true, size: "large" },
+    { key: "stars", label: "Stars", format: "stars", size: "medium" },
+    { key: "recruitRank", label: "Recruit rank", kind: "rank", link: recruitHref, size: "large" },
+    { key: "ppaPerPlay", label: "PPA/play", format: "+2f", size: "large" },
+    { key: "usageShare", label: "Usage", format: "pct", size: "large" },
+    { key: "gradeValue", label: "Grade", render: (row) => gradeChip(row.grade), size: "medium" }, // public release Phase 7: our stat grade; the phone keeps number, name, position, class
   ];
   return cols;
 }
@@ -212,7 +218,7 @@ function render(envelope, container, state) {
   const recruitParts = Object.keys(parts).filter((k) => k.startsWith("recruits_")).map((k) => parts[k]);
   const impact = data.impact || {};
   const impactRows = (side) => (Array.isArray(impact[side]) ? impact[side] : []).filter((p) => p && typeof p === "object");
-  const impactGrid = (side) => (impactRows(side).length ? el("div", { class: "impact-grid" }, impactRows(side).map((p) => impactCard({ player: { name: p.name, number: p.number, position: p.position, classYear: p.classYear, headshotUrl: p.headshotUrl }, chips: (Array.isArray(p.chips) ? p.chips : []).map(plainChip).filter(Boolean), onTap: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }))) : note("Impact players appear after the first game."));
+  const impactGrid = (side) => (impactRows(side).length ? watchNames(el("div", { class: "impact-grid" }, impactRows(side).map((p) => impactCard({ player: { name: p.name, number: p.number, position: p.position, classYear: p.classYear, headshotUrl: p.headshotUrl }, chips: (Array.isArray(p.chips) ? p.chips : []).map(plainChip).filter(Boolean), onTap: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) })))) : note("Impact players appear after the first game."));
   const rated = isNum(data.rated) ? data.rated : 0;
 
   // LRP-03 (bug 6): a visible select in the band body, never the depth card's hidden one in the band head
@@ -232,7 +238,7 @@ function render(envelope, container, state) {
   const tableHost = el("div", {});
   const renderTable = () => {
     const rows = (state.position ? players.filter((p) => p && p.position === state.position) : players).filter((p) => p && typeof p === "object").map((p) => ({ ...p, transferFrom: p?.transfer && typeof p.transfer.from === "string" ? p.transfer.from : null, gradeValue: gradeValue(p.grade) }));
-    tableHost.replaceChildren(rows.length ? statTable({ columns: tableColumns(), rows, sort: state.sort || { key: "number", dir: "ascending" }, onSort: (sort) => { state.sort = sort; }, compact: true, maxHeight: "min(70vh, 720px)", onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: row.isUs !== false }), caption: "Roster" }) : note(state.position ? `No ${state.position === "PK" ? "K" : state.position} on the roster.` : "No roster yet."));
+    tableHost.replaceChildren(rows.length ? statTable({ columns: tableColumns(), rows, sort: state.sort || { key: "number", dir: "ascending" }, onSort: (sort) => { state.sort = sort; }, compact: true, sizes: true, onRowTap: (row) => openPlayer(row.playerId, { ...row, isUs: row.isUs !== false }), caption: "Roster" }) : note(state.position ? `No ${state.position === "PK" ? "K" : state.position} on the roster.` : "No roster yet."));
   };
   renderTable();
 
@@ -247,7 +253,7 @@ function render(envelope, container, state) {
         summary: `${players.length} players by position and class`,
         state: partState(parts.roster, players.length > 0),
         emptyText: "The roster loads the first time the app opens.",
-        body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average }), rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), el("p", { class: "note" }, "The number is our stat grade (100 is the best, 50 the middle at the position); linemen and long snappers have none. Tap a player for the card.")),
+        body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average }), rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) })), // the grid's note follows its size (ui/roster-grid.js)
       }),
       costsBand(data.costs, { id: "roster-costs" }), // Phase 17 Part 3b: rumored, from the Preseason page's load
       band({

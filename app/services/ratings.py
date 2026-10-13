@@ -18,6 +18,7 @@ from app.cfbd.client import CfbdClient
 from app.cfbd.models import AdjustedTeamMetrics, ConferenceSP, Game, Team, TeamCoreRating, TeamElo, TeamFPI, TeamSP, TeamSRS, TeamTalent
 from app.config import Settings
 from app.services.depth2 import adjusted_rows, conference_rows, core_tables, more_ratings, sos_played, sos_table, srs_table
+from app.services.identity import conference_short
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
 from app.services.stats_extra import elo_table, fpi_tables, ratings_rows, real_teams, sp_tables, talent_table
 
@@ -56,8 +57,12 @@ def ratings_table(parts: dict[str, Part], team: str, conference: str, season: in
     sos = sos_played(parts["games"].records, real_teams(parts["sp"].records, fbs))  # the same numbers as sos_table
     extra = more_ratings(parts["core"].records, parts["srs"].records, parts["adjusted"].records, fbs)
     blank = {"value": None, "rank": None}
+    # the team's short name for the phone-sized tables (2026-10-10: the Ratings tables size themselves); none when CFBD has none
+    abbreviations = {t.school: t.abbreviation for t in parts["teams"].records if t.school and isinstance(t.abbreviation, str) and t.abbreviation.strip()}
     for row in rows:
         row["sosPlayed"] = sos.get(row["team"])
+        row["abbreviation"] = abbreviations.get(row["team"])
+        row["conferenceShort"] = conference_short(row.get("conference"))  # tables wave 3: the conference column at medium
         row.update({key: blank for key in ("core", "coreOffense", "coreDefense", "srs", "adjEpa", "adjEpaAllowed")} | extra.get(row["team"], {}))
     us = next((r for r in rows if r["team"] == team), None)
     sps, fpis, cores = sp_tables(parts["sp"].records, fbs), fpi_tables(parts["fpi"].records, fbs), core_tables(parts["core"].records, fbs)

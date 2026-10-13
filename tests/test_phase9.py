@@ -231,6 +231,46 @@ def test_archive_lists_and_reads_back_a_watched_game(app, client: TestClient, fa
     assert data["final"]["available"] and data["game"]["completed"] and data["them"]["school"] == "Silver Dollar" and data["us"]["abbreviation"] == "SWT"
     assert "boxTeams" in data["parts"] and "wp" in data["parts"]
     assert client.get("/api/archive/526001015").status_code == 404 and client.get("/api/archive/abc").status_code == 404
+    # tables wave 3: the list's small form names each school by its abbreviation, peeked from the /teams/fbs answer the
+    # program cached above: the list itself never calls CFBD
+    assert row["awayAbbr"] is None and row["homeAbbr"] is None, "a cold cache: no abbreviation, the page falls back"
+    calls = fake_cfbd.count()
+    again = client.get("/api/archive").json()["data"]["games"][0]
+    assert fake_cfbd.count() == calls, "the list peeks the cache, never a call"
+    assert again["awayAbbr"] == data["us"]["abbreviation"] == "SWT" and again["homeAbbr"] == data["them"]["abbreviation"]
+
+
+def test_archive_list_abbreviations_survive_a_damaged_teams_answer(tmp_path: Path) -> None:
+    """The cached /teams/fbs answer is read as untrusted: a damaged record is skipped, a blank or missing abbreviation is
+    no abbreviation, and the list still answers."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from app.services.archive import ArchiveService
+
+    payload = [
+        {"id": 1, "school": "Swampwater Tech", "abbreviation": " SWT "},
+        {"id": 2, "school": "Silver Dollar", "abbreviation": "  "},
+        {"id": "x", "school": "Diner Tech", "abbreviation": "DT"},
+        None, "junk", [1],
+        {"id": 3, "school": None, "abbreviation": "NOPE"},
+    ]
+    answers = {"payload": payload}
+    cache = SimpleNamespace(get=lambda key: SimpleNamespace(payload=answers["payload"]) if answers["payload"] is not None else None)
+    service = ArchiveService.__new__(ArchiveService)
+    service.folder = tmp_path / "archive"
+    service.folder.mkdir()
+    service.team = "Swampwater Tech"
+    service.analytics = SimpleNamespace(client=SimpleNamespace(cache=cache), settings=SimpleNamespace(season=2026))
+    (service.folder / "5.json").write_text(json.dumps({"gameId": 5, "home": "Silver Dollar", "away": "Swampwater Tech", "state": {}}), encoding="utf-8")
+    (service.folder / "6.json").write_text(json.dumps({"gameId": 6, "home": ["not", "a", "school"], "away": "Diner Tech", "state": {}}), encoding="utf-8")
+    rows = {r["gameId"]: r for r in asyncio.run(service.list())["games"]}
+    assert (rows[5]["awayAbbr"], rows[5]["homeAbbr"]) == ("SWT", None)
+    assert (rows[6]["awayAbbr"], rows[6]["homeAbbr"]) == (None, None), "a damaged record and a home that is no school name nothing"
+    answers["payload"] = {"not": "a list"}
+    assert asyncio.run(service.list())["games"][0]["awayAbbr"] is None
+    answers["payload"] = None
+    assert len(asyncio.run(service.list())["games"]) == 2, "a cold cache: the list still answers"
 
 
 # --- notes runner -----------------------------------------------------------------------------------------------------
@@ -271,3 +311,33 @@ def test_notes_runner_reports_a_missing_command_and_runs_a_fake_one(app, client:
     log = app.state.settings.log_dir / "notes-526001015.log"
     assert log.is_file() and "prompt was" in log.read_text(encoding="utf-8")
     assert client.post("/api/notes/run", json={"gameId": 12345}).status_code == 404
+
+
+def test_windows_desktop_icon_goes_to_the_real_desktop_folder(tmp_path: Path, monkeypatch) -> None:
+    """Bug 2026-10-13: the owner's Desktop is redirected, so %USERPROFILE%\\Desktop did not exist and PowerShell could not
+    save the shortcut. The launcher takes the Desktop folder it is given (or the shell's answer), refuses a missing folder
+    by name, and keeps only the sentence of a PowerShell error."""
+    from app.services.launcher import first_line, windows_desktop_folder
+
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "start.ps1").write_text("# start", encoding="utf-8")
+    desktop = tmp_path / "OneDrive" / "Desktop"
+    desktop.mkdir(parents=True)
+    scripts: list[str] = []
+    launcher = Launcher(root, runner=lambda args: scripts.append(args[0]) or (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path / "home", desktop=desktop)
+    icon = launcher.desktop_shortcut()
+    assert icon["created"] is True and icon["path"] == str(desktop / "Kickoff Companion.lnk")
+    assert str(desktop / "Kickoff Companion.lnk") in scripts[0]
+    missing = Launcher(root, runner=lambda args: (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path / "home", desktop=tmp_path / "nowhere" / "Desktop")
+    assert missing.desktop_shortcut() == {"created": False, "error": f"the Desktop folder was not found at {tmp_path / 'nowhere' / 'Desktop'}"}
+    stack = 'Unable to save shortcut "C:\\Users\\x\\Desktop\\Kickoff Companion.lnk". At line:1 char:320 + ... rs Game Plan\'; $s.Save() + ~~~~ + CategoryInfo : OperationStopped: (:) [], DirectoryNotFoundException + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException'
+    failed = Launcher(root, runner=lambda args: (1, stack), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path / "home", desktop=desktop)
+    assert failed.desktop_shortcut()["error"] == 'could not create the Desktop shortcut: Unable to save shortcut "C:\\Users\\x\\Desktop\\Kickoff Companion.lnk".'
+    assert first_line("") == "" and first_line("plain\nwords") == "plain words"
+    # off Windows (or with no registry answer) the profile's Desktop is the fallback
+    monkeypatch.setattr("app.services.launcher.sys.platform", "linux")
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "profile"))
+    assert windows_desktop_folder(tmp_path / "home") == tmp_path / "profile" / "Desktop"
+    monkeypatch.delenv("USERPROFILE")
+    assert windows_desktop_folder(tmp_path / "home") == tmp_path / "home" / "Desktop"

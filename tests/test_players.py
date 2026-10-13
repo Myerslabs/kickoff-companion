@@ -1,6 +1,9 @@
 """Leaders, roster, recruiting, and player cards from recorded fixtures: boards ranked locally
 across FBS only, the recruiting join, impact players, the notes-file visitors, cards for Swampwater Tech
-and opponent players, 404 for anyone else, malformed records skipped, and a failed part reported."""
+and opponent players, 404 for anyone else, malformed records skipped, and a failed part reported. Tables wave 3
+(decision 3): our card loads its earlier seasons from the team-season answers (one call per earlier year in its
+History, four at most, shared by every player of that team and year), a failed or empty season is skipped and
+counted, and the game log and History name each team's abbreviation."""
 
 from __future__ import annotations
 
@@ -10,8 +13,9 @@ from pathlib import Path
 import httpx
 from fastapi.testclient import TestClient
 
-from app.services.players import BOARDS, history_classes
-from tests.conftest import ROLES, FakeCfbd, fixture_payload, route_depth2, team_player_stats
+from app.cfbd.models import PlayerStat
+from app.services.players import BOARDS, PAST_SEASONS, card_order, history_classes, past_team_seasons, season_lines
+from tests.conftest import ROLES, FakeCfbd, fixture_payload, past_team_stats, route_depth2, team_player_stats
 
 
 def route_players(fake: FakeCfbd) -> None:
@@ -20,6 +24,8 @@ def route_players(fake: FakeCfbd) -> None:
 
     def player_stats(request: httpx.Request) -> httpx.Response:
         params = request.url.params
+        if params.get("team") == "Swampwater Tech" and params.get("year") not in (None, "2026"):
+            return httpx.Response(200, json=past_team_stats(params.get("year")))  # decision 3: the card's earlier seasons
         if params.get("team") == "Swampwater Tech":
             return httpx.Response(200, json=fixture_payload("stats_player_season_team"))
         if params.get("team"):
@@ -277,6 +283,12 @@ def test_our_player_card(client: TestClient, fake_cfbd: FakeCfbd):
     assert data["missingWeeks"] == []
     assert [h["year"] for h in data["history"]][-1] == 2026 and len(data["history"]) >= 1
     assert data["parts"][f"box_Swampwater Tech_{last}"]["status"] == "ok"
+    # tables wave 3: each opponent's abbreviation ("at DT" at small), no postseason name in the regular season, our abbreviation
+    # on every History row
+    abbrs = {t["school"]: t.get("abbreviation") for t in fixture_payload("teams_fbs")}
+    assert all(g["opponentAbbr"] == abbrs.get(g["opponent"]) for g in data["gameLog"]) and any(g["opponentAbbr"] for g in data["gameLog"])
+    assert all(g["postseasonShort"] is None for g in data["gameLog"])
+    assert all(h["teamAbbr"] == "SWT" for h in data["history"])
 
 
 def test_opponent_player_card_uses_the_opponent_roster(client: TestClient, fake_cfbd: FakeCfbd):
@@ -286,6 +298,163 @@ def test_opponent_player_card_uses_the_opponent_roster(client: TestClient, fake_
     assert data["player"]["isUs"] is False and data["player"]["team"] == "Diner Tech"
     assert data["history"] == [] and (data["player"]["highSchool"] is None or isinstance(data["player"]["highSchool"], str))
     assert fake_cfbd.count("/roster") == 2
+
+
+# --- the card's past seasons (tables wave 3, owner decision 3) -------------------------------------------
+
+
+def _team_season_calls(fake: FakeCfbd) -> list[str]:
+    """The years of every team-season player stats call for Swampwater Tech, in the order made."""
+    return [str(r.url.params.get("year")) for r in fake.requests if r.url.path == "/stats/player/season" and r.url.params.get("team") == "Swampwater Tech"]
+
+
+def _roster_years(player_id: str) -> list[int]:
+    return [y for y in range(2022, 2027) if any(r["id"] == player_id for r in fixture_payload("roster" if y == 2026 else f"roster_{y}"))]
+
+
+def _lines(payload: list[dict], player_id: str, category: str) -> dict[str, str]:
+    return {r["statType"]: r["stat"] for r in payload if r["playerId"] == player_id and r["category"] == category}
+
+
+def test_our_card_loads_its_past_seasons(client: TestClient, fake_cfbd: FakeCfbd):
+    route_players(fake_cfbd)
+    rb = ROLES["RBID"]
+    years = _roster_years(rb)
+    assert years[-1] == 2026 and len(years) >= 3, "the running back has earlier seasons on our rosters"
+    body = client.get(f"/api/players/{rb}").json()
+    assert body["errors"] == []
+    data = body["data"]
+    earlier = sorted((y for y in years if y < 2026), reverse=True)
+    # one call per earlier season in the History, never more than the four the prior rosters cover, after this season's
+    calls = _team_season_calls(fake_cfbd)  # the earlier seasons are asked together, in any order
+    assert calls[0] == "2026" and sorted(calls[1:], reverse=True) == [str(y) for y in earlier] and len(earlier) <= PAST_SEASONS
+    assert [h["year"] for h in data["history"]] == years and all(h["teamAbbr"] == "SWT" for h in data["history"])
+    # the league plays last season, so 2025 has lines; the seasons before it come back empty: counted, never an error
+    last = past_team_stats(2025)
+    rushing = _lines(last, rb, "rushing")
+    assert rushing, "the running back carried the ball last season"
+    seasons = data["seasons"]
+    assert {s["year"] for s in seasons} == {2026, 2025}
+    mine = next(s for s in seasons if s["year"] == 2025 and s["category"] == "rushing")
+    assert mine["stats"]["YDS"] == float(rushing["YDS"]) and mine["stats"]["CAR"] == float(rushing["CAR"])
+    assert data["missingSeasons"] == [] and data["emptySeasons"] == [y for y in earlier if y != 2025] and data["missingHistory"] == []
+    assert data["parts"]["stats_2025"]["status"] == "ok" and all(data["parts"][f"stats_{y}"]["status"] == "ok" for y in earlier)
+    # reading order: the categories as the card lists them, the newest season first inside each
+    keys = [card_order(s) for s in seasons]
+    assert keys == sorted(keys) and seasons[0]["year"] == 2026
+    assert [s["year"] for s in seasons if s["category"] == "rushing"] == [2026, 2025]
+
+
+def test_past_seasons_are_shared_and_bounded(client: TestClient, fake_cfbd: FakeCfbd):
+    route_players(fake_cfbd)
+    rb = ROLES["RBID"]
+    client.get(f"/api/players/{rb}")
+    first = _team_season_calls(fake_cfbd)
+    # a second player of ours with seasons in the same years reads the same cached team-season answers: no new call
+    other = next(r["id"] for r in fixture_payload("roster_2025") if r["id"] != rb and r["id"] in {p["id"] for p in fixture_payload("roster")})
+    assert set(_roster_years(other)) - {2026} <= set(_roster_years(rb))
+    assert client.get(f"/api/players/{other}").status_code == 200
+    assert _team_season_calls(fake_cfbd) == first, "every player of a team and year shares its answer"
+    # a player new this year has no earlier season to ask for
+    fresh = next(r["id"] for r in fixture_payload("roster") if _roster_years(r["id"]) == [2026])
+    before = len(fake_cfbd.requests)
+    data = client.get(f"/api/players/{fresh}").json()["data"]
+    assert [r for r in fake_cfbd.requests[before:] if r.url.path == "/stats/player/season" and r.url.params.get("year") != "2026"] == []
+    assert data["missingSeasons"] == [] and data["emptySeasons"] == [] and {s["year"] for s in data["seasons"]} <= {2026}
+    # the opponent's card reads no earlier rosters, so it asks for no earlier season
+    opp = fixture_payload("roster_opponent")[0]["id"]
+    before = len(fake_cfbd.requests)
+    client.get(f"/api/players/{opp}")
+    assert [r for r in fake_cfbd.requests[before:] if r.url.path == "/stats/player/season" and r.url.params.get("year") not in (None, "2026")] == []
+
+
+def test_a_failed_past_season_is_skipped_and_named(client: TestClient, fake_cfbd: FakeCfbd):
+    route_players(fake_cfbd)
+    healthy = fake_cfbd.routes["/stats/player/season"]
+    fake_cfbd.route("/stats/player/season", handler=lambda r: httpx.Response(500, text="down") if r.url.params.get("year") == "2025" else healthy(r))
+    rb = ROLES["RBID"]
+    response = client.get(f"/api/players/{rb}")
+    assert response.status_code == 200
+    body = response.json()
+    data = body["data"]
+    assert data["missingSeasons"] == [2025] and data["parts"]["stats_2025"]["status"] == "error"
+    assert {s["year"] for s in data["seasons"]} == {2026}, "this season still shows"
+    assert any(e["message"].startswith("stats_2025:") for e in body["errors"]), "the failure is reported, not swallowed"
+    assert data["history"] and data["gameLog"], "the rest of the card is whole"
+
+
+def test_a_failed_past_roster_is_named_on_the_card(client: TestClient, fake_cfbd: FakeCfbd):
+    """Wave 3 review (fail loud): an earlier roster that does not load leaves its year out of the History and the past
+    seasons asked for, so the card names the year rather than letting the career rows quietly miss it."""
+    route_players(fake_cfbd)
+    rb = ROLES["RBID"]
+    failed = min(y for y in _roster_years(rb) if y < 2025)
+    healthy = fake_cfbd.routes["/roster"]
+    fake_cfbd.route("/roster", handler=lambda r: httpx.Response(500, text="down") if r.url.params.get("year") == str(failed) else healthy(r))
+    body = client.get(f"/api/players/{rb}").json()
+    data = body["data"]
+    assert data["missingHistory"] == [failed]
+    assert failed not in [h["year"] for h in data["history"]] and failed not in {s["year"] for s in data["seasons"]}
+    assert str(failed) not in _team_season_calls(fake_cfbd), "no stats asked for a year the History does not have"
+    assert any(e["message"].startswith(f"roster_{failed}:") for e in body["errors"])
+    assert data["missingSeasons"] == [], "the past seasons that were asked for still load"
+
+
+def test_malformed_past_season_records_are_skipped_and_counted(client: TestClient, fake_cfbd: FakeCfbd):
+    route_players(fake_cfbd)
+    rb = ROLES["RBID"]
+    good = past_team_stats(2025)
+    junk = [
+        None, "x", [], {"player": "No Id", "category": "rushing", "statType": "YDS", "stat": "5"},
+        {"playerId": rb, "category": "rushing", "statType": "YDS", "stat": {"x": 1}},
+        {"playerId": rb, "category": None, "statType": "YDS", "stat": "7"},
+        {"playerId": rb, "season": 2019, "category": "rushing", "statType": "TD", "stat": "99"},  # another season: left out
+        {"playerId": rb, "season": 2019, "category": "rushing", "statType": "FUMX", "stat": "4"},  # a stat the good line lacks
+        {"playerId": rb, "season": 2025, "category": "rushing", "statType": "LONG", "stat": None},
+    ]
+    healthy = fake_cfbd.routes["/stats/player/season"]
+    # the junk comes after the good lines, so another season's TD would overwrite the good one if the season filter failed
+    fake_cfbd.route("/stats/player/season", handler=lambda r: httpx.Response(200, json=good + junk) if r.url.params.get("year") == "2025" else healthy(r))
+    body = client.get(f"/api/players/{rb}").json()
+    data = body["data"]
+    assert data["parts"]["stats_2025"]["status"] == "ok" and data["parts"]["stats_2025"]["skipped"] >= 5
+    assert any(e["code"] == "records_skipped" and e["message"].startswith("stats_2025:") for e in body["errors"])
+    mine = next(s for s in data["seasons"] if s["year"] == 2025 and s["category"] == "rushing")
+    want = _lines(good, rb, "rushing")
+    assert mine["stats"]["YDS"] == float(want["YDS"]) and mine["stats"]["TD"] == float(want["TD"]), "the good lines stand, the junk never mixes in"
+    assert "FUMX" not in mine["stats"], "another season's line never joins this one"
+
+
+def test_an_empty_past_season_is_counted_not_shown(client: TestClient, fake_cfbd: FakeCfbd):
+    route_players(fake_cfbd)
+    healthy = fake_cfbd.routes["/stats/player/season"]
+    # last season answers with something that is not a list of lines: nothing to show, counted as empty, never an error
+    fake_cfbd.route("/stats/player/season", handler=lambda r: httpx.Response(200, json={"message": "odd"}) if r.url.params.get("year") == "2025" else healthy(r))
+    data = client.get(f"/api/players/{ROLES['RBID']}").json()["data"]
+    assert 2025 in data["emptySeasons"] and data["missingSeasons"] == []
+    assert {s["year"] for s in data["seasons"]} == {2026} and data["parts"]["stats_2025"]["status"] == "ok"
+
+
+def test_past_season_helpers_guard_their_input():
+    history = [
+        {"year": 2026, "team": "Swampwater Tech"}, {"year": 2025, "team": "Swampwater Tech"}, {"year": 2025, "team": "Other"},
+        {"year": 2024, "team": " "}, {"year": True, "team": "X"}, {"year": "2023", "team": "X"}, {"year": 2021, "team": "Too Old"},
+        {"year": 2022, "team": "Swampwater Tech"}, {"year": 2023, "team": None}, {},
+    ]
+    assert past_team_seasons(history, 2026) == [(2025, "Swampwater Tech"), (2022, "Swampwater Tech")]
+    assert len(past_team_seasons([{"year": y, "team": "T"} for y in range(2010, 2026)], 2026)) == PAST_SEASONS == 4
+    assert past_team_seasons([], 2026) == []
+    rows = [PlayerStat.model_validate(r) for r in [
+        {"playerId": "9", "season": 2025, "category": "rushing", "statType": "YDS", "stat": "40"},
+        {"playerId": "9", "season": 2024, "category": "rushing", "statType": "CAR", "stat": "8"},
+        {"playerId": "9", "category": "rushing", "statType": "TD", "stat": "1"},
+        {"playerId": "9", "season": 2025, "category": "fumbles", "statType": "FUM", "stat": None},
+        {"playerId": "8", "season": 2025, "category": "rushing", "statType": "YDS", "stat": "3"},
+    ]]
+    assert season_lines(rows, "9", 2025) == [{"year": 2025, "category": "rushing", "stats": {"YDS": 40.0, "TD": 1.0}}], "another season and an empty line are left out"
+    assert season_lines([], "9", 2025) == []
+    lines = [{"year": 2025, "category": "puntReturns"}, {"year": 2026, "category": "oddball"}, {"year": 2025, "category": "passing"}, {"year": 2026, "category": "passing"}, {"year": None, "category": None}]
+    assert [(r["category"], r["year"]) for r in sorted(lines, key=card_order)] == [("passing", 2026), ("passing", 2025), ("puntReturns", 2025), (None, None), ("oddball", 2026)]
 
 
 def test_history_counts_classes_back_from_the_latest_season():

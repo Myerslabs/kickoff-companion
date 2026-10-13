@@ -32,7 +32,15 @@ scenarios.columns = async () => {
   const page = main.querySelector(".page.season");
   assert.ok(page && page.className.includes("flow"));
   const ids = page.querySelectorAll("section.band").map((b) => b.getAttribute("id")).filter(Boolean);
-  assert.deepEqual(ids.slice(0, 9), ["season-schedule", "season-profile", "season-standings", "season-polls", "season-ratings", "season-last", "season-resume", "season-trends", "season-advanced"]);
+  // the owner's order (2026-10-10); the playoff band, when there is one, last until week 8 and first from week 8
+  const order = ["season-schedule", "season-standings", "season-polls", "season-ratings", "season-resume", "season-profile", "season-trends", "season-advanced", "season-road", "season-last"];
+  assert.deepEqual(ids.filter((id) => id !== "season-playoff"), order);
+  const { seasonWeek } = await import(moduleUrl("views/season.js"));
+  if (ids.includes("season-playoff")) assert.equal(ids.indexOf("season-playoff") === 0, seasonWeek(FIXTURE.season) >= 8);
+  assert.equal(seasonWeek({ schedule: [{ gameId: 1, week: 7, completed: true }, { gameId: 2, week: 8, completed: false }], nextGameId: 2 }), 8);
+  assert.equal(seasonWeek({ schedule: [{ gameId: 1, week: 3, completed: true }, { gameId: 2, week: 5, completed: true }], nextGameId: null }), 6);
+  assert.equal(seasonWeek({ schedule: [{ gameId: 9, week: 1, completed: false, postseason: "Bowl" }], nextGameId: 9 }), 99);
+  assert.equal(seasonWeek(null), 0);
   const profile = main.querySelector("#season-profile");
   assert.equal(profile.querySelectorAll(".band").length, 0, "no band nested inside the profile band");
   assert.deepEqual(profile.querySelectorAll("h3.subhead").map(text), ["Offense", "Defense"]);

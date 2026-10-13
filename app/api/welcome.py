@@ -112,7 +112,7 @@ async def check_key(request: Request) -> Any:
     if status is None:
         return error_response(503, "cfbd_unreachable", f"Could not reach CFBD to check the key ({error}). Check the internet connection and try again.")
     if status in (401, 403):
-        return error_response(422, "key_refused", "CFBD did not accept this key. Copy it again from the email CFBD sent, or get a new one.")
+        return error_response(422, "key_refused", _refused_message(status, error))
     if payload is None:
         return error_response(502, "cfbd_error", f"CFBD answered the check oddly ({error}). Try again in a minute.")
     client._apply_info(payload, client._clock())  # the plan and the quota guard both learn the key's limit
@@ -129,6 +129,20 @@ async def check_key(request: Request) -> Any:
         return error_response(500, "env_write_failed", f"The key is fine, but {exc}.")
     restart.request("a new CFBD key was saved")
     return envelope({**_state(request), "restarting": True}, source="live")
+
+
+BARE_REFUSALS = {"unauthorized", "forbidden"}
+
+
+def _refused_message(status: int, reason: str | None) -> str:
+    """What the page says when CFBD answers 401 or 403. A bare "Unauthorized" means CFBD does not
+    know the key, so the advice is to copy it again. Anything else is CFBD's own reason (owner
+    2026-10-13: "Account has been blacklisted." was hidden behind the generic line) and is shown as
+    it is, since the fix is on CFBD's side, not in the paste."""
+    reason = " ".join((reason or "").split())
+    if not reason or reason.rstrip(".").lower() in BARE_REFUSALS or reason.lower() == f"http {status}":
+        return "CFBD did not accept this key. Copy it again from the email CFBD sent, or get a new one."
+    return f'CFBD did not accept this key and says: "{reason}" That is about the account the key belongs to, so ask CFBD about it, or use another key.'
 
 
 async def _teams(request: Request) -> tuple[list[Team], str | None]:

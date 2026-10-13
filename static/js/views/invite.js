@@ -89,7 +89,7 @@ export function createInviteView({ onStatus } = {}) {
           "div",
           { class: "page invite-page" },
           el("h1", { class: "page-title" }, "Invite friends"),
-          el("p", { class: "lead" }, "Anyone on the same Wi-Fi scans this with their camera and watches along. Nothing to install."),
+          el("p", { class: "lead" }, data.away === true ? "Away from home is on: friends scan this code with their camera, or open this exact address. The plain address shows them a page saying the companion is away. Nothing to install." : "Anyone on the same Wi-Fi scans this with their camera and watches along. Nothing to install."),
           inviteBody(data, { big: true }),
           guestBand(data),
           guideBand(),

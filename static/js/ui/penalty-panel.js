@@ -7,10 +7,12 @@
 //   penaltyFlags(play)                 -> <span class="play__flags"> or null (no known foul on the play)
 //   openPenaltyPanel(foul)             the side panel for one {key, name, yards, declined, offsetting}
 //   loadPenaltyBook()                  -> Promise of {source, byKey}; one request a page load
-//   penaltyBody(entry, foul, source)   the panel's content (exported for the tests)
+//   penaltyBody(entry, foul, source)   the panel's content (exported for the tests): the calls a sized table (wave 2)
+//   callRows(calls)                    the book's calls as table rows (damaged ones skipped)
 
 import { el, isNum, text } from "./dom.js";
 import { openSheet } from "./remote.js";
+import { statTable } from "./stat-table.js";
 import { fetchJson } from "../views/common.js";
 
 const PDF_NOTE = "The rules book is the NCAA's PDF (about 11 MB). Most browsers open it at the page; some tablets download it instead.";
@@ -67,26 +69,40 @@ function ruleLink(call, source) {
   const url = typeof source?.url === "string" && /^https:\/\//.test(source.url) ? source.url : null;
   if (!url) return `Rule ${rule}`;
   const page = isNum(call.page) && call.page > 0 ? Math.round(call.page) : null;
-  return el("a", { href: page ? `${url}#page=${page}` : url, target: "_blank", rel: "noopener", class: "flag-rule" }, `Rule ${rule}`, page ? el("small", {}, ` page ${page}`) : null);
+  // the page line at large and medium only: at small the link alone, so the table keeps its box (tables wave 2)
+  return el("a", { href: page ? `${url}#page=${page}` : url, target: "_blank", rel: "noopener", class: "flag-rule" }, `Rule ${rule}`, page ? el("span", { class: "sz-t sz-t--long sz-t--mid" }, el("small", {}, ` page ${page}`)) : null);
+}
+
+/** The calls as table rows: who fouled, what it costs (prose), the rule and its page. */
+export function callRows(calls) {
+  return (Array.isArray(calls) ? calls : []).filter((c) => c && typeof c === "object" && !Array.isArray(c)).map((c) => ({ who: text(c.who), result: text(c.result), rule: c.rule, page: c.page }));
+}
+
+/**
+ * The calls table (tables wave 2, owner 2026-10-10): sized by its own box like every table. The penalty is prose, the one
+ * column that wraps (rule 2's exception); the rule keeps its link at every size and its page line at large and medium.
+ * "Offense" and "Defense" stay whole words (a render, so the stat names' short forms never turn them into "Off" or
+ * "Def (allowed)"). Wave 3 (owner 2026-10-10): at small the heads shorten to By, Penalty and Rule, so a phone's sheet
+ * gives the penalty's prose the room.
+ */
+function callsTable(rows, foul, source) {
+  const columns = [
+    { key: "who", label: "Fouled by", labelShort: "By", kind: "text", render: (row) => text(row.who) },
+    { key: "result", label: "Penalty", kind: "text", wrap: true },
+    { key: "rule", label: "Rulebook", labelShort: "Rule", kind: "text", render: (row) => ruleLink(row, source) },
+  ];
+  return el("div", { class: "flag-panel__calls" }, statTable({ compact: true, sizes: true, sortable: false, columns, rows, caption: `${text(foul?.name)}: the penalty and the rule` }));
 }
 
 export function penaltyBody(entry, foul, source) {
-  const calls = (Array.isArray(entry?.calls) ? entry.calls : []).filter((c) => c && typeof c === "object");
+  const calls = callRows(entry?.calls);
   const onPlay = flagText(foul);
   return el(
     "div",
     { class: "flag-panel" },
     el("p", { class: "flag-panel__play" }, el("span", { class: "flag-chip__mark", "aria-hidden": "true" }), `On this play: ${onPlay}.`),
     typeof entry?.what === "string" && entry.what ? el("p", { class: "flag-panel__what" }, entry.what) : el("p", { class: "note" }, "No plain-words entry for this foul yet."),
-    calls.length
-      ? el(
-          "table",
-          { class: "stat-table stat-table--compact flag-panel__calls" },
-          el("caption", { class: "sr-only" }, `${text(foul.name)}: the penalty and the rule`),
-          el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "Fouled by"), el("th", { scope: "col" }, "Penalty"), el("th", { scope: "col" }, "Rulebook"))),
-          el("tbody", {}, calls.map((c) => el("tr", {}, el("td", {}, text(c.who)), el("td", {}, text(c.result)), el("td", {}, ruleLink(c, source))))),
-        )
-      : null,
+    calls.length ? callsTable(calls, foul, source) : null,
     el("p", { class: "note" }, `From the ${text(source?.title || "NCAA rules book")}. ${PDF_NOTE}`),
   );
 }

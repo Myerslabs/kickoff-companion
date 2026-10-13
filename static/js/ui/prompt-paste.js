@@ -38,6 +38,9 @@ export async function copyHidden(value) {
     box.value = value;
     box.setAttribute("readonly", "");
     box.style.position = "fixed";
+    box.style.top = "0";
+    box.style.left = "0";
+    box.style.fontSize = "16px"; // item 6, step G: a focused box under 16 px makes iOS zoom the page in and stay zoomed
     box.style.opacity = "0";
     box.style.pointerEvents = "none";
     document.body.append(box);

@@ -2,12 +2,15 @@
 // GET /api/matchup?away=&home= (the cached all-FBS answers only; no per-school calls). Each team's record,
 // polls, SP+, talent and last five results, the live or final score when the two meet this week, then the
 // shared two-team table (ui/two-team.js, final pass): one row per stat grouped by the side of the ball, the
-// value and its rank chip in one cell, the tug-of-war bar between the teams. We sit first whenever we are in
-// the game (every two-team table reads us, then them); between two other teams the away team is first, as the
-// game is said, and the bars take those teams' own colors. Every chip links to its national list with that
-// team's row marked.
+// tug-of-war bar between the teams. We sit first whenever we are in the game (every two-team table reads us, then
+// them); between two other teams the away team is first, as the game is said, and the bars take those teams' own
+// colors. Every chip links to its list with that team's row marked.
+// Tables wave 3 (owner 2026-10-10, rule 3): every data point in its own column. The table sizes itself by its own box:
+// at large each side reads, outward from the bar, the value, the FBS rank and the rank inside that team's own
+// conference (headed by its short name), with the school and mascot over each side; medium the FBS rank and the school;
+// small the values and the bar under the abbreviations.
 //
-// API (Scores rows and Newspaper slate cards open it):
+// API (the styleguide opens it today; wiring it to the Newspaper's slate cards is a later item, owner 2026-10-10):
 //   openMatchupSheet({ away, home }) -> the openSheet handle plus reload(), or null without two names.
 //   matchupBody(envelope, { onRetry })  the sheet's content, for the tests and the styleguide.
 //   matchupOrder(data)                  { first, second, firstKey, secondKey, joiner, neutral }: who sits first.
@@ -15,7 +18,7 @@
 
 import { isUs } from "../identity.js";
 import { ageSeconds, fetchPatient } from "../views/common.js";
-import { rejectReason } from "./colors.js";
+import { teamBarColors } from "./colors.js";
 import { DASH, el, fmtDateTime, fmtStat, isNum, obj, records, teamLink, teamLogo, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
@@ -100,13 +103,31 @@ export function matchupOrder(data) {
   return { first: away, second: home, firstKey: "away", secondKey: "home", joiner: neutralSite ? "vs" : "at", neutral: away.isUs !== true };
 }
 
-function sideOf(value, of) {
+/** One team's side of a row: the value, its FBS rank and (wave 3) its rank inside the team's own conference, a chip that
+ *  opens that conference's list with the team marked. */
+function sideOf(value, of, team, metric) {
   const s = obj(value);
-  return { value: isNum(s.value) ? s.value : null, rank: s.rank, of: isNum(s.of) ? s.of : of };
+  const school = name(obj(team).school);
+  const conference = typeof obj(team).conferenceShort === "string" && obj(team).conferenceShort.trim() ? obj(team).conferenceShort.trim() : null;
+  const conf = isNum(s.confRank) ? { rank: s.confRank, of: isNum(s.confOf) ? s.confOf : null, conference, href: nationalHref(metric, { team: school, scope: "conference" }) } : null;
+  return { value: isNum(s.value) ? s.value : null, rank: s.rank, of: isNum(s.of) ? s.of : of, conf };
 }
 
 function abbrOf(team) {
   return text(obj(team).abbreviation || name(obj(team).school));
+}
+
+/** A team's school and mascot for the large head ("Diner Tech Rebels"); the school alone without a mascot. */
+function fullName(team) {
+  const school = name(obj(team).school);
+  const mascot = typeof obj(team).mascot === "string" && obj(team).mascot.trim() ? obj(team).mascot.trim() : null;
+  return school && mascot ? `${school} ${mascot}` : school;
+}
+
+/** A team's conference short name for its rank head ("BB rank"), or null. */
+function confShortOf(team) {
+  const short = obj(team).conferenceShort;
+  return typeof short === "string" && short.trim() ? short.trim() : null;
 }
 
 /** The two-team table: the server's groups in order, each row's first team in our slot. */
@@ -120,8 +141,8 @@ function sideBySide(data, order) {
       format: typeof row.format === "string" ? row.format : undefined,
       higherIsBetter: row.higherIsBetter,
       metric: row.metric,
-      us: sideOf(row[order.firstKey], row.of),
-      them: sideOf(row[order.secondKey], row.of),
+      us: sideOf(row[order.firstKey], row.of, order.first, row.metric),
+      them: sideOf(row[order.secondKey], row.of, order.second, row.metric),
     });
   }
   return twoTeamTable({
@@ -130,6 +151,10 @@ function sideBySide(data, order) {
     themAbbr: abbrOf(order.second),
     usTeam: name(order.first.school),
     themTeam: name(order.second.school),
+    usName: fullName(order.first),
+    themName: fullName(order.second),
+    usConf: confShortOf(order.first) || undefined,
+    themConf: confShortOf(order.second) || undefined,
     tug: true,
     labelHead: "This season",
     caption: `${text(name(order.first.school))} and ${text(name(order.second.school))}, side by side`,
@@ -139,11 +164,7 @@ function sideBySide(data, order) {
 
 /** Between two other teams the bars wear those teams' colors (a readable one each), never ours and the week's opponent's. */
 function neutralColors(order) {
-  if (!order.neutral) return null;
-  const usable = (team) => [obj(team).color, obj(team).altColor].find((c) => typeof c === "string" && !rejectReason(c, [])) || null;
-  const first = usable(order.first);
-  const second = usable(order.second);
-  return { "--team-us": first || "var(--fog)", "--opp": second || "var(--fog)" };
+  return order.neutral ? teamBarColors(obj(order.first), obj(order.second)) : null;
 }
 
 function partErrors(data) {

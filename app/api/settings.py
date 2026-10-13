@@ -3,20 +3,26 @@ switch. Secrets never appear here."""
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 
-from app import APP_NAME, DATA_CREDIT, DATA_URL, PUBLISHER, REPO_URL, __version__
+from app import APP_NAME, DATA_CREDIT, DATA_URL, PUBLISHER, REPO_URL, __version__, restart
 from app.api.envelope import envelope, error_response
 from app.api.radio import all_sources, radio_help
+from app.api.server import _game_under_way
 from app.config import PROJECT_ROOT
 from app.paths import ROOTS
 from app.services import plan, stations, teamset
+from app.services.envfile import set_values
 from app.services.launcher import Launcher, open_folder
 from app.services.notes_task import NotesRunner
 from app.services.prefs import PrefsError, PrefsStore
+
+log = logging.getLogger("kickoff.settings")
 
 router = APIRouter(tags=["settings"])
 
@@ -68,6 +74,7 @@ def _payload(request: Request) -> dict[str, Any]:
         "autoStart": launcher.status(),
         "plan": plan.summary(request.app.state.cfbd),  # public release Phase 5a
         "canChangeKey": _on_server_computer(request),
+        "network": {"https": bool(settings.https), "canSwitch": _on_server_computer(request)},  # group five: HTTPS for the owner's own devices
         "notes": notes.status(settings.claude_command),
         "files": {**ROOTS.describe(), "envFile": str(settings.env_file_used) if settings.env_file_used else None, "dataDir": str(settings.data_dir), "logDir": str(settings.log_dir)},  # public release Phase 10: where this install keeps its files
         "about": {"name": APP_NAME, "version": __version__, "publisher": PUBLISHER, "repoUrl": REPO_URL, "dataCredit": DATA_CREDIT, "dataUrl": DATA_URL},  # public release Phase 8
@@ -116,7 +123,50 @@ async def put_settings(request: Request) -> Any:
         result = launcher.set_enabled(after["autoStart"], tray=after["trayMode"])
         if result.get("error"):
             errors.append({"code": "autostart_failed", "message": result["error"]})
+    if after.get("awayFromHome") != before.get("awayFromHome"):
+        # group five: away from home, the network name is not announced; back home it is again
+        mdns = getattr(request.app.state, "mdns", None)
+        try:
+            if after.get("awayFromHome"):
+                if mdns is not None:
+                    await mdns.stop()
+                log.warning("Away from home: the network name is not announced, and only devices that scanned the host's code can watch")
+            else:
+                if mdns is not None:
+                    mdns.start()
+                log.info("Back home: the network name is announced again and every device on the network can watch")
+        except Exception as exc:  # noqa: BLE001 - the announcer's trouble is reported, never a refused setting
+            log.error("The network name could not be switched: %s", exc)
+            errors.append({"code": "mdns_failed", "message": f"The network name could not be switched: {exc}"})
     return envelope(_payload(request), source="live", errors=errors)
+
+
+class HttpsRequest(BaseModel):
+    on: bool
+    force: bool = False
+
+
+@router.post("/api/settings/https")
+async def switch_https(body: HttpsRequest, request: Request) -> Any:
+    """Group five (owner 2026-10-09): HTTPS for the owner's own devices, switched from Settings on the server computer.
+    The switch writes HTTPS to .env and restarts the server in place; guests keep plain HTTP either way."""
+    if not _on_server_computer(request):
+        return error_response(403, "not_here", "Switch HTTPS from the server computer itself.")
+    if not _same_origin(request):
+        return error_response(403, "cross_site", "Another site's page cannot change this server.")
+    settings = request.app.state.settings
+    if bool(settings.https) == body.on:
+        return envelope({"restarting": False, "https": body.on}, source="live")
+    if _game_under_way(request) and not body.force:
+        return error_response(409, "game_under_way", "Our game is under way: the In Game sheet drops for about 15 seconds while the server restarts.")
+    word = "on" if body.on else "off"
+    try:
+        set_values(settings.env_path, {"HTTPS": word})
+    except OSError as exc:
+        return error_response(500, "env_write_failed", f"The .env file could not be written: {exc.strerror or exc}.")
+    log.warning("HTTPS switched %s from Settings; restarting", word)
+    restart.request(f"HTTPS switched {word} from Settings")
+    return envelope({"restarting": True, "https": body.on}, source="live")
 
 
 @router.post("/api/settings/open-folder")

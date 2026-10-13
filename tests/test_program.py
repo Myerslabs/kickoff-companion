@@ -219,6 +219,14 @@ def test_past_program_shows_the_final_box(pclient: TestClient, fake_cfbd: FakeCf
     assert final["us"]["thirdDown"]["of"] and final["players"]["us"]["passing"][0]["stats"]["YDS"]
     assert data["weather"]["available"] is False and "passed" in data["weather"]["error"]
     assert data["line"] is not None
+    # tables wave 2: the advanced box names its players without ids; the program matches them to the game's box score and
+    # both teams' season lines, so a player's row opens his card
+    players = data["advancedBox"]["players"]
+    assert players and all("playerId" in p for p in players)
+    box_ids = {(side, row["name"]): row["playerId"] for side, school in (("us", "Swampwater Tech"), ("them", "Silver Dollar")) for rows in final["players"][side].values() for row in rows}
+    matched = [p for p in players if (("us" if p["team"] == "Swampwater Tech" else "them"), p["player"]) in box_ids]
+    assert matched and all(p["playerId"] == box_ids[("us" if p["team"] == "Swampwater Tech" else "them", p["player"])] for p in matched)
+    assert sum(1 for p in players if p["playerId"]) >= len(matched)
 
 
 def test_notes_file_feeds_schemes_and_availability(pclient: TestClient, fake_cfbd: FakeCfbd, program_app):
@@ -234,7 +242,7 @@ def test_notes_file_feeds_schemes_and_availability(pclient: TestClient, fake_cfb
         "lineups": {"source": "Ourlads", "us": {"team": "Swampwater Tech", "slots": [{"unit": "Offense", "slot": "QB", "players": [{"name": ROLES["QBNAME"], "number": 12}, {"name": "Tramell Jones Jr."}, "junk"]}, {"players": [{"name": "no slot"}]}]}, "them": None},
     }), encoding="utf-8")
     notes = pclient.get("/api/program/next").json()["data"]["notes"]
-    assert notes["present"] and notes["schemes"] == {"offense": "Spread", "defense": "4-2-5", "source": None}
+    assert notes["present"] and notes["schemes"] == {"offense": "Spread", "defense": "4-2-5", "opponent": None, "source": None}
     assert [s["heading"] for s in notes["sections"]] == ["Line movement"] and [a["name"] for a in notes["availability"]] == ["A", "no status"]  # Phase 17: a row with no status is kept
     # 2026-10-02: the published depth charts ride along, bad slots and names dropped, the missing team None
     lineups = notes["lineups"]
@@ -284,7 +292,11 @@ def test_newspaper_on_a_weekday_has_headlines_and_no_slate(pclient: TestClient, 
     assert data["nextGame"]["gameId"] == NEXT_GAME and data["nextGame"]["opponent"] == "Diner Tech"
     assert len(data["news"]) >= 10 and all(h["title"] and h["source"] for h in data["news"])
     assert set(data["feeds"]) == {"team", "espn", "athletic", "google"} and all(f["status"] == "ok" for f in data["feeds"].values())
-    assert fake_cfbd.count("/lines") == 0
+    # items 10-12 (owner 2026-10-13): the edition's ranked matchups need the week on any day, asked once and then cached
+    asked = fake_cfbd.count("/lines")
+    assert asked <= 1
+    pclient.get("/api/newspaper")
+    assert fake_cfbd.count("/lines") == asked
 
 
 def test_newspaper_on_game_day_carries_the_slate(pclient: TestClient, fake_cfbd: FakeCfbd, program_app):
@@ -324,6 +336,13 @@ def test_opponent_team_page(pclient: TestClient, fake_cfbd: FakeCfbd, program_ap
     assert len(data["profile"]["rows"]) == 26 and data["profile"]["rows"][1]["nationalRank"]
     assert len(data["schedule"]) == 12 and data["schedule"][0]["opponent"]["school"]
     assert len(data["roster"]) == len(fixture_payload("roster_opponent")) and data["roster"][0]["headshotUrl"].startswith("/media/headshot/")
+    # item 6: CFBD's first and last name ride with every row, so the page shortens a name from the exact split
+    first = fixture_payload("roster_opponent")
+    by_id = {str(r["id"]): r for r in first}
+    for row in data["roster"]:
+        source = by_id[str(row["playerId"])]
+        assert (row["firstName"], row["lastName"]) == (source.get("firstName") or None, source.get("lastName") or None)
+        assert row["name"] == " ".join(x for x in (row["firstName"], row["lastName"]) if x)
     assert data["coaches"][0]["name"] == "{firstName} {lastName}".format(**fixture_payload("coaches_opponent")[0]) and data["coaches"][0]["hireDate"]
     assert data["series"]["usWins"] is not None
     assert pclient.get("/api/team/Nowhere%20State").status_code == 404
@@ -338,3 +357,29 @@ def test_program_carries_play_value(pclient: TestClient, fake_cfbd: FakeCfbd, pr
     assert [g["week"] for g in ppa["games"]["us"]] == [1, 2] and ppa["games"]["them"] == []  # the opponent fixture is Swampwater Tech-only
     assert ppa["players"]["usWeek"] == int(ROLES["LASTWEEK"]) and ppa["players"]["us"] and all(p["opponent"] == "Silver Dollar" for p in ppa["players"]["us"])
     assert data["parts"]["ppaUs"]["status"] == "ok"
+    # tables wave 2: each game names its opponent's abbreviation for the small table (None for a school /teams/fbs lacks)
+    abbr = {t["school"]: t["abbreviation"] for t in fixture_payload("teams_fbs") if t.get("abbreviation")}
+    assert all("opponentAbbr" in g for g in ppa["games"]["us"])
+    assert [g["opponentAbbr"] for g in ppa["games"]["us"]] == [abbr.get(g["opponent"]) for g in ppa["games"]["us"]]
+    assert any(g["opponentAbbr"] for g in ppa["games"]["us"])
+    assert all("opponentAbbr" in row and row["opponentAbbr"] == abbr.get(row["opponent"]) for row in data["commonOpponents"])
+
+
+def test_program_hands_common_opponents_the_abbreviations(pclient: TestClient, fake_cfbd: FakeCfbd, program_app, monkeypatch):
+    """Wave 2 review: the fixture season has no common opponent, so the check above sees an empty list. This one records
+    what the program hands common_opponents: the /teams/fbs abbreviations, which name each row's opponentAbbr."""
+    import app.services.program as program_module
+
+    seen: list = []
+    real = program_module.common_opponents
+
+    def spy(games, us, them, abbreviations=None):
+        seen.append(abbreviations)
+        return real(games, us, them, abbreviations)
+
+    monkeypatch.setattr(program_module, "common_opponents", spy)
+    route_program(fake_cfbd)
+    set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
+    assert pclient.get("/api/program/next").json()["data"] is not None
+    abbr = {t["school"]: t["abbreviation"] for t in fixture_payload("teams_fbs") if t.get("abbreviation")}
+    assert seen and {k: v for k, v in seen[-1].items() if v} == abbr

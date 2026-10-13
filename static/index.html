@@ -7,7 +7,8 @@
   <meta name="theme-color" content="#14161B">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- item 6, step G: a solid black status bar, so the home-screen app starts below the clock and the battery -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Kickoff">
   <title>Kickoff Companion</title>
   <link rel="manifest" href="/manifest.webmanifest">
@@ -19,10 +20,12 @@
 </head>
 <body>
   <div id="app" class="shell">
+    <!-- item 6, step E: Reload is in the bar from the first frame; app.js replaces the whole bar with the real one (and its Menu) -->
     <header class="topbar">
       <span class="wordmark">Kickoff <em>Companion</em></span>
       <div class="topbar__spacer"></div>
-      <span class="pill pill--quiet" role="status">Loading</span>
+      <div class="topbar__status"><span class="pill pill--quiet" id="boot-pill" role="status"><span class="pill__label">Loading</span></span></div>
+      <button class="btn boot-reload" type="button" onclick="window.kickoffBootReload ? window.kickoffBootReload() : window.location.reload()">Reload</button>
     </header>
     <!-- Phase 16 wave 3 (DS-13): the page's outline while the scripts load; app.js replaces all of it -->
     <main class="shell__main boot" aria-busy="true" aria-label="Loading">
@@ -39,10 +42,105 @@
           <div class="band__head"><span class="skel boot__title"></span></div>
           <div class="band__body"><div class="skel skel--row"></div><div class="skel skel--row"></div><div class="skel skel--row"></div></div>
         </section>
+        <section class="band boot__failed" id="boot-failed" aria-labelledby="boot-failed-title" hidden>
+          <div class="band__head"><h2 class="band__title" id="boot-failed-title">The app did not start</h2></div>
+          <div class="band__body">
+            <div class="state-block state-block--error" role="alert">
+              <p class="state-block__lead" id="boot-failed-lead">One of its files did not arrive, or the server did not answer in time.</p>
+              <p class="state-block__detail" id="boot-failed-detail">Reload to try again.</p>
+              <button class="btn btn--quiet state-block__action" type="button" onclick="window.kickoffBootReload ? window.kickoffBootReload() : window.location.reload()">Reload</button>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
-  <script type="module" src="/static/js/app.js"></script>
+  <script>
+    // Item 6, step E: the loading screen can always be left. If the app has not drawn its Menu within 10 s, or one of its
+    // files failed to arrive (the module script's error event, which any failed import in the tree raises), the pill says
+    // "Could not load" and the page says why, beside Reload. The page then tries once more by itself, but only into a
+    // server that answers /api/health (a few asks, each wait longer), and at most once per tab (sessionStorage; app.js
+    // forgets it once the app draws), so a server that stays down never loops the page and never lands on the browser's
+    // own error page. Reload waits for the server the same way.
+    (function () {
+      var RETRY_KEY = "kickoff.bootRetry";
+      var WAIT_MS = 10000;
+      var WAITS = [2000, 4000, 8000, 8000];
+      var ASK_MS = 4000;
+      var failed = false;
+      var run = 0;
+      var asking = false;
+      function drawn() { return Boolean(document.querySelector("#app .menu-button")); }
+      function byId(id) { return document.getElementById(id); }
+      function tried() { try { return window.sessionStorage.getItem(RETRY_KEY) === "1"; } catch (e) { return true; } }
+      function markTried() { try { window.sessionStorage.setItem(RETRY_KEY, "1"); return true; } catch (e) { return false; } }
+      function say(pillWords, kind, detail) {
+        var pill = byId("boot-pill");
+        if (pill) {
+          var label = pill.querySelector(".pill__label") || pill;
+          label.textContent = pillWords;
+          pill.className = "pill pill--" + kind;
+        }
+        var line = byId("boot-failed-detail");
+        if (line && detail) line.textContent = detail;
+      }
+      function answers() {
+        return new Promise(function (resolve) {
+          var done = false;
+          var controller = typeof AbortController === "function" ? new AbortController() : null;
+          var timer = setTimeout(function () { if (controller) controller.abort(); finish(false); }, ASK_MS);
+          function finish(ok) { if (done) return; done = true; clearTimeout(timer); resolve(ok); }
+          if (typeof fetch !== "function") { finish(true); return; }
+          try {
+            fetch("/api/health", controller ? { cache: "no-store", signal: controller.signal } : { cache: "no-store" }).then(function (r) { finish(Boolean(r && r.ok)); }, function () { finish(false); });
+          } catch (e) { finish(false); }
+        });
+      }
+      // ask the server, then reload once it answers; after the last wait, stop and say so (Reload asks again)
+      function ask(attempt, mine) {
+        if (mine !== run || drawn()) return;
+        answers().then(function (ok) {
+          if (mine !== run || drawn()) return;
+          if (ok) { window.location.reload(); return; }
+          if (attempt >= WAITS.length) {
+            asking = false;
+            say("Server not answering", "offline", "The server is not answering. Check that it is running on the server computer, then Reload.");
+            return;
+          }
+          setTimeout(function () { ask(attempt + 1, mine); }, WAITS[attempt]);
+        });
+      }
+      function startAsking(delay) {
+        run += 1;
+        asking = true;
+        var mine = run;
+        setTimeout(function () { ask(0, mine); }, delay);
+      }
+      function fail() {
+        if (failed || drawn()) return;
+        failed = true;
+        var main = document.querySelector("main.boot");
+        if (main) { main.setAttribute("aria-busy", "false"); main.setAttribute("aria-label", "Could not load"); }
+        var bands = document.querySelectorAll("main.boot .band");
+        for (var i = 0; i < bands.length; i += 1) bands[i].hidden = !bands[i].classList.contains("boot__failed");
+        if (asking) {
+          say("Waiting for the server", "quiet", "It reloads by itself as soon as the server answers.");
+        } else if (!tried() && markTried()) {
+          say("Could not load", "offline", "It tries once more by itself as soon as the server answers; Reload tries now.");
+          startAsking(WAITS[0]);
+        } else {
+          say("Could not load", "offline", "Reload to try again. If it keeps happening, check the server's window on the server computer.");
+        }
+      }
+      window.kickoffBootFailed = fail;
+      window.kickoffBootReload = function () {
+        say("Waiting for the server", "quiet", "It reloads by itself as soon as the server answers.");
+        startAsking(0);
+      };
+      setTimeout(fail, WAIT_MS);
+    })();
+  </script>
+  <script type="module" src="/static/js/app.js" onerror="window.kickoffBootFailed &amp;&amp; window.kickoffBootFailed()"></script>
   <noscript>
     <p class="note note--error">This app needs JavaScript. New device? Open <a href="/setup">/setup</a> first, then <a href="/status">/status</a> for the server status page.</p>
   </noscript>

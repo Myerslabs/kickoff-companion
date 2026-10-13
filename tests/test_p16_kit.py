@@ -175,8 +175,8 @@ scenarios.hooks = async () => {
   // no measuring machinery is left behind in a page without layout
   assert.equal(typeof table.measure, "function");
   table.measure();
-  // flow: false and a scroll box are never flow mode
-  assert.ok(statTable({ columns: [{ key: "a", label: "A" }], rows: [], maxHeight: 400 }).className.includes("stat-table-wrap--box"));
+  // no table is a scroll box any more (owner 2026-10-10): an old caller's height is ignored
+  assert.ok(!statTable({ columns: [{ key: "a", label: "A" }], rows: [], maxHeight: 400 }).className.includes("--box"));
   clean("empty table", statTable({ columns: [{ key: "a", label: "A" }], rows: null }));
   // the skeleton in the table's real shape: a head strip, rows, a label bar and short value bars
   const skel = statTableSkeleton(6, 5);
@@ -401,7 +401,14 @@ scenarios.sheets = async () => {
   const closedWith = [];
   // swap title and body in place: the same layer, no scrim flash
   const one = openSheet({ title: "Drives", body: document.createTextNode("drives"), onClose: () => closedWith.push("one") });
-  assert.ok(html.classList.contains("is-locked"), "the page underneath is locked");
+  // item 8 (owner 2026-10-10): the page scrolls with a sheet (it is as tall as its content and lies where the reader is);
+  // no small x: a > at the left of the head slides it away
+  assert.ok(!html.classList.contains("is-locked"), "the page underneath is not locked by a sheet");
+  const head = one.layer.querySelector(".side-sheet__head");
+  assert.equal(head.childNodes[0], one.layer.querySelector(".side-sheet__close"), "the > at the left of the head");
+  assert.ok(head.childNodes[0].querySelector("svg.icon--chevron-right") && head.childNodes[0].textContent.trim() === "", "a >, never a small x");
+  assert.equal(head.childNodes[0].getAttribute("title"), "Slide away");
+  assert.ok(/^\d+px$/.test(one.layer.querySelector(".side-sheet").style["--sheet-top"]), "the sheet lies on the page where the reader is");
   const layer = one.layer;
   one.setTitle("Plays");
   one.setBody(document.createTextNode("plays"));
@@ -432,7 +439,10 @@ scenarios.sheets = async () => {
   // the player card closes on a route change too (bug 10)
   openPlayerCard({ player: { name: "Test Player", number: 7 } });
   assert.ok(document.body.querySelector(".card-layer"));
-  assert.ok(html.classList.contains("is-locked"));
+  assert.ok(!html.classList.contains("is-locked"), "item 8: the card does not lock the page either");
+  const bar = document.body.querySelector(".card-layer .player-card__bar");
+  assert.ok(bar.childNodes[0].className.includes("player-card__close") && bar.childNodes[0].querySelector("svg.icon--chevron-right"), "the card's > at the left of its bar");
+  assert.ok(/^\d+px$/.test(document.body.querySelector(".card-layer .player-card").style["--sheet-top"]));
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "season" } }));
   assert.equal(document.body.querySelector(".card-layer"), null);
   assert.ok(!html.classList.contains("is-locked"));
@@ -624,6 +634,24 @@ scenarios.domKit = async () => {
   layer.remove();
   dom.syncPageLock();
   assert.ok(!document.documentElement.classList.contains("is-locked"));
+  // item 8: a side sheet or the player card never locks the page (it scrolls with it); the menu drawer still does
+  for (const cls of ["sheet-layer", "card-layer"]) {
+    const sheet = document.createElement("div");
+    sheet.className = cls;
+    sheet.setAttribute("data-modal", "");
+    document.body.append(sheet);
+    dom.syncPageLock();
+    assert.ok(!document.documentElement.classList.contains("is-locked"), cls);
+    sheet.remove();
+  }
+  // where a sheet starts: the page's scroll plus the top bar's bottom edge (a phone's sheet covers the top bar too)
+  window.scrollY = 300;
+  window.matchMedia = () => ({ matches: true });
+  assert.deepEqual(dom.sheetAnchor(56), { top: 356, scrollY: 300 });
+  window.matchMedia = () => ({ matches: false });
+  assert.deepEqual(dom.sheetAnchor(56), { top: 300, scrollY: 300 });
+  assert.deepEqual(dom.sheetAnchor("x"), { top: 300, scrollY: 300 });
+  window.scrollY = 0;
   // el sets custom properties through setProperty
   assert.equal(dom.el("div", { style: { "--x": "4px", width: "2px" } }).style["--x"], "4px");
 };

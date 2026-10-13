@@ -13,9 +13,13 @@
 //   boxLeader(category, rows)     the top box-score row as { name, playerId, stats, line: { hero, rest }, lineText }.
 //   statLine(value, format, stat) "4.5 sacks", "1,204 yds", "38 tkl": the value in its own format with a unit.
 //   leadersSkeleton(categories)
+//   Item 6 (owner 2026-10-11): a leader's name is fitted in its card, never cut while a shorter form fits: the full name,
+//   then "K. Crawford", the surname, the reduced surname ("Brackwater-M."), and only then the ellipsis (the full name stays
+//   in its title and for a screen reader; the card's tap is unchanged). Two on one side who would read alike get a second
+//   letter (ui/dom.js distinctNames).
 
 import { usLabel } from "../identity.js";
-import { DASH, el, fmtStat, isNum, playerFace, text } from "./dom.js";
+import { DASH, el, fmtStat, isNum, personName, playerFace, settleNames, text, watchNames } from "./dom.js";
 
 const PARTS = {
   passing: (s) => ({ hero: `${text(s.YDS)} yds`, rest: [text(s["C/ATT"]), isNum(s.TD) ? `${s.TD} TD` : null, isNum(s.INT) ? `${s.INT} int` : null] }),
@@ -95,7 +99,7 @@ function side({ player, abbr, them, onTap }) {
     "button",
     { class: `leader ${cls}`, type: "button", onclick: () => onTap && onTap(player) },
     playerFace(player, { them, abbr, size: 44 }),
-    el("div", { class: "leader__text" }, el("div", { class: "leader__name" }, text(player.name)), lineNode(player.line), el("div", { class: "leader__meta" }, meta || DASH)),
+    el("div", { class: "leader__text" }, el("div", { class: "leader__name" }, personName(player.name, { fit: true })), lineNode(player.line), el("div", { class: "leader__meta" }, meta || DASH)),
   );
 }
 
@@ -106,7 +110,7 @@ export function leadersGrid({ categories = [], usAbbr = usLabel(), themAbbr = DA
   const us = text(usAbbr);
   const them = text(themAbbr);
   const list = (Array.isArray(categories) ? categories : []).filter((cat) => cat && typeof cat === "object");
-  return el(
+  const grid = el(
     "div",
     { class: `leaders${className ? ` ${className}` : ""}` },
     head && list.length ? el("div", { class: "leaders__head" }, el("span", { class: "leaders__abbr leaders__abbr--us" }, us), el("span", { class: "leaders__abbr leaders__abbr--them" }, them)) : null,
@@ -121,6 +125,8 @@ export function leadersGrid({ categories = [], usAbbr = usLabel(), themAbbr = DA
       ),
     ),
   );
+  for (const side of ["us", "them"]) settleNames(grid.querySelectorAll(`.leader--${side} .leader__name`));
+  return watchNames(grid);
 }
 
 export function leadersSkeleton(categories = 4) {

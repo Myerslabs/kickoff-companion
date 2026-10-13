@@ -97,14 +97,13 @@ def test_https_works_for_a_device_that_trusts_the_ca(live):
     assert any(check["name"] == "tls" and check["status"] == "ok" for check in data["checks"])
 
 
-def test_plain_http_is_redirected_to_https(live):
+def test_plain_http_is_served_beside_https(live):
+    """Group five: with HTTPS on the one port answers plain HTTP as well and redirects nothing (guests keep http)."""
     port, _ = live
     status, headers, _ = http_get(port, "/api/health")
-    assert status == 302
-    assert headers["location"] == f"https://127.0.0.1:{port}/api/health"
+    assert status == 200 and "location" not in headers
     status, headers, _ = http_get(port, "/")
-    assert status == 302
-    assert headers["location"] == f"https://127.0.0.1:{port}/"
+    assert status == 200 and "location" not in headers
 
 
 def test_setup_page_and_ca_download_work_over_plain_http(live):

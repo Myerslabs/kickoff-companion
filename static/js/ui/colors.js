@@ -93,6 +93,18 @@ export function pickOpponentColor(candidates) {
   return { color: NEUTRAL, notes: [...notes, "using the neutral"] };
 }
 
+/**
+ * teamBarColors(left, right, { leftIsUs }) -> the style for a container whose tug bars stand for these two teams, or null.
+ * When we play (ours on the left), only the other side's color is set, chosen like the week's opponent's. Between two
+ * other teams each side wears a readable color of its own (its color, else its alternate, else the fog), never ours and
+ * the week's opponent's. The matchup sheet and the Box page share it (wave 2 review).
+ */
+export function teamBarColors(left, right, { leftIsUs = false } = {}) {
+  const usable = (team) => [team?.color, team?.altColor].find((c) => typeof c === "string" && !rejectReason(c, [])) || null;
+  if (leftIsUs) return { "--opp": pickOpponentColor([right?.color, right?.altColor]).color };
+  return { "--team-us": usable(left) || "var(--fog)", "--opp": usable(right) || "var(--fog)" };
+}
+
 /** applyOpponentColors({ color, altColor }) sets --opp, --opp-alt, --opp-text on the root. */
 export function applyOpponentColors(team, root = document.documentElement) {
   const picked = pickOpponentColor([team?.color, team?.altColor]);

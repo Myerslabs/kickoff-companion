@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Connect a device - Kickoff Companion</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/css/tokens.css">
@@ -11,10 +12,13 @@
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
+  <!-- item 6, step H: a way back into the app on this tab and address ("Open the app" below may name another address, for
+       another device); the home-screen app has no Back button -->
   <header class="topbar">
     <h1 class="wordmark">Kickoff <em>Companion</em></h1>
     <div class="topbar__spacer"></div>
-    <a class="btn" href="/status">Status page</a>
+    <a class="btn" href="/status" aria-label="Status page"><span class="btn__long">Status page</span><span class="btn__short">Status</span></a>
+    <a class="btn back-to-app" href="/" aria-label="Back to the app"><span class="btn__long">Back to the app</span><span class="btn__short">The app</span></a>
   </header>
 
   <main class="sheet sheet--status sheet-narrow">
@@ -49,8 +53,8 @@
     </section>
 
     <section id="trust-intro" class="panel panel-wide" aria-labelledby="h-trust" hidden>
-      <h2 id="h-trust">HTTPS is on: trust the certificate first</h2>
-      <p class="lead">This server is set to HTTPS (HTTPS=on in .env), so each device trusts its certificate once before step 1. Two minutes, then it is done for years. Switch HTTPS off to skip this.</p>
+      <h2 id="h-trust">HTTPS is on: your own devices trust the certificate once</h2>
+      <p class="lead">This server answers both addresses. A device of your own trusts the certificate once (two minutes, then it is done for years) and uses the https address, which brings the screen lock without the video, one-tap paste and the home-screen app. A guest skips this and uses the http address, which always works.</p>
       <p id="already-secure" class="note note-good" hidden>This device already trusts the certificate. You are on a secure connection right now.</p>
     </section>
 

@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Welcome - Kickoff Companion</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/static/css/tokens.css">
@@ -11,10 +12,13 @@
   <link rel="stylesheet" href="/static/css/app.css">
 </head>
 <body>
+  <!-- item 6, step H: once the setup is done (/api/welcome setupNeeded false) "Back to the app" shows here and the demo
+       link goes; during a first setup "/" leads back to this page, so it stays hidden -->
   <header class="topbar">
     <h1 class="wordmark">Kickoff <em>Companion</em></h1>
     <div class="topbar__spacer"></div>
-    <a class="btn" href="/setup">Connect a device</a>
+    <a class="btn" href="/setup" aria-label="Connect a device"><span class="btn__long">Connect a device</span><span class="btn__short">Connect</span></a>
+    <a class="btn back-to-app" href="/" id="back-to-app" aria-label="Back to the app" hidden><span class="btn__long">Back to the app</span><span class="btn__short">The app</span></a>
   </header>
 
   <main class="sheet sheet--status sheet-narrow welcome">
@@ -22,7 +26,7 @@
       <h2 id="h-intro">Welcome</h2>
       <p class="lead" id="intro">Two steps and the app is ready: a free key from College Football Data, then your team. The rest is optional.</p>
       <p class="note">Kickoff Companion is free, from Myers Labs. It runs on your computer and talks to CollegeFootballData.com directly: your key, your team and everything you look at stay here, and nothing is sent to Myers Labs. CFBD's paid plans are paid to CFBD, not to us, and they only unlock more data.</p>
-      <p class="note"><a href="/demo" id="back-to-demo">Not ready yet? Go back to the demo</a></p>
+      <p class="note" id="demo-line"><a href="/demo" id="back-to-demo">Not ready yet? Go back to the demo</a></p>
     </section>
 
     <section class="panel panel-wide" aria-labelledby="h-key">
@@ -49,7 +53,7 @@
     <section class="panel panel-wide" aria-labelledby="h-team" id="team-panel">
       <h2 id="h-team">Step 2. Your home team</h2>
       <div class="step-body">
-        <p>Your primary team #1. The Season page, the Game program and the Live sheet follow it, and <strong>only this team's colors and mascot theme the app</strong>. Its conference comes from CFBD.</p>
+        <p>Your primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and <strong>only this team's colors and mascot theme the app</strong>. Its conference comes from CFBD.</p>
         <label for="team-search" class="welcome__label">Find your school</label>
         <input id="team-search" class="input" type="search" autocomplete="off" placeholder="Type a school, mascot or conference" disabled>
         <div id="team-list" class="welcome__list" role="listbox" aria-label="FBS schools"></div>
@@ -61,11 +65,11 @@
     <section class="panel panel-wide" aria-labelledby="h-primary" id="primary-panel">
       <h2 id="h-primary">Step 3. More primary teams <span class="welcome__optional">optional, up to 4</span></h2>
       <div class="step-body">
-        <p>Teams you follow closely, like a second school in the family. Each one's team page (schedule, results, stats, ranks, roster) loads as soon as a device connects and sits one tap away in the menu. They do not change the app's colors, and the Season, Game program and Live pages stay with your home team.</p>
+        <p>Teams you follow closely, like a second school in the family. Each one's team page (schedule, results, stats, ranks, roster) loads as soon as a device connects and sits one tap away on the My Teams page. They do not change the app's colors, and the Season page, the Pre-Game Program and the In Game sheet stay with your home team.</p>
         <p id="primary-locked" class="note plan-note" hidden></p>
         <label for="primary-search" class="welcome__label">Add a primary team</label>
         <input id="primary-search" class="input" type="search" autocomplete="off" placeholder="Add a school" disabled>
-        <div id="primary-list" class="welcome__list welcome__list--short" role="listbox" aria-label="Primary teams to add"></div>
+        <div id="primary-list" class="welcome__list" role="listbox" aria-label="Primary teams to add"></div>
         <div id="primary-chips" class="welcome__chips"></div>
       </div>
     </section>
@@ -79,7 +83,7 @@
           <div>
             <label for="liked-search" class="welcome__label">Schools</label>
             <input id="liked-search" class="input" type="search" autocomplete="off" placeholder="Add a school" disabled>
-            <div id="liked-list" class="welcome__list welcome__list--short" role="listbox" aria-label="Schools to add"></div>
+            <div id="liked-list" class="welcome__list" role="listbox" aria-label="Schools to add"></div>
             <div id="liked-chips" class="welcome__chips"></div>
           </div>
           <div>
@@ -97,7 +101,7 @@
     <section class="panel panel-wide" aria-labelledby="h-ticker" id="ticker-panel">
       <h2 id="h-ticker">Step 5. The score ticker</h2>
       <div class="step-body">
-        <p>The scrolling scores at the top of the Live sheet, the Game program and the Newspaper.</p>
+        <p>The scrolling scores at the top of the In Game sheet, the Pre-Game Program and the Newspaper.</p>
         <div class="welcome__choices" role="radiogroup" aria-label="Ticker">
           <label><input type="radio" name="ticker" value="national" id="ticker-national" checked> <strong>National</strong> <span class="note">Every FBS game. The default.</span></label>
           <label><input type="radio" name="ticker" value="mine" id="ticker-mine"> <strong>My teams</strong> <span class="note">Only the games of your primary and secondary teams. When none of them play, every game shows.</span></label>

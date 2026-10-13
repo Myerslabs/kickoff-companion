@@ -21,6 +21,7 @@ from app.cfbd.models import AdvancedSeasonStat, Game, PollWeek, Team, TeamRecord
 from app.config import Settings
 from app.services import gamekeys
 from app.services.context16 import POLL_NAMES, _r, elo_path, form_for, form_table, num, whole
+from app.services.identity import conference_short
 from app.services.logos import logo_fields
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
 from app.services.profiles import PROFILE_ROWS, Profiles, advanced_rows
@@ -106,7 +107,8 @@ def talent_ranks(records: list[TeamTalent]) -> dict[str, dict[str, Any]]:
 def two_team_rows(profiles: Profiles, advanced: list[AdvancedSeasonStat], away: str, home: str) -> list[dict[str, Any]]:
     """One row per stat with both teams' value and national rank, grouped by the side of the ball (final pass,
     sides-3: the old "Per game" group held rates and a season total): each side's per-game profile rows, then
-    CFBD's headline efficiency rows for that side."""
+    CFBD's headline efficiency rows for that side. Tables wave 3: each side also carries its rank inside its own
+    conference (confRank, confOf), the rank that conference's list gives, for the sheet's conference column at large."""
     away_adv = {r["key"]: r for r in advanced_rows(advanced, away)}
     home_adv = [r for r in advanced_rows(advanced, home) if r.get("group") == ADVANCED_GROUP]
     rows = []
@@ -115,14 +117,17 @@ def two_team_rows(profiles: Profiles, advanced: list[AdvancedSeasonStat], away: 
             if spec[0] != side:
                 continue
             a, h = profiles.row(away, *spec), profiles.row(home, *spec)
+            a_conf, h_conf = profiles.conference_rank(away, spec[2], spec[3]), profiles.conference_rank(home, spec[2], spec[3])
             rows.append({"group": group, "side": side, "label": spec[1], "key": spec[2], "metric": f"profile:{spec[2]}", "format": spec[4], "higherIsBetter": spec[3], "of": a.get("nationalOf") or h.get("nationalOf"),
-                         "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
+                         "away": {"value": a.get("value"), "rank": a.get("nationalRank"), "confRank": a_conf[0], "confOf": a_conf[1]},
+                         "home": {"value": h.get("value"), "rank": h.get("nationalRank"), "confRank": h_conf[0], "confOf": h_conf[1]}})
         for h in home_adv:
             if h.get("side") != side:
                 continue
             a = away_adv.get(h["key"], {})
             rows.append({"group": group, "side": side, "label": h["label"], "key": h["key"], "metric": h.get("metric") or f"advanced:{h['key']}", "format": h["format"], "higherIsBetter": h["higherIsBetter"], "of": a.get("nationalOf") or h.get("nationalOf"),
-                         "away": {"value": a.get("value"), "rank": a.get("nationalRank")}, "home": {"value": h.get("value"), "rank": h.get("nationalRank")}})
+                         "away": {"value": a.get("value"), "rank": a.get("nationalRank"), "confRank": a.get("conferenceRank"), "confOf": a.get("conferenceOf")},
+                         "home": {"value": h.get("value"), "rank": h.get("nationalRank"), "confRank": h.get("conferenceRank"), "confOf": h.get("conferenceOf")}})
     return rows
 
 
@@ -187,6 +192,7 @@ class MatchupService:
             t, rec, rating = meta.get(school), records.get(school), sp.get(school)
             return {
                 "school": school, "abbreviation": t.abbreviation if t else None, "mascot": t.mascot if t else None, "conference": t.conference if t else None,
+                "conferenceShort": conference_short(t.conference) if t else None,  # tables wave 3: the conference rank column's head
                 "color": t.color if t else None, "altColor": t.alternate_color if t else None, **(logo_fields(t.id, t.logos) if t else {"logo": None, "logoDark": None}),  # NV: our own logo route, never the CDN
                 "isUs": school == self.settings.team,
                 "record": _record(rec.total) if rec else None, "conferenceRecord": _record(rec.conference_games) if rec else None,

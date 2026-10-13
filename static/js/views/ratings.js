@@ -9,10 +9,15 @@
 //       (sp, spOffense, spDefense, spSpecial, sosPlayed, core, coreOffense, coreDefense, srs, adjEpa,
 //       adjEpaAllowed, elo, fpi, talent, or the metric form 'rating:sp'), brings its band into view, scrolls the
 //       table to the team (ours without ?team=) and flashes its row.
-//   Each table opens scrolled so our row sits in the middle of its box (the box's own scrollTop, never
-//   scrollIntoView, which would move the page too); our row stays pinned at the box's edge; the next
-//   opponent's row is marked; Rk and Team stay in view when a table scrolls sideways. Every rank is out of
-//   that rating's own count and links to its national list. Scope and each table's sort survive refreshes.
+//   Our row is marked; the next opponent's row is marked; Rk and Team stay in view when a table scrolls
+//   sideways. Every rank is out of that rating's own count and links to its national list. Scope and each
+//   table's sort survive refreshes.
+//   2026-10-10 (owner, his phone): no table scrolls up and down inside itself. Each shows every team on the page
+//   and its band folds; arriving from a chip unfolds the band and brings the team's row to the middle of the
+//   screen by the page's own scroll, once.
+//   Tables wave 3 (owner decision 1, 2026-10-10): a team's conference is a column of its own after the team (its whole
+//   name at large, its short name at medium, gone at small), never a line under the name; at small the team is its
+//   abbreviation, still its link.
 
 import { usSchool } from "../identity.js";
 import { DASH, el, fmtNum, isNum, recall, remember, text } from "../ui/dom.js";
@@ -20,13 +25,11 @@ import { nationalHref } from "../ui/national-link.js";
 import { band } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
 import { spScatter } from "../ui/scatter.js";
-import { logoLink } from "../ui/team-page.js";
+import { conferenceColumn, logoLink, teamAbbrLink } from "../ui/team-page.js";
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { pollMs } from "../prefs.js";
 import { errorPanel, fetchJson, partState, poller } from "./common.js";
 import { NEXT_OPPONENT_KEY, jumpToBand, nextOpponent } from "./season.js";
-
-const ROW_GUESS = 41; // px per compact row, for a page with no layout yet (and the tests)
 
 /** Where a ratings key lives: [band id, rank column]. The metric form ('rating:sp', 'adjusted:epa') works too. */
 export const RATING_KEYS = {
@@ -60,7 +63,9 @@ export function ratingTarget(arg) {
 function spRows(rows) {
   return rows.map((r) => ({
     team: r.team,
+    abbreviation: typeof r.abbreviation === "string" && r.abbreviation.trim() ? r.abbreviation.trim() : null,
     conference: r.conference,
+    conferenceShort: r.conferenceShort,
     spRank: r.sp?.rank,
     spRating: r.sp?.rating,
     offRating: r.spOffense?.rating,
@@ -78,7 +83,9 @@ function spRows(rows) {
 function sideRows(rows) {
   return rows.map((r) => ({
     team: r.team,
+    abbreviation: typeof r.abbreviation === "string" && r.abbreviation.trim() ? r.abbreviation.trim() : null,
     conference: r.conference,
+    conferenceShort: r.conferenceShort,
     spRank: r.sp?.rank,
     spRating: r.sp?.rating,
     eloRank: r.elo?.rank,
@@ -94,7 +101,9 @@ function sideRows(rows) {
 function moreRows(rows) {
   return rows.map((r) => ({
     team: r.team,
+    abbreviation: typeof r.abbreviation === "string" && r.abbreviation.trim() ? r.abbreviation.trim() : null,
     conference: r.conference,
+    conferenceShort: r.conferenceShort,
     core: r.core?.value,
     coreRank: r.core?.rank,
     coreOff: r.coreOffense?.value,
@@ -111,15 +120,14 @@ function moreRows(rows) {
   }));
 }
 
-/** Put a box's row in the middle of the box by the box's own scroll (never scrollIntoView). */
-export function centerRow(wrap, tr) {
-  if (!wrap || !tr) return false;
-  const rows = tr.parentNode ? [...tr.parentNode.childNodes].filter((n) => n.localName === "tr" || n.tagName === "TR") : [];
-  const index = Math.max(0, rows.indexOf(tr));
-  const top = isNum(tr.offsetTop) && tr.offsetTop > 0 ? tr.offsetTop : index * ROW_GUESS;
-  const height = isNum(tr.offsetHeight) && tr.offsetHeight > 0 ? tr.offsetHeight : ROW_GUESS;
-  const room = isNum(wrap.clientHeight) && wrap.clientHeight > 0 ? wrap.clientHeight : 720;
-  wrap.scrollTop = Math.max(0, Math.round(top - (room - height) / 2));
+/** Bring a row to the middle of the screen by the page's own scroll (never scrollIntoView, which moves every box). */
+export function rowToMiddle(tr) {
+  if (!tr || typeof tr.getBoundingClientRect !== "function" || typeof window === "undefined" || typeof window.scrollTo !== "function") return false;
+  const box = tr.getBoundingClientRect();
+  const room = isNum(window.innerHeight) ? window.innerHeight : 0;
+  const y = isNum(window.scrollY) ? window.scrollY : 0;
+  if (!isNum(box.top) || !isNum(box.height)) return false;
+  window.scrollTo(0, Math.max(0, Math.round(y + box.top - Math.max(0, (room - box.height) / 2))));
   return true;
 }
 
@@ -141,19 +149,26 @@ function render(envelope, container, state) {
   const rating = (key, label, digits = 1) => ({ key, label, format: `${digits}f`, sortable: true });
   const group = (column) => ({ ...column, divider: true }); // a thin rule where a new rating starts (Phase 14)
   // the team's link, and a small "Next" tag on the next opponent's row (G3-04)
-  const teamCol = { key: "team", label: "Team", kind: "text", sub: "conference", stick: true, render: (row) => el("span", {}, logoLink(row.team, logos.get(row.team)), !row.isUs && row.team === next ? el("span", { class: "next-tag" }, "Next") : null) };
+  // 2026-10-10 (owner: "size them now"): every Ratings table sizes itself by its own box (docs/03-DESIGN.md, Table sizes), so it
+  // never scrolls sideways and its head pins under the band's on the page; a column's size is the smallest that still shows it
+  // wave 3: the conference has its own column (decision 1); at small the team is its abbreviation, still its link
+  const teamCol = { key: "team", label: "Team", kind: "text", render: (row) => el("span", {}, logoLink(row.team, logos.get(row.team)), !row.isUs && row.team === next ? el("span", { class: "next-tag" }, "Next") : null), renderShort: (row) => teamAbbrLink(row.team, row.abbreviation) };
+  const confCol = state.scope === "conference" ? null : { ...conferenceColumn(), tieKey: "team" }; // one conference shown: no column for it
+  // measured 2026-10-11 (wave 3): with the conference's column, the iPad's 755 px band holds the CORE table at medium only
+  // without the allowed adjusted EPA, which joins its rank at large (a 1080p screen); without that the table fell to small
   const logos = new Map(rows.map((r) => [r.team, r])); // G3-10: a logo only where the server sends one
-  const spColumns = [rankCol("spRank", "Rk", "sp", { stick: true }), teamCol, group(rating("spRating", "SP+")), group(rating("offRating", "Offense")), rankCol("offRank", "Rk", "spOffense"), group(rating("defRating", "Defense")), rankCol("defRank", "Rk", "spDefense"), group(rating("stRating", "Special")), rankCol("stRank", "Rk", "spSpecial"), group(rating("sos", "SOS", 1)), rankCol("sosRank", "Rk", "sosPlayed")];
+  const spColumns = [rankCol("spRank", "Rk", "sp"), teamCol, confCol, group(rating("spRating", "SP+")), group({ ...rating("offRating", "Offense"), labelShort: "Off" }), rankCol("offRank", "Rk", "spOffense", { size: "medium" }), group({ ...rating("defRating", "Defense"), labelShort: "Def" }), rankCol("defRank", "Rk", "spDefense", { size: "medium" }), group({ ...rating("stRating", "Special"), size: "large" }), rankCol("stRank", "Rk", "spSpecial", { size: "large" }), group({ ...rating("sos", "SOS", 1), size: "large" }), rankCol("sosRank", "Rk", "sosPlayed", { size: "large" })].filter(Boolean);
   const published = data.published && typeof data.published === "object" ? data.published : {};
-  const moreColumns = [teamCol, group(rating("core", "CORE")), rankCol("coreRank", "Rk", "core"), group(rating("coreOff", "Off")), rankCol("coreOffRank", "Rk", "coreOffense"), group(rating("coreDef", "Def")), rankCol("coreDefRank", "Rk", "coreDefense"), group(rating("srs", "SRS")), rankCol("srsRank", "Rk", "srs"), group({ key: "adj", label: "Adj EPA", format: "+2f" }), rankCol("adjRank", "Rk", "adjEpa"), group({ key: "adjAllowed", label: "Adj EPA allowed", format: "+2f" }), rankCol("adjAllowedRank", "Rk", "adjEpaAllowed")];
+  const moreColumns = [teamCol, confCol, group(rating("core", "CORE")), rankCol("coreRank", "Rk", "core", { size: "medium" }), group({ ...rating("coreOff", "Off"), size: "medium" }), rankCol("coreOffRank", "Rk", "coreOffense", { size: "large" }), group({ ...rating("coreDef", "Def"), size: "medium" }), rankCol("coreDefRank", "Rk", "coreDefense", { size: "large" }), group(rating("srs", "SRS")), rankCol("srsRank", "Rk", "srs", { size: "large" }), group({ key: "adj", label: "Adj EPA", format: "+2f" }), rankCol("adjRank", "Rk", "adjEpa", { size: "large" }), group({ key: "adjAllowed", label: "Adj EPA allowed", format: "+2f", size: "large" }), rankCol("adjAllowedRank", "Rk", "adjEpaAllowed", { size: "large" })].filter(Boolean);
   const conferences = Array.isArray(data.conferences) ? data.conferences.filter((c) => c && typeof c === "object") : [];
-  const confColumns = [{ key: "rank", label: "Rank", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text" }, rating("rating", "SP+"), rating("offense", "Offense"), rating("defense", "Defense"), { key: "specialTeams", label: "Special", format: "2f" }];
+  const confColumns = [{ key: "rank", label: "Rank", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text" }, rating("rating", "SP+"), { ...rating("offense", "Offense"), size: "medium" }, { ...rating("defense", "Defense"), size: "medium" }, { key: "specialTeams", label: "Special", format: "2f", size: "medium" }];
   const unpublished = [published.core === false ? "CORE" : null, published.srs === false ? "SRS" : null, published.adjusted === false ? "the opponent-adjusted EPA" : null].filter(Boolean);
-  const sideColumns = [teamCol, group(rating("spRating", "SP+")), rankCol("spRank", "Rk", "sp"), group(rating("eloRating", "Elo", 0)), rankCol("eloRank", "Rk", "elo"), group(rating("fpiRating", "FPI")), rankCol("fpiRank", "Rk", "fpi"), group(rating("talent", "Talent", 0)), rankCol("talentRank", "Rk", "talent")];
+  const sideColumns = [teamCol, confCol, group(rating("spRating", "SP+")), rankCol("spRank", "Rk", "sp", { size: "medium" }), group(rating("eloRating", "Elo", 0)), rankCol("eloRank", "Rk", "elo", { size: "medium" }), group(rating("fpiRating", "FPI")), rankCol("fpiRank", "Rk", "fpi", { size: "large" }), group(rating("talent", "Talent", 0)), rankCol("talentRank", "Rk", "talent", { size: "large" })].filter(Boolean);
   const rowClass = (r) => [r.isUs ? "is-us" : null, !r.isUs && r.team === next ? "is-next" : null, !r.isUs && r.team === focus ? "is-focus" : null].filter(Boolean).join(" ") || null;
   const table = (id, columns, tableRows, fallback, caption) =>
     statTable({
       compact: true,
+      sizes: true,
       columns,
       rows: tableRows,
       sort: state.sorts[id] || fallback,
@@ -161,7 +176,6 @@ function render(envelope, container, state) {
         state.sorts[id] = sort; // the reader's order survives every refresh (G3-06)
       },
       rowClass,
-      maxHeight: 720,
       caption,
     });
   const count = (key) => (isNum(counts[key]) && counts[key] > 0 ? counts[key] : rows.length);
@@ -198,7 +212,7 @@ function render(envelope, container, state) {
       summary: conferences.length ? `${conferences.length} conferences` : "",
       state: partState(data.parts?.conferences, conferences.length > 0),
       emptyText: "Conference ratings appear once CFBD publishes them.",
-      body: () => el("div", {}, statTable({ compact: true, columns: confColumns, rows: conferences, sort: state.sorts["ratings-conferences"] || { key: "rank", dir: "ascending" }, onSort: (sort) => { state.sorts["ratings-conferences"] = sort; }, rowClass: (r) => (r.conference === data.conference ? "is-us" : null) }), el("p", { class: "note" }, "The average SP+ of each conference's teams.")),
+      body: () => el("div", {}, statTable({ compact: true, sizes: true, columns: confColumns, rows: conferences, sort: state.sorts["ratings-conferences"] || { key: "rank", dir: "ascending" }, onSort: (sort) => { state.sorts["ratings-conferences"] = sort; }, rowClass: (r) => (r.conference === data.conference ? "is-us" : null) }), el("p", { class: "note" }, "The average SP+ of each conference's teams.")),
     }),
     band({
       id: "ratings-side",
@@ -213,13 +227,6 @@ function render(envelope, container, state) {
   );
   state.ui ??= {};
   mountFlow(state.ui, container, page, { wide: RATINGS_WIDE }); // final pass: the flowing page with its section chips
-  // Each box opens on the focus team (the reader's own scroll wins after the first draw: the poller puts it back).
-  for (const wrap of page.querySelectorAll(".stat-table-wrap--box")) {
-    const th = wrap.querySelector("thead th");
-    if (th && isNum(th.offsetHeight) && th.offsetHeight > 0) wrap.style.setProperty("--th-h", `${th.offsetHeight}px`); // our pinned row sits under the header
-    const tr = wrap.querySelector("tr.is-focus") || wrap.querySelector("tr.is-us");
-    if (tr) centerRow(wrap, tr);
-  }
   if (state.target) {
     const section = page.querySelector(`#${state.target.band}`);
     const tr = section ? section.querySelector("tr.is-focus") || section.querySelector("tr.is-us") : null;
@@ -227,7 +234,22 @@ function render(envelope, container, state) {
     if (tr && (!state.arrivedAt || Date.now() - state.arrivedAt < 5000)) for (const td of tr.querySelectorAll("td")) td.classList.add("flash");
     if (!state.arrivedAt) {
       state.arrivedAt = Date.now();
-      if (section && state.target.band !== "ratings-sp") setTimeout(() => jumpToBand(section), 0); // after the router's scroll to the top
+      // after the router's scroll to the top: the band unfolds and comes into view, then the row to the middle of the screen.
+      // Once per history entry: Back or Forward to it leaves the reader where the router puts him back.
+      let seen = false;
+      try {
+        seen = window.history?.state?.ratingsArrived === true;
+      } catch {
+        seen = false;
+      }
+      if (section && !seen) {
+        try {
+          window.history.replaceState({ ...(window.history.state || {}), ratingsArrived: true }, "");
+        } catch {
+          // replaceState can be refused: the arrival then simply runs again on Back
+        }
+        setTimeout(() => { jumpToBand(section); if (tr) rowToMiddle(tr); }, 0);
+      }
     }
   }
 }

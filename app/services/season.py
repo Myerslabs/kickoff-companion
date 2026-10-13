@@ -38,6 +38,7 @@ from app.cfbd.models import (
 from app.config import Settings
 from app.services import context16, gamekeys
 from app.services.depth2 import resume
+from app.services.identity import conference_short
 from app.services.logos import logo_fields
 from app.services.offday import last_season, road_ahead
 from app.services.parts import Part, PartFetcher, assemble
@@ -278,6 +279,7 @@ class SeasonService:
                         "logo": meta.get("logo"),
                         "logoDark": meta.get("logoDark"),
                         "conference": entry.conference or meta.get("conference"),
+                        "conferenceShort": conference_short(entry.conference or meta.get("conference")),  # tables wave 3: the column's medium form
                         "points": entry.points,
                         "firstPlaceVotes": entry.first_place_votes,
                         "isUs": entry.school == self.settings.team,

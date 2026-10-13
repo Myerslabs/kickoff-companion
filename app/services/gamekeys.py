@@ -83,6 +83,14 @@ def label(game: Any) -> str | None:
     return notes.strip() if isinstance(notes, str) and notes.strip() else "Bowl game"
 
 
+def short_label(game: Any) -> str | None:
+    """A postseason game's name in a word or two, for a narrow column (the player card's week, tables wave 3): its playoff
+    round, else "Bowl"; None for a regular-season game."""
+    if not is_post(game):
+        return None
+    return playoff_round(game) or "Bowl"
+
+
 def playoff_round(game: Any) -> str | None:
     """The playoff round: CFBD's bracket block when present (roundName), else read from the notes;
     None when the game is not a playoff game."""

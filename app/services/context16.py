@@ -463,13 +463,19 @@ def program_extras(data: dict[str, Any], parts: dict[str, Any], *, team: str, op
 
 
 def team_extras(data: dict[str, Any], parts: dict[str, Any], school: str) -> None:
-    """Team page header: form and the Elo path."""
+    """Team page header: form and the Elo path; each standings row's last five (tables wave 3: the standings' Last 5
+    column, from the same whole-season /games, no new call)."""
     try:
         games = _records(parts.get("games")) + _records(parts.get("teamGames"))
+        table = form_table(games)
         block = data.get("team")
         if isinstance(block, dict):
-            block["form"] = form_for(form_table(games), school)
+            block["form"] = form_for(table, school)
             block["eloPath"] = elo_path(games, school)
+        standings = data.get("standings")
+        for row in (standings.get("rows") if isinstance(standings, dict) else None) or []:
+            if isinstance(row, dict):
+                row["form"] = form_for(table, row.get("team"))
     except Exception as exc:  # noqa: BLE001
         _failed(data, "Team page extras", exc)
 

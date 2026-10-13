@@ -41,7 +41,7 @@ OWNED = [
     "ui/strip.js",
     "views/archive.js",
 ]
-SCENARIOS = ["pure", "components", "live", "ticker", "pregame", "oldserver", "silentstart", "archive", "gameinfo"]
+SCENARIOS = ["pure", "components", "live", "ticker", "pregame", "oldserver", "silentstart", "archive", "gameinfo", "held", "board"]
 
 
 @needs_node
@@ -69,13 +69,16 @@ def test_stale_labels_are_gone():
 
 
 def test_success_rate_row_is_not_repeated_in_the_feed_table():
-    # final pass: the feed rows are one shared list (ui/team-stats.js FEED_ROWS) drawn by the Live sheet and the Archive
+    # final pass: the feed rows are one shared list (ui/team-stats.js FEED_ROWS) drawn by In Game and the Archive; wave 2
+    # (2026-10-10): one builder on the two-team kit, feedEfficiencyTable, whose rows are FEED_ROWS
     live = (STATIC_JS / "views" / "live.js").read_text(encoding="utf-8")
     start = live.index("function feedStatsTable")
     body = live[start : live.index("function wpBlock")]
-    assert "FEED_ROWS" in body and '"Success rate"' not in body
-    rows = (STATIC_JS / "ui" / "team-stats.js").read_text(encoding="utf-8")
-    rows = rows[rows.index("export const FEED_ROWS") : rows.index("];", rows.index("export const FEED_ROWS"))]
+    assert "feedEfficiencyTable(" in body and '"Success rate"' not in body
+    source = (STATIC_JS / "ui" / "team-stats.js").read_text(encoding="utf-8")
+    builder = source[source.index("export function feedStatRows") : source.index("export function feedEfficiencyTable")]
+    assert "FEED_ROWS.map(" in builder and '"Success rate"' not in builder
+    rows = source[source.index("export const FEED_ROWS") : source.index("];", source.index("export const FEED_ROWS"))]
     assert '"Success rate"' not in rows
     assert '"Standard downs"' in rows and '"Passing downs"' in rows and '"PPA per play"' in rows and '"Scoring chances"' in rows
 
@@ -177,6 +180,8 @@ async function mountLive({ status, ticker = TICKER, program = PROGRAM } = {}) {
 }
 
 const text = (node) => (node ? node.textContent : "");
+// a sized table's label or head holds its long, middle and short words (ui/sizes.js); the long one is the name
+const longWords = (node) => text(node ? node.querySelector(".tt__t--long, .sz-t--long") || node : null);
 const layer = () => document.body.querySelector(".sheet-layer");
 const sheetBody = () => document.body.querySelector(".sheet-layer .side-sheet__body");
 const remoteButton = (container, id) => container.querySelector(`.remote__btn[data-id="${id}"]`);
@@ -228,7 +233,7 @@ scenarios.gameinfo = async () => {
   latest().emit("state", empty);
   await settle();
   const hint = text(bare.container.querySelector(".game-info"));
-  assert.ok(hint.includes("on ESPN") && hint.includes("Add the TV crew and the coaches with the notes prompt on the Game program."), hint);
+  assert.ok(hint.includes("on ESPN") && hint.includes("Add the TV crew and the coaches with the notes prompt on the Pre-Game Program."), hint);
   assert.ok(!/\b(undefined|NaN|null)\b/.test(text(bare.container.querySelector("#live-chart"))), "a damaged chart draws dashes");
   bare.view.unmount();
 };
@@ -460,7 +465,8 @@ scenarios.live = async () => {
   assert.equal(text(container.querySelector("#live-wp .band__summary")), "Last play: success");
   assert.equal(text(container.querySelector("#live-wp .success__source")), "Success rate, CFBD");
   assert.equal(text(container.querySelector("#live-wp .success__rate--us")), "SWT 38%");
-  const statCells = container.querySelectorAll("#live-stats td.txt").map(text);
+  // wave 2 (2026-10-10): Team stats is the sized two-team kit, its label cell holding the long, middle and short names
+  const statCells = container.querySelectorAll("#live-stats td.txt").map(longWords);
   assert.equal(statCells.filter((t) => t === "Success rate").length, 1, "one success-rate row: the team table's, not the feed table's");
   assert.ok(statCells.includes("Standard downs") && statCells.includes("Passing downs"));
   latest().emit("state", liveFrame({ lastPlay: { ...frame1.lastPlay, success: null } }));
@@ -495,10 +501,31 @@ scenarios.live = async () => {
   assert.equal(remoteButton(container, "plays").getAttribute("aria-pressed"), "false");
   remoteButton(container, "box").click();
   const rushing = () => sheetBody().querySelectorAll(".stat-table").find((t) => text(t.querySelector("thead")).startsWith("Rushing"));
-  rushing().querySelectorAll("th button").find((b) => text(b) === "Car").click();
-  assert.equal(text(rushing().querySelector("th[aria-sort]")), "Car");
+  rushing().querySelectorAll("th button").find((b) => longWords(b) === "Carries").click(); // wave 2: the whole head, Car at medium and small
+  assert.equal(longWords(rushing().querySelector("th[aria-sort]")), "Carries");
   latest().emit("state", withNewPlay(frame2, "Another play"));
-  assert.equal(text(rushing().querySelector("th[aria-sort]")), "Car", "the sort survived a frame");
+  assert.equal(longWords(rushing().querySelector("th[aria-sort]")), "Carries", "the sort survived a frame");
+
+  // wave 2, step 3 (2026-10-10): every panel's tables size themselves; the two-team ones are the kit with the tug bar
+  assert.ok(sheetBody().querySelectorAll(".stat-table-wrap").every((w) => w.dataset.size === "large" && typeof w.measure === "function"), "the box score's tables are sized");
+  remoteButton(container, "situation").click();
+  const sit = sheetBody().querySelector(".tt-wrap");
+  assert.ok(sit && sit.querySelector("table").className.includes("tt--tug"), "Situation is the Team stats kit with the bar");
+  assert.deepEqual(sit.querySelectorAll("tr.tt__head--a th").map(longWords), ["Situation", "Swampwater Tech", "Edge", "Silver Dollar"]);
+  assert.equal(sit.querySelectorAll("tbody tr").length, 8);
+  remoteButton(container, "drives").click();
+  const driveTable = sheetBody().querySelector(".tt-wrap");
+  assert.ok(driveTable && longWords(driveTable.querySelector("tr.tt__head--a th")) === "Drives", "the drive summary on the kit");
+  assert.equal(driveTable.querySelectorAll("tbody tr").length, 7);
+  assert.ok(sheetBody().querySelector(".drives, ul"), "the drive list under it");
+  remoteButton(container, "splits").click();
+  const splitWraps = sheetBody().querySelectorAll(".stat-table-wrap");
+  assert.equal(splitWraps.length, 4, "each team's quarters and its situations");
+  assert.ok(splitWraps.every((w) => w.dataset.size === "large"));
+  assert.ok(text(sheetBody()).includes("PPA per play (no TD plays)") && text(sheetBody()).includes("Run success"));
+  assert.deepEqual(container.querySelector("#live-stats .tt-wrap").querySelectorAll("tr.tt__head--a th").map(longWords), ["Statistic", "Swampwater Tech", "Edge", "Silver Dollar"], "Team stats: the schools head it at large");
+  assert.equal(container.querySelectorAll("#live-stats .tt-wrap").length, 2, "Team stats and the feed's efficiency, both on the kit");
+  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(sheetBody())), "no raw value in a panel");
 
   // Static panels are not rebuilt: Visitors fetches once.
   route("/api/recruiting", () => envelope({ visitors: { home: [{ name: "Five Star", position: "QB", stars: 5, highSchool: "IMG", status: "Committed" }], away: [], opponent: "Silver Dollar" } }));
@@ -747,6 +774,81 @@ scenarios.pregame = async () => {
   second.view.unmount();
 };
 
+// Owner 2026-10-10: In Game keeps our last final until noon the day after the game. A fresh open (a reload, another device,
+// the board) draws it from /api/live/final at its own delay with that game's own program and no stream; it lets go when the
+// hold ends; a game under way takes the sheet over.
+scenarios.held = async () => {
+  const finalState = liveFrame({ status: "final" });
+  const GID = finalState.gameId;
+  const HELD = { gameId: GID, home: "Diner Tech", away: "Swampwater Tech", kickoff: KICKOFF, finalAt: "2026-09-26T22:55:00Z", until: "2026-09-27T16:00:00Z", released: true };
+  finalState.held = { until: HELD.until, finalAt: HELD.finalAt, kickoff: HELD.kickoff };
+  let answer = { held: HELD, waiting: true };
+  route("/api/live/final", () => envelope(answer));
+  route(`/api/program/${GID}`, () => envelope({ ...PROGRAM, game: { ...PROGRAM.game, gameId: GID } }));
+  route(`/api/games/${GID}/analytics`, () => envelope({ winProbability: { available: false }, ppa: { available: false } }));
+  const status = { mode: "idle", window: { ...WINDOW_OPEN, gameId: 526001099, open: false, liveView: false }, held: HELD, feed: feed("idle") };
+  const { view, container, shell } = await mountLive({ status });
+  assert.equal(sources.length, 0, "a held final opens no stream");
+  // this device is still behind the final: it asks again every few seconds and never draws it early
+  assert.equal(callsTo("/api/live/final"), 1);
+  answer = finalState;
+  await advance(5000);
+  assert.equal(callsTo("/api/live/final"), 2);
+  const page = text(container);
+  assert.ok(!/(undefined|NaN|null)/.test(page), page);
+  assert.ok(shell().startsWith("Final"), shell());
+  assert.ok(shell().includes("·"), "the held final carries its date");
+  const link = container.querySelector(`a[href="#archive=${GID}"]`);
+  assert.ok(link && text(link).includes("Archive"), "the whole game in the Archive");
+  assert.ok(page.includes("In Game shows this final until"), page.slice(0, 400));
+  assert.ok(callsTo(`/api/program/${GID}`) >= 1, "the held game's own program, not next week's");
+  assert.ok(callsTo(`/api/games/${GID}/analytics`) >= 1, "the post-game numbers of that game");
+  // the hold ends (noon the day after the game): the next game's pregame sheet
+  status.held = null;
+  await advance(60000);
+  assert.equal(shell(), "Pregame");
+  assert.ok(text(container).includes("The sheet fills in as the game is played"));
+  view.unmount();
+  assert.equal(timers.size, 0, "nothing left running");
+
+  // a game under way takes over a held sheet
+  document.body.replaceChildren();
+  answer = finalState;
+  const status2 = { mode: "idle", window: { ...WINDOW_OPEN, gameId: 526001099, open: false, liveView: false }, held: HELD, feed: feed("idle") };
+  const second = await mountLive({ status: status2 });
+  assert.ok(second.shell().startsWith("Final"));
+  const before = sources.length;
+  status2.window = { ...WINDOW_OPEN, gameId: 526001099, open: true };
+  status2.held = HELD;
+  await advance(60000);
+  assert.equal(sources.length, before + 1, "the next game's stream connects");
+  latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526001099, feed: feed("waiting") });
+  assert.ok(!second.shell().startsWith("Final"), second.shell());
+  second.view.unmount();
+
+  // review 2026-10-10: a sheet still mid-game on the held game (a restart cut its stream before the final) reaches the held
+  // final through /api/live/final, never stays on its last frame; waking it again asks for the final, never a stream
+  document.body.replaceChildren();
+  const status3 = { mode: "live", window: { ...WINDOW_OPEN }, feed: feed("ok") };
+  const third = await mountLive({ status: status3 });
+  latest().emit("state", liveFrame({ gameId: GID }));
+  assert.ok(!third.shell().startsWith("Final"));
+  status3.window = { ...WINDOW_OPEN, gameId: 526001099, open: false, liveView: false };
+  status3.mode = "idle";
+  status3.held = HELD;
+  answer = finalState;
+  const asked = callsTo("/api/live/final");
+  await advance(60000);
+  assert.ok(callsTo("/api/live/final") > asked, "the held final is fetched for the stuck sheet");
+  assert.ok(third.shell().startsWith("Final"), third.shell());
+  const streams = sources.length;
+  document.visibilityState = "visible";
+  document.dispatchEvent(makeEvent("visibilitychange"));
+  await settle();
+  assert.equal(sources.length, streams, "waking a held final opens no stream");
+  third.view.unmount();
+};
+
 scenarios.oldserver = async () => {
   const status = { mode: "live", window: { gameId: 526001015, kickoff: KICKOFF, opensAt: KICKOFF, closesAt: KICKOFF, open: true } };
   const { view, container, shell, stripPill } = await mountLive({ status });
@@ -797,6 +899,66 @@ scenarios.silentstart = async () => {
   assert.equal(timers.size, 0);
 };
 
+scenarios.board = async () => {
+  // The game-day board (queue item 7, the owner's mock of 2026-10-11): Win probability and Leaders, the pass chart and the
+  // run chart with the QR cell between them, Team stats and one In Game panel (the Box score until a menu button picks
+  // another), and along the bottom the score strip with the radio, the ticker, the spoiler-delay line and the menu.
+  route("/api/recruiting", () => envelope({ visitors: { home: [{ name: "Five Star", position: "QB", stars: 5, highSchool: "IMG", hometown: "Bradenton, FL", classYear: 2027, status: "confirmed" }], away: [], opponent: "Silver Dollar" } }));
+  route("/api/program/next", () => envelope(PROGRAM));
+  route("/api/live/status", () => envelope({ mode: "live", window: WINDOW_OPEN, feed: feed("ok") }));
+  route("/api/ticker", () => envelope(TICKER));
+  route("/api/settings", () => envelope({ prefs: {} }));
+  try { localStorage.removeItem("kickoff.board.panel"); } catch { /* none */ }
+  const { createLiveView } = await import(moduleUrl("views/live.js"));
+  const view = createLiveView({ board: true });
+  const container = document.createElement("main");
+  document.body.append(container);
+  await view.mount(container);
+  await settle();
+  latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
+  latest().emit("state", liveFrame());
+  await settle();
+  const tv = container.querySelector(".tv");
+  assert.ok(tv && !tv.className.includes("tv--empty"), "the board's layout");
+  assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(tv)), text(tv).slice(0, 300));
+  const cell = (name) => tv.querySelector(`.tv__cell--${name}`);
+  assert.ok(cell("wp").querySelector("#live-wp") && cell("leaders").querySelector("#live-leaders") && cell("stats").querySelector("#live-stats"), "the sheet's bands in their cells");
+  assert.equal(tv.querySelector("#live-score"), null, "no Score by quarter on the board (owner mock)");
+  assert.equal(tv.querySelector(".game-info"), null, "no game line on the board");
+  const charts = [cell("pass"), cell("runs")].map((c) => c.querySelector(".shot-chart"));
+  assert.ok(charts.every(Boolean) && charts[0].querySelector(".shot-field--passes") && charts[1].querySelector(".shot-field--runs"), "the pass chart and the run chart at once");
+  assert.ok(charts.every((c) => !c.querySelector(".shot-chart__seg")), "no Passes and Runs switch");
+  assert.ok(charts.every((c) => !text(c).includes("Success is CFBD")), "the count only, on a TV");
+  assert.ok(tv.querySelector(".tv__qr") && tv.querySelector(".tv__radio"), "the cells the board view fills: the QR and the radio");
+  assert.ok(tv.querySelector(".tv__bar--strip .strip") && tv.querySelector(".tv__bar--ticker .live-ticker"), "the score strip and the ticker along the bottom");
+  assert.ok(text(tv.querySelector(".tv__note")).includes("30 s behind the broadcast"), "the spoiler-delay line");
+  const buttons = tv.querySelectorAll(".tv__menu-btn");
+  assert.deepEqual(buttons.map((b) => text(b.querySelector(".tv__menu-label"))), ["Box score", "Drives", "Splits", "Plays", "Situation", "Edges", "Weather", "Visitors", "Injuries", "Lineups", "Scores", "Play value"], "In Game's own order");
+  assert.deepEqual(buttons.filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.id), ["box"], "the Box score by default");
+  const panel = cell("panel");
+  assert.equal(panel.dataset.id, "box");
+  assert.ok(panel.querySelectorAll(".stat-table-wrap").length >= 4 && panel.className.includes("tv__cell--split"), "both teams' box score, each its half");
+  assert.ok(tv.querySelectorAll(".stat-table-wrap").every((w) => ["large", "medium", "small"].includes(w.dataset.size)), "every table sized");
+  // a menu button swaps the right-hand column, remembered on the device
+  buttons.find((b) => b.dataset.id === "drives").click();
+  assert.equal(panel.dataset.id, "drives");
+  assert.ok(panel.querySelector(".tt-wrap"), "the drives on the two-team kit");
+  assert.equal(text(panel.querySelector(".board-panel__title")).startsWith("Drives"), true);
+  assert.deepEqual(tv.querySelectorAll(".tv__menu-btn").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.id), ["drives"]);
+  assert.equal(JSON.parse(localStorage.getItem("kickoff.board.panel")), "drives");
+  latest().emit("state", liveFrame());
+  await settle();
+  assert.equal(cell("panel").dataset.id, "drives", "the pick survives the next play");
+  for (const id of ["splits", "situation", "scores", "visitors", "plays", "lineups", "weather", "injuries", "edges", "value"]) {
+    tv.querySelectorAll(".tv__menu-btn").find((b) => b.dataset.id === id).click();
+    assert.equal(cell("panel").dataset.id, id);
+    assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(cell("panel"))), `${id}: ${text(cell("panel")).slice(0, 200)}`);
+  }
+  await settle(); // the visitors panel's request answers (its 20 s time limit goes with it)
+  view.unmount();
+  assert.equal(timers.size, 0, `timers left after unmount: ${timers.size} ${[...timers.values()].map((t) => `${t.every}:${String(t.fn).slice(0, 60)}`).join(" | ")}`);
+};
+
 scenarios.archive = async () => {
   const { createArchiveView } = await import(moduleUrl("views/archive.js"));
   const state = liveFrame({ status: "final" });
@@ -814,20 +976,65 @@ scenarios.archive = async () => {
     const raw = page.match(/.{0,80}\b(undefined|NaN|null)\b.{0,40}/);
     assert.equal(raw, null, `archive ${id} shows a raw value: ${raw && raw[0]}`);
     if (data === good) {
-      const cells = container.querySelectorAll("#archive-stats td.txt").map(text);
+      const cells = container.querySelectorAll("#archive-stats td.txt").map(longWords); // wave 2: both tables on the sized kit
       assert.ok(cells.includes("PPA per play"), "the feed table is drawn"); // final pass: the Season tables' name
       assert.equal(cells.filter((t) => t === "Success rate").length, 1, "one success-rate row: the team table's, not the feed table's");
     }
     view.unmount();
   }
-  route("/api/archive", () => envelope({ games: [null, "x", { gameId: 5, away: "Swampwater Tech", home: "Silver Dollar", usScore: 1, themScore: 0 }], skipped: 1 }));
+  // tables wave 3: each team's play value is In Game's two-team table with the tug bar (the defense's rows say allowed), the
+  // school and mascot over each side at large as on Team stats; the players' tables give the position its own column
+  const valued = { ...good, us: { school: "Swampwater Tech", abbreviation: "SWT", mascot: "Mudcats" }, them: { school: "Silver Dollar", abbreviation: "SD", mascot: "Dealers" }, ppa: { available: true, teams: { us: { offense: { overall: 0.21, passing: 0.3, rushing: 0.1 }, defense: { overall: 0.05, passing: "x", rushing: null } }, them: { offense: { overall: -0.1 }, defense: "x" } }, players: { us: [{ playerId: "7", name: "Avery Passer", position: "QB", all: 0.4, pass: 0.5, rush: null }, null], them: [] } } };
+  route("/api/archive/526000601", () => envelope(valued));
+  const one = createArchiveView({ gameId: "526000601", onStatus: () => {} });
+  const page = document.createElement("main");
+  document.body.replaceChildren(page);
+  one.mount(page);
+  await settle();
+  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(page)), text(page).slice(0, 300));
+  const value = page.querySelector("#archive-ppa .tt-wrap");
+  assert.ok(value && value.querySelector("td.tt__tug .tug"), "the play value table is the kit with the tug bar");
+  assert.deepEqual(value.querySelectorAll(".tt__team").map(longWords), ["Swampwater Tech Mudcats", "Silver Dollar Dealers"]);
+  assert.ok(value.querySelectorAll("td.tt__label, td.tt__mid, td.txt").map(longWords).includes("Defense allowed, overall"), "the defense's rows say allowed");
+  assert.deepEqual(page.querySelectorAll("#archive-stats .tt__team").slice(0, 2).map(longWords), ["Swampwater Tech Mudcats", "Silver Dollar Dealers"], "Team stats wear the mascot heads too");
+  const players = page.querySelector("#archive-ppa .twocol .stat-table-wrap");
+  assert.deepEqual(players.querySelectorAll("thead th").map(longWords), ["Player", "Pos", "PPA per play", "PPA per pass", "PPA per rush"]);
+  one.unmount();
+  // the list sizes itself: the week and plays from medium, the win probability's source at large; newest first
+  route("/api/archive", () => envelope({ games: [
+    null, "x",
+    { gameId: 5, away: "Swampwater Tech", home: "Silver Dollar", awayAbbr: "SWT", homeAbbr: "SD", usScore: 1, themScore: 0, kickoff: "2026-09-05T23:00:00Z", week: 2, plays: 150, hasWinProbability: true },
+    { gameId: 6, away: "Diner Tech", home: "Swampwater Tech", awayAbbr: null, usScore: 10, themScore: 24, kickoff: "2026-09-19T23:00:00Z", week: 4, hasWinProbability: false },
+    { gameId: 7, home: 4, away: null, kickoff: 9, usScore: "x" },
+  ], skipped: 1 }));
   const list = createArchiveView({ onStatus: () => {} });
   const container = document.createElement("main");
   document.body.replaceChildren(container);
   list.mount(container);
   await settle();
-  assert.ok(text(container).includes("1 game this app watched"));
-  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(container)));
+  assert.ok(text(container).includes("3 games this app watched"));
+  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(container)), text(container));
+  const wrap = container.querySelector("#archive-list .stat-table-wrap");
+  assert.equal(wrap.dataset.size, "large");
+  const formOf = (node, which) => text(node.querySelector(`.sz-t--${which}`) || node);
+  const heads = wrap.querySelectorAll("thead th");
+  assert.deepEqual(heads.map((th) => formOf(th, "long")), ["Date", "Week", "Game", "Result", "Plays", "Win probability"]);
+  assert.deepEqual(heads.map((th) => formOf(th, "mid")), ["Date", "Wk", "Game", "Result", "Plays", "Win prob."]);
+  const size = (th) => ["st__min-medium", "st__min-large"].find((c) => String(th.getAttribute("class") || "").includes(c)) || "";
+  assert.deepEqual(heads.map(size), ["", "st__min-medium", "", "", "st__min-medium", "st__min-large"]);
+  assert.equal(heads[0].getAttribute("aria-sort"), "descending", "the newest first");
+  const ids = () => wrap.querySelectorAll("tbody tr").map((tr) => text(tr.querySelectorAll("td")[3]));
+  assert.deepEqual(ids(), ["L 10-24", "W 1-0", "\u2013"], "by kickoff, a game without one last");
+  const rowOf = (i) => wrap.querySelectorAll("tbody tr")[i].querySelectorAll("td");
+  const small = rowOf(1)[2].querySelector(".sz-t--short");
+  assert.equal(text(small), "SWT at SD", "at small each school's abbreviation");
+  assert.equal(small.querySelectorAll(".team-link").length, 2, "still each team's link");
+  assert.ok(text(rowOf(0)[2].querySelector(".sz-t--short")).startsWith("DINE at "), "a school the server could not name: its first letters");
+  assert.deepEqual([text(rowOf(0)[5]), text(rowOf(1)[5])], ["From CFBD", "Saved at the final"]);
+  heads[3].querySelector("button").click();
+  assert.deepEqual(ids(), ["W 1-0", "L 10-24", "\u2013"], "the result sorts by its margin");
+  wrap.querySelectorAll("tbody tr")[1].click();
+  assert.equal(window.location.hash, "archive=6", "a row opens its game");
   list.unmount();
 };
 

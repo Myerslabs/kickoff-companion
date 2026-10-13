@@ -1,5 +1,5 @@
 // The Glossary (owner request 2026-09-26): every stat and term the app shows, grouped the way the
-// app uses them and searchable. The same entries answer a tap on a dotted-underlined label anywhere
+// app uses them and searchable. The same entries answer a tap on the question mark after a term anywhere
 // (static/js/ui/hints.js). "#glossary=<id>" opens the page at one entry.
 // Phase 16 (G3-15, stream NV): the group bands fold (remembered on the device) with jump links to each
 // group in the intro band's body, never its head; search matches are marked; an entry whose stat has a
@@ -131,7 +131,7 @@ export function createGlossaryView({ onStatus, focusId = null } = {}) {
             collapsible: false,
             summary: `${ENTRIES.length} terms`,
             state: { status: "ready" },
-            body: () => el("div", { class: "gloss__intro" }, search, el("p", { class: "note" }, "Tap any stat name with a dotted underline, anywhere in the app, for the same explanation. Settings has a switch to hide the underlines. A stat with a national list links to it: every FBS team's number, ranked."), jumpLinks()),
+            body: () => el("div", { class: "gloss__intro" }, search, el("p", { class: "note" }, "Tap the question mark after any stat's name, anywhere in the app, for the same explanation. Settings has a switch to hide the question marks. A stat with a national list links to it: every FBS team's number, ranked."), jumpLinks()),
           }),
           host,
         ),

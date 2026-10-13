@@ -1,5 +1,6 @@
 """Phase 18.6 in the fake browser: Invite friends (the QR and address, the warnings, no network), the board's zoom, a guest's
-banner after a PIN is set, and the Not-loaded list staying away from guests."""
+banner after a PIN is set, and the Not-loaded list staying away from guests (item 6, step C: a note on the Pre-Game
+Program and a dot on the status pill, never a sheet)."""
 
 from __future__ import annotations
 
@@ -36,9 +37,9 @@ scenarios.invite = async () => {
 scenarios.zoom = async () => {
   const { boardZoom } = await import(moduleUrl("views/board.js"));
   assert.equal(boardZoom(1024), 1);
-  assert.equal(boardZoom(1440), 1.3);
-  assert.equal(boardZoom(1920), 1.6);
-  assert.equal(boardZoom(3840), 2.2);
+  assert.equal(boardZoom(1440), 1);
+  assert.equal(boardZoom(1920), 1, "1080p draws everything at 1");
+  assert.equal(boardZoom(3840), 2);
   assert.equal(boardZoom(NaN), 1);
   assert.equal(boardZoom(undefined), 1);
 };
@@ -64,14 +65,26 @@ scenarios.guest = async () => {
 };
 
 scenarios.readiness = async () => {
+  window.location.hash = "#program";
+  const slot = document.createElement("div");
+  slot.className = "page-notes";
+  document.body.append(slot);
   document.body.dataset.role = "guest";
   let asked = 0;
   globalThis.fetch = async () => { asked += 1; return { ok: true, status: 200, json: async () => ({ data: { ready: false, items: [{ id: "season", title: "The 2026 season load", detail: "Not loaded", href: "#preseason" }], serverStartedAt: "t1" } }) }; };
-  const { maybeShowReadiness } = await import(moduleUrl("ui/readiness.js"));
-  assert.equal(await maybeShowReadiness(), null, "a guest cannot load anything, so no list");
+  const { startReadiness } = await import(moduleUrl("ui/readiness.js"));
+  const notices = [];
+  const page = { setNotice: (n) => notices.push(n) };
+  assert.equal(await startReadiness(page), null, "a guest cannot load anything, so no list");
+  assert.equal(notices.length, 0);
+  assert.equal(slot.querySelector(".page-note"), null);
   document.body.dataset.role = "host";
-  const sheet = await maybeShowReadiness();
-  assert.ok(sheet && text(sheet.layer).includes("The 2026 season load"));
+  const shown = await startReadiness(page);
+  assert.ok(shown && shown.fresh === true && shown.items.length === 1);
+  const note = slot.querySelector(".page-note");
+  assert.ok(note && text(note).includes("The 2026 season load") && text(note).includes("Not loaded yet"), "a note, not a sheet");
+  assert.equal(document.body.querySelector(".sheet-layer"), null, "nothing opens by itself");
+  assert.equal(notices.at(-1).dot, true, "and a dot on the status pill");
   assert.ok(asked >= 2);
 };
 """
