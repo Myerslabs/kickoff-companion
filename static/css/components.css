@@ -1604,8 +1604,8 @@ button.search__item:focus-visible { background: var(--row-hover); }
    follows the band's width, not the screen's: a band in a narrow column stays one column inside. */
 .page, .band, .season__col, .season__guide { container-type: inline-size; }
 /* The flowing page (ui/flow.js): 1 to 4 columns by width, 4 px rows that each band spans by its height, so the
-   grid packs bands across the top with no holes. One column is a plain stack. */
-.page.flow { max-width: none; grid-template-columns: repeat(var(--flow-cols, 1), minmax(0, 1fr)); grid-auto-rows: 4px; grid-auto-flow: row dense; row-gap: 0; column-gap: var(--gap); align-items: start; }
+   bands are placed by ui/flow.js in the list's order, each below everything before it (the order rule, 2026-10-13), with no holes. One column is a plain stack. */
+.page.flow { max-width: none; grid-template-columns: repeat(var(--flow-cols, 1), minmax(0, 1fr)); grid-auto-rows: 4px; grid-auto-flow: row; row-gap: 0; column-gap: var(--gap); align-items: start; }
 .page.flow[data-cols="1"] { grid-auto-rows: auto; row-gap: var(--gap); }
 .page.flow > * { min-width: 0; }
 /* #10a: a table never stretches past a readable width, so a stat's name and its numbers stay close */
@@ -2042,7 +2042,7 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
   html, body { background: #fff !important; color: #000 !important; }
   .shell__main { padding: 0 !important; zoom: 1 !important; }
   .flow { display: block !important; }
-  .flow > * { grid-column: auto !important; grid-row-end: auto !important; margin-bottom: 6mm; }
+  .flow > * { grid-column: auto !important; grid-row-start: auto !important; grid-row-end: auto !important; margin-bottom: 6mm; }
   .band[data-collapsed="true"] .band__body, .band[data-collapsed="true"] .band__foot { display: block !important; }
   .band { break-inside: avoid-page; box-shadow: none !important; }
   table { break-inside: auto; }

@@ -28,22 +28,33 @@ scenarios.flow = async () => {
   assert.ok(page.className.includes("flow"));
   assert.equal(page.dataset.cols, "2", "a 1920 px browser: the iPad's two columns, wider");
   assert.equal(page.style["--flow-cols"], "2");
-  assert.equal(cover.style.gridColumn, "1 / -1");
-  assert.equal(weather.style.gridColumn, "1 / -1");
-  assert.equal(tape.style.gridColumn, "span 2");
-  assert.equal(small.style.gridColumn, "");
+  // the order rule (owner 2026-10-13): each band placed below everything listed before it, no holes
+  assert.equal(cover.style.gridColumn, "1 / span 2"); assert.equal(cover.style.gridRowStart, "1");
+  assert.equal(weather.style.gridColumn, "1 / span 2"); assert.equal(weather.style.gridRowStart, "129", "500 px plus the gap over 4 px rows, under the cover");
+  assert.equal(tape.style.gridColumn, "1 / span 2"); assert.equal(tape.style.gridRowStart, "162");
+  assert.equal(small.style.gridColumn, "1 / span 1"); assert.equal(small.style.gridRowStart, "415", "under the wide band, never beside it");
   assert.equal(small.style.gridRowEnd, "span 15", "46 px plus the 12 px gap over 4 px rows");
   assert.equal(tape.style.gridRowEnd, "span 253");
+  // a tall band in one column, two short ones after it: the first short one sits beside it, the second under the first
+  const tall = make("tall", 800);
+  const a = make("a", 100);
+  const b = make("b", 100);
+  f.relayout();
+  assert.equal(tall.style.gridColumn, "2 / span 1"); assert.equal(tall.style.gridRowStart, "415", "the second column had more room");
+  assert.equal(a.style.gridColumn, "1 / span 1"); assert.equal(a.style.gridRowStart, "430", "beside the tall band, under small");
+  assert.equal(b.style.gridColumn, "1 / span 1"); assert.equal(b.style.gridRowStart, "458", "under a; the tall band's column is further down");
   // a tablet: two columns, and a wide band spans both (a big two-team table is cramped in one tablet column)
   page.getBoundingClientRect = box(820, 0);
   f.relayout();
   assert.equal(page.dataset.cols, "2");
-  assert.equal(tape.style.gridColumn, "span 2");
+  assert.equal(tape.style.gridColumn, "1 / span 2");
   // a phone: one column is a plain stack, no row spans
   page.getBoundingClientRect = box(375, 0);
   f.relayout();
   assert.equal(page.dataset.cols, "1");
   assert.equal(small.style.gridRowEnd, "");
+  assert.equal(small.style.gridRowStart, "");
+  assert.equal(cover.style.gridColumn, "1 / -1");
   f.stop();
   // nothing to lay out: no crash, a harmless handle
   const none = flow(null);
