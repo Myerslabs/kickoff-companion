@@ -279,11 +279,38 @@ function holdsAViewer() {
  * Item 6, step E: either way the page reloads only once the server answers (ui/restart.js reloadWhenServerAnswers),
  * never into a server that is still restarting or a Wi-Fi still reconnecting after the iPad wakes.
  */
+const RELOADED_AT_KEY = "kickoff.update.reloadedAt";
+const RELOAD_LOOP_MS = 60000;
+
+/**
+ * A reload for a new build is remembered for a minute (owner bug 2026-10-13: "the page refreshes every 5 seconds"): when
+ * the server keeps answering with a different build, as two servers on one address do, the page reloads once and then
+ * keeps still with the note, instead of looping.
+ */
+function reloadedJustNow() {
+  try {
+    const at = Number(window.sessionStorage.getItem(RELOADED_AT_KEY));
+    return Number.isFinite(at) && at > 0 && Date.now() - at < RELOAD_LOOP_MS;
+  } catch {
+    return false;
+  }
+}
+
+function rememberReload() {
+  try {
+    window.sessionStorage.setItem(RELOADED_AT_KEY, String(Date.now()));
+  } catch {
+    // no storage: the loop guard cannot remember; the note still shows
+  }
+}
+
 function watchForUpdates(page) {
   let pending = false;
-  document.addEventListener("kickoff:update", () => {
+  document.addEventListener("kickoff:update", (event) => {
     if (pending) return;
     pending = true;
+    const looping = reloadedJustNow();
+    if (looping) console.warn("The server answered with another build within a minute of a reload; the page keeps still.", event?.detail);
     const said = el("span", { class: "note", role: "status" }, "");
     const reloadButton = el("button", { class: "btn", type: "button", onclick: async () => {
       reloadButton.disabled = true;
@@ -294,8 +321,11 @@ function watchForUpdates(page) {
       }
     } }, "Reload");
     // one format for every reminder (owner 2026-10-13): a note at the top of the page with its close button (ui/page-notes.js)
-    addNote({ id: "update", title: "A new version of the app is on the server", body: () => el("div", { class: "page-note__row" }, el("span", {}, "The page reloads by itself once the server answers; Reload does it now."), reloadButton, said) });
-    if (document.visibilityState === "visible" && !holdsAViewer()) reloadWhenServerAnswers({ onWait: () => { said.textContent = " Waiting for the server…"; } });
+    addNote({ id: "update", title: "A new version of the app is on the server", body: () => el("div", { class: "page-note__row" }, el("span", {}, looping ? "The server answered with two different builds within a minute, so the page keeps still. If two servers are running on this address, stop one, then Reload." : "The page reloads by itself once the server answers; Reload does it now."), reloadButton, said) });
+    if (!looping && document.visibilityState === "visible" && !holdsAViewer()) {
+      rememberReload();
+      reloadWhenServerAnswers({ onWait: () => { said.textContent = " Waiting for the server…"; } });
+    }
   });
   // Phase 16 wave 3: the server's own code changed on disk (an update was pulled): only a restart brings it in
   let restartOffered = false;
@@ -312,7 +342,10 @@ function watchForUpdates(page) {
   });
   document.addEventListener("visibilitychange", () => {
     // a server that never answers leaves the page and its banner
-    if (pending && document.visibilityState === "visible" && !holdsAViewer()) reloadWhenServerAnswers();
+    if (pending && document.visibilityState === "visible" && !holdsAViewer() && !reloadedJustNow()) {
+      rememberReload();
+      reloadWhenServerAnswers();
+    }
   });
 }
 

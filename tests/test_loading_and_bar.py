@@ -515,8 +515,12 @@ def test_the_app_forgets_the_retry_once_drawn_and_waits_for_the_server_after_a_r
     watch = app[app.index("function watchForUpdates") : app.index("const BOOT_RETRY_KEY")]
     assert "window.location.reload()" not in watch, "no reload straight into a server that may not be back"
     assert watch.count("reloadWhenServerAnswers(") == 3, "the banner's Reload, the reload at once (owner bug 2026-10-13) and the reload on coming back into view"
-    assert 'if (document.visibilityState === "visible" && !holdsAViewer()) reloadWhenServerAnswers(' in watch, "a visible page reloads as soon as the server answers"
-    assert re.search(r'"visibilitychange", \(\) => \{\s*//[^\n]*\n\s*if \(pending && document\.visibilityState === "visible" && !holdsAViewer\(\)\) reloadWhenServerAnswers\(\);', watch)
+    assert 'if (!looping && document.visibilityState === "visible" && !holdsAViewer()) {' in watch, "a visible page reloads as soon as the server answers"
+    assert re.search(r'"visibilitychange", \(\) => \{\s*//[^\n]*\n\s*if \(pending && document\.visibilityState === "visible" && !holdsAViewer\(\) && !reloadedJustNow\(\)\) \{\s*rememberReload\(\);\s*reloadWhenServerAnswers\(\);', watch)
+    # owner bug 2026-10-13 ("the page refreshes every 5 seconds"): one reload a minute, never a loop
+    guard = app[app.index("function reloadedJustNow") : app.index("function watchForUpdates")]
+    assert "Date.now() - at < RELOAD_LOOP_MS" in guard and "window.sessionStorage.getItem(RELOADED_AT_KEY)" in guard and "RELOAD_LOOP_MS = 60000" in app
+    assert "two different builds within a minute" in watch and watch.count("rememberReload();") == 2
     hold = app[app.index("function holdsAViewer") : app.index("function watchForUpdates")]
     assert 'gameUnderWay && ["live", "board"].includes(viewInAddress())' in hold, "only In Game and the board during our game keep the banner instead"
     live = app[app.index("function watchLiveGame") : app.index("function viewInAddress")]
