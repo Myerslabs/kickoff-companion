@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
@@ -108,11 +109,17 @@ def test_status_page_uses_the_design_tokens(client: TestClient):
 def test_every_javascript_module_parses(tmp_path):
     modules = sorted((STATIC_DIR / "js").rglob("*.js"))
     assert len(modules) >= 28
-    for module in modules:
-        target = tmp_path / (module.stem + ".mjs")
+
+    def check(module):
+        # .mjs so Node reads it as the ES module the browser loads; eight at a time (faster tests, 2026-10-13)
+        target = tmp_path / (module.relative_to(STATIC_DIR / "js").as_posix().replace("/", "__")[:-3] + ".mjs")
         target.write_text(module.read_text(encoding="utf-8"), encoding="utf-8")
-        result = subprocess.run(["node", "--check", str(target)], capture_output=True, text=True, timeout=30)
-        assert result.returncode == 0, f"{module.relative_to(PROJECT_ROOT)}: {result.stderr[:400]}"
+        result = subprocess.run(["node", "--check", str(target)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        return module, result
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        for module, result in pool.map(check, modules):
+            assert result.returncode == 0, f"{module.relative_to(PROJECT_ROOT)}: {result.stderr[:400]}"
 
 
 def test_components_cover_the_design_doc_list():

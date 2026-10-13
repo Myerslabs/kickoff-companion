@@ -34,7 +34,15 @@
     <section class="panel panel-wide" aria-labelledby="h-key" id="demo-key">
       <h2 id="h-key">Your own team needs a CFBD key</h2>
       <div class="step-body">
-        <p>Every number in the app comes from <a href="https://collegefootballdata.com" target="_blank" rel="noopener">College Football Data</a> (CFBD), a separate service. A key is free: sign up with an email address and CFBD mails it to you. On the next page you paste it and pick your team, and the app follows that team from then on.</p>
+        <p>Every number in the app comes from <a href="https://collegefootballdata.com" target="_blank" rel="noopener">College Football Data</a> (CFBD), a separate service. A key is free: sign up with an email address and CFBD mails it to you. Paste it here, pick your team on the next page, and the app follows that team from then on.</p>
+        <form id="key-form" class="demo-key" hidden>
+          <label for="demo-key-input" class="welcome__label">Paste the key</label>
+          <div class="demo-key__row">
+            <input id="demo-key-input" class="input mono" type="password" autocomplete="off" spellcheck="false" maxlength="200" placeholder="Your CFBD key">
+            <button class="btn btn--primary" type="submit" id="key-go">Use my own team with this key</button>
+          </div>
+          <p class="note">The server switches from the demo to your team and checks the key on the next page, where you pick the team.</p>
+        </form>
         <p><a class="btn" id="get-key" href="https://collegefootballdata.com/key" target="_blank" rel="noopener">Get a free key</a></p>
       </div>
     </section>

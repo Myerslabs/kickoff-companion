@@ -25,6 +25,7 @@ from typing import Any
 
 import httpx
 
+from app.http import shared_ssl_context
 from app.httpcap import ResponseTooLarge, get_capped
 
 log = logging.getLogger("kickoff.logos")
@@ -77,7 +78,7 @@ class LogoStore:
     ) -> None:
         self.dir = data_dir / "logos"
         self.dir.mkdir(parents=True, exist_ok=True)
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "image/png,image/*"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "image/png,image/*"}, follow_redirects=True)
         self._sleep = sleep or asyncio.sleep
         self._gate = asyncio.Semaphore(CONCURRENCY)
         self._locks: dict[str, asyncio.Lock] = {}

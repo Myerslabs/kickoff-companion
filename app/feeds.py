@@ -36,6 +36,7 @@ from xml.etree import ElementTree
 
 import httpx
 
+from app.http import shared_ssl_context
 from app.httpcap import get_capped
 
 log = logging.getLogger("kickoff.feeds")
@@ -438,7 +439,7 @@ class FeedStore:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.feeds = feeds
         self.matcher = matcher
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5"}, follow_redirects=True)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._memory: dict[str, FeedResult] = {}
         self._failures: dict[str, int] = {}

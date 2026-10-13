@@ -159,6 +159,10 @@ code {
   .season__guide .spread--2 { grid-template-columns: minmax(0, 1fr); }
 }
 .plan-features { margin-top: 12px; }
+/* the demo page's key form (owner 2026-10-13): the field beside its button, stacked when narrow */
+.demo-key { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; }
+.demo-key__row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.demo-key__row .input { flex: 1 1 260px; min-width: 0; }
 .plan-feature .note { display: inline; }
 .plan-feature div.note { display: block; }
 .settings__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }

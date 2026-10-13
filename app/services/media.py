@@ -15,6 +15,7 @@ from pathlib import Path
 
 import httpx
 
+from app.http import shared_ssl_context
 from app.httpcap import ResponseTooLarge, get_capped
 
 log = logging.getLogger("kickoff.media")
@@ -39,7 +40,7 @@ class HeadshotStore:
     def __init__(self, data_dir: Path, transport: httpx.AsyncBaseTransport | None = None, user_agent: str = "KickoffCompanion") -> None:
         self.dir = data_dir / "headshots"
         self.dir.mkdir(parents=True, exist_ok=True)
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "image/png,image/*"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "image/png,image/*"}, follow_redirects=True)
         self.failures = 0
         self.paused_until = 0.0
         self.stats = {"served_from_disk": 0, "fetched": 0, "misses": 0, "failures": 0}

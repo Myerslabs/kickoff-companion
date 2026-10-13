@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 
 from app import restart
 from app.cfbd.capabilities import Capabilities
-from app.config import load_settings
+from app.config import PROJECT_ROOT, load_settings
 from app.logging_setup import configure_logging, shutdown_logging
 from app.main import create_app
 from app.services import plan
@@ -265,3 +265,16 @@ def test_plan_profiles_and_forecast():
     over = plan.forecast(500, 1000, now)
     assert over["fits"] is False and over["runsOutOn"] == "2026-10-21" and "lean on its cache" in over["text"]
     assert plan.forecast(None, 1000, now)["projected"] is None
+
+
+def test_the_demo_page_takes_the_key_where_it_says_one_is_needed() -> None:
+    """Owner 2026-10-13: "the 'Your own team needs a CFBD key' section should also have the place to enter the key"."""
+    static = PROJECT_ROOT / "static"
+    page = (static / "demo.html").read_text(encoding="utf-8")
+    assert '<form id="key-form" class="demo-key" hidden>' in page and 'id="demo-key-input"' in page and "Use my own team with this key" in page
+    assert page.index('id="h-key"') < page.index('id="key-form"') < page.index('id="get-key"'), "the field sits in the key section, before the Get a free key button"
+    demo = (static / "js" / "demo-page.js").read_text(encoding="utf-8")
+    assert 'window.sessionStorage.setItem(HANDED_KEY, key)' in demo and 'HANDED_KEY = "kickoff.setup.key"' in demo and "await switchOver()" in demo
+    assert "/api/welcome/key" not in demo, "the demo server never sees the key; the setup page checks it"
+    welcome = (static / "js" / "welcome.js").read_text(encoding="utf-8")
+    assert 'window.sessionStorage.getItem("kickoff.setup.key")' in welcome and 'window.sessionStorage.removeItem("kickoff.setup.key")' in welcome and "await checkKey();" in welcome

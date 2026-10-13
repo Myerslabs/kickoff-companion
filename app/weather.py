@@ -19,6 +19,8 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from app.http import shared_ssl_context
+
 log = logging.getLogger("kickoff.weather")
 
 POINTS_URL = "https://api.weather.gov/points/{lat:.4f},{lon:.4f}"
@@ -129,7 +131,7 @@ class NwsClient:
     def __init__(self, data_dir: Path, transport: httpx.AsyncBaseTransport | None = None, user_agent: str = "KickoffCompanion (personal)", clock=None) -> None:
         self.dir = data_dir / "weather"
         self.dir.mkdir(parents=True, exist_ok=True)
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/geo+json, application/json"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/geo+json, application/json"}, follow_redirects=True)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._failures = 0
         self._paused_until = 0.0

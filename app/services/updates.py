@@ -23,6 +23,7 @@ from typing import Any
 import httpx
 
 from app import REPO_URL, __version__
+from app.http import shared_ssl_context
 from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.updates")
@@ -50,7 +51,7 @@ def _iso(dt: datetime) -> str:
 class UpdateChecker:
     def __init__(self, data_dir: Path, transport: httpx.AsyncBaseTransport | None = None, user_agent: str = "KickoffCompanion", clock: Callable[[], datetime] | None = None, enabled: Callable[[], bool] | None = None, current: str = __version__) -> None:
         self.path = Path(data_dir) / "update.json"
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/vnd.github+json"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": user_agent, "Accept": "application/vnd.github+json"}, follow_redirects=True)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._enabled = enabled or (lambda: True)
         self.current = current

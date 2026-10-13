@@ -42,6 +42,7 @@ from app.cfbd.publish import PublicationLog, learn_game_days, schedule_for
 from app.cfbd.quota import QuotaBlocked, QuotaGuard, QuotaStatus
 from app.config import Settings
 from app.db import Database
+from app.http import shared_ssl_context
 
 log = logging.getLogger("kickoff.cfbd")
 
@@ -282,6 +283,7 @@ class CfbdClient:
         self._reconcile_task: asyncio.Task[Any] | None = None
         self._closed = False
         self._http = httpx.AsyncClient(
+            verify=shared_ssl_context(),  # one TLS context per process (faster tests, 2026-10-13)
             base_url=settings.cfbd_base_url,
             headers={
                 "Authorization": f"Bearer {settings.cfbd_api_key.get_secret_value()}",

@@ -36,6 +36,8 @@ from urllib.parse import quote, urlencode
 
 import httpx
 
+from app.http import shared_ssl_context
+
 log = logging.getLogger("kickoff.wiki")
 
 API = "https://en.wikipedia.org/w/api.php"
@@ -91,7 +93,7 @@ class WikiClient:
         self.dir.mkdir(parents=True, exist_ok=True)
         self.path = self.dir / "links.json"
         agent = f"{user_agent} https://github.com/Myerslabs/kickoff-companion"  # Wikipedia asks for a way to reach the author
-        self._http = httpx.AsyncClient(timeout=TIMEOUT, transport=transport, headers={"User-Agent": agent, "Accept": "application/json"}, follow_redirects=True)
+        self._http = httpx.AsyncClient(verify=shared_ssl_context(), timeout=TIMEOUT, transport=transport, headers={"User-Agent": agent, "Accept": "application/json"}, follow_redirects=True)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._lock = asyncio.Lock()
         self._last = 0.0

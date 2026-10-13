@@ -4,7 +4,12 @@
 // the new start and then opens the setup page (no key yet) or the app.
 
 const $ = (id) => document.getElementById(id);
-const els = { lead: $("demo-lead"), explore: $("explore"), switchButton: $("switch"), note: $("switch-note"), status: $("demo-status"), keyPanel: $("demo-key") };
+const els = { lead: $("demo-lead"), explore: $("explore"), switchButton: $("switch"), note: $("switch-note"), status: $("demo-status"), keyPanel: $("demo-key"), keyForm: $("key-form"), keyInput: $("demo-key-input"), keyGo: $("key-go") };
+
+// The key pasted here rides to the setup page in the browser's session storage (same origin: the server restarts in
+// place), where it is checked with CFBD and the team is picked (owner 2026-10-13: "the place to enter the key should be
+// where it says one is needed"). It is never sent to the demo server and never kept past the setup page.
+export const HANDED_KEY = "kickoff.setup.key";
 
 async function call(path, options = {}) {
   const response = await fetch(path, { cache: "no-store", headers: { "Content-Type": "application/json", Accept: "application/json" }, ...options });
@@ -59,12 +64,14 @@ function render() {
     els.explore.hidden = false;
     els.switchButton.textContent = state.configured ? "Back to my team" : "Use my own team";
     els.keyPanel.hidden = state.configured === true;
+    if (els.keyForm) els.keyForm.hidden = state.configured === true;
     els.status.textContent = state.configured ? "The demo is running. Your team, key and settings are untouched." : "The demo is running: no key needed.";
   } else {
     els.lead.textContent = "The demo runs a made-up league with a game under way, handy for showing someone the app. The server switches to it in a few seconds, and back the same way; your team, key and settings are untouched.";
     els.explore.textContent = "Back to the app";
     els.switchButton.textContent = "Show the demo";
     els.keyPanel.hidden = true;
+    if (els.keyForm) els.keyForm.hidden = true;
     els.status.textContent = "Your own team is running.";
   }
 }
@@ -96,5 +103,25 @@ async function load() {
   }
 }
 
+/** The key form: keep the key for the setup page, then switch over like the button does. */
+async function goWithKey(event) {
+  event.preventDefault();
+  const key = (els.keyInput?.value || "").trim();
+  if (!key) {
+    say("Paste the key from CFBD's email first, or get one with the button below.");
+    els.keyInput?.focus();
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(HANDED_KEY, key);
+  } catch {
+    say("This browser will not keep the key for the next page; paste it again there.");
+  }
+  els.keyGo.disabled = true;
+  await switchOver();
+  els.keyGo.disabled = false;
+}
+
 els.switchButton.addEventListener("click", switchOver);
+els.keyForm?.addEventListener("submit", goWithKey);
 void load();

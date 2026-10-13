@@ -12,7 +12,7 @@ from app.config import load_settings
 from app.logging_setup import configure_logging, shutdown_logging
 from app.main import create_app
 from app.netinfo import http_url, tablet_url
-from tests.conftest import TEST_KEY, FakeCfbd
+from tests.conftest import TEST_KEY, FakeCfbd, _no_wait
 
 
 @pytest.fixture
@@ -81,7 +81,7 @@ def test_health_reports_upstream_trouble(settings, fake_cfbd):
     fake_cfbd.route("/info", status=503, text="down")
     configure_logging(settings)
     try:
-        with TestClient(create_app(settings, cfbd_transport=fake_cfbd.transport), base_url="https://testserver") as client:
+        with TestClient(create_app(settings, cfbd_transport=fake_cfbd.transport, cfbd_sleep=_no_wait), base_url="https://testserver") as client:  # no real back-off between the retries (faster tests)
             data = client.get("/api/health").json()["data"]
             assert data["status"] == "degraded"
             upstream = next(check for check in data["checks"] if check["name"] == "upstream")

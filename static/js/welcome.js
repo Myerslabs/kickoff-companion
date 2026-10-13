@@ -390,4 +390,19 @@ els.likedSearch.addEventListener("input", renderLiked);
 els.primarySearch.addEventListener("input", renderPrimaries);
 for (const radio of [els.tickerNational, els.tickerMine]) radio.addEventListener("change", (event) => { if (event.target.checked) state.tickerMode = event.target.value === "mine" ? "mine" : "national"; });
 els.finish.addEventListener("click", finish);
-void load();
+
+/** A key pasted on the demo page (static/js/demo-page.js HANDED_KEY) is checked here at once, then forgotten. */
+async function pickUpHandedKey() {
+  let key = null;
+  try {
+    key = window.sessionStorage.getItem("kickoff.setup.key");
+    if (key) window.sessionStorage.removeItem("kickoff.setup.key");
+  } catch {
+    key = null;
+  }
+  if (!key || els.keyInput.value || els.keyEntry.hidden) return;
+  els.keyInput.value = key;
+  await checkKey();
+}
+
+load().then(pickUpHandedKey).catch(() => {});
