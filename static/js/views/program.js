@@ -967,11 +967,12 @@ function render(envelope, container, state) {
   state.cover = coverEl;
   useOpponentColors(data.them);
   const tools = el("div", { class: "program-tools flow-full" }, printButton()); // Phase 19: print the program
-  // wave B (owner 2026-10-13): a finished game's program opens with the expectations locked at kickoff beside the result;
-  // the two schools' history sits under the cover on every program that has facts
+  // wave B (owner 2026-10-13): the expectations locked at kickoff beside the result on a finished game's program, and the
+  // two schools' history on every program that has facts. New bands go to the bottom of a page until the owner orders
+  // them ("for every screen in the future, the new stuff goes to the bottom, until I reorder them", 2026-10-13).
   const results = data.game?.completed ? resultsSlot(data, state) : null;
   const schools = twoSchoolsBand({ us: data.us, them: data.them, facts: data.facts });
-  page.append(...[back, tools, coverEl, results, schools, ...sections(data)].filter(Boolean));
+  page.append(...[back, tools, coverEl, ...sections(data), results, schools].filter(Boolean));
   if (back) back.classList.add("flow-full");
   coverEl.classList.add("flow-full");
   if (state.flow) state.flow.stop();
