@@ -1,4 +1,7 @@
-// The Prompts page (the Prompts phase, owner 2026-10-13: "one Prompts page in the menu that every dead end leads to").
+// The Load data page (the Prompts phase, owner 2026-10-13: "one Prompts page in the menu that every dead end leads to";
+// named Load data in the menu 2026-10-16, the address stays #prompts). Since 2026-10-16 the loads cover my primary and
+// secondary teams and the next opponent only, and a run goes on in the background: the loading bar above the page follows
+// it (ui/run-bar.js), this page redraws only its "Run them all" steps meanwhile and rebuilds once when every run is done.
 // One card per prompt, in the season's order: the season load, the coaches, the roster costs, the school history and
 // facts, this week's notes. Each says what it loads, when it last ran and what is missing, with Copy the prompt, Paste
 // the answer and, where Claude Code's command is found on the server, Run. At the top, "Run everything that is missing"
@@ -12,6 +15,8 @@ import { DASH, el, fmtDate, fmtDateTime, isNum, obj, str, text } from "../ui/dom
 import { band, note, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
 import { promptPaste } from "../ui/prompt-paste.js";
+import { notesPathButton } from "../ui/notes-paste.js";
+import { onRunProgress, watchRun } from "../ui/run-bar.js";
 import { errorPanel, fetchJson, poller } from "./common.js";
 
 const STATE_WORDS = { waiting: "waiting", skipped: "skipped", running: "running…", done: "done", failed: "failed", stopped: "stopped" };
@@ -164,20 +169,20 @@ export function promptCards(data, onChange) {
         },
         saveAnswer: (value) => send("/api/notes/save", { gameId: n.gameId, text: value }),
         onSaved: () => { if (typeof onChange === "function") onChange(); },
-        extra: found ? [el("button", { class: "btn", type: "button", disabled: busy ? true : null, onclick: async () => {
+        extra: [notesPathButton(n.gameId, n), ...(found ? [el("button", { class: "btn", type: "button", disabled: busy ? true : null, onclick: async () => {
           try {
             await send("/api/notes/run", { gameId: n.gameId });
           } catch (error) {
             console.warn("The notes run did not start.", error?.message || error);
           }
           if (typeof onChange === "function") onChange();
-        } }, "Run with Claude Code")] : [],
+        } }, "Run with Claude Code")] : [])],
       }))
     : null;
   return [
     card({
       id: "prompts-season", title: "The season load",
-      what: "Each primary team's deep preseason (staff, birthdates for ages, offseason moves, the outlook, injuries) and every FBS team's head coach and coordinators, in one answer.",
+      what: "Each primary team's deep preseason (staff, birthdates for ages, offseason moves, the outlook, injuries) and the head coach and coordinators of every team you follow, in one answer.",
       state: pre.length ? (savedPre.length === pre.length && count(s.coachesSaved) >= coachesOf ? "loaded" : savedPre.length || count(s.coachesSaved) ? "partial" : "missing") : "none",
       when: when(latest(pre)),
       missing: pre.length && savedPre.length < pre.length ? `not loaded for ${pre.filter((t) => !str(t.savedAt)).map((t) => text(t.school)).join(", ")}` : null,
@@ -186,21 +191,21 @@ export function promptCards(data, onChange) {
     }),
     card({
       id: "prompts-coaches", title: "Coaches",
-      what: "Head coach, offensive and defensive coordinator for every FBS team. The game's own notes still win when they name someone else.",
+      what: "Head coach, offensive and defensive coordinator for your primary and secondary teams and the next opponent. The game's own notes still win when they name someone else.",
       state: stateOf(s.coachesSaved, coachesOf), when: when(latest(s.coaches)), missing: coachesOf && count(s.coachesSaved) < coachesOf ? ratio(s.coachesSaved) : null,
       tools: seasonTools({ kind: "coaches", key: "all", label: "Coaches", run: true, commandFound: found, running: busy, onChange }),
       extra: el("div", {}, conferenceRows("coaches", s.coaches, onChange), runRows(seasonRun, "coaches")),
     }),
     card({
       id: "prompts-costs", title: "Roster costs",
-      what: "Rumored roster costs (revenue sharing and NIL): a total for every team, position groups and players for the primary teams.",
+      what: "Rumored roster costs (revenue sharing and NIL): a total for each team you follow, position groups and players for the primary teams.",
       state: stateOf(s.costsSaved, coachesOf), when: when(latest(s.costs)), missing: coachesOf && count(s.costsSaved) < coachesOf ? ratio(s.costsSaved) : null,
       tools: seasonTools({ kind: "costs", key: "all", label: "Roster costs", run: true, commandFound: found, running: busy, onChange }),
       extra: el("div", {}, conferenceRows("costs", s.costs, onChange), runRows(seasonRun, "costs")),
     }),
     card({
       id: "prompts-facts", title: "School history and facts",
-      what: "Founded, the stadium, titles, Heismans, the bowl record, rivalries and trophies, the fight song, alumni in the NFL, and dated events, for every FBS team. Shown on each team's page.",
+      what: "Founded, the stadium, titles, Heismans, the bowl record, rivalries and trophies, the fight song, alumni in the NFL, and dated events, for your primary and secondary teams and the next opponent. Shown on each team's page.",
       state: stateOf(s.factsSaved, coachesOf), when: when(latest(s.facts)), missing: coachesOf && count(s.factsSaved) < coachesOf ? ratio(s.factsSaved) : null,
       tools: found && !isGuest() ? el("div", { class: "prompts__tools" }, el("button", { class: "btn", type: "button", disabled: busy ? true : null, onclick: async () => {
         try {
@@ -223,11 +228,24 @@ export function promptCards(data, onChange) {
   ];
 }
 
-/** The one run: a button for the missing, one for everything, and each step's line while it runs. */
+/** The one run's lines: how far along while it runs, each step's state, when it last finished. */
+function runSteps(run) {
+  const r = obj(run);
+  const steps = list(r.steps);
+  return [
+    r.running === true ? note(`Running since ${str(r.startedAt) ? fmtDateTime(r.startedAt) : DASH}: ${isNum(r.done) ? r.done : 0} of ${isNum(r.of) ? r.of : steps.length} done. Each prompt takes a few minutes; it saves as it goes and the pages refresh once at the end.`) : null,
+    steps.length && (r.running === true || str(r.finishedAt))
+      ? el("ul", { class: "prompts__runlist" }, steps.map((s) => el("li", { class: `prompts__runitem is-${text(s.state)}` }, `${text(s.label)}: ${STATE_WORDS[s.state] || text(s.state)}${str(s.error) ? ` (${s.error})` : str(s.detail) ? ` (${s.detail})` : s.changed === true ? " (new information)" : s.changed === false ? " (nothing new)" : ""}`)))
+      : null,
+    str(r.finishedAt) && r.running !== true ? el("p", { class: "note" }, `Last run finished ${fmtDateTime(r.finishedAt)}.`) : null,
+  ];
+}
+
+/** The one run: a button for the missing, one for everything, and each step's line while it runs. The steps follow the
+ *  loading bar's answers in place (2026-10-16), so the page itself is not rebuilt while the run goes. */
 function runBand(data, onChange) {
   const d = obj(data);
   const run = obj(d.run);
-  const steps = list(run.steps);
   const said = el("span", { class: "note prompts__said", role: "status" });
   const start = (all) => el("button", {
     class: all ? "btn" : "btn btn--primary", type: "button", disabled: run.running ? true : null,
@@ -241,17 +259,23 @@ function runBand(data, onChange) {
       if (typeof onChange === "function") onChange();
     },
   }, all ? "Run everything again" : "Run everything that is missing");
+  const buttons = [start(false), start(true)];
+  const live = el("div", { class: "prompts__live" }, ...runSteps(run));
+  const stop = onRunProgress((progress) => {
+    if (!live.isConnected) {
+      stop();
+      return;
+    }
+    if (progress?.run && typeof progress.run === "object") live.replaceChildren(...runSteps(progress.run));
+    for (const button of buttons) button.disabled = progress?.running === true; // any run on the server: one at a time
+  });
   const body = () => el(
     "div",
     { class: "prompts__run" },
     d.commandFound === true
-      ? (isGuest() ? note("Only the host can run the prompts.") : el("div", { class: "prompts__tools" }, start(false), start(true), said))
+      ? (isGuest() ? note("Only the host can run the prompts.") : el("div", { class: "prompts__tools" }, ...buttons, said))
       : note(`Claude Code's command (${text(d.command || "claude")}) was not found on the server computer, so nothing runs by itself: copy each prompt into an AI chat that can search the web and paste the answer back. The same run is \`python -m app prompts\` once it is installed.`),
-    run.running === true ? note(`Running since ${str(run.startedAt) ? fmtDateTime(run.startedAt) : DASH}: ${isNum(run.done) ? run.done : 0} of ${isNum(run.of) ? run.of : steps.length} done. Each prompt takes a few minutes.`) : null,
-    steps.length && (run.running === true || str(run.finishedAt))
-      ? el("ul", { class: "prompts__runlist" }, steps.map((s) => el("li", { class: `prompts__runitem is-${text(s.state)}` }, `${text(s.label)}: ${STATE_WORDS[s.state] || text(s.state)}${str(s.error) ? ` (${s.error})` : str(s.detail) ? ` (${s.detail})` : s.changed === true ? " (new information)" : s.changed === false ? " (nothing new)" : ""}`)))
-      : null,
-    str(run.finishedAt) && run.running !== true ? el("p", { class: "note" }, `Last run finished ${fmtDateTime(run.finishedAt)}.`) : null,
+    live,
   );
   return band({ id: "prompts-run", title: "Run them all", collapsible: false, summary: run.running === true ? "running" : "", state: { status: "ready" }, body });
 }
@@ -287,16 +311,19 @@ export function createPromptsView({ onStatus } = {}) {
   const ui = {};
   const view = poller({
     url: "/api/prompts",
-    refreshMs: 15000, // a run under way moves every few seconds; the page follows it
+    refreshMs: 60000, // a run's progress comes with the loading bar (ui/run-bar.js); the page rebuilds once it ends
     onStatus,
     render: (envelope, container) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
-      const again = () => view.refresh();
+      const again = () => {
+        watchRun(); // a button may have started a run: the bar shows at once
+        return view.refresh();
+      };
       const page = el("div", { class: "page" }, runBand(data, again), ...promptCards(data, again), scheduleBand(data));
       mountFlow(ui, container, page, { full: ["prompts-run", "prompts-schedule"] });
     },
-    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Prompts", message, retry)),
-    renderLoading: () => el("div", { class: "page" }, band({ title: "Prompts", collapsible: false, state: { status: "loading" } })),
+    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Load data", message, retry)),
+    renderLoading: () => el("div", { class: "page" }, band({ title: "Load data", collapsible: false, state: { status: "loading" } })),
     loadingDetail: "Each prompt and what it has loaded",
   });
   return { ...view, unmount() { stopFlow(ui); view.unmount(); } };

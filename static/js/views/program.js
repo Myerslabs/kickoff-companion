@@ -14,7 +14,7 @@ import { crewText, teamStaff } from "../ui/game-staff.js";
 import { flow } from "../ui/flow.js";
 import { starStrip } from "../ui/team-page.js";
 import { scheduleList } from "../ui/schedule.js";
-import { backRow, band, note, revealBand, sectionChips, stateBlock, subhead } from "../ui/states.js";
+import { backRow, band, note, revealBand, sectionChips, settleOn, stateBlock, subhead } from "../ui/states.js";
 import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one sized box score on every page
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { trendRow } from "../ui/sparkline.js";
@@ -37,6 +37,7 @@ import { notesPaste } from "../ui/notes-paste.js";
 import { GRADE_NOTE, gradedTable } from "../ui/grade.js";
 import { playValueTable } from "../ui/play-value.js";
 import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common.js";
+import { dataRunActive, onRunProgress, watchRun } from "../ui/run-bar.js";
 import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
 import { commonOpponentsBlock, lastSeasonTwoTeam } from "../ui/offday.js";
@@ -176,72 +177,81 @@ function coverProps(data, { reveal = false } = {}) {
   };
 }
 
-/** "Write this week's notes": starts the notes task on the desktop and follows it until the file lands.
- *  quiet (notes exist, P-14): one quiet 'Rewrite notes' line in the band's foot; its status and log only
- *  while it runs or after an error. Public release Phase 6: shown only where the server finds the Claude
- *  Code command; everywhere else copy and paste (ui/notes-paste.js) is the way. */
+/** "Write this week's notes": starts the notes task on the desktop. The run goes on in the background (owner 2026-10-16:
+ *  "No refreshes until ALL data is loaded"): the loading bar above the page follows it (ui/run-bar.js) and the program
+ *  refreshes once, in place, when every run has ended. This control asks for its own status once, then listens to the
+ *  bar; it never polls and never reloads the page (the 5 s poll that reloaded after any saved run was the 2026-10-13 loop).
+ *  quiet (notes exist, P-14): one quiet 'Rewrite notes' line in the band's foot; its status and log only after an error.
+ *  Public release Phase 6: shown only where the server finds the Claude Code command; everywhere else copy and paste
+ *  (ui/notes-paste.js) is the way. */
 function notesTaskControl(gameId, { quiet = false } = {}) {
   const host = el("div", { class: `notes-task${quiet ? " notes-task--quiet" : ""}` });
-  let timer = null;
-  const statusText = (status, problem, running) => {
+  let status = null;
+  let problem = null;
+  let busy = false; // any Claude Code run on the server, from the loading bar
+  const statusText = () => {
     if (problem) return `${problem}.`;
+    if (busy) return "Claude Code is loading data in the background. The page refreshes once when everything is in.";
     if (!status) return null;
-    if (running) return `Running for game ${text(status.gameId)} since ${fmtTime(status.startedAt)}. The page refreshes itself when the file lands.`;
     if (status.error) return `Last run: ${text(status.error)}.`;
     if (quiet) return status.finishedAt ? `last run ${fmtTime(status.finishedAt)}` : null;
     return status.finishedAt ? `Last run finished ${fmtTime(status.finishedAt)}${status.fileWritten ? ", notes saved" : ""}.` : "Runs Claude Code on the server computer with the same prompt.";
   };
-  const draw = (status, problem) => {
-    if (!host.isConnected && timer) {
-      clearInterval(timer);
-      timer = null;
-      return;
-    }
-    if (!problem && status?.commandFound !== true && !status?.running) {
+  const draw = () => {
+    if (!problem && status?.commandFound !== true && !busy) {
       host.replaceChildren(); // no Claude Code on the server (or not known yet): copy and paste only
       return;
     }
-    const running = Boolean(status?.running);
     const tail = Array.isArray(status?.logTail) ? status.logTail.filter((line) => typeof line === "string").slice(-4) : [];
-    const says = statusText(status, problem, running);
-    const label = running ? "Writing…" : quiet ? "Rewrite with Claude Code" : "Write them with Claude Code";
+    const says = statusText();
+    const label = busy ? "Writing…" : quiet ? "Rewrite with Claude Code" : "Write them with Claude Code";
     replaceWith(
       host,
       el("div", { class: "notes-task__row" },
-        el("button", { class: `btn${quiet ? " btn--quiet" : " btn--primary"}`, type: "button", disabled: running || !status?.commandFound ? true : null, onclick: () => start() }, label),
+        el("button", { class: `btn${quiet ? " btn--quiet" : " btn--primary"}`, type: "button", disabled: busy || !status?.commandFound ? true : null, onclick: () => start() }, label),
         says ? el("span", { class: "notes-task__status" }, says) : null,
       ),
-      tail.length && (running || status?.error) ? el("pre", { class: "notes-task__log" }, tail.join("\n")) : null,
+      tail.length && !busy && status?.error ? el("pre", { class: "notes-task__log" }, tail.join("\n")) : null,
     );
   };
-  const poll = async () => {
+  const read = async () => {
     try {
       const envelope = await fetchJson("/api/notes/run");
-      const status = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
-      draw(status, null);
-      if (status && !status.running && timer) {
-        clearInterval(timer);
-        timer = null;
-        if (status.fileWritten && !status.error) window.location.reload();
-      }
+      status = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+      problem = null;
     } catch (error) {
-      draw(null, error?.message || "Could not read the notes task");
+      problem = error?.message || "Could not read the notes task";
     }
+    draw();
   };
+  const stop = onRunProgress((progress) => {
+    if (!host.isConnected) {
+      stop();
+      return;
+    }
+    const now = progress?.running === true;
+    const ended = busy && !now;
+    busy = now;
+    if (ended) read(); // the last run's line (saved, or what went wrong)
+    else draw();
+  });
   const start = async () => {
     try {
       const response = await fetch("/api/notes/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ gameId: isNum(gameId) ? gameId : null }) });
       const envelope = await response.json();
-      draw(envelope?.data || null, envelope?.errors?.[0]?.message || null);
-      if (envelope?.data?.running && !timer) timer = setInterval(poll, 5000);
+      status = envelope?.data && typeof envelope.data === "object" ? envelope.data : status;
+      problem = envelope?.errors?.[0]?.message || null;
+      busy = Boolean(envelope?.data?.running);
+      draw();
+      watchRun(); // the bar shows at once and follows the run
     } catch (error) {
-      draw(null, error?.message || "Could not start the notes task");
+      problem = error?.message || "Could not start the notes task";
+      draw();
     }
   };
-  draw(null, null);
-  poll().then(() => {
-    if (!timer) timer = setInterval(poll, 5000);
-  });
+  busy = dataRunActive();
+  draw();
+  read();
   return host;
 }
 
@@ -254,14 +264,14 @@ function notesBand(data) {
         "div",
         { class: "notes-empty" },
         note(`${text(n.error)}. Paste a new answer below, or fix data/notes/${id}.json and reload.`, { kind: "error", lead: "Notes file problem." }),
-        notesPaste({ gameId: data.game?.gameId }),
+        notesPaste({ gameId: data.game?.gameId, location: n }),
       );
     }
     if (!n.present) {
       return el(
         "div",
         { class: "notes-empty" },
-        notesPaste({ gameId: data.game?.gameId }), // Phase 17 #12: one line, two copy buttons, the box, one Save
+        notesPaste({ gameId: data.game?.gameId, location: n }), // Phase 17 #12: one line, two copy buttons, the box, one Save
         notesTaskControl(data.game?.gameId),
       );
     }
@@ -271,7 +281,7 @@ function notesBand(data) {
       {},
       editorial({ byline: { author: n.author, writtenAt: n.writtenAt }, sources: records(n.sources), sections: records(n.sections) }),
       el("div", { class: "notes-foot" },
-        el("details", { class: "notes-replace" }, el("summary", {}, "Replace with a new answer"), notesPaste({ gameId: data.game?.gameId })),
+        el("details", { class: "notes-replace" }, el("summary", {}, "Replace with a new answer"), notesPaste({ gameId: data.game?.gameId, location: n })),
         notesTaskControl(data.game?.gameId, { quiet: true }),
       ),
     );
@@ -861,17 +871,20 @@ function finalBand(data) {
   });
 }
 
+/** Prior weeks' programs (owner 2026-10-16, was "Programs"): the games already played, each opening its program. The
+ *  games ahead stay on the Season page's schedule. */
 function pickerBand(data) {
-  const games = listOf(data.picker).filter((g) => isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? "")));
+  const games = listOf(data.picker).filter((g) => (isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? ""))) && g.completed === true);
+  const scheduled = listOf(data.picker).length > 0;
   return band({
     id: "program-picker",
-    title: "Programs",
+    title: "Prior weeks' programs",
     collapsible: true,
     foldable: true,
     collapsed: true,
-    summary: "tap a game",
+    summary: games.length ? "tap a game" : "",
     state: partState(data.parts?.schedule, games.length > 0),
-    emptyText: "The schedule loads the first time the app opens.",
+    emptyText: scheduled ? "No games played yet this season. Each game's program shows here once it is played." : "The schedule loads the first time the app opens.",
     body: () => scheduleList({ games, nextGameId: data.game?.gameId ?? null, onSelect: (game) => openProgram(game?.gameId) }),
   });
 }
@@ -909,7 +922,7 @@ function sections(data) {
     availabilityBand(data), // 6 Availability report
     recruitingBand(data), // 7 Talent and recruiting
     lineupsBand(data), // 8 Lineups and depth
-    pickerBand(data), // 9 Programs (the game picker)
+    pickerBand(data), // 9 Prior weeks' programs (the game picker; renamed 2026-10-16)
     seriesBand(data), // 10 Series
     advancedBand(data), // 11 Advanced matchup
     tendenciesBand(data), // 12 Tendencies
@@ -1026,31 +1039,6 @@ function resultsSlot(data, state) {
       host.replaceChildren(band({ id: "program-results", title: "Expectations and results", collapsible: false, state: { status: "error", message: `${text(error?.message || "The locked program could not be read")}.` } }));
     });
   return host;
-}
-
-/**
- * Bring a band to the top and keep it there while the bands above it load and grow (2026-10-10: the radio band, which the
- * Setup page's Radio link opens, sits near the end of a flowing page, so one early scroll landed short). Up to four
- * seconds; any touch, wheel or key from the reader ends it at once.
- */
-function settleOn(target, ms = 4000) {
-  if (!target || typeof target.scrollIntoView !== "function" || typeof window === "undefined") return;
-  const kinds = ["wheel", "touchstart", "keydown", "pointerdown"];
-  let stopped = false;
-  const stop = () => {
-    stopped = true;
-  };
-  for (const kind of kinds) window.addEventListener(kind, stop, { passive: true, capture: true });
-  const until = Date.now() + ms;
-  const step = () => {
-    if (stopped || !target.isConnected || Date.now() > until) {
-      for (const kind of kinds) window.removeEventListener(kind, stop, { capture: true });
-      return;
-    }
-    target.scrollIntoView({ block: "start" });
-    setTimeout(step, 250);
-  };
-  setTimeout(step, 50);
 }
 
 /** The loading page in its real shape (P-04 item 5): the cover, then the first bands of the owner's order (2026-10-10). */

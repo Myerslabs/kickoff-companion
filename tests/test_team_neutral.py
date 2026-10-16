@@ -30,6 +30,7 @@ SKIPPED_DIRS = {"__pycache__", "fixtures", "fonts", "icons", "out", "dist"}  # o
 SKIPPED_FILES = {
     "tests/test_team_neutral.py",  # this file names the words it looks for
     "tests/test_demo_league.py",  # checks the league against the real FBS list
+    "app/radio_stations.json",  # station data names real teams and stations by design; it ships the initial station (owner 2026-10-16)
 }
 SUFFIXES = {".py", ".js", ".css", ".html", ".ps1", ".json", ".webmanifest", ".md", ".example", ".txt"}
 

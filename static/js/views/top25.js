@@ -179,6 +179,7 @@ export function createTop25View({ onStatus } = {}) {
   const inner = poller({
     url: `/api/top25?delay=${Number.isFinite(delay) ? delay : 30}`,
     refreshMs: REFRESH_MS,
+    holdDuringRuns: false, // live scores: never held for a data load (2026-10-16)
     onStatus,
     render: (envelope, container) => {
       page = render(envelope, container);

@@ -193,7 +193,7 @@ scenarios.radioHelp = async () => {
   assert.ok(t.includes("Diner Tech: no station in the app yet."));
   const request = block.querySelectorAll("a").find((a) => text(a) === "Request your team's radio");
   assert.ok(request && request.getAttribute("target") === "_blank" && request.getAttribute("rel") === "noopener");
-  assert.ok(block.querySelector('a[href="#settings"]'), "it points at Settings to add a station");
+  assert.ok(block.querySelector('a[href="#settings=radio"]'), "it points at Settings' station guide to add a station");
 };
 """
 

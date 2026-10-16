@@ -258,6 +258,32 @@ export function revealBand(section) {
   return true;
 }
 
+/**
+ * Bring a band to the top and keep it there while the bands above it load and grow (2026-10-10: the radio band, which the
+ * Setup page's Radio link opens, sits near the end of a flowing page, so one early scroll landed short; shared since
+ * 2026-10-16, when Settings' radio section, opened by #settings=radio, landed short the same way). Up to four
+ * seconds; any touch, wheel, key or click from the reader ends it at once.
+ */
+export function settleOn(target, ms = 4000) {
+  if (!target || typeof target.scrollIntoView !== "function" || typeof window === "undefined") return;
+  const kinds = ["wheel", "touchstart", "keydown", "pointerdown", "click"]; // 2026-10-16: a click too (a scripted one fires no pointer event)
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+  };
+  for (const kind of kinds) window.addEventListener(kind, stop, { passive: true, capture: true });
+  const until = Date.now() + ms;
+  const step = () => {
+    if (stopped || !target.isConnected || Date.now() > until) {
+      for (const kind of kinds) window.removeEventListener(kind, stop, { capture: true });
+      return;
+    }
+    target.scrollIntoView({ block: "start" });
+    setTimeout(step, 250);
+  };
+  setTimeout(step, 50);
+}
+
 export const FLASH_MS = 1600;
 
 /**

@@ -14,6 +14,7 @@ No CFBD call beyond the cached team list. Any device on the home network may pas
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Any
 
@@ -28,17 +29,52 @@ from app.services.season_notes import SeasonNotes
 from app.services.season_task import Batch, SeasonRunner
 
 router = APIRouter(tags=["season-notes"])
+log = logging.getLogger("kickoff.season")
 
 
-async def _context(request: Request) -> tuple[list[str], dict[str, list[str]], dict[str, dict[str, Any]]]:
-    """(primary teams, {conference: schools}, {school: team meta}) from the cached FBS list."""
+async def _next_opponent(request: Any) -> str | None:
+    """The home team's next opponent, so the Pre-Game Program's two schools both have their facts and coaches."""
+    from app.api.notes import _game
+
+    try:
+        game, _ok = await _game(request, None)
+    except Exception as exc:  # noqa: BLE001 - without the schedule the load covers my teams alone; logged
+        log.warning("The next opponent could not be read for the season loads: %s", exc)
+        return None
+    if game is None:
+        return None
+    team = request.app.state.settings.team
+    other = game.away_team if game.home_team == team else game.home_team
+    return other.strip() if isinstance(other, str) and other.strip() else None
+
+
+async def load_set(request: Any, teams: Any = None) -> tuple[list[str], set[str]]:
+    """(primary teams, every school the season loads cover). Owner 2026-10-16: the primary and secondary teams only, so
+    the first load is quick (no conference he does not follow), plus the home team's next opponent for the Pre-Game
+    Program."""
+    state = request.app.state
+    if teams is None:
+        teams = await state.program.fbs_teams()
+    chosen = teamset.current(state.settings, getattr(state, "prefs", None), state.cfbd, teams)
+    wanted = set(chosen.mine())
+    opponent = await _next_opponent(request)
+    if opponent:
+        wanted.add(opponent)
+    return list(chosen.primaries), wanted
+
+
+async def _context(request: Any) -> tuple[list[str], dict[str, list[str]], dict[str, dict[str, Any]]]:
+    """(primary teams, {conference: schools}, {school: team meta}) from the cached FBS list. The conference map holds my
+    teams only (load_set), so every season prompt, run and count covers them and nothing else."""
     state = request.app.state
     program = state.program
     teams = await program.fbs_teams()
     meta = program._teams_from(teams)
-    primaries = list(teamset.current(state.settings, getattr(state, "prefs", None), state.cfbd, teams).primaries)
+    primaries, wanted = await load_set(request, teams)
     conferences: dict[str, list[str]] = {}
     for school, row in meta.items():
+        if school not in wanted:
+            continue
         conference = row.get("conference")
         if isinstance(conference, str) and conference.strip():
             conferences.setdefault(conference.strip(), []).append(school)
@@ -242,17 +278,16 @@ async def start_season_run(request: Any, kind: str, keys: list[str] | None = Non
     elif kind == "preseason":
         loaded = notes.preseason_meta()
         keys = keys or [p for p in primaries if not (missing_only and p in loaded)]
-    elif kind == "costs":
-        saved = notes.costs()["batches"]
-        keys = keys or [c for c in sorted(conferences) if not (missing_only and c in saved)]
-    elif kind == "facts":
-        saved = notes.facts()["batches"]
-        keys = keys or [c for c in sorted(conferences) if not (missing_only and c in saved)]
+    elif kind in ("costs", "facts"):
+        have = (notes.costs() if kind == "costs" else notes.facts())["teams"]
+        # a conference is missing while any of my schools in it has nothing saved (2026-10-16: the set changes with the
+        # next opponent, so a conference saved before can gain a school)
+        keys = keys or [c for c in sorted(conferences) if not (missing_only and all(s in have for s in conferences[c]))]
     else:
-        saved = notes.coaches()["batches"]
+        have = notes.coaches()["teams"]
         # Final pass: a full refresh of the staffs (the winter schedule slots, "Run all again") is the one prompt for every
         # conference (Phase 19.3), not a run per conference; "the missing" still goes conference by conference
-        keys = keys or (["all"] if not missing_only else [c for c in sorted(conferences) if c not in saved])
+        keys = keys or (["all"] if not missing_only else [c for c in sorted(conferences) if not all(s in have for s in conferences[c])])
     batches = []
     for key in keys:
         prompt, error = _prompt(request, kind, key, primaries, conferences, meta)

@@ -1145,13 +1145,13 @@ function peopleSection() {
       const rows = [...byState.values()].map((row) => ({ ...row, averageRating: row.ratings.length ? row.ratings.reduce((a, b) => a + b, 0) / row.ratings.length : null })).sort((a, b) => b.commits - a.commits);
       const fl = byState.get("FL");
       const cls = { year: sample.recruiting?.year, byState: rows, inState: { state: "FL", commits: fl ? fl.commits : 0, of: commits.length }, unknownState: byState.get(null)?.commits || 0 };
-      where.replaceChildren(rec.whereBlock(cls)); // the page's own table and in-state line (wave 3, step 4)
+      where.replaceChildren(rec.whereBlock(cls)); // the page's own pie and in-state line (a pie since 2026-10-16)
     })
-    .catch((error) => where.replaceChildren(note(`Could not draw the table: ${text(error?.message)}`, { kind: "error" })));
+    .catch((error) => where.replaceChildren(note(`Could not draw the pie: ${text(error?.message)}`, { kind: "error" })));
   return section(
     "people",
     "People (Phase 16)",
-    "Roster and Recruiting pieces from stream PEOPLE. The depth chart: six unit columns from 1100 px (three from 700, two below), a jersey number on every row, 44 px rows, each card's select naming its number (Plays where CFBD credits plays, Rating elsewhere). Recruiting: 'Where they're from' per class with the in-state share.",
+    "Roster and Recruiting pieces from stream PEOPLE. The depth chart: six unit columns from 1100 px (three from 700, two below), a jersey number on every row, 44 px rows, each card's select naming its number (Plays where CFBD credits plays, Rating elsewhere). Recruiting: 'Where they're from' as a pie per class (every state a slice and a legend chip) with the in-state share.",
     label(`Depth chart from the sample roster (${text((sample.roster || []).length)} players)`),
     chart,
     label("Depth chart while it loads: the same six columns, so nothing moves when the data lands"),

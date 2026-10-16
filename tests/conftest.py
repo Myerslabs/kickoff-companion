@@ -227,6 +227,13 @@ def app(settings: Settings, fake_cfbd: FakeCfbd):
     shutdown_logging()
 
 
+def follow_conference(app: FastAPI, conference: str = CONFERENCE) -> None:
+    """A Tier 2 fan who follows the whole conference (2026-10-16: the season loads cover my teams only, so a test that
+    loads a conference's every school follows it first, as a fan of that conference would)."""
+    app.state.cfbd.capabilities.tier_level = 2
+    app.state.prefs.update({"likedConferences": [conference]})
+
+
 @pytest.fixture
 def client(app: FastAPI):
     """A client that arrives over HTTPS, like a device that trusts the CA. The live engine's background

@@ -64,7 +64,7 @@ export function twoSchoolsBand({ us, them, facts, id = "program-schools" } = {})
         el("thead", {}, el("tr", {}, el("th", { scope: "col", class: "txt" }, ""), el("th", { scope: "col" }, text(usName)), el("th", { scope: "col" }, text(themName)))),
         el("tbody", {}, Object.keys(u).map((label) => el("tr", {}, el("th", { scope: "row", class: "txt" }, label), el("td", { class: "txt" }, text(u[label])), el("td", { class: "txt" }, text(t[label]))))),
       ),
-      !f.us || !f.them ? el("p", { class: "note" }, `${!f.us ? text(us?.school || "Our") : text(them?.school || "Their")} facts are not loaded yet. `, el("a", { href: "#prompts" }, "Open the prompts")) : null,
+      !f.us || !f.them ? el("p", { class: "note" }, `${!f.us ? text(us?.school || "Our") : text(them?.school || "Their")} facts are not loaded yet. `, el("a", { href: "#prompts" }, "Open Load data")) : null,
     ),
   });
 }

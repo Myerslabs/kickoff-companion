@@ -472,10 +472,33 @@ scenarios.programPage = async () => {
   assert.ok(root.querySelector("a.weather__radar"));
   assert.ok(t.includes("Built 1939"));
   assert.ok(t.includes("4.5 sacks"));
+  // prior weeks' programs (owner 2026-10-16, was "Programs"): the games already played, nothing ahead
+  const picker = root.querySelector("#program-picker");
+  assert.equal(text(picker.querySelector(".band__title")), "Prior weeks' programs");
+  const listed = text(picker);
+  assert.ok(listed.includes("Campbell") && !listed.includes("Diner Tech") && !listed.includes("Silver Dollar"), listed);
   // the opponent's colors are switched on while the page is up, and reset when it goes
   assert.ok(document.documentElement.style["--opp"]);
   view.unmount();
   assert.ok(!document.documentElement.style["--opp"]);
+  root.remove();
+};
+
+// The 2026-10-13 loop (owner 2026-10-16: it only happened with Claude Code installed): after any run that saved notes,
+// the notes control's 5 s poll reloaded the page, and the reloaded page did it again. Now it asks once and never reloads.
+scenarios.notesNoReload = async () => {
+  let reloads = 0;
+  window.location.reload = () => { reloads += 1; };
+  const data = clone(FIXTURE);
+  data.notes = { present: true, author: "Claude", writtenAt: "2026-10-16T12:00:00Z", sections: [{ heading: "H", paragraphs: ["p"] }], availability: [] };
+  const { root, view } = await mountProgram(data);
+  route("/api/notes/run", () => envelope({ running: false, commandFound: true, fileWritten: true, finishedAt: "2026-10-16T12:00:00Z", error: null }));
+  const asked = calls.filter((u) => u.startsWith("/api/notes/run")).length;
+  await advance(10 * 60 * 1000);
+  assert.equal(reloads, 0, "a finished run never reloads the page");
+  assert.ok(calls.filter((u) => u.startsWith("/api/notes/run")).length <= asked + 1, "no 5 s poll of the notes task");
+  clean("program with notes", root);
+  view.unmount();
   root.remove();
 };
 
@@ -561,7 +584,7 @@ scenarios.damagedPage = async () => {
 };
 """
 
-NAMES = ["twoTeam", "percentile", "ladderAndUnderline", "edges", "leaders", "coverStates", "coverTick", "faceOff", "formGuide", "weatherVenue", "zones", "programPage", "pickerOneFetch", "finalPage", "countdownTicks", "revealOnce", "damagedPage"]
+NAMES = ["twoTeam", "percentile", "ladderAndUnderline", "edges", "leaders", "coverStates", "coverTick", "faceOff", "formGuide", "weatherVenue", "zones", "programPage", "pickerOneFetch", "finalPage", "countdownTicks", "revealOnce", "damagedPage", "notesNoReload"]
 
 
 @pytest.fixture

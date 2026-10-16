@@ -1670,6 +1670,9 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .notes-paste__path code { font-family: ui-monospace, Consolas, monospace; color: var(--fog); }
 .notes-paste__copy { color: var(--chalk); font-weight: 600; }
 @media (hover: hover) { .notes-paste__path:hover { border-color: var(--fog); } }
+.notes-paste__where { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); min-width: 0; max-width: 100%; } /* 2026-10-16: the location, the example's, what happened */
+.notes-paste__copybox { flex: 1 1 100%; box-sizing: border-box; width: 100%; min-width: 0; min-height: 36px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel); color: var(--chalk); font-family: ui-monospace, Consolas, monospace; font-size: var(--text-caption); }
+.notes-paste__copybox[hidden] { display: none; }
 .notes-paste__answer { min-height: 96px; }
 .notes-paste__warn { display: grid; gap: var(--sp-1); justify-items: start; padding: var(--sp-2) var(--sp-3); border: 1px solid color-mix(in srgb, var(--stale) 45%, transparent); border-radius: var(--radius); background: color-mix(in srgb, var(--stale) 8%, transparent); }
 .notes-paste__warn p, .notes-paste__warn ul { margin: 0; }
@@ -2146,6 +2149,42 @@ body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer
 .page-note__body { display: grid; gap: var(--sp-2); padding-right: var(--sp-2); color: var(--chalk); }
 .page-note__body > p { margin: 0; max-width: 75ch; }
 .page-note__body > p.note { padding: 0; }
+/* --- the pie (ui/pie.js) and where a recruiting class is from (owner 2026-10-16) --------------------------------------- */
+.pie { display: grid; justify-items: center; gap: var(--sp-2); margin: 0; min-width: 0; }
+.pie__plot { width: min(100%, var(--pie-size, 280px)); aspect-ratio: 1; }
+.pie__svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.pie__slice { stroke: var(--panel); stroke-width: 2px; stroke-linejoin: round; cursor: pointer; transition: opacity 150ms ease-out; }
+.pie__slice.is-dim { opacity: 0.35; }
+.pie__info { margin: 0; min-height: 1.4em; color: var(--chalk); font-size: calc(15px * var(--ui-scale)); font-variant-numeric: tabular-nums; text-align: center; }
+.pie__legend { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.pie__chip { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 10px; border: 1px solid var(--rule); border-radius: 999px; background: transparent; color: var(--chalk); font: inherit; font-size: calc(14px * var(--ui-scale)); cursor: pointer; }
+.pie__chip[aria-pressed="true"] { border-color: var(--fog); background: var(--panel-raised); }
+.pie__swatch { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.pie__name { font-weight: 600; }
+.pie__value { color: var(--fog); font-variant-numeric: tabular-nums; }
+@media (hover: hover) { .pie__chip:hover { border-color: var(--fog); } }
+@media (prefers-reduced-motion: reduce) { .pie__slice { transition: none; } }
+@media (forced-colors: active) { .pie__slice { stroke: Canvas; } .pie__swatch { forced-color-adjust: none; } }
+.where-pies { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: var(--sp-4) var(--gap); align-items: start; }
+.where-pies__class { display: grid; gap: var(--sp-2); min-width: 0; }
+.where-block { display: grid; gap: var(--sp-2); }
+.where-block > .note { text-align: center; }
+/* --- the loading bar (ui/run-bar.js, owner 2026-10-16): Claude Code loading data in the background, above the page ------ */
+.run-bar { display: grid; gap: var(--sp-2); width: 100%; max-width: 1320px; margin-inline: auto; padding: var(--sp-2) var(--gap) 0; box-sizing: border-box; }
+.run-bar[hidden] { display: none; }
+.run-bar__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--sp-3); min-width: 0; }
+.run-bar__title { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; color: var(--chalk); }
+.run-bar__what { min-width: 0; color: var(--chalk); font-size: calc(15px * var(--ui-scale)); }
+.run-bar__when { margin-left: auto; color: var(--fog); font-size: calc(14px * var(--ui-scale)); font-variant-numeric: tabular-nums; }
+.run-bar__track { position: relative; height: 8px; overflow: hidden; background: var(--rule); border-radius: 999px; }
+.run-bar__fill { height: 100%; background: var(--team-accent); border-radius: 999px; transition: width 600ms ease-out; }
+.run-bar__track--moving .run-bar__fill { position: absolute; inset: 0 auto 0 0; width: 30%; animation: run-bar-move 1.6s ease-in-out infinite; }
+@keyframes run-bar-move { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+.run-bar__note { margin: 0; color: var(--fog); font-size: calc(14px * var(--ui-scale)); }
+.run-bar--done .run-bar__fill { background: var(--good, var(--team-accent)); }
+@media (prefers-reduced-motion: reduce) { .run-bar__fill { transition: none; } .run-bar__track--moving .run-bar__fill { animation: none; transform: none; width: 100%; opacity: 0.5; } }
+body.board-mode .run-bar { display: none !important; }
+@media print { .run-bar { display: none !important; } }
 /* --- the Prompts page (views/prompts.js, the Prompts phase 2026-10-13) ------------------------------------------- */
 .prompts__card { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .prompts__state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
@@ -2562,8 +2601,8 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 
 /* --- the radio band shows its state; one 44px row per source (P-12 item 2) -------------------------------- */
 .radio-panel--compact { gap: 6px; }
-.radio-source.radio-source--row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: var(--tap); padding: 3px 3px 3px var(--sp-3); }
-.radio-source--row .btn { min-height: 36px; }
+.radio-source.radio-source--row { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) auto; align-items: center; gap: var(--sp-3); min-height: var(--tap); padding: 0 0 0 var(--sp-3); }
+.radio-source--row .btn { min-height: var(--tap); } /* 2026-10-16: the 44 px press rule (the sample station brought the first row to the demo) */
 .radio-source--row .radio-source__name { font-size: calc(17px * var(--ui-scale)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .radio-source--row .radio-source__kind { color: var(--mist); }
 .radio-source--row .btn { min-width: 76px; }

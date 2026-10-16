@@ -112,7 +112,7 @@ def main(argv: list[str], settings: Settings, http: Callable[..., tuple[int, Any
         try:
             status, body = call("GET", "/api/prompts/run", None)
         except OSError as exc:
-            out(f"The server stopped answering ({exc.__class__.__name__}); the run goes on there. Open the Prompts page to follow it.")
+            out(f"The server stopped answering ({exc.__class__.__name__}); the run goes on there. Open the Load data page to follow it.")
             return 2
         data = body.get("data") if isinstance(body, dict) and isinstance(body.get("data"), dict) else {}
     failed = sum(1 for s in (data.get("steps") or []) if isinstance(s, dict) and s.get("state") == "failed")

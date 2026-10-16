@@ -120,8 +120,12 @@
 .radio-help { display: grid; gap: 10px; }
 .radio-help__team p { margin: 0 0 6px; }
 .radio-help__links { display: flex; flex-wrap: wrap; gap: 8px; }
-.station-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
-.station-form label { display: grid; gap: 4px; font-weight: 600; color: var(--fog); }
+.station-form { display: grid; gap: 12px 8px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); align-items: start; }
+.station-form label { display: grid; gap: 4px; align-content: start; font-weight: 600; color: var(--fog); }
+.station-form__help { color: var(--fog); font-weight: 400; font-size: var(--text-caption); line-height: 1.35; } /* 2026-10-16: the guide's line under each field */
+.station-form__buttons { display: flex; flex-wrap: wrap; gap: 8px; align-self: end; }
+.station-steps { display: grid; gap: 8px; margin: 0 0 12px; padding-left: 1.4em; max-width: 75ch; color: var(--chalk); }
+.station-steps b { color: var(--chalk); }
 .station-list { display: grid; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
 .station-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: var(--tap); border-bottom: 1px solid var(--rule); }
 .station-list .grow { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
@@ -174,7 +178,7 @@ code {
    the type rule covers a field no class sizes. */
 @media (pointer: coarse) {
   :where(input:not([type="range"], [type="checkbox"], [type="radio"], [type="button"], [type="submit"], [type="reset"], [type="color"], [type="file"], [type="image"]), select, textarea) { font-size: max(16px, 1em); }
-  .input, .form-field input, .setting__select, .setting__text, .search__input, .prompt-paste__fallback { font-size: max(16px, 1em); }
+  .input, .form-field input, .setting__select, .setting__text, .search__input, .prompt-paste__fallback, .notes-paste__copybox { font-size: max(16px, 1em); }
   .notes-paste .input { font-size: max(16px, calc(14px * var(--ui-scale))); }
   .depth-card__pick { font-size: max(16px, calc(15px * var(--ui-scale))); }
 }

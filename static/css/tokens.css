@@ -52,6 +52,12 @@
   --opp-alt: #9BA6CC;
   --opp-text: #F2F4FA;
 
+  /* the recruiting pie (2026-10-16): our state wears --team-us; the next two states these two hues, checked with the
+     color-blind validator against our color on charcoal and on white; every other state the gray */
+  --pie-2: #C98500;
+  --pie-3: #D55181;
+  --pie-other: #6E7583;
+
   /* status: never the only signal, always paired with a word or glyph */
   --good: #3DD68C;
   --stale: #FFD166;
@@ -182,4 +188,5 @@ img { max-width: 100%; }
   --stale: #8A6100;
   --bad: #B3261E;
   --replay: #5B33C4;
+  --pie-other: #A3A9B5;
 }

@@ -4,7 +4,8 @@
 // This band shows one team's: the total with what it covers and its date, then positions, then players, then the
 // sources. Every figure is labelled rumored; nothing here is official.
 //
-//   costsBand(costs, { id, team })  -> the band; an empty state says where the load is run
+//   costsBand(costs, { id, team, outside })  -> the band; an empty state says where the load is run (outside: a team the
+//                                              loads leave out, 2026-10-16)
 //
 // Tables wave 3 (owner 2026-10-10): both tables size themselves by their own box. Position groups: Position group ("Group"
 // at small) | Amount | Note, the note prose that wraps in the room the others leave, at every size. Player values: Player
@@ -15,6 +16,7 @@
 import { DASH, el, fmtDate, fmtUsd, isNum, str, text } from "./dom.js";
 import { band } from "./states.js";
 import { statTable } from "./stat-table.js";
+import { OUTSIDE } from "./school-facts.js";
 
 function rows(value) {
   return (Array.isArray(value) ? value : []).filter((r) => r && typeof r === "object");
@@ -46,7 +48,7 @@ export function playersTable(players) {
   return statTable({ compact: true, sizes: true, caption: "Rumored player values", sort: { key: "amountUsd", dir: "descending" }, columns, rows: list });
 }
 
-export function costsBand(costs, { id = "roster-costs", team } = {}) {
+export function costsBand(costs, { id = "roster-costs", team, outside = false } = {}) {
   const c = costs && typeof costs === "object" ? costs : null;
   const positions = rows(c?.positions).filter((p) => str(p.group));
   const players = rows(c?.players).filter((p) => str(p.name));
@@ -59,7 +61,7 @@ export function costsBand(costs, { id = "roster-costs", team } = {}) {
     collapsible: true,
     foldable: true,
     summary: has && isNum(c.totalUsd) ? `${fmtUsd(c.totalUsd)} total, rumored` : c ? "looked for, none reported" : "",
-    state: has ? { status: "ready" } : { status: "empty", message: c ? `No figure was reported for ${text(team || c.school)} when the load ran${str(c.savedAt) ? ` (${fmtDate(c.savedAt, "short")})` : ""}.` : "Not loaded yet." , action: { label: "Open the prompts", href: "#prompts" } },
+    state: has ? { status: "ready" } : !c && outside ? { status: "empty", message: `Not loaded. ${OUTSIDE}`, action: { label: "Open Settings", href: "#settings" } } : { status: "empty", message: c ? `No figure was reported for ${text(team || c.school)} when the load ran${str(c.savedAt) ? ` (${fmtDate(c.savedAt, "short")})` : ""}.` : "Not loaded yet." , action: { label: "Open Load data", href: "#prompts" } },
     body: () =>
       el(
         "div",

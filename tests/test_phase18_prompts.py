@@ -53,7 +53,7 @@ def test_the_season_routes_save_everything_at_once(client, league):  # noqa: F81
     saved = client.post("/api/season-notes/save", json={"kind": "season", "key": "all", "text": season_answer(schools=EVERY_SCHOOL)}).json()
     assert saved["data"]["saved"] is True
     status = client.get("/api/season-notes").json()["data"]
-    assert status["preseason"][0]["savedAt"] and status["coachesSaved"] == len(EVERY_SCHOOL)
+    assert status["preseason"][0]["savedAt"] and status["coachesSaved"] == status["coachesOf"] < len(EVERY_SCHOOL)  # my teams only (2026-10-16)
     page = client.get("/api/preseason").json()["data"]["teams"][0]
     assert page["preseason"]["outlook"]["summary"] == "A good year ahead." and page["coaches"]["headCoach"].startswith("Head ")
     assert client.post("/api/season-notes/save", json={"kind": "season", "key": "all", "text": "nope"}).status_code == 422

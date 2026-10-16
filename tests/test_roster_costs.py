@@ -47,10 +47,12 @@ def test_detail_is_kept_only_for_primary_teams(tmp_path):
     assert list(notes.costs()["teams"]) == [OTHER], "a damaged team is left out"
 
 
-def test_routes_and_where_the_figures_show(client, fake_cfbd):
+def test_routes_and_where_the_figures_show(client, fake_cfbd, app):
+    from tests.conftest import follow_conference
     from tests.test_program import route_program
 
     route_program(fake_cfbd)
+    follow_conference(app)
     prompt = client.get("/api/season-notes/prompt", params={"kind": "costs", "key": CONFERENCE}).json()["data"]["prompt"]
     assert "rumored" in prompt and f"- {TEAM}" in prompt.split("For these schools only")[1], "our team is asked in detail"
     saved = client.post("/api/season-notes/save", json={"kind": "costs", "key": CONFERENCE, "text": costs_answer()}).json()

@@ -40,12 +40,12 @@ export const MENU = [
     items: [
       { id: "myteams", label: "My Teams", hint: "the teams the app keeps loaded" },
       { id: "injuries", label: "Injury Report" },
-      { id: "prompts", label: "Prompts", hint: "copy, paste or run them" }, // the Prompts phase (2026-10-13): every dead end leads here
+      { id: "prompts", label: "Load data", hint: "copy, paste or run the prompts" }, // the Prompts phase (2026-10-13): every dead end leads here; "Load data" since 2026-10-16 (owner), the address stays #prompts
       { id: "roster", label: "Roster" },
       { id: "recruiting", label: "Recruiting" },
     ],
   },
-  { group: "National", items: [{ id: "leaders", label: "Leaders" }, { id: "ratings", label: "Ratings" }] },
+  { group: "National", items: [{ id: "leaders", label: "Leaders" }, { id: "ratings", label: "Advanced Team Ratings" }] },
   {
     group: "App",
     items: [

@@ -175,7 +175,7 @@ function teamBand(team) {
     collapsible: true,
     foldable: true,
     summary: p ? `loaded ${fmtDate(t.savedAt, "short")}` : "not loaded",
-    state: p ? { status: "ready" } : { status: "empty", message: "Not loaded yet. Copy the prompt in Season loads above, or run it with Claude Code.", action: { label: "Open the prompts", href: "#prompts" } },
+    state: p ? { status: "ready" } : { status: "empty", message: "Not loaded yet. Copy the prompt in Season loads above, or run it with Claude Code.", action: { label: "Open Load data", href: "#prompts" } },
     body: () =>
       el(
         "div",

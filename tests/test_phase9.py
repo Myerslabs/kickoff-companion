@@ -54,7 +54,8 @@ def test_settings_routes_show_options_and_quota_without_secrets(app, client: Tes
     body = client.get("/api/settings").json()
     data = body["data"]
     assert data["prefs"]["delaySeconds"] == 30 and data["prefs"]["theme"] == "dark"
-    assert data["radioSources"] == []  # no station is built in (public release Phase 3); RADIO_SOURCES names the team's own
+    # no station of the team's own is built in (public release Phase 3); 2026-10-16: the list's initial station plays as a sample
+    assert [s["origin"] for s in data["radioSources"]] == ["sample"]
     assert set(data["quota"]) >= {"used", "remaining", "budget", "pctUsed", "mode", "tierName"}
     assert data["server"]["team"] == "Swampwater Tech" and "notes" in data and "autoStart" in data
     assert TEST_KEY not in json.dumps(body) and "cfbd_api_key" not in json.dumps(body)

@@ -878,7 +878,7 @@ export const GLOSSARY = [
     term: "Commits",
     group: "Recruiting and roster",
     aliases: ["Commits", "Commit"],
-    text: "The number of recruits committed to a team's class in CFBD's recruiting list. The Where they're from table counts them by home state.",
+    text: "The number of recruits committed to a team's class in CFBD's recruiting list. The Where they're from pies count them by home state.",
     read: "More commits is a fuller class; the ratings beside the count say how good it is.",
     source: "CFBD",
   },

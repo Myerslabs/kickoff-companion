@@ -16,6 +16,7 @@ import { noteBuild, noteRestart } from "../build.js";
 import { pollMs } from "../prefs.js";
 import { DASH, el, isNum, restoreScroll, scrollState, text } from "../ui/dom.js";
 import { band, loadingSun, stateBlock } from "../ui/states.js";
+import { dataRunActive } from "../ui/run-bar.js";
 
 export const FETCH_TIMEOUT_MS = 20000;
 // A page the server is still gathering (a cold cache after a restart: the Game program alone makes a few dozen
@@ -183,7 +184,9 @@ function signature(envelope) {
  * A polling view: fetches `url`, keeps the last good envelope, renders through `render(envelope)`
  * or `renderError(message)`, and reports status through `onStatus`. Returns { mount, refresh, unmount }.
  */
-export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading, loadingDetail = null }) {
+// holdDuringRuns (owner 2026-10-16): while Claude Code loads data on the server (ui/run-bar.js) a drawn page keeps what it
+// shows, with no timed refresh, and refreshes once when every run has ended; a page with live scores passes false.
+export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading, loadingDetail = null, holdDuringRuns = true }) {
   let container = null;
   let last = null;
   let lastAt = 0;
@@ -263,8 +266,17 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
     return inFlight;
   }
 
+  const holding = () => holdDuringRuns && drawn !== null && dataRunActive();
+  const tick = () => {
+    if (!holding()) refresh();
+  };
+
   function onVisible() {
-    if (document.visibilityState === "visible" && Date.now() - lastAt > staleAfterMs) refresh();
+    if (document.visibilityState === "visible" && Date.now() - lastAt > staleAfterMs && !holding()) refresh();
+  }
+
+  function onDataLoaded() {
+    if (container) refresh(); // the one refresh after the load: a page whose data did not change does not move
   }
 
   return {
@@ -283,14 +295,16 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
         container.replaceChildren(loadingSun({ detail: loadingDetail }), renderLoading()); // Phase 17 #1: the sun above the outlines
       }
       refresh();
-      timer = setInterval(refresh, refreshMs);
+      timer = setInterval(tick, refreshMs);
       document.addEventListener("visibilitychange", onVisible);
+      if (holdDuringRuns) document.addEventListener("kickoff:data-loaded", onDataLoaded);
     },
     refresh,
     unmount() {
       if (timer) clearInterval(timer);
       timer = null;
       document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("kickoff:data-loaded", onDataLoaded);
       container = null;
       drawn = null;
     },

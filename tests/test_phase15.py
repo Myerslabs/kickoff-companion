@@ -299,7 +299,7 @@ def test_ratings_is_in_the_menu():
     from pathlib import Path
 
     shell_js = Path("static/js/ui/shell.js").read_text(encoding="utf-8")
-    assert '{ id: "ratings", label: "Ratings" }' in shell_js
+    assert '{ id: "ratings", label: "Advanced Team Ratings" }' in shell_js
 
 
 # --- D: context tables ------------------------------------------------------------------------------

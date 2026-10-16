@@ -245,7 +245,7 @@ def test_the_people_pages_heads_fit_a_phone() -> None:
         text = path.read_text(encoding="utf-8")
         mids += re.findall(r'(?:labelMid|subLabelMid): "([^"]+)"', text)
         shorts += re.findall(r'(?:labelShort|subLabelShort): "([^"]+)"', text)
-    assert {"Opp", "Nat", "Avg", "#", "Group"} <= set(shorts), shorts
+    assert {"Opp", "Nat", "Group"} <= set(shorts), shorts  # 2026-10-16: Where they're from is a pie, its table (#, Avg) gone
     assert {"Conf", "AP", "SP+", "Elo", "FPI", "Last", "Opponent", "Next", "Date"} <= set(mids), mids
     assert not [word for word in shorts if len(word) > SMALL], shorts
     assert not [word for word in mids if len(word) > 24], mids

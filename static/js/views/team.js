@@ -356,11 +356,11 @@ function render(envelope, container, state) {
   state.ui ??= {};
   const page = el("div", { class: "page team" });
   const bodies = {
-    summary: () => [...summary(data, { prefix: "team-" }), recruitingBand(data), playValueBand(data, state), costsBand(data.costs, { id: "team-costs", team: schoolOf(data) }), standingsBand(data, state)],
+    summary: () => [...summary(data, { prefix: "team-" }), recruitingBand(data), playValueBand(data, state), costsBand(data.costs, { id: "team-costs", team: schoolOf(data), outside: data.inLoadSet === false }), standingsBand(data, state)],
     schedule: () => [schedule(data)],
     roster: () => [roster(data, state)],
     coaches: () => coaches(data),
-    history: () => [factsBand(data.facts, { id: "team-facts", school: schoolOf(data) }), history(data)], // the Prompts phase: school history first
+    history: () => [factsBand(data.facts, { id: "team-facts", school: schoolOf(data), outside: data.inLoadSet === false }), history(data)], // the Prompts phase: school history first
   };
   if (!bodies[state.tab]) state.tab = "summary";
   let shown = [];
@@ -395,7 +395,7 @@ export function openTeamFlyout(school) {
       // (wave 3: the schedule, the standings and the series too, which once reused the page's ids)
       const sheet = { sorts: {} };
       const extra = [injurySheetBand(school), roster(data, sheet, { id: "sheet-roster", collapsed: true }), recruitingBand(data, { id: "sheet-recruiting" })];
-      host.replaceChildren(...[header.root, tiles, schedule(data, { id: "sheet-schedule" }), ...statBands, ...extra, standingsBand(data, sheet, { id: "sheet-standings" }), factsBand(data.facts, { id: "sheet-facts", school }), data.series ? history(data, { id: "sheet-history" }) : null].filter(Boolean)); // final pass: no "null" text for a missing band
+      host.replaceChildren(...[header.root, tiles, schedule(data, { id: "sheet-schedule" }), ...statBands, ...extra, standingsBand(data, sheet, { id: "sheet-standings" }), factsBand(data.facts, { id: "sheet-facts", school, outside: data.inLoadSet === false }), data.series ? history(data, { id: "sheet-history" }) : null].filter(Boolean)); // final pass: no "null" text for a missing band
     })
     .catch((error) => host.replaceChildren(band({ title: text(school), collapsible: false, state: { status: "error", message: `${text(error?.message)}.` } })));
   return handle;

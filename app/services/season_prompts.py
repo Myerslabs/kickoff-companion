@@ -43,7 +43,7 @@ What to fill, for {school} only:
 Rules: never invent a player, a date or a number; leave a list empty when nothing reliable is published. Set "season" to {season}, "author" to the name of the assistant writing it, "writtenAt" to the current UTC time, and the team's "school" to "{school}" exactly. Valid JSON only: no comments, no trailing commas.
 """
 
-SEASON_PROMPT = """You are loading the season for a college football second-screen app, season {season}. One answer does it all: a deep look at the teams the owner follows, and the coaching staff heads of every FBS team.
+SEASON_PROMPT = """You are loading the season for a college football second-screen app, season {season}. One answer does it all: a deep look at the teams the owner follows, and the coaching staff heads of every school listed in part 2.
 
 Search the web and answer with ONE JSON object in a single ```json code block, nothing else, in exactly this shape:
 

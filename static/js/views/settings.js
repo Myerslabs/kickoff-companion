@@ -15,18 +15,33 @@ import { setSpoiler, spoilerOn } from "../ui/spoiler.js";
 import { restartFlow } from "../ui/restart.js";
 import { fetchJson } from "./common.js";
 import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, text } from "../ui/dom.js";
-import { band, note, revealBand, subhead } from "../ui/states.js";
+import { band, note, revealBand, settleOn, subhead } from "../ui/states.js";
 import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
-import { radioHelpBlock, reloadRadioSources } from "../radio.js";
+import { radioHelpBlock, reloadRadioSources, startRadio } from "../radio.js";
 import { copyText } from "../ui/notes-paste.js";
 
 const REPO_URL = "https://github.com/Myerslabs/kickoff-companion"; // the server's own copy wins (about.repoUrl)
 
 const KINDS = [
-  { value: "stream", label: "Stream (plays in the app)" },
-  { value: "embed", label: "Station player (shown in the app)" },
   { value: "link", label: "Link (opens a tab)" },
+  { value: "embed", label: "Station player (shown in the app)" },
+  { value: "stream", label: "Stream (plays in the bar)" },
 ];
+// The station guide (2026-10-16): what each kind needs, and a made-up address of that kind.
+const STATION_HELP = {
+  link: "The station's Listen live page. Always works; it opens in a new tab.",
+  embed: "A page that is only the station's player. Plays inside the app when the station allows it.",
+  stream: "A direct audio address, often ending in .mp3, .aac, .m3u8 or .pls. Plays in the bar at the bottom of every page.",
+};
+const STATION_EXAMPLES = {
+  link: "https://www.example-station.com/listen-live/",
+  embed: "https://player.example-station.com/",
+  stream: "https://stream.example-station.com/live.mp3",
+};
+/** Whether an address looks like a direct audio stream (a hint only: the station's own word wins). */
+export function looksLikeAudio(address) {
+  return typeof address === "string" && /\.(mp3|aac|m3u8?|pls|ogg|opus)(?:[?#]|$)|\/(?:stream|live|listen)(?:[/?#]|$)|icecast|shoutcast|streamon|streamtheworld/i.test(address.trim());
+}
 function row(label, control, help) {
   return el("div", { class: "setting" }, el("div", { class: "setting__label" }, label, help ? el("small", {}, help) : null), el("div", { class: "setting__control" }, control));
 }
@@ -57,7 +72,8 @@ function loginText(auto) {
   return `Starts the server when you log in, through ${what}. ${auto.enabled ? "Currently on." : "Currently off."}`;
 }
 
-export function createSettingsView({ onStatus } = {}) {
+export function createSettingsView({ onStatus, arg = null } = {}) {
+  let focus = typeof arg === "string" && /^[a-z-]{1,30}$/.test(arg) ? `settings-${arg}` : null; // #settings=radio opens a section (2026-10-16)
   let container = null;
   const setStatus = (kind, label) => {
     if (typeof onStatus === "function") onStatus({ kind, label });
@@ -234,28 +250,73 @@ export function createSettingsView({ onStatus } = {}) {
 
   function radioBand() {
     // Public release Phase 5b: radio for any team. Stations added here follow RADIO_SOURCES from .env; for a
-    // primary team with none, search links and the GitHub request form (radioHelpBlock).
+    // primary team with none, search links and the GitHub request form (radioHelpBlock). 2026-10-16 (owner: "when looking
+    // to load a station, it needs much better instructions"): the steps first, a help line under each field that follows
+    // the kind picked, a Try it that plays or opens the address before it is saved, and a warning for a stream address
+    // that does not look like audio.
     const p = getPrefs();
     const meta = prefsMeta() || {};
     const saved = (Array.isArray(p.radioStations) ? p.radioStations : []).filter((s) => s && str(s.name) && str(s.url));
     const fromEnv = (Array.isArray(meta.radioSources) ? meta.radioSources : []).filter((s) => s && s.origin === "env").length;
     const fromList = (Array.isArray(meta.radioSources) ? meta.radioSources : []).filter((s) => s && s.origin === "list");
+    const sample = (Array.isArray(meta.radioSources) ? meta.radioSources : []).find((s) => s && s.origin === "sample");
     const teams = Array.isArray(meta.teamSet?.primaries) ? meta.teamSet.primaries.filter((t) => str(t)) : [];
     const team = select(teams.map((t) => ({ value: t, label: t })), teams[0] || "", () => {}, "Station's team");
-    const name = el("input", { type: "text", class: "input", maxlength: "60", placeholder: "Station or network name", "aria-label": "Station name" });
-    const kind = select(KINDS, "link", () => {}, "How it plays");
-    const url = el("input", { type: "url", class: "input", maxlength: "500", placeholder: "https://", spellcheck: "false", "aria-label": "Station address" });
+    const name = el("input", { type: "text", class: "input", maxlength: "60", placeholder: "e.g. Station 101.5 FM", "aria-label": "Station name" });
+    const url = el("input", { type: "url", class: "input", maxlength: "500", placeholder: STATION_EXAMPLES.link, spellcheck: "false", "aria-label": "Station address" });
+    const kindHelp = el("small", { class: "station-form__help" }, STATION_HELP.link);
     const problem = el("p", { class: "note note--error", role: "alert", hidden: true });
+    const warn = el("p", { class: "note note-warn", role: "status", hidden: true });
+    let kind = null;
+    const entry = () => ({ team: team.value || null, name: name.value.trim(), kind: kind?.value || "link", url: url.value.trim() });
+    const checkAddress = () => {
+      const e = entry();
+      const odd = e.kind === "stream" && /^https?:\/\//.test(e.url) && !looksLikeAudio(e.url);
+      warn.hidden = !odd;
+      warn.textContent = odd ? "That address does not look like a direct audio stream (they usually end in .mp3, .aac, .m3u8 or .pls). If Try it stays silent, save it as a Link instead." : "";
+    };
+    kind = select(KINDS, "link", (value) => {
+      kindHelp.textContent = STATION_HELP[value] || "";
+      url.setAttribute("placeholder", STATION_EXAMPLES[value] || "https://");
+      checkAddress();
+    }, "How it plays");
+    url.addEventListener("input", checkAddress);
+    const say = (message) => {
+      problem.hidden = !message;
+      problem.textContent = message || "";
+    };
     const add = () => {
-      const entry = { team: team.value || null, name: name.value.trim(), kind: kind.value, url: url.value.trim() };
-      const wrong = !entry.name ? "Give the station a name." : !/^https?:\/\//.test(entry.url) ? "The address must start with https:// (or http://)." : saved.some((s) => s.url === entry.url) ? "That station is already in the list." : null;
-      problem.hidden = !wrong;
-      problem.textContent = wrong || "";
-      if (!wrong) saveStations([...saved, entry], "Radio station");
+      const e = entry();
+      const wrong = !e.name ? "Give the station a name." : !/^https?:\/\//.test(e.url) ? "The address must start with https:// (or http://). Copy it from the browser's address bar." : saved.some((s) => s.url === e.url) ? "That station is already in the list." : null;
+      say(wrong);
+      if (!wrong) saveStations([...saved, e], "Radio station");
+    };
+    const tryIt = () => {
+      const e = entry();
+      if (!/^https?:\/\//.test(e.url)) {
+        say("Paste the address first: it must start with https:// (or http://).");
+        return;
+      }
+      say(null);
+      startRadio({ id: "try-station", name: e.name || "Trying a station", kind: e.kind, url: e.url, team: e.team }, { keep: false });
+      warn.hidden = false;
+      warn.textContent = e.kind === "link"
+        ? "The station's page opened in a new tab. If it plays there, this Link works."
+        : e.kind === "embed"
+          ? "The station's player is in the bar at the bottom. If it shows blank, the station does not allow it inside other apps: pick Link."
+          : "Listen in the bar at the bottom. Silent after a few seconds? Pick Station player or Link instead.";
     };
     const list = saved.length
       ? el("ul", { class: "station-list" }, saved.map((s, index) => el("li", {}, el("span", { class: "grow" }, el("strong", {}, text(s.name)), str(s.team) ? `, ${s.team}` : "", ` · ${KINDS.find((k) => k.value === s.kind)?.label || text(s.kind)}`, el("br"), el("small", { class: "mono" }, text(s.url))), el("button", { class: "btn", type: "button", onclick: () => saveStations(saved.filter((_, i) => i !== index), "Radio stations") }, "Remove"))))
       : el("p", { class: "note" }, "No stations added here yet.");
+    const steps = el(
+      "ol",
+      { class: "station-steps" },
+      el("li", {}, el("b", {}, "Find your team's radio network. "), "Every school has a flagship station that carries its games. The search buttons below look for it; the school's athletics site usually names it too."),
+      el("li", {}, el("b", {}, "Open the station's own Listen live page "), "and copy its address from the browser's address bar."),
+      el("li", {}, el("b", {}, "Pick how it plays. "), "Link always works: it opens the station's page in a new tab. Station player plays that page's player inside the app, when the station allows it. Stream is only for a direct audio address, and plays in the bar at the bottom of every page."),
+      el("li", {}, el("b", {}, "Fill in the form and tap Try it. "), "When it plays, tap Add the station. You can add more than one (a stream and a link, say); the Pre-Game Program lists them all."),
+    );
     return band({
       id: "settings-radio",
       title: "Radio stations",
@@ -269,9 +330,21 @@ export function createSettingsView({ onStatus } = {}) {
           list,
           fromEnv ? el("p", { class: "note" }, `${fromEnv} more ${fromEnv === 1 ? "comes" : "come"} from RADIO_SOURCES in the server's .env file.`) : null,
           fromList.length ? el("p", { class: "note" }, `From the app's station list: ${fromList.map((s) => `${text(s.name)}${str(s.team) ? ` (${s.team})` : ""}`).join(", ")}.`) : null,
-          el("div", { class: "station-form" }, el("label", {}, "Team", team), el("label", {}, "Name", name), el("label", {}, "How it plays", kind), el("label", {}, "Address", url), el("button", { class: "btn btn--primary", type: "button", onclick: add }, "Add the station")),
+          sample ? el("p", { class: "note" }, `Until you add one, the radio offers a sample station so you can hear how it works: ${text(sample.name)}${str(sample.team) ? ` (${sample.team})` : ""}.`) : null,
+          subhead("How to add your team's station"),
+          steps,
+          el(
+            "div",
+            { class: "station-form" },
+            el("label", {}, "Team", team, el("small", { class: "station-form__help" }, "Whose games the station carries.")),
+            el("label", {}, "Name", name, el("small", { class: "station-form__help" }, "What the radio list will call it.")),
+            el("label", {}, "How it plays", kind, kindHelp),
+            el("label", {}, "Address", url, el("small", { class: "station-form__help" }, "Paste it from the browser's address bar.")),
+            el("div", { class: "station-form__buttons" }, el("button", { class: "btn", type: "button", onclick: tryIt }, "Try it"), el("button", { class: "btn btn--primary", type: "button", onclick: add }, "Add the station")),
+          ),
           problem,
-          el("p", { class: "note" }, "Use the station's official player page, stream address or web page; the app never pulls streams out of other sites. A stream plays in the bar at the bottom of every page; a station player shows inside the app; a link opens a new tab. Audio cannot follow the spoiler delay."),
+          warn,
+          el("p", { class: "note" }, "Use the station's own player page, stream address or web page; the app never pulls streams out of other sites. Audio cannot follow the spoiler delay."),
           radioHelpBlock(meta.radioHelp, { settingsLink: false }),
         ),
     });
@@ -443,7 +516,7 @@ export function createSettingsView({ onStatus } = {}) {
       const recent = (Array.isArray(s.recent) ? s.recent : []).filter((r) => r && typeof r === "object");
       slot.replaceChildren(...[
         el("div", { class: "settings" },
-          row("Run the prompts by themselves", toggle(s.enabled === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? `On by itself while Claude Code is found on the server computer (owner 2026-10-13)${p.scheduledRuns === false ? ", switched off here" : ""}. Once a day it runs everything that is missing; a game week adds Monday's notes and the availability reports; the season load, the coaches and the roster costs come at their times. Nothing runs after the game. Each run uses your Claude plan like the buttons do. The Prompts page shows what is next and what ran.` : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it, on the Prompts page."),
+          row("Run the prompts by themselves", toggle(s.enabled === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? `On by itself while Claude Code is found on the server computer (owner 2026-10-13)${p.scheduledRuns === false ? ", switched off here" : ""}. Once a day it runs everything that is missing; a game week adds Monday's notes and the availability reports; the season load, the coaches and the roster costs come at their times. Nothing runs after the game. Each run uses your Claude plan like the buttons do. The Load data page shows what is next and what ran.` : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it, on the Load data page."),
         ),
         s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
         s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
@@ -619,6 +692,12 @@ export function createSettingsView({ onStatus } = {}) {
       }),
     );
     container.replaceChildren(el("div", { class: "page settings-page" }, nav, el("div", { class: "settings-main" }, saved, ...sections)));
+    const target = focus ? sections.find((b) => b.getAttribute?.("id") === focus) : null;
+    if (target) {
+      focus = null; // once: a later redraw (a saved setting) leaves the reader where they are
+      revealBand(target);
+      settleOn(target); // the sections above it grow as they load
+    }
   }
 
   return {

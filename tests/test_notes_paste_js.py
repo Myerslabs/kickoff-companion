@@ -203,5 +203,5 @@ def test_notes_paste_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
 
 def test_the_program_offers_paste_and_claude_code_only_where_found() -> None:
     program = (STATIC_JS / "views" / "program.js").read_text(encoding="utf-8")
-    assert "notesPaste({ gameId: data.game?.gameId })" in program
-    assert 'status?.commandFound !== true && !status?.running' in program  # the tool's button hides where the command is missing
+    assert "notesPaste({ gameId: data.game?.gameId, location: n })" in program  # 2026-10-16: the file's location comes with the notes
+    assert 'status?.commandFound !== true && !busy' in program  # the tool's button hides where the command is missing (busy: any run, from the loading bar)

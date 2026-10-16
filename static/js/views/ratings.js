@@ -285,7 +285,7 @@ export function createRatingsView({ onStatus, arg, params } = {}) {
     refreshMs: pollMs(),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
-    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Ratings", message, retry)),
+    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Advanced Team Ratings", message, retry)),
     renderLoading: () => el("div", { class: "page" }, band({ title: "SP+", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(12, 11) })),
   });
   const mount = view.mount;

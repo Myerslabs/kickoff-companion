@@ -36,6 +36,11 @@ def _mark_program(result: Assembled, request: Request) -> None:
     if isinstance(game, dict):
         game["locked"] = bool(lock is not None and lock.has(game.get("gameId")))
     result.data["facts"] = {"us": notes.facts_for((result.data.get("us") or {}).get("school")) if notes else None, "them": notes.facts_for((result.data.get("them") or {}).get("school")) if notes else None}
+    block = result.data.get("notes")
+    if isinstance(game, dict) and isinstance(block, dict) and isinstance(game.get("gameId"), int):  # 2026-10-16: notes by hand
+        from app.api.prompts import notes_location
+
+        block.update(notes_location(request.app.state.settings.data_dir, game["gameId"]))
     for side in ("us", "them"):  # Phase 17 #2: a form square of ours opens the Archive when it holds the game
         block = result.data.get(side)
         if isinstance(block, dict):
@@ -151,4 +156,14 @@ async def team_page(school: str, request: Request) -> Any:
     if (result.data.get("team") or {}).get("isUs"):  # Phase 16 (G3-05): our schedule rows open the Archive too
         mark_archived(result.data.get("schedule"), archived_ids(request))
     result.data["facts"] = request.app.state.season_notes.facts_for((result.data.get("team") or {}).get("school") or name)  # the Prompts phase: school history
+    # 2026-10-16: the season loads cover my teams only; a page of another team says so instead of pointing at Load data
+    from app.api.season_notes import load_set
+
+    try:
+        _primaries, wanted = await load_set(request)
+    except Exception as exc:  # noqa: BLE001 - without the team list the page still draws; its empty bands say "not loaded"
+        log.warning("The load set could not be read for %s: %s", name, exc)
+        wanted = None
+    school_name = (result.data.get("team") or {}).get("school") or name
+    result.data["inLoadSet"] = None if wanted is None else school_name in wanted
     return respond(result)

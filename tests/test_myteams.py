@@ -354,11 +354,31 @@ def test_a_team_without_a_station_gets_search_links_and_the_request_form(app, cl
     assert all(link["url"].startswith("https://") for h in body["help"] for link in h["search"])
 
 
+def test_an_install_with_no_station_gets_the_lists_stream_as_a_sample(app, client: TestClient, monkeypatch, tmp_path: Path):
+    """Owner 2026-10-16: "we need an initial station to show off the feature". With no station of its own (no .env
+    sources, none in Settings, none listed for a primary team) the radio offers the list's first stream as a sample;
+    the team's own help (search links, the request form) still shows."""
+    listed = tmp_path / "radio_stations.json"
+    listed.write_text(json.dumps({"stations": [
+        {"team": "Far Away", "name": "Far page", "kind": "link", "url": "https://radio.example.invalid/far-page"},
+        {"team": "Far Away", "name": "Far stream", "kind": "stream", "url": "https://radio.example.invalid/far.mp3"},
+    ]}), encoding="utf-8")
+    monkeypatch.setattr(stations, "STATIONS_FILE", listed)
+    body = client.get("/api/radio/sources").json()["data"]
+    assert [(s["name"], s["origin"], s["team"]) for s in body["sources"]] == [("Far stream", "sample", "Far Away")]
+    assert [h["school"] for h in body["help"]] == [HOME], "the sample is not the home team's station"
+    app.state.prefs.update({"radioStations": [{"team": HOME, "name": "Our own", "kind": "link", "url": "https://radio.example.invalid/ours"}]})
+    again = client.get("/api/radio/sources").json()["data"]["sources"]
+    assert [(s["name"], s["origin"]) for s in again] == [("Our own", "settings")], "a station of your own replaces the sample"
+
+
 def test_the_station_list_and_the_issue_form_ship_with_the_repo():
     root = Path(__file__).resolve().parent.parent
     listed = json.loads((root / "app" / "radio_stations.json").read_text(encoding="utf-8"))
-    assert listed["stations"] == []  # it grows as people ask; nothing is researched up front
-    assert stations.known_stations() == []
+    # owner 2026-10-16: it ships the initial station (one team's, to show the feature off), then grows as people ask
+    assert listed["stations"] and len(stations.known_stations()) == len(listed["stations"]), "every shipped entry is valid"
+    assert any(s.kind == "stream" for s in stations.known_stations()), "the sample can play in the bar"
+    assert all(s["url"].startswith("https://") for s in listed["stations"])
     form = (root / ".github" / "ISSUE_TEMPLATE" / "radio-station.yml").read_text(encoding="utf-8")
     assert "id: school" in form and "official" in form.lower()
     assert stations.request_url(None).endswith("template=radio-station.yml")

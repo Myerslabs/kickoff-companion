@@ -22,14 +22,15 @@ export function radioStations({ onDraw } = {}) {
       host,
       snap.loadError ? note(snap.loadError, { kind: "error", lead: "Radio unavailable." }) : null,
       !snap.loaded && !snap.loadError ? el("p", { class: "note" }, "Loading the radio sources.") : null,
-      snap.loaded && !snap.loadError && sources.length === 0 ? (radioHelpBlock(snap.help) || el("p", { class: "note" }, "No radio station yet. ", el("a", { href: "#settings" }, "Add one in Settings"), ".")) : null,
+      snap.loaded && !snap.loadError && sources.every((source) => source.sample) ? (radioHelpBlock(snap.help) || el("p", { class: "note" }, "No radio station of your own yet. ", el("a", { href: "#settings=radio" }, "Add one in Settings"), ": the steps are there.")) : null,
+      sources.length && sources.every((source) => source.sample) ? el("p", { class: "note" }, "Until then, a sample station shows how the radio works.") : null,
       current ? el("p", { class: "radio-now" }, el("b", {}, text(current.name)), ` · ${stateText(snap.state)}${snap.detail ? ` · ${snap.detail}` : ""}. The controls stay in the bar at the bottom of every page.`) : null,
       sources.map((source) =>
         el(
           "div",
           { class: "radio-source radio-source--row", "aria-current": current?.id === source.id ? "true" : null },
           el("span", { class: "radio-source__name" }, text(source.name)),
-          el("span", { class: "radio-source__kind" }, KIND_WORD[source.kind] || text(source.kind)),
+          el("span", { class: "radio-source__kind" }, `${KIND_WORD[source.kind] || text(source.kind)}${source.sample ? `, a sample${source.team ? ` (${text(source.team)})` : ""}` : ""}`),
           el("button", { class: `btn${current?.id === source.id ? " btn--primary" : ""}`, type: "button", onclick: () => (current?.id === source.id ? stopRadio() : startRadio(source)) }, current?.id === source.id ? "Stop" : source.kind === "link" ? "Open" : "Play"),
         ),
       ),

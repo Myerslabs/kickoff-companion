@@ -17,7 +17,7 @@ import pytest
 from app.services import season_prompts
 from app.services.answers import keys_score, read_json
 from app.services.season_notes import CoachesBatch, PreseasonTeam, SeasonNotes, age_on, name_key
-from tests.conftest import CONFERENCE, TEAM, fixture_payload
+from tests.conftest import CONFERENCE, TEAM, fixture_payload, follow_conference
 
 SCHOOLS = sorted(t["school"] for t in fixture_payload("teams_fbs") if t["conference"] == CONFERENCE)
 ROSTER = fixture_payload("roster")
@@ -111,10 +111,11 @@ def test_templates_fill_check_and_reset(tmp_path):
 
 
 @pytest.fixture
-def league(fake_cfbd):
+def league(fake_cfbd, app):
     from tests.test_program import route_program
 
     route_program(fake_cfbd)
+    follow_conference(app)  # every school of the conference is one of my teams
     return fake_cfbd
 
 

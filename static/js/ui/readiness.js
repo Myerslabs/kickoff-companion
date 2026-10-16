@@ -64,7 +64,7 @@ export function readinessList(items, onOpen) {
         el("b", {}, text(item.title)),
         typeof item.detail === "string" ? el("p", { class: "readiness__detail" }, item.detail) : null,
         typeof item.href === "string" && item.href.startsWith("#")
-          ? el("a", { class: "btn btn--quiet", href: item.href, onclick: () => { if (typeof onOpen === "function") onOpen(); } }, "Open the prompts")
+          ? el("a", { class: "btn btn--quiet", href: item.href, onclick: () => { if (typeof onOpen === "function") onOpen(); } }, "Open Load data")
           : null,
       ),
     ),

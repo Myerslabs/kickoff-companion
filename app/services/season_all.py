@@ -1,6 +1,7 @@
 """One paste for every conference (Phase 19, owner 2026-10-08: the coaches prompt and the roster salary prompt are their own
 cards in Settings, each one prompt and one paste). The per-conference prompts of Phase 17 stay on the Preseason page; these
-cover every FBS conference at once and split the answer by conference when it is saved.
+cover every conference of my teams at once (2026-10-16: my primary and secondary teams only) and split the answer by
+conference when it is saved.
 
     coaches_all_prompt(data_dir, conferences=, season=) / costs_all_prompt(data_dir, conferences=, detailed=, season=)
     read_coaches_all(text, conferences) / read_costs_all(text, conferences)  -> Reading, value {conference: batch}
@@ -15,6 +16,8 @@ from app.services.answers import keys_score, read_json
 from app.services.season_notes import CoachesBatch, CostsBatch
 from app.services.season_prompts import MAX_ANSWER, Reading, coaches_shape, costs_shape, template
 
+ALL_CONFERENCES = "conferences of the schools below"  # fills "for the {conference}" in the one-paste prompts
+
 
 def _groups(conferences: dict[str, list[str]]) -> list[str]:
     """One line a conference, "Conference: School; School"."""
@@ -27,13 +30,13 @@ def _first(conferences: dict[str, list[str]]) -> str:
 
 def coaches_all_prompt(data_dir: Path, *, conferences: dict[str, list[str]], season: int) -> str:
     listing = "\n".join(f"- {line}" for line in _groups(conferences))
-    return template("coaches", data_dir).fill({"season": season, "conference": "every FBS conference", "schools": listing, "shape": coaches_shape("Conference name", _first(conferences))})
+    return template("coaches", data_dir).fill({"season": season, "conference": ALL_CONFERENCES, "schools": listing, "shape": coaches_shape("Conference name", _first(conferences))})
 
 
 def costs_all_prompt(data_dir: Path, *, conferences: dict[str, list[str]], detailed: list[str], season: int) -> str:
     listing = "\n".join(f"- {line}" for line in _groups(conferences))
     detail = "\n".join(f"- {s}" for s in detailed) if detailed else "- (none)"
-    return template("costs", data_dir).fill({"season": season, "conference": "every FBS conference", "schools": listing, "detailed": detail, "shape": costs_shape("Conference name", _first(conferences))})
+    return template("costs", data_dir).fill({"season": season, "conference": ALL_CONFERENCES, "schools": listing, "detailed": detail, "shape": costs_shape("Conference name", _first(conferences))})
 
 
 def _split(rows: list[Any], conferences: dict[str, list[str]]) -> tuple[dict[str, list[Any]], list[str]]:

@@ -26,9 +26,9 @@ def costs_answer(schools=EVERY):
 
 def test_the_prompts_list_every_conference(tmp_path):
     prompt = season_all.coaches_all_prompt(tmp_path, conferences=BY_CONFERENCE, season=2026)
-    assert "every FBS conference" in prompt and f"{CONFERENCE}: " in prompt and EVERY[0] in prompt and "{shape}" not in prompt
+    assert "conferences of the schools below" in prompt and f"{CONFERENCE}: " in prompt and EVERY[0] in prompt and "{shape}" not in prompt
     costs = season_all.costs_all_prompt(tmp_path, conferences=BY_CONFERENCE, detailed=[TEAM], season=2026)
-    assert f"- {TEAM}" in costs and "every FBS conference" in costs
+    assert f"- {TEAM}" in costs and "conferences of the schools below" in costs
 
 
 def test_a_coaches_answer_is_split_by_conference_and_strangers_left_out():
@@ -51,9 +51,10 @@ def test_a_costs_answer_is_split_by_conference():
 def test_the_routes_save_every_conference_at_once(client, league):  # noqa: F811
     for kind, answer in (("coaches", coaches_answer()), ("costs", costs_answer())):
         prompt = client.get("/api/season-notes/prompt", params={"kind": kind, "key": "all"})
-        assert prompt.status_code == 200 and "every FBS conference" in prompt.json()["data"]["prompt"]
+        assert prompt.status_code == 200 and "conferences of the schools below" in prompt.json()["data"]["prompt"]
         saved = client.post("/api/season-notes/save", json={"kind": kind, "key": "all", "text": answer})
         assert saved.status_code == 200 and saved.json()["data"]["saved"] is True
     status = client.get("/api/season-notes").json()["data"]
-    assert status["coachesSaved"] == len(EVERY) and status["costsSaved"] == len(EVERY)
+    # 2026-10-16: an answer naming every FBS school saves my teams only (the followed conference and the next opponent)
+    assert status["coachesSaved"] == status["coachesOf"] and status["costsSaved"] == status["coachesOf"] and 0 < status["coachesOf"] < len(EVERY)
     assert client.post("/api/season-notes/save", json={"kind": "coaches", "key": "all", "text": "nope"}).status_code == 422

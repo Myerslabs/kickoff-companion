@@ -1,4 +1,23 @@
 {
-  "about": "Radio stations by team (app/services/stations.py). Each entry: team (as CFBD spells it), name, kind (stream, embed or link) and url (the station's official player, stream or page). The list grows as people ask for their team's station with the Request button on the Settings page.",
-  "stations": []
+  "about": "Radio stations by team (app/services/stations.py). Each entry: team (as CFBD spells it), name, kind (stream, embed or link) and url (the station's official player, stream or page). The first team's stations ship as the initial station (owner 2026-10-16): a fan of that team has them with no setup, and an install with no station of its own can play one as a sample. The list grows as people ask for their team's station with the Request button on the Settings page.",
+  "stations": [
+    {
+      "team": "Florida",
+      "name": "WRUF ESPN 98.1 stream",
+      "kind": "stream",
+      "url": "https://ais-sa1.streamon.fm/7644_64k.mp3"
+    },
+    {
+      "team": "Florida",
+      "name": "WRUF web player",
+      "kind": "embed",
+      "url": "https://listen.streamon.fm/wrufam"
+    },
+    {
+      "team": "Florida",
+      "name": "WRUF listen-live page",
+      "kind": "link",
+      "url": "https://www.wruf.com/listen-live/"
+    }
+  ]
 }

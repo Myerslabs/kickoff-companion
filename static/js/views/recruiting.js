@@ -8,16 +8,16 @@
 //           The Visitors summary shows the kickoff date, never the game id.
 //   LRP-13  ratings on the 0-100 scale in their tier color, stars as 4-star; each commit's national rank is a chip
 //           that opens the recruit list once the row carries its list key (metric, from stream NV).
-//   GX-20   (restrained) 'Where they're from': State | Commits | Avg rating | 5/4/3 stars per class, with the
-//           in-state share, from the class's byState and inState.
+//   GX-20   'Where they're from': since 2026-10-16 (owner) a pie per class, both classes side by side, every state a
+//           slice and a legend chip, with the in-state share, from the class's byState and inState.
 //   DS-14   the visitors' sub-headings name their team as a link; DS-06 the .page container.
 //
 // Tables wave 3 (owner 2026-10-10): every table sizes itself by its own box, each data point in its own column.
 //   The class: its national rank is the class's own order (decision 2: the chip at large and medium, a plain number at
 //     small) | Recruit (stepping down with the table, item 6) | Pos (decision 1: its own column, gone at small) | Stars | Rating | High
 //     school (large) | Hometown, Ht, Wt (from medium). The recruits sort; the reader's order survives a refresh.
-//   Where they're from: State (its name, the code at small) | Commits | Avg rating | 5-star | 4-star | 3-star, one count
-//     per column (the old "1 / 0 / 0" cell held three), nothing dropped.
+//   Where they're from: a pie per class since 2026-10-16 (the table of states, ratings and stars retired; the class band's
+//     star strip keeps the stars).
 //   Visitors: Recruit (the notes' words, shortened only when they read cleanly) | Pos (gone at small) | Class | Stars | High school (large) | Hometown
 //     (from medium) | Status. A table of players, so it sorts.
 
@@ -29,8 +29,9 @@ import { mountFlow, stopFlow } from "../ui/flow.js";
 import { visitorRows } from "../ui/in-game-tables.js";
 import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { starStrip } from "../ui/team-page.js";
+import { pieChart } from "../ui/pie.js";
 import { stateName } from "../us-states.js";
-import { errorPanel, partState, poller } from "./common.js";
+import { combinedState, errorPanel, partState, poller } from "./common.js";
 
 /** " Class rank #17 of 221 (250.98 points, 247Sports)." or nothing (Phase 13). Exported for the tests. */
 export function classRankText(rank) {
@@ -182,37 +183,57 @@ export function inStateLine(cls) {
   return parts.join(" ");
 }
 
-const WHERE_COLUMNS = [
-  { key: "stateName", label: "State", kind: "text", shortKey: "state" },
-  { key: "commits", label: "Commits", labelShort: "#" }, // a phone: "#" keeps the six columns in its band
-  { key: "averageRating", label: "Avg rating", labelShort: "Avg", format: "rating100" },
-  { key: "s5", label: "5-star" },
-  { key: "s4", label: "4-star" },
-  { key: "s3", label: "3-star" },
-].map((column) => ({ ...column, tieKey: "stateName" }));
+/** The home state of the classes: the in-state line's state ("FL"), or null. */
+function homeState(classes) {
+  for (const cls of rows(classes)) {
+    const code = cls?.inState && typeof cls.inState === "object" ? cls.inState.state : null;
+    if (typeof code === "string" && code.trim()) return code.trim();
+  }
+  return null;
+}
 
-/** Where a class is from, sized (wave 3), the most commits first, with the in-state line under it. `sorts` keeps the
- *  reader's order. Exported for the design system, which draws the page's own table. */
-export function whereBlock(cls, { sorts } = {}) {
-  const list = whereRows(cls);
+/** Each state's color, the same in both classes' pies (the color follows the state, never its place in one class): the
+ *  home state in our color, the two other states with the most commits over both classes in the two named hues, every
+ *  other state gray. Exported for the tests. */
+export function stateColors(classes, home = homeState(classes)) {
+  const totals = new Map();
+  for (const cls of rows(classes)) {
+    for (const r of whereRows(cls)) {
+      if (r.state === "Unknown" || !isNum(r.commits)) continue;
+      totals.set(r.state, (totals.get(r.state) || 0) + r.commits);
+    }
+  }
+  const others = [...totals.entries()].filter(([state]) => state !== home).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([state]) => state);
+  const colors = new Map();
+  if (home) colors.set(home, "var(--team-us)");
+  others.forEach((state, i) => colors.set(state, i === 0 ? "var(--pie-2)" : i === 1 ? "var(--pie-3)" : "var(--pie-other)"));
+  return colors;
+}
+
+/** Where one class is from as a pie (owner 2026-10-16: a pie instead of the list, every state), the in-state line under
+ *  it. `colors` comes from stateColors over both classes; alone, the class colors itself. Exported for the design system. */
+export function whereBlock(cls, { colors = null, size = 300 } = {}) {
+  const list = whereRows(cls).filter((r) => r.state !== "Unknown" && isNum(r.commits) && r.commits > 0);
   const line = inStateLine(cls);
   if (!list.length) return note(line || "No home states on record for this class yet.");
-  const kept = sorts && typeof sorts === "object" ? sorts : {};
+  const palette = colors instanceof Map ? colors : stateColors([cls]);
+  const chart = pieChart({
+    label: `Where the ${text(cls?.year)} class is from`,
+    unit: ["commit", "commits"],
+    size,
+    slices: list.map((r) => ({ key: r.state, label: r.stateName, short: r.state, value: r.commits, color: palette.get(r.state) || "var(--pie-other)" })),
+  });
+  return el("div", { class: "where-block" }, chart, line ? el("p", { class: "note" }, line) : null);
+}
+
+/** Both classes side by side (the current class and the one being recruited, owner 2026-10-16), one pie each. */
+function whereBoth(classes) {
+  const list = rows(classes);
+  const colors = stateColors(list);
   return el(
     "div",
-    {},
-    statTable({
-      compact: true,
-      sizes: true,
-      columns: WHERE_COLUMNS,
-      rows: list,
-      sort: kept.where || { key: "commits", dir: "descending" },
-      onSort: (sort) => {
-        kept.where = sort;
-      },
-      caption: `Where the ${text(cls?.year)} class is from`,
-    }),
-    line ? el("p", { class: "note" }, line) : null,
+    { class: "where-pies" },
+    list.map((cls) => el("div", { class: "where-pies__class" }, subhead(`${text(cls.year)} class`), whereBlock(cls, { colors }))),
   );
 }
 
@@ -271,15 +292,15 @@ function render(envelope, container, state) {
             commitsTable(commits, { sorts: state.sorts }),
           ),
       }),
-      current
+      classes.length
         ? band({
             id: "recruiting-where",
-            title: `Where they're from, ${text(current.year)} class`,
+            title: "Where they're from",
             collapsible: false,
-            summary: current.inState && isNum(current.inState.share) ? `${fmtPct(current.inState.share)} in-state` : "",
-            state: partState(part, whereRows(current).length > 0 || Boolean(inStateLine(current))),
-            emptyText: "No home states on record for this class yet.",
-            body: () => whereBlock(current, { sorts: state.sorts }),
+            summary: `${classes.map((c) => text(c.year)).join(" and ")} ${classes.length === 1 ? "class" : "classes"}`,
+            state: combinedState(classes.map((c) => parts[c.partName]), classes.some((c) => whereRows(c).length > 0 || Boolean(inStateLine(c)))),
+            emptyText: "No home states on record for these classes yet.",
+            body: () => whereBoth(classes),
           })
         : null,
       band({
@@ -292,7 +313,7 @@ function render(envelope, container, state) {
       }),
   );
   state.ui ??= {};
-  mountFlow(state.ui, container, page, { wide: ["recruiting-class"] }); // final pass: the flowing page with its section chips
+  mountFlow(state.ui, container, page, { wide: ["recruiting-class", "recruiting-where"] }); // final pass: the flowing page with its section chips; 2026-10-16: the pies get the room
   reveal(container, state);
 }
 

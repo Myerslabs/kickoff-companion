@@ -3,7 +3,8 @@
 // with their trophies, the coach's record here, the mascot, the colors, the fight song, alumni in the NFL. A fact the
 // answer did not have is a dash, never a blank; a team with nothing loaded says so and points at the Prompts page.
 //
-//   factsBand(facts, { id, school })   the band
+//   factsBand(facts, { id, school, outside })   the band; outside: the school is not one the loads cover (2026-10-16)
+//   OUTSIDE   what a team the loads leave out says
 //   factRows(facts)                    [{ label, value }] in the page's order (exported for the tests)
 
 import { DASH, el, fmtDate, fmtNum, isNum, str, text } from "./dom.js";
@@ -44,7 +45,10 @@ export function factRows(facts) {
   ];
 }
 
-export function factsBand(facts, { id = "team-facts", school } = {}) {
+/** The season loads cover my teams only (owner 2026-10-16), so another team's empty band says so instead of leading to Load data. */
+export const OUTSIDE = "Loaded for your primary and secondary teams and the next opponent only. To load it, add the school as a liked team in Settings.";
+
+export function factsBand(facts, { id = "team-facts", school, outside = false } = {}) {
   const f = facts && typeof facts === "object" ? facts : null;
   const name = str(school) ? school.trim() : "this school";
   const sources = f ? list(f.sources).filter((s) => s && typeof s === "object" && str(s.url) && /^https?:\/\//.test(s.url)) : [];
@@ -54,7 +58,7 @@ export function factsBand(facts, { id = "team-facts", school } = {}) {
     collapsible: false,
     foldable: true,
     summary: f ? `loaded ${str(f.savedAt) ? fmtDate(f.savedAt, "short") : ""}`.trim() : "not loaded",
-    state: f ? { status: "ready" } : { status: "empty", message: `${name}'s history and facts are not loaded yet. One prompt per conference loads them.`, action: { label: "Open the prompts", href: "#prompts" } },
+    state: f ? { status: "ready" } : outside ? { status: "empty", message: `${name}'s history is not loaded. ${OUTSIDE}`, action: { label: "Open Settings", href: "#settings" } } : { status: "empty", message: `${name}'s history and facts are not loaded yet. One prompt per conference loads them.`, action: { label: "Open Load data", href: "#prompts" } },
     body: () =>
       el(
         "div",

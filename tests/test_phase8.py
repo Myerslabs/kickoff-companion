@@ -80,7 +80,8 @@ STATIONS = [
 
 def test_no_radio_source_is_built_in(client: TestClient):
     body = client.get("/api/radio/sources").json()
-    assert body["data"]["sources"] == [] and "delay" in body["data"]["note"]  # public release Phase 3: RADIO_SOURCES names the team's own
+    # public release Phase 3: RADIO_SOURCES names the team's own; 2026-10-16: the list's initial station plays as a sample
+    assert [s["origin"] for s in body["data"]["sources"]] == ["sample"] and "delay" in body["data"]["note"]
 
 
 def test_radio_sources_are_listed_in_order_without_secrets(tmp_path, monkeypatch, fake_cfbd: FakeCfbd):

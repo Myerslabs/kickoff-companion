@@ -67,6 +67,7 @@ import { createReviewView } from "./views/review.js";
 import { createInjuriesView } from "./views/injuries.js";
 import { createPromptsView } from "./views/prompts.js";
 import { addNote } from "./ui/page-notes.js";
+import { installRunBar } from "./ui/run-bar.js";
 import { createSetupPageView } from "./views/setup-page.js";
 import { reloadWhenServerAnswers, restartFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
@@ -84,7 +85,7 @@ const BUILT = {
   preseason: (opts) => createPreseasonView(opts), // Phase 17 Part 3a: the season loads and each primary team's preseason // Phase 17 #2: any game's box score, from a W or L square
   live: (opts) => createLiveView(opts),
   archive: (opts, arg) => createArchiveView({ ...opts, gameId: arg }),
-  settings: (opts) => createSettingsView(opts),
+  settings: (opts, arg) => createSettingsView({ ...opts, arg }), // #settings=radio opens that section (2026-10-16)
   ratings: (opts, arg, focus, params) => createRatingsView({ ...opts, arg, params }),
   glossary: (opts, arg) => createGlossaryView({ ...opts, focusId: arg }),
   national: (opts, arg, focus, params) => createNationalView({ ...opts, arg, params }), // Phase 16 NV: a chip's list as a page
@@ -454,6 +455,7 @@ async function start() {
   warmPrimaries();
   watchForUpdates(page);
   watchLiveGame(page);
+  installRunBar(page.notes); // owner 2026-10-16: Claude Code loads in the background, one bar above the page, one refresh at the end
   keepScreenOn();
   rememberScroll();
 

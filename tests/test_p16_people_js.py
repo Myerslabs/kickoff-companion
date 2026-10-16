@@ -734,16 +734,26 @@ scenarios.recruiting = async () => {
   assert.ok(vh.every((th) => th.querySelector("button")), "a table of players sorts");
   const v0 = vt.querySelector("tbody tr").querySelectorAll("td");
   assert.deepEqual([pnText(v0[0]), pnText(v0[0], "last"), text(v0[1]), text(v0[2]), text(v0[6])], ["Visitor One", "One", "QB", "2027", "confirmed"]);
-  // where they're from: the state's name (its code at small) and one column per star count
+  // where they're from (owner 2026-10-16): a pie per class, both classes side by side, every state a slice and a chip
   const where = main.querySelector("#recruiting-where");
-  const wh = where.querySelectorAll("thead th");
-  assert.deepEqual(wh.map((th) => th.dataset.term), ["State", "Commits", "Avg rating", "5-star", "4-star", "3-star"]);
-  assert.deepEqual([form(wh[1], "short"), form(wh[2], "short")], ["#", "Avg"]);
-  assert.deepEqual(marks(wh), ["", "", "", "", "", ""], "nothing drops: a phone holds all six");
-  const w0 = where.querySelector("tbody tr").querySelectorAll("td");
+  assert.equal(where.querySelectorAll("table").length, 0, "no list of states any more");
+  const classes = where.querySelectorAll(".where-pies__class");
+  assert.equal(classes.length, 2, "the current class and the next one, together");
+  assert.ok(text(classes[0].querySelector("h3")).includes("class") && text(classes[1].querySelector("h3")).includes("class"));
+  const pie = classes[0].querySelector("figure.pie");
+  const slices = pie.querySelectorAll(".pie__slice");
+  const chips = pie.querySelectorAll(".pie__chip");
+  assert.ok(slices.length >= 1 && slices.length === chips.length, "one slice and one legend chip per state");
   const { stateName } = await import(moduleUrl("us-states.js"));
-  assert.deepEqual([form(w0[0], "long"), form(w0[0], "short"), text(w0[1]), text(w0[3]), text(w0[4]), text(w0[5])], [stateName("FL"), "FL", "2", "0", "1", "1"], "the state's name, its code at small");
-  assert.notEqual(stateName("FL"), "FL");
+  assert.deepEqual([text(chips[0].querySelector(".pie__name")), text(chips[0].querySelector(".pie__value"))], ["FL", "2 · 67%"], "the most commits first, with the share");
+  assert.ok(slices[0].getAttribute("style").includes("var(--team-us)"), "our state wears our color");
+  assert.ok(text(pie.querySelector(".pie__info")).startsWith(`${stateName("FL")}: 2 commits, 67%`), "the largest slice says itself");
+  assert.ok(pie.querySelector("svg").getAttribute("aria-label").includes(stateName("FL")), "the pie reads as words");
+  if (chips.length > 1) {
+    chips[1].click();
+    assert.equal(chips[1].getAttribute("aria-pressed"), "true");
+    assert.ok(slices[0].classList.contains("is-dim"), "the picked state stands out");
+  }
   assert.ok(text(where).includes("In-state (FL): 2 of 3 commits, 67%."));
   clean("recruiting", main);
   // the reader's order survives the redraw a class switch makes

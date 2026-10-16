@@ -1,13 +1,16 @@
 """Radio for any team (public release Phase 5b, owner direction 2026-10-03: no research up front; the list
 grows as people ask for their team's station).
 
-Three places a station can come from, in this order (the order sets each source's id, so ids already saved
+Four places a station can come from, in this order (the order sets each source's id, so ids already saved
 on a device never move):
 1. RADIO_SOURCES in .env (this install's own).
 2. Stations added in Settings (`radioStations` in data/settings.json), each with the team it belongs to.
-3. The station list in the repo (app/radio_stations.json), entries for my primary teams only. It starts
-   empty; a station is added when someone asks with the "Request your team's radio" button, which opens a
+3. The station list in the repo (app/radio_stations.json), entries for my primary teams only. It ships with
+   one team's stations, the initial station (owner 2026-10-16: "we need an initial station to show off the
+   feature"); a station is added when someone asks with the "Request your team's radio" button, which opens a
    GitHub issue form in the public repo (.github/ISSUE_TEMPLATE/radio-station.yml).
+4. The sample: when none of the above gives a station, the list's first stream (else its first entry) is offered
+   as a sample (origin "sample", with its team), so the radio can be heard before a station of your own is added.
 
 For a team with no station the app offers search links to find the broadcast, and the request button.
 Radio plays only through official embeds, streams or links; nothing is scraped."""
@@ -83,6 +86,10 @@ def combined(settings: Settings, saved: list[SavedStation], primaries: list[str]
     for station in listed:
         if station.team and station.team.lower() in wanted:
             add(station.name, station.kind, station.url, station.team, "list")
+    if not out:
+        sample = next((s for s in listed if s.kind == "stream"), None) or next(iter(listed), None)
+        if sample is not None:
+            add(sample.name, sample.kind, sample.url, sample.team, "sample")
     return out
 
 

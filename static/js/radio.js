@@ -93,7 +93,7 @@ export function radioHelpBlock(help, { settingsLink = true } = {}) {
         ),
       ),
     ),
-    el("p", { class: "note" }, "Found the station's official player or stream? ", settingsLink ? el("a", { href: "#settings" }, "Add it in Settings") : "Add it with the form above", ". The request button opens a short form on GitHub (a free account) so the station can be added to the app for everyone."),
+    el("p", { class: "note" }, "Found the station's official player or stream? ", settingsLink ? el("a", { href: "#settings=radio" }, "Add it in Settings") : "Add it with the form above", ". The request button opens a short form on GitHub (a free account) so the station can be added to the app for everyone."),
   );
 }
 
@@ -109,7 +109,7 @@ export async function loadRadioSources() {
   try {
     const envelope = await fetchJson("/api/radio/sources");
     const sources = Array.isArray(envelope?.data?.sources) ? envelope.data.sources : [];
-    radio.sources = sources.filter((s) => s && typeof s.id === "string" && typeof s.url === "string" && /^https?:\/\//.test(s.url) && ["stream", "embed", "link"].includes(s.kind)).map((s) => ({ id: s.id, name: typeof s.name === "string" && s.name ? s.name : "Radio", kind: s.kind, url: s.url, team: typeof s.team === "string" && s.team ? s.team : null }));
+    radio.sources = sources.filter((s) => s && typeof s.id === "string" && typeof s.url === "string" && /^https?:\/\//.test(s.url) && ["stream", "embed", "link"].includes(s.kind)).map((s) => ({ id: s.id, name: typeof s.name === "string" && s.name ? s.name : "Radio", kind: s.kind, url: s.url, team: typeof s.team === "string" && s.team ? s.team : null, sample: s.origin === "sample" })); // sample: the list's initial station, offered while no station of your own is set (2026-10-16)
     radio.help = cleanHelp(envelope?.data?.help);
     radio.note = typeof envelope?.data?.note === "string" ? envelope.data.note : "";
     radio.loadError = null; // no station yet is not an error: the radio band offers to find or add one
@@ -145,7 +145,9 @@ function tearDown() {
   if (radio.playerArea) radio.playerArea.replaceChildren();
 }
 
-export function startRadio(source) {
+/** Play a source. keep: false (Settings' "Try it", 2026-10-16) plays an address not saved yet without making it the
+ *  device's or the server's choice. */
+export function startRadio(source, { keep = true } = {}) {
   if (!source) return;
   if (source.kind === "link") {
     window.open(source.url, "_blank", "noopener");
@@ -153,8 +155,10 @@ export function startRadio(source) {
   }
   tearDown();
   radio.current = source;
-  remember(SOURCE_KEY, source.id);
-  if (getPrefs().radioSourceId !== source.id) savePrefs({ radioSourceId: source.id }).catch(() => {});
+  if (keep) {
+    remember(SOURCE_KEY, source.id);
+    if (getPrefs().radioSourceId !== source.id) savePrefs({ radioSourceId: source.id }).catch(() => {});
+  }
   if (source.kind === "stream") {
     const audio = new Audio();
     audio.preload = "none";

@@ -40,7 +40,7 @@ scenarios.facts = async () => {
   const none = factsBand(null, { id: "sheet-facts", school: "Away U" });
   document.body.append(none);
   const n = clean("empty facts band", none);
-  assert.ok(n.includes("Away U's history and facts are not loaded yet") && n.includes("Open the prompts"));
+  assert.ok(n.includes("Away U's history and facts are not loaded yet") && n.includes("Open Load data"));
   assert.ok(none.querySelector('a[href="#prompts"]'), "the dead end leads to the Prompts page");
   clean("junk facts", factsBand({ founded: "x", rivalries: null, dates: 5 }, { school: 7 }));
 };
@@ -119,6 +119,6 @@ def test_the_reminders_share_one_format() -> None:
     notes = (js / "ui" / "page-notes.js").read_text(encoding="utf-8")
     assert 'class: "btn btn--quiet icon-btn page-note__close"' in notes, "every note closes with its ×"
     shell = (js / "ui" / "shell.js").read_text(encoding="utf-8")
-    assert '{ id: "prompts", label: "Prompts"' in shell
+    assert '{ id: "prompts", label: "Load data"' in shell
     for name, needle in (("ui/matchup-card.js", 'href: "#prompts"'), ("ui/roster-costs.js", 'href: "#prompts"'), ("views/preseason.js", 'href: "#prompts"'), ("views/injuries.js", 'href: "#prompts"')):
         assert needle in (js / name).read_text(encoding="utf-8"), f"{name}: the dead end leads to the Prompts page"
