@@ -553,7 +553,10 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
           boardSaid.textContent = error?.message || "It did not close.";
         }
       } }, "Close the board");
+      // freeze wave F5 (owner 2026-10-20): the name on the notes you write, "Note from Pat"
+      const nameInput = el("input", { class: "setting__text", type: "text", maxlength: "40", autocomplete: "name", value: typeof prefsMeta()?.prefs?.hostName === "string" ? prefsMeta().prefs.hostName : "", placeholder: "the host", "aria-label": "Your name", onchange: (event) => change({ hostName: event.target.value.trim() }, "Your name") });
       slot.replaceChildren(
+        row("Your name", nameInput, "On the notes you write on the Pre-Game Program and In Game: \"Note from Pat\". Blank reads \"the host\"."),
         row("Host PIN", el("div", { class: "setting__stack" }, pin, setPin, removePin), host.pinSet ? "A PIN is set: other devices are view-only. Your own tablet signs in once with it (the \"I'm the host\" link at the top). This computer is always the host." : "No PIN yet, so every device that joins can change settings. Set one (from this computer) to make guests view-only."),
         row("Invite friends", el("a", { class: "btn", href: "#invite" }, "Show the QR code"), "A full-screen QR code by IP number, and a guide for watching away from home."),
         row("Away from home", toggle((prefsMeta()?.prefs?.awayFromHome) === true, (value) => change({ awayFromHome: value }, "Away from home"), "Away from home"), "For a venue's or a hotspot's Wi-Fi. On: the network name is not announced, and only devices that scan your code (or open its exact address) can watch; everyone else sees a short page saying the companion is away. Your own devices keep working. Off at home."),

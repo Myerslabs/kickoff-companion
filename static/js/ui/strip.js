@@ -14,11 +14,12 @@ function timeouts(remaining, label) {
 /**
  * strip({ us: {abbr, points, timeouts}, them: {abbr, points, timeouts}, possession: "us"|"them"|null,
  *         status: "pre"|"live"|"halftime"|"final", period, clock,
- *         down, distance, yardsToGoal, pill: {kind, label}, tools, sticky })
- * Returns the element with setPill(pill).
+ *         down, distance, yardsToGoal, pill: {kind, label}, tools, extras, sticky })
+ * extras (freeze wave F5): a node for the right side before the pill (In Game's win probability and last play).
+ * Returns the element with setPill(pill) and setExtras(node).
  */
 export function strip(props) {
-  const { us = {}, them = {}, possession = null, status = "live", tools, sticky = true } = props;
+  const { us = {}, them = {}, possession = null, status = "live", tools, extras = null, sticky = true } = props;
   const teamNode = (side, team) =>
     el("span", { class: `strip__team strip__team--${side}${possession === side ? " strip__team--poss" : ""}` }, text(team.abbr));
   const pts = (team, side) => el("span", { class: "strip__pts", dataset: { k: `strip:${side}` } }, isNum(team.points) ? String(team.points) : "–"); // Phase 16 wave 3: flashes when it changes
@@ -52,10 +53,14 @@ export function strip(props) {
   let pillNode = props.pill ? pill(props.pill) : null;
   let pillKey = props.pill ? `${props.pill.kind}|${props.pill.label}` : "";
   const pillMark = document.createComment("pill");
+  const extrasMark = document.createComment("extras");
+  let extrasNode = extras || null;
   const right = el(
     "div",
     { class: "strip__right" },
     status === "live" ? [timeouts(us.timeouts, text(us.abbr)), timeouts(them.timeouts, text(them.abbr))] : null,
+    extrasNode,
+    extrasMark,
     pillNode,
     pillMark,
     tools || null,
@@ -70,6 +75,12 @@ export function strip(props) {
     if (pillNode) pillNode.remove();
     pillNode = next ? pill(next) : null;
     if (pillNode) right.insertBefore(pillNode, pillMark);
+  };
+  /** setExtras(node) or setExtras(null): swap the extras in place (the percentage and the last play follow the game). */
+  root.setExtras = (next) => {
+    if (extrasNode) extrasNode.remove();
+    extrasNode = next || null;
+    if (extrasNode) right.insertBefore(extrasNode, extrasMark);
   };
   return root;
 }

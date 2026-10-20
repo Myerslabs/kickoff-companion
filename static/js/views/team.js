@@ -369,7 +369,8 @@ function render(envelope, container, state) {
 /** The flyout for a team other than ours: header, tiles, schedule, the stat tables, injuries, roster, recruiting, in a side sheet. */
 export function openTeamFlyout(school) {
   const host = el("div", {}, band({ title: text(school), collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(8) }));
-  const handle = openSheet({ title: text(school), body: host });
+  // freeze wave F5 (section 7 of the plan): the sheet leads to the team's full page, as the national sheet does
+  const handle = openSheet({ title: text(school), body: host, tools: el("a", { class: "btn btn--quiet nat-full", href: `#team=${encodeURIComponent(school)}` }, "Full page") });
   fetchJson(`/api/team/${encodeURIComponent(school)}`)
     .then((envelope) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};

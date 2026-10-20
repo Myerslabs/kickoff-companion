@@ -1,13 +1,28 @@
 // Your own notes during a game (Phase 19). A line box and an Add button; each note is stamped with the quarter, clock and
 // score when the page knows them, and the list reads back newest first with a small Remove on each. The same panel sits on
-// the Live sheet (a side sheet), the Game program, and the Archive, where the notes line up with the game afterwards.
+// In Game's Notes sheet, at the top of the Pre-Game Program's notes, and on the Archive, where the notes line up with the
+// game afterwards. Freeze wave F5 (owner 2026-10-20: "if you write your own note then it should just go into the program
+// note, like note from Pat"): every line reads "Note from <your name>", the name from Settings ("the host" until set).
 //
-//   gameNotesPanel({ gameId, getContext })   getContext() -> { period, clock, score } or null; returns the element
+//   gameNotesPanel({ gameId, getContext, name })   getContext() -> { period, clock, score } or null; returns the element
+//   noteAuthor(name)                               the name the lines carry: the one given, else Settings', else "the host"
 //   periodWord(period) -> "Q2" | "OT" ...    exported for the tests
 
-import { el, isNum, text } from "./dom.js";
+import { el, isNum, str, text } from "./dom.js";
 import { note } from "./states.js";
 import { fetchJson } from "../views/common.js";
+import { getPrefs } from "../prefs.js";
+
+export function noteAuthor(name) {
+  if (str(name)) return name.trim();
+  let saved = null;
+  try {
+    saved = getPrefs()?.hostName;
+  } catch {
+    saved = null;
+  }
+  return str(saved) ? saved.trim() : "the host";
+}
 
 export function periodWord(period) {
   if (!isNum(period) || period < 1) return "";
@@ -33,17 +48,18 @@ function stamp(n) {
   return when && !Number.isNaN(when.getTime()) ? when.toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
 }
 
-export function gameNotesPanel({ gameId, getContext } = {}) {
+export function gameNotesPanel({ gameId, getContext, name } = {}) {
   const id = isNum(gameId) ? gameId : Number.parseInt(String(gameId ?? ""), 10);
   const host = el("div", { class: "gamenotes" });
   if (!Number.isFinite(id) || id <= 0) return host;
-  const input = el("textarea", { class: "input gamenotes__input", rows: "2", maxlength: "1000", placeholder: "A line about the game: a play, a call, who to watch", "aria-label": "Your note" });
+  const who = noteAuthor(name);
+  const input = el("textarea", { class: "input gamenotes__input", rows: "2", maxlength: "1000", placeholder: `A note from ${who}: a play, a call, who to watch`, "aria-label": "Your note" });
   const said = el("p", { class: "note", role: "status" }, "");
   const list = el("ul", { class: "gamenotes__list" });
 
   function draw(notes) {
     const rows = (Array.isArray(notes) ? notes : []).filter((n) => n && typeof n === "object" && typeof n.text === "string").slice().reverse();
-    list.replaceChildren(...(rows.length ? rows.map((n) => el("li", { class: "gamenotes__item" }, stamp(n) ? el("b", { class: "gamenotes__stamp" }, stamp(n)) : null, el("span", { class: "gamenotes__text" }, n.text), el("button", { class: "btn btn--quiet", type: "button", "aria-label": "Remove this note", onclick: () => remove(n.id) }, "Remove"))) : [el("li", { class: "note" }, "No notes for this game yet.")]));
+    list.replaceChildren(...(rows.length ? rows.map((n) => el("li", { class: "gamenotes__item" }, el("b", { class: "gamenotes__from" }, `Note from ${who}`), stamp(n) ? el("span", { class: "gamenotes__stamp" }, stamp(n)) : null, el("span", { class: "gamenotes__text" }, n.text), el("button", { class: "btn btn--quiet", type: "button", "aria-label": "Remove this note", onclick: () => remove(n.id) }, "Remove"))) : [el("li", { class: "note" }, `No notes from ${who} for this game yet.`)]));
   }
 
   async function load() {

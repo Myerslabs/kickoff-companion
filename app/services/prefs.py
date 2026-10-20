@@ -63,6 +63,7 @@ class Prefs(BaseModel):
     awayFromHome: bool = False  # group five: on a public network, only devices that scanned the host's code can watch
     announcer: bool = True  # Phase 17 #15: the little announcer calls out the bands' stat blurbs
     updateCheck: bool = True  # Phase 16 wave 3: once a day, ask GitHub whether a newer release is out
+    hostName: str = Field(default="", max_length=40)  # freeze wave F5 (owner 2026-10-20): the name on the notes you write, "Note from Pat"; blank reads "the host"
     keepScreenOn: Literal["off", "gameday", "always"] = "gameday"  # the shell's screen wake lock (Phase 12)
     openBrowser: Literal["manual", "always", "never"] = "manual"  # open the app on the host when the server starts (Phase 4b)
     # Public release Phase 5b (a Tier 2 key for all of these). Primary teams #2 to #5: their team pages load

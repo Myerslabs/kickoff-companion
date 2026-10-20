@@ -49,7 +49,7 @@ function syncSlot() {
 function apply(id, note, route) {
   let on = false;
   try {
-    on = route !== "board" && note.when(route) === true; // the big screen board never carries a note
+    on = route !== "board" && route !== "live" && note.when(route) === true; // the big screen board never carries a note, nor In Game since wave F5 (one screen)
   } catch (error) {
     console.error("A note could not tell where it belongs; it stays hidden.", error);
   }

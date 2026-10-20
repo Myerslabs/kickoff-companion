@@ -132,7 +132,7 @@ scenarios.notes = async () => {
   const host = gameNotesPanel({ gameId: 526001015, getContext: () => ({ period: 2, clock: "8:41", score: "SWT 7, OPP 3" }) });
   document.body.append(host);
   await flush();
-  assert.ok(text(host).includes("No notes for this game yet."));
+  assert.ok(text(host).includes("No notes from the host for this game yet."));
   const [input] = host.querySelectorAll("textarea");
   const add = host.querySelectorAll("button").find((b) => text(b) === "Add the note");
   add.click();
@@ -147,7 +147,7 @@ scenarios.notes = async () => {
   assert.equal(input.value, "");
   host.querySelectorAll("button").find((b) => text(b) === "Remove").click();
   await flush();
-  assert.ok(text(host).includes("No notes for this game yet."));
+  assert.ok(text(host).includes("No notes from the host for this game yet."));
   assert.equal(gameNotesPanel({ gameId: null }).childNodes.length, 0);
 };
 """

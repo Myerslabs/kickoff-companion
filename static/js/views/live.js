@@ -18,12 +18,11 @@ import { screenLock } from "../awake.js";
 import { isUs, usLabel, usName, usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { delaySlider } from "../ui/delay-slider.js";
-import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtPct, fmtStat, fmtTime, isNum, obj, recall, records, reducedMotion, remember, replaceWith, snapshotKeys, text } from "../ui/dom.js";
+import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtPct, fmtStat, fmtTime, isNum, obj, records, reducedMotion, replaceWith, snapshotKeys, str, text } from "../ui/dom.js";
 import { edgesTable } from "../ui/edges.js";
 import { driveList } from "../ui/drive-bar.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
 import { lineupBlock } from "../ui/lineups_combined.js";
-import { leadersGrid } from "../ui/leaders.js";
 import { fullName, weatherRow } from "../ui/matchup-card.js";
 import { crewText, staffParts } from "../ui/game-staff.js";
 import { fillWiki, wikiLink } from "../ui/wiki-links.js";
@@ -39,11 +38,12 @@ import { statTableSkeleton } from "../ui/stat-table.js";
 import { driveSummaryTable, fourthDownTable, madeOf, splitsTable, teamValueTable, tendencyTable, visitorsTable } from "../ui/in-game-tables.js";
 import { playValueTable } from "../ui/play-value.js";
 import { strip } from "../ui/strip.js";
+import { boxHalves, lastPlayWords, lastPlaysList, scoreCell, stageTools, stripExtras, wpSummary } from "../ui/stage.js";
 import { advancedBoxBlock } from "../ui/depth2.js";
 import { scoresSummary, scoresTable } from "../ui/scores.js";
-import { shotChart } from "../ui/shot-chart.js";
+import { shotChart, shotCounts } from "../ui/shot-chart.js";
 import { ticker } from "../ui/ticker.js";
-import { feedEfficiencyTable, quarterLine, teamStatsTable } from "../ui/team-stats.js";
+import { feedEfficiencyTable, teamStatsTable } from "../ui/team-stats.js";
 import { successRow, winProbabilityChart } from "../ui/wp-chart.js";
 import { getPrefs, savePrefs } from "../prefs.js";
 import { noteBuild } from "../build.js";
@@ -69,7 +69,6 @@ const SYNC_GIVE_UP_MS = 120 * 1000;
 const PLANS_URL = "https://collegefootballdata.com/api-tiers";
 const FEED_STATES = new Set(["idle", "waiting", "ok", "stale", "no_live_key"]);
 
-const LEADER_CATEGORIES = [["passing", "Passing", "YDS"], ["rushing", "Rushing", "YDS"], ["receiving", "Receiving", "YDS"], ["defensive", "Defense", "TOT"]];
 
 /** A player id CFBD sent: its box score and rosters use digit strings ("5132812"), some endpoints numbers. */
 export function hasId(value) {
@@ -218,37 +217,9 @@ function mergedBox(state, team) {
   return { ...derived, ...Object.fromEntries(Object.entries(polled).filter(([, v]) => v !== null && v !== undefined)), explosive: derived.explosive, successRate: derived.successRate, successCounts: derived.successCounts, plays: derived.plays || polled.plays, drives: derived.drives };
 }
 
-function leaderLine(category, row) {
-  const s = obj(row.stats);
-  const parts = {
-    passing: [text(s["C/ATT"]), `${text(s.YDS)} yds`, isNum(s.TD) ? `${s.TD} TD` : null, isNum(s.INT) ? `${s.INT} int` : null],
-    rushing: [`${text(s.CAR)} car`, `${text(s.YDS)} yds`, isNum(s.TD) ? `${s.TD} TD` : null],
-    receiving: [`${text(s.REC)} rec`, `${text(s.YDS)} yds`, isNum(s.TD) ? `${s.TD} TD` : null],
-    defensive: [`${text(s.TOT)} tkl`, isNum(s.SACKS) && s.SACKS > 0 ? `${s.SACKS} sck` : null, isNum(s.TFL) && s.TFL > 0 ? `${s.TFL} tfl` : null],
-  }[category] || [text(s.YDS)];
-  return parts.filter(Boolean).join(", ");
-}
 
-function leadersFromState(state, usName) {
-  const teams = state.playerStats && typeof state.playerStats === "object" ? state.playerStats : null;
-  if (!teams) return null;
-  const us = state.home === usName ? state.home : state.away;
-  const them = state.home === usName ? state.away : state.home;
-  const top = (team, category, stat) => {
-    const rows = records(obj(teams[team])[category]).filter((r) => isNum(r.stats?.[stat]));
-    rows.sort((a, b) => b.stats[stat] - a.stats[stat]);
-    const row = rows[0];
-    // Play-by-play lines carry an id only when the roster matched the jersey and name: else no headshot, no card.
-    return row ? { name: row.name, playerId: hasId(row.playerId) ? row.playerId : null, line: leaderLine(category, row), headshotUrl: hasId(row.playerId) ? `/media/headshot/${row.playerId}` : null } : null;
-  };
-  const categories = LEADER_CATEGORIES.map(([id, label, stat]) => ({ id, label, us: top(us, id, stat), them: top(them, id, stat) })).filter((c) => c.us || c.them);
-  return categories.length ? categories : null; // the play-by-play has no tackles, so Defense waits for the box score
-}
-
-/** The board's right-hand column shows one of In Game's panels at a time (owner mock 2026-10-11): the Box score until a
- *  menu button picks another; the pick is remembered on the device. */
-const TV_PANEL_KEY = "kickoff.board.panel";
-const TV_DEFAULT_PANEL = "box";
+/** The box-score halves step through their rows on their own when longer than their column (freeze wave F5, owner
+ *  2026-10-20; the 2026-10-11 board's panes stepped the same way), on the tablet and the board alike. */
 const BOARD_STEP_MS = 2200; // one row every couple of seconds
 const BOARD_REST_MS = 5000; // the pause at the end before the pane returns to the top
 
@@ -496,9 +467,10 @@ export function createLiveView({ onStatus, board = false } = {}) {
 
   function tickerLabel() {
     // Public release Phase 5b: the My teams ticker names itself; the schedule's cadence comes from the server (5 or 20 min).
-    const base = state.ticker?.mode === "mine" ? "My teams" : "FBS scores";
+    // freeze wave F5 (owner 2026-10-20): no "FBS scores" label, everyone knows a ticker; the My teams one still names itself
+    const base = state.ticker?.mode === "mine" ? "My teams" : "";
     const minutes = isNum(state.ticker?.refreshMinutes) ? state.ticker.refreshMinutes : 5;
-    return state.ticker?.source === "games" ? `${base}, every ${minutes} min` : base;
+    return base && state.ticker?.source === "games" ? `${base}, every ${minutes} min` : base;
   }
 
   /**
@@ -661,9 +633,9 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const stripEl = stripFor(s, kickoffLabel(g));
     const line = `${kickoffLabel(g)}. The sheet fills in as the game is played, ${state.delay} s behind the broadcast; the Spoiler delay button changes that.`;
     return {
-      top: [stripEl, gameInfo(p)],
+      top: [stripEl, essentials(s)],
       strip: stripEl,
-      middle: [sheetFor(s), el("p", { class: "note" }, line)],
+      middle: [stageFor(s)],
       bottom: null,
       items: remoteItems(s),
       state: s,
@@ -673,6 +645,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
 
   function delayLabel() {
     return `Spoiler delay ${state.delay} s ›`;
+  }
+
+  /** The button in the panel row (wave F5): short, the sheet says the rest. */
+  function shortDelayLabel() {
+    return `Delay ${state.delay} s`;
   }
 
   /** The delay slider and Sync to my TV in a side panel, opened from the Delay button (public release Phase 7b). */
@@ -698,7 +675,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const next = clampDelay(value);
     if (next === null || next === state.delay) return; // nothing changed: no reconnect
     state.delay = next;
-    if (state.delayButton) state.delayButton.textContent = delayLabel();
+    if (state.tools) state.tools.setDelayLabel(shortDelayLabel());
     savePrefs({ delaySeconds: next }).catch((error) => console.warn(`In Game: the delay is kept on this device only; the server did not save it: ${error?.message || error}`));
     if (!container) return; // a nudge that settled after the sheet closed is saved, nothing more
     if (state.heldFor !== null && state.heldFor !== undefined) loadHeld(); // the held final at the new delay (the spoiler rule), no stream
@@ -748,7 +725,9 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const usPts = usHome ? s.homeScore : s.awayScore;
     const themPts = usHome ? s.awayScore : s.homeScore;
     const possession = s.possession === usTeam() ? "us" : s.possession ? "them" : null;
-    return strip({ us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, kickoffText, pill: null, sticky: true });
+    // freeze wave F5: the win probability as a percentage and the last play ride on the strip (owner 2026-10-20)
+    const extras = stripExtras({ wp: wpSummary(s, { usHome, pregame: state.program?.pregame?.usWinProbability }), lastPlay: s.status === "pre" ? null : lastPlayWords(s.lastPlay, { abbr: (school) => abbrOf(school, state.program) }), usAbbr: usAbbr() });
+    return strip({ extras, us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, kickoffText, pill: null, sticky: true });
   }
 
   // --- Phase 12: splits, tendencies, drive summary, fourth down, sync ---------------------------------
@@ -878,11 +857,6 @@ export function createLiveView({ onStatus, board = false } = {}) {
   }
 
   /** Where the leaders come from: the box score, or the play-by-play until CFBD posts it (Phase 11). */
-  function leadersNote(s) {
-    const sources = Object.values(obj(s.playerStatsSource));
-    if (!sources.includes("plays")) return "From CFBD's box score.";
-    return sources.includes("box") ? "From the box score where CFBD has posted it, else from the play-by-play." : "From the play-by-play until CFBD posts the box score; no tackles yet.";
-  }
 
   /**
    * The shot chart band. On the sheet it switches between passes and runs (the switch redraws the chart alone, in place:
@@ -897,7 +871,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
       title: `Shot chart: ${usAbbr()} offense`,
       kind: "neutral",
       area: "chart",
-      summary: shown() === "runs" ? "runs by lane" : "passes by zone",
+      summary: view === "both" ? shotCounts(obj(s.shotChart)[usTeam()]) : shown() === "runs" ? "runs by lane" : "passes by zone",
       state: obj(obj(s.shotChart)[usTeam()]).passes ? { status: "ready" } : { status: "empty", message: "The chart fills in with the first pass or run." },
       body: () => {
         const host = el("div", { class: "shot-chart-host" });
@@ -925,33 +899,74 @@ export function createLiveView({ onStatus, board = false } = {}) {
     });
   }
 
-  function sheetFor(s) {
+  /** Team stats, with the live feed's efficiency lines under it (the Box score panel carries it since wave F5). */
+  function teamStatsBand(s) {
+    const usBox = mergedBox(s, usTeam());
+    const themBox = mergedBox(s, themSide().name);
+    const statsNote = s.boxScore ? "Yards, downs, and turnovers from the box score; plays from the play log; success rate from CFBD." : "From the play log until CFBD posts the box score; success rate from CFBD.";
+    return band({ id: "live-stats", title: "Team stats", kind: "neutral", collapsible: false, summary: `${text(usBox.totalYards)} to ${text(themBox.totalYards)} yds`, state: s.counts?.plays ? { status: "ready", updatedText: statsNote } : { status: "empty", message: "Team stats appear after the first play." }, body: () => el("div", {}, teamStatsTable({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }), feedStatsTable(s)) }); // wave 2: the schools and mascots head it at large
+  }
+
+  /** The win probability chart with the last play's success and the fourth-down call (the Situation panel since wave F5). */
+  function winProbabilityBand(s) {
     const usHome = s.home === usTeam();
     const usBox = mergedBox(s, usTeam());
     const themBox = mergedBox(s, themSide().name);
     const pregame = state.program?.pregame?.usWinProbability;
-    const leaders = leadersFromState(s, usTeam());
     const lastPlay = s.lastPlay && typeof s.lastPlay === "object" ? s.lastPlay : null;
     const judged = typeof lastPlay?.success === "boolean";
     // CFBD's own team rate carries no counts; a server from before Phase 10a counted the play log itself.
     const rateSource = isNum(usBox.successCounts?.judged) || isNum(themBox.successCounts?.judged) ? "play log" : "CFBD";
-    const statsNote = s.boxScore ? "Yards, downs, and turnovers from the box score; plays from the play log; success rate from CFBD." : "From the play log until CFBD posts the box score; success rate from CFBD.";
-    const sheet = el("div", { class: "sheet sheet--live sheet--remote" });
-    sheet.append(
-      band({ id: "live-score", title: "Score by quarter", kind: "neutral", area: "score", collapsible: false, summary: s.status === "final" ? "Final" : "", body: () => quarterLine({ us: { abbr: usAbbr(), scores: usHome ? s.homeLineScores : s.awayLineScores, total: usHome ? s.homeScore : s.awayScore }, them: { abbr: themSide().abbr, scores: usHome ? s.awayLineScores : s.homeLineScores, total: usHome ? s.awayScore : s.homeScore } }) }),
-      band({ id: "live-stats", title: "Team stats", kind: "neutral", area: "stats", summary: `${text(usBox.totalYards)} to ${text(themBox.totalYards)} yds`, state: s.counts?.plays ? { status: "ready", updatedText: statsNote } : { status: "empty", message: "Team stats appear after the first play." }, body: () => el("div", {}, teamStatsTable({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }), feedStatsTable(s)) }), // wave 2: the schools and mascots head it at large
-      band({
-        id: "live-wp",
-        title: "Win probability",
-        kind: "neutral",
-        area: "wp",
-        summary: judged ? `Last play: ${lastPlay.success ? "success" : "failed"}` : "",
-        body: () => el("div", {}, wpBlock(s, usHome, pregame), fourthDownBlock(s), successRow({ play: lastPlay, offenseAbbr: lastPlay?.offense === usTeam() ? usAbbr() : themSide().abbr, us: { abbr: usAbbr(), rate: usBox.successRate, counts: usBox.successCounts }, them: { abbr: themSide().abbr, rate: themBox.successRate, counts: themBox.successCounts }, source: rateSource })),
-      }),
-      chartBand(s),
-      band({ id: "live-leaders", title: "Leaders", kind: "neutral", area: "leaders", summary: leaders && Object.values(obj(s.playerStatsSource)).includes("box") ? "tap a player for the card" : "", state: leaders ? { status: "ready", updatedText: leadersNote(s) } : { status: "empty", message: "Player lines appear after the first pass or run." }, body: () => leadersGrid({ categories: leaders || [], usAbbr: usAbbr(), themAbbr: themSide().abbr, onTap: (player, side) => (hasId(player?.playerId) ? openPlayer(player.playerId, { ...player, isUs: side === "us" }) : null) }) }),
+    return band({
+      id: "live-wp",
+      title: "Win probability",
+      kind: "neutral",
+      collapsible: false,
+      summary: judged ? `Last play: ${lastPlay.success ? "success" : "failed"}` : "",
+      body: () => el("div", {}, wpBlock(s, usHome, pregame), fourthDownBlock(s), successRow({ play: lastPlay, offenseAbbr: lastPlay?.offense === usTeam() ? usAbbr() : themSide().abbr, us: { abbr: usAbbr(), rate: usBox.successRate, counts: usBox.successCounts }, them: { abbr: themSide().abbr, rate: themBox.successRate, counts: themBox.successCounts }, source: rateSource })),
+    });
+  }
+
+  /**
+   * In Game on one screen (freeze wave F5, the owner's mock of 2026-10-20): the box score with both teams side by side,
+   * then the last five plays, Score by quarter with the drive lines, and the shot chart with the passes over the line of
+   * scrimmage and the runs under it. The strip above it carries the percentage and the last play; the panels hold the rest.
+   */
+  function stageFor(s) {
+    const usHome = s.home === usTeam();
+    const us = usSide();
+    const them = themSide();
+    const lines = obj(s.playerStats);
+    const haveLines = Object.values(lines).some((cats) => Object.values(obj(cats)).some((rows) => records(rows).length));
+    const fromPlays = Object.values(obj(s.playerStatsSource)).includes("plays");
+    return el(
+      "div",
+      { class: "stage" },
+      band({ id: "live-box", title: "Box score", kind: "neutral", collapsible: false, summary: haveLines ? (fromPlays ? "from the play-by-play until CFBD posts the box score" : "both teams") : "", state: haveLines ? { status: "ready" } : { status: "empty", message: "Player lines appear after the first pass or run." }, body: () => boxHalves({ us, them, usTables: boxPanel(s, usTeam(), false), themTables: boxPanel(s, themSide().name, true) }) }),
+      el(
+        "div",
+        { class: "stage__row" },
+        band({ id: "live-plays", title: "Last 5 plays", kind: "neutral", collapsible: false, summary: records(s.plays).length ? "newest first" : "", body: () => lastPlaysList({ plays: records(s.plays), us, them, limit: 5 }) }),
+        band({ id: "live-score", title: "Score by quarter", kind: "neutral", collapsible: false, summary: s.status === "final" ? "Final" : "", body: () => scoreCell({ s, us, them, usHome }) }),
+        chartBand(s, { view: "both", fixed: true }),
+      ),
     );
-    return sheet;
+  }
+
+  /** The essentials under the strip on a phone or an iPad held upright (the stage hides them): the last play and the percentage, large. */
+  function essentials(s) {
+    const usHome = s.home === usTeam();
+    const wp = wpSummary(s, { usHome, pregame: state.program?.pregame?.usWinProbability });
+    const words = s.status === "pre" ? null : lastPlayWords(s.lastPlay, { abbr: (school) => abbrOf(school, state.program) });
+    const pct = isNum(wp.pct) ? wp.pct : wp.kickoff;
+    if (!words && !isNum(pct)) return null;
+    const kick = isNum(wp.pct) && isNum(wp.kickoff) ? `, ${fmtPct(wp.kickoff)} at kickoff` : isNum(wp.pct) ? "" : " at kickoff";
+    return el(
+      "div",
+      { class: "stage-essentials" },
+      words ? [el("span", { class: "stage-essentials__label" }, "Last play"), el("span", { class: "stage-essentials__words", dataset: { k: "ess:last" } }, words)] : null,
+      isNum(pct) ? el("span", { class: "stage-essentials__wp" }, el("b", { dataset: { k: "ess:wp" } }, fmtPct(pct)), `${usAbbr()} to win${kick}`) : null,
+    );
   }
 
   // --- the side sheets ---------------------------------------------------------------------------
@@ -982,11 +997,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const weather = obj(p.weather);
     const availability = records(p.notes?.availability);
     return [
-      { id: "box", label: "Box score", hint: "both teams", body: () => [band({ title: usWords(), kind: "us", collapsible: false, body: () => boxPanel(s, usTeam(), false) }), band({ title: themSide().name, kind: "them", collapsible: false, body: () => boxPanel(s, themSide().name, true) })] },
+      { id: "box", label: "Box score", hint: "both teams", body: () => [teamStatsBand(s), band({ title: usWords(), kind: "us", collapsible: false, body: () => boxPanel(s, usTeam(), false) }), band({ title: themSide().name, kind: "them", collapsible: false, body: () => boxPanel(s, themSide().name, true) })] }, // wave F5: Team stats left the page for this panel
       { id: "drives", label: "Drives", hint: `${isNum(s.counts?.drives) ? s.counts.drives : 0} drives`, body: () => band({ title: "Drives", collapsible: false, body: () => (drives.length ? el("div", {}, driveSummaryTable(s.driveSummary, bothHeads()), driveList({ drives, us: usSide(), them: themSide(), currentId: s.currentDriveId ?? null })) : note("Drives appear after kickoff.")) }) },
       { id: "splits", label: "Splits", hint: splitsHint(s), body: () => splitsBand(s) },
       { id: "plays", label: "Plays", hint: `${isNum(s.counts?.plays) ? s.counts.plays : 0} plays`, body: () => band({ title: "Play by play", collapsible: false, body: () => (plays.length ? playLog({ plays, us: usSide(), them: themSide(), freshIds: freshPlays(plays), filter: state.sheet?.filter || "all", onFilter: (id) => { if (state.sheet) state.sheet.filter = id; } }) : note("Plays appear after kickoff.")) }) },
-      { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }) }) },
+      { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => [band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }) }), winProbabilityBand(s)] }, // wave F5: the win probability chart left the page for this panel
       { id: "edges", label: "Edges", hint: "season ranks", body: () => band({ title: "Matchup edges", collapsible: false, body: () => (edges.length ? edgesTable(edges, { usAbbr: usSide().abbr, themAbbr: themSide().abbr, usTeam: usTeam(), themTeam: themSide().name }) : note("Edges appear once both teams have played.")) }) }, // Phase 16 wave 3 (L-02)
       { id: "weather", label: "Weather", hint: "game site", body: () => band({ title: "Weather", collapsible: false, body: () => el("div", { style: { padding: "12px" } }, weather.available ? weatherRow({ kickoffText: fmtTime(p.game?.kickoff), tempF: weather.tempF, windMph: weather.windMph, windDir: typeof weather.windDir === "string" ? weather.windDir : null, sky: weather.sky, precipChance: weather.precipChance, indoors: Boolean(weather.dome), source: weather.source }) : weatherRow({ kickoffText: fmtTime(p.game?.kickoff), note: weather.error || "No forecast." })) }) },
       { id: "visitors", label: "Visitors", hint: "recruits", body: () => visitorsBand() },
@@ -1085,42 +1100,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
 
   /** The board's skeleton, built once: the cells keep their place (and their scroll) while every frame redraws them. */
   function buildTv() {
-    const cell = (name) => el("div", { class: `tv__cell tv__cell--${name}` });
-    const tv = {
-      wp: cell("wp"),
-      leaders: cell("leaders"),
-      pass: cell("pass"),
-      runs: cell("runs"),
-      qr: el("div", { class: "tv__cell tv__cell--qr tv__qr" }), // board.js puts its QR here
-      stats: el("div", { class: "tv__cell tv__cell--stats tv__scroll" }),
-      panel: el("section", { class: "tv__cell tv__cell--panel board-panel" }),
-      head: el("h2", { class: "board-panel__title" }),
-      body: el("div", { class: "board-panel__body tv__scroll" }),
-      radio: el("div", { class: "tv__radio" }), // board.js puts its radio control here
-      strip: el("div", { class: "tv__strip" }),
-      note: el("div", { class: "tv__note" }),
-      menu: el("nav", { class: "tv__menu", "aria-label": "In Game panels" }),
-      empty: el("div", { class: "tv__empty" }, slots.top, slots.middle, slots.bottom), // no game: the sheet's own message
-      panelId: recall(TV_PANEL_KEY, TV_DEFAULT_PANEL),
-      drawnId: null,
-      timer: null,
-      rest: new WeakMap(),
-    };
-    tv.panel.append(tv.head, tv.body);
+    // the board (freeze wave F5, owner 2026-10-20: "the big screen should mirror the tablet's exactly"): In Game's own
+    // frame, with a foot in place of the buttons: the radio, the delay line (or the final's), the QR (views/board.js)
+    const tv = { radio: el("div", { class: "tv__radio" }), note: el("div", { class: "tv__note" }), qr: el("div", { class: "tv__qr" }) };
     state.tv = tv;
-    return el(
-      "div",
-      { class: "tv" },
-      el("div", { class: "tv__main" }, tv.empty, tv.wp, tv.leaders, el("div", { class: "tv__lower" }, tv.pass, tv.runs, tv.qr), tv.stats, tv.panel),
-      el(
-        "div",
-        { class: "tv__bars" },
-        el("div", { class: "tv__bar tv__bar--strip" }, tv.radio, tv.strip),
-        el("div", { class: "tv__bar tv__bar--ticker" }, tickerHost),
-        el("div", { class: "tv__bar tv__bar--note" }, tv.note),
-        el("div", { class: "tv__bar tv__bar--menu" }, tv.menu),
-      ),
-    );
+    return el("div", { class: "tv live-frame" }, slots.top, slots.middle, tickerHost, slots.bottom, el("div", { class: "tv__foot" }, tv.radio, tv.note, tv.qr));
   }
 
   /** The delay line for a game under way (In Game says it only before kickoff). */
@@ -1128,115 +1112,37 @@ export function createLiveView({ onStatus, board = false } = {}) {
     return el("p", {}, "Every panel runs ", el("b", { class: "tv__delay" }, `${state.delay} s`), " behind the broadcast, so the board never gets ahead of the TV; the Spoiler delay button on In Game changes that.");
   }
 
-  /** Draw one frame on the board. The sheet's bands move into their cells; each long column keeps its place. */
+  /** The board's foot: the final's line, else the delay line. The rest of the board is In Game's own frame. */
   function drawTv(view) {
     const tv = state.tv;
     if (!tv) return;
-    const s = view.state && typeof view.state === "object" ? view.state : {};
-    const sheet = Array.isArray(view.middle) ? view.middle.find((node) => node && node.classList && node.classList.contains("sheet")) : null;
-    const idOf = (node) => (typeof node.getAttribute === "function" ? node.getAttribute("id") : null);
-    const bands = new Map(sheet ? [...sheet.children].filter((node) => idOf(node)).map((node) => [idOf(node), node]) : []);
-    replaceWith(tv.wp, bands.get("live-wp") || null);
-    replaceWith(tv.leaders, bands.get("live-leaders") || null);
-    const top = tv.stats.scrollTop;
-    replaceWith(tv.stats, bands.get("live-stats") || null);
-    tv.stats.scrollTop = top;
-    replaceWith(tv.pass, chartBand(s, { view: "passes", fixed: true }));
-    replaceWith(tv.runs, chartBand(s, { view: "runs", fixed: true, id: "live-chart-runs" }));
-    replaceWith(tv.strip, view.strip || null);
     const note = view.boardNote;
     replaceWith(tv.note, typeof note === "string" ? el("p", {}, note) : note || tvDelayLine());
-    drawTvMenu(view.items);
-    drawTvPanel(view.items);
-    if (!tv.timer && typeof setInterval === "function" && !reducedMotion()) tv.timer = setInterval(stepTv, BOARD_STEP_MS);
   }
 
-  /** The twelve buttons along the bottom, In Game's own order; the one on screen is pressed. */
-  function drawTvMenu(items) {
-    const tv = state.tv;
-    if (!tv) return;
-    replaceWith(
-      tv.menu,
-      (Array.isArray(items) ? items : []).map((item) =>
-        el(
-          "button",
-          { class: "tv__menu-btn", type: "button", "aria-pressed": item.id === tv.drawnId ? "true" : "false", dataset: { id: item.id }, onclick: () => pickTvPanel(item.id) },
-          el("span", { class: "tv__menu-label" }, text(item.label)),
-          item.hint ? el("small", {}, text(item.hint)) : null, // a missing hint is nothing, never "null"
-        ),
-      ),
-    );
+  /** The columns that step through their rows: each box-score half (owner 2026-10-20: longer than its column, it steps). */
+  function stepScrollers() {
+    return frame && typeof frame.querySelectorAll === "function" ? [...frame.querySelectorAll(".stage-step")] : [];
   }
 
-  /** The right-hand column: the picked panel, else the Box score, else the first; a redraw keeps its place. */
-  function drawTvPanel(items) {
-    const tv = state.tv;
-    if (!tv) return;
-    const list = Array.isArray(items) ? items : [];
-    const item = list.find((i) => i.id === tv.panelId) || list.find((i) => i.id === TV_DEFAULT_PANEL) || list[0];
-    if (!item) {
-      replaceWith(tv.head);
-      replaceWith(tv.body);
-      return;
-    }
-    const same = tv.drawnId === item.id;
-    replaceWith(tv.head, text(item.label), item.hint ? el("small", {}, text(item.hint)) : null);
-    const tops = same ? scrollTops(tv.body) : null;
-    replaceWith(tv.body, safeBody(item)); // a panel of several bands (the box score, the splits) is a list: each band drawn
-    if (tops) restoreTops(tv.body, tops);
-    tv.panel.dataset.id = item.id;
-    tv.panel.classList.toggle("tv__cell--split", tv.body.children.length > 1);
-    tv.drawnId = item.id;
-    for (const button of tv.menu.children) button.setAttribute("aria-pressed", button.dataset.id === item.id ? "true" : "false");
-  }
-
-  /** A menu button: that panel into the right-hand column (owner 2026-10-11: like changing a channel), remembered. */
-  function pickTvPanel(id) {
-    const tv = state.tv;
-    if (!tv || typeof id !== "string") return;
-    tv.panelId = id;
-    remember(TV_PANEL_KEY, id);
-    tv.body.scrollTop = 0;
-    drawTvPanel(state.items);
-  }
-
-  /** The columns that step through their rows: Team stats, and the panel (each team's half when it has two). */
-  function tvScrollers() {
-    const tv = state.tv;
-    if (!tv) return [];
-    const halves = [...tv.body.children].filter((node) => node.classList && node.classList.contains("band"));
-    const panel = halves.length > 1 ? halves.map((half) => half.querySelector(".band__body")).filter(Boolean) : [tv.body];
-    return [tv.stats, ...panel];
-  }
-
-  function scrollTops(body) {
-    return tvScrollersOf(body).map((node) => node.scrollTop);
-  }
-
-  function restoreTops(body, tops) {
-    tvScrollersOf(body).forEach((node, i) => {
-      if (isNum(tops[i])) node.scrollTop = tops[i];
-    });
-  }
-
-  function tvScrollersOf(body) {
-    const halves = [...body.children].filter((node) => node.classList && node.classList.contains("band"));
-    return halves.length > 1 ? halves.map((half) => half.querySelector(".band__body")).filter(Boolean) : [body];
+  function startStepping() {
+    if (state.stepTimer || typeof setInterval !== "function" || reducedMotion()) return;
+    state.stepRest = new WeakMap();
+    state.stepTimer = setInterval(stepTv, BOARD_STEP_MS);
   }
 
   /** Each long column moves one row; at its end it rests, then returns to the top (a column that fits never moves). */
   function stepTv() {
-    const tv = state.tv;
-    if (!tv) return;
-    for (const node of tvScrollers()) {
+    const rest = state.stepRest || (state.stepRest = new WeakMap());
+    for (const node of stepScrollers()) {
       const room = node.scrollHeight - node.clientHeight;
       if (!(room > 0)) continue;
       if (node.scrollTop >= room - 1) {
-        const rest = (tv.rest.get(node) || 0) + BOARD_STEP_MS;
-        if (rest >= BOARD_REST_MS) {
-          tv.rest.set(node, 0);
+        const waited = (rest.get(node) || 0) + BOARD_STEP_MS;
+        if (waited >= BOARD_REST_MS) {
+          rest.set(node, 0);
           node.scrollTo({ top: 0, behavior: "auto" });
-        } else tv.rest.set(node, rest);
+        } else rest.set(node, waited);
         continue;
       }
       const row = node.querySelector("tbody tr, li, .play");
@@ -1246,9 +1152,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
   }
 
   function stopTv() {
-    const tv = state.tv;
-    if (tv && tv.timer) clearInterval(tv.timer);
-    if (tv) tv.timer = null;
+    if (state.stepTimer) clearInterval(state.stepTimer);
+    state.stepTimer = null;
   }
 
   /** Close the open sheet, if any; the caller refreshes the pill. */
@@ -1284,9 +1189,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
   function liveParts(s) {
     const stripEl = stripFor(s);
     return {
-      top: [stripEl, gameInfo(state.program)], // siblings: the strip stays sticky against the page, not a wrapper
+      // siblings: the strip stays sticky against the page, not a wrapper; after a final the owner's held-final line (2026-10-10:
+      // the Archive, the next game's program, how long this final stays up) sits under the strip, one line, the stage below it
+      top: [stripEl, essentials(s), s.status === "final" ? finalNote(s) : null],
       strip: stripEl,
-      middle: [sheetFor(s), s.status === "final" ? finalNote(s) : null],
+      middle: [stageFor(s)],
       bottom: null,
       items: remoteItems(s),
       state: s,
@@ -1306,7 +1213,26 @@ export function createLiveView({ onStatus, board = false } = {}) {
       const them = usHome ? s.awayScore : s.homeScore;
       return { period: isNum(s.period) ? s.period : null, clock: typeof s.clock === "string" ? s.clock : s.clock && typeof s.clock === "object" && isNum(s.clock.minutes) ? `${s.clock.minutes}:${String(isNum(s.clock.seconds) ? s.clock.seconds : 0).padStart(2, "0")}` : null, score: isNum(us) && isNum(them) ? `${usAbbr()} ${us}, ${themSide().abbr} ${them}` : null };
     };
-    openSheet({ title: "My notes", body: () => (gameId ? gameNotesPanel({ gameId, getContext: context }) : el("p", { class: "note" }, "There is no game to write about yet.")) });
+    // freeze wave F5 (owner 2026-10-20): one Notes sheet: your own lines first (they are part of the program notes now), the
+    // program notes themselves, the schemes, then the game line with the crew and the coaches
+    const p = state.program;
+    const n = obj(p?.notes);
+    const schemes = obj(n.schemes);
+    const schemeLine = (label, o) => {
+      const bits = [str(o.offense) ? `${o.offense.trim()} offense` : null, str(o.defense) ? `${o.defense.trim()} defense` : null].filter(Boolean);
+      return bits.length ? el("p", { class: "note notes-sheet__scheme" }, el("b", {}, text(label)), " ", bits.join(", ")) : null;
+    };
+    const body = () =>
+      el(
+        "div",
+        { class: "notes-sheet" },
+        gameId ? gameNotesPanel({ gameId, getContext: context }) : el("p", { class: "note" }, "There is no game to write about yet."),
+        n.present ? editorial({ byline: { author: n.author, writtenAt: n.writtenAt }, sources: records(n.sources), sections: records(n.sections) }) : el("p", { class: "note" }, "No program notes for this game yet. ", el("a", { href: "#program" }, "Add them on the Pre-Game Program"), "."),
+        schemeLine(usAbbr(), schemes),
+        schemeLine(themSide().abbr, obj(schemes.opponent)),
+        gameInfo(p),
+      );
+    openSheet({ title: "Notes", body });
   }
 
   async function openInviteSheet() {
@@ -1322,14 +1248,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const slot = () => el("div", { style: { display: "contents" } });
     slots = { top: slot(), middle: slot(), bottom: slot() };
     tickerHost = el("div", { class: "live-ticker" });
-    state.delayButton = el("button", { class: "btn btn--quiet delay-button", type: "button", "aria-haspopup": "dialog", onclick: () => openDelaySheet() }, delayLabel());
-    const notesButton = el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: openNotesSheet }, "My notes");  // Phase 19: your own lines about the game, stamped with the quarter and score
-    const inviteButton = el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: openInviteSheet }, "Invite");  // Phase 18.6: a small QR for a friend beside you
-    // owner 2026-10-10: the game-day board is reached from here only (it left the menu): the same game, drawn for a TV
-    const boardLink = el("a", { class: "btn btn--quiet", href: "#board" }, "Big screen");
-    // owner 2026-10-11: the radio within reach on In Game at every moment, before the game too (the player docks below)
-    const radioButton = el("button", { class: "btn btn--quiet live-radio", type: "button", "aria-haspopup": "dialog", onclick: () => openSheet({ title: "Radio", body: () => radioStations() }) }, "Radio");
-    frame = board ? buildTv() : el("div", {}, slots.top, el("div", { class: "live-tools" }, state.delayButton, radioButton, notesButton, inviteButton, boardLink), tickerHost, slots.middle, slots.bottom);
+    // freeze wave F5 (owner 2026-10-20: "where the touch is"): the five tools sit in the panel row at the bottom, buttons of
+    // the same kind: the delay (Phase 7b), the radio (owner 2026-10-11: within reach at every moment), the Notes (Phase 19: your
+    // own lines, part of the program notes now), Invite (Phase 18.6) and the Big screen (owner 2026-10-10: reached from here only)
+    state.tools = stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet });
+    frame = board ? buildTv() : el("div", { class: "live-frame" }, slots.top, slots.middle, tickerHost, slots.bottom);
     updateTicker();
   }
 
@@ -1357,9 +1280,9 @@ export function createLiveView({ onStatus, board = false } = {}) {
     }
     if (frame.parentNode !== container) container.replaceChildren(frame);
     const sheet = Array.isArray(view.items); // the game sheet, live or still empty before kickoff
-    if (board) frame.className = sheet ? "tv" : "tv tv--empty"; // no game yet: the sheet's own message, nothing else
+    if (board) frame.className = sheet ? "tv live-frame" : "tv live-frame tv--empty"; // no game yet: the sheet's own message, nothing else
     else {
-      frame.className = sheet ? "" : "season";
+      frame.className = sheet ? "live-frame" : "season";
       frame.style.gridTemplateColumns = sheet ? "" : "minmax(0, 1fr)";
     }
     const gameKey = state.live && typeof state.live === "object" ? state.live.gameId ?? null : null;
@@ -1368,12 +1291,10 @@ export function createLiveView({ onStatus, board = false } = {}) {
     // score could be read during the game. The band under the reader's eye stays where it is across the rebuild; the board
     // (big screen mode) keeps its top, which is what it is for.
     const anchor = document.body.classList.contains("board-mode") ? null : scrollAnchor(frame);
-    if (board && sheet) drawTv(view); // the board's cells take the sheet's bands; its slots stay empty
-    else {
-      replaceWith(slots.top, view.top);
-      replaceWith(slots.middle, view.middle);
-      replaceWith(slots.bottom, view.bottom);
-    }
+    replaceWith(slots.top, view.top);
+    replaceWith(slots.middle, view.middle);
+    replaceWith(slots.bottom, view.bottom);
+    if (board && sheet) drawTv(view); // the board's foot: the final's line, else the delay line
     keepAnchor(anchor);
     fillWiki(frame); // Phase 19: the stadium and the coaches become their Wikipedia pages
     if (before) flashChanges(before, frame); // Phase 16 wave 3 (L-03): only what changed since the last frame
@@ -1389,6 +1310,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
       if (!board) {
         if (!state.bar) {
           state.bar = remoteBar({ items: view.items, onOpen: openItem });
+          state.bar.classList.add("remote--stage"); // wave F5: one row, labels only, the tools at its end
+          state.bar.append(...state.tools);
           frame.append(state.bar);
         }
         state.bar.style.display = "";
@@ -1396,6 +1319,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
         if (state.sheet) state.bar.setActive(state.sheet.id);
         refreshOpenSheet();
       }
+      startStepping(); // the box-score halves step through their rows when longer than their column (wave F5)
     }
     refreshPill();
     if (!pregame && state.live.status === "final") maybeLoadAnalytics();

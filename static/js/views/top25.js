@@ -20,6 +20,7 @@ import { usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { el, isNum, obj, records, teamLink, text } from "../ui/dom.js";
 import { crewText, teamStaff } from "../ui/game-staff.js";
+import { openMatchupSheet } from "../ui/matchup-sheet.js";
 import { fitNames } from "../ui/paper-fit.js";
 import { band, note } from "../ui/states.js";
 import { getPrefs } from "../prefs.js";
@@ -88,6 +89,10 @@ function card(g) {
     staff: { us: teamStaff(coaches, "us", { abbr: abbr(away), school: away.school }), them: teamStaff(coaches, "them", { abbr: abbr(home), school: home.school }) },
     conditions: weatherLine(g),
   });
+  // freeze wave F5 (owner 2026-10-20): the two teams side by side in a sheet (ui/matchup-sheet.js), from the card's foot
+  if (typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
+    section.append(el("p", { class: "top25-card__tools" }, el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
+  }
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");
   section.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");

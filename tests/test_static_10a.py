@@ -42,7 +42,7 @@ OWNED = [
     "ui/strip.js",
     "views/archive.js",
 ]
-SCENARIOS = ["pure", "components", "live", "ticker", "pregame", "oldserver", "silentstart", "archive", "gameinfo", "held", "board"]
+SCENARIOS = ["pure", "components", "live", "ticker", "pregame", "oldserver", "silentstart", "archive", "gameinfo", "held", "finalnote", "board"]
 
 
 @needs_node
@@ -70,7 +70,8 @@ def test_stale_labels_are_gone():
         source = (STATIC_JS / name).read_text(encoding="utf-8")
         assert "Biscuit Belt and Top 25" not in source and "Biscuit Belt, Top 25" not in source and "Biscuit Belt or Top 25" not in source, name
     # the ticker carries every FBS game; Phase 17 #25: the sheet no longer promises to open itself
-    assert "FBS scores" in live and "every FBS game" in live and "No FBS games" in live
+    # wave F5 (owner 2026-10-20): the ticker has no "FBS scores" label; only the My teams one names itself
+    assert "every FBS game" in live and "No FBS games" in live and '"My teams"' in live
     assert "opens by itself" not in live and "1 hour before kickoff" not in live
 
 
@@ -191,12 +192,31 @@ const longWords = (node) => text(node ? node.querySelector(".tt__t--long, .sz-t-
 const layer = () => document.body.querySelector(".sheet-layer");
 const sheetBody = () => document.body.querySelector(".sheet-layer .side-sheet__body");
 const remoteButton = (container, id) => container.querySelector(`.remote__btn[data-id="${id}"]`);
+// wave F5: the five tools are buttons at the end of the panel row, told apart by their words
+const toolButton = (container, label) => container.querySelectorAll(".remote .remote__btn--tool").find((b) => text(b) === label);
+const sheetTitle = () => text(document.body.querySelector(".sheet-layer .side-sheet__title"));
+const RAW = /\b(undefined|NaN|null)\b/;
+/** The named parts under a root in document order (the first class of each; a found part is not searched inside). */
+function partsOf(root, names) {
+  const found = [];
+  const walk = (node) => {
+    for (const child of node.childNodes || []) {
+      const first = String(child.className || "").split(" ")[0];
+      if (names.includes(first)) found.push(first);
+      else walk(child);
+    }
+  };
+  walk(root);
+  return found;
+}
 
 // --- scenarios ------------------------------------------------------------------------------------
 
 const scenarios = {};
 
-// Public release Phase 7b: the TV crew and both staffs under the score, the shot chart, the hint when missing.
+// Public release Phase 7b: the TV crew and both staffs, the shot chart, the hint when missing. Wave F5 (owner 2026-10-20):
+// the game line left the page for the Notes sheet (your notes, the program notes, the schemes, then the line), and the
+// chart shows the passes over the line of scrimmage and the runs under it at once, with no switch.
 scenarios.gameinfo = async () => {
   const withCrew = clone(PROGRAM);
   withCrew.weather = { available: true, tempF: 71.6, windMph: 8, dome: false };
@@ -204,33 +224,54 @@ scenarios.gameinfo = async () => {
     present: true, availability: [],
     broadcast: { network: "ABC", playByPlay: "Pat Caller", analyst: "Sam Color", sideline: ["Lee Field", null, 7], source: "network release" },
     coaches: { us: { headCoach: "Head Us", offensiveCoordinator: "Oc Us", defensiveCoordinator: null }, them: { headCoach: "Head Them" } },
+    schemes: { offense: "Spread", defense: "4-2-5", opponent: { offense: "Pro style", defense: null } },
   };
+  route("/api/gamenotes/", () => envelope({ notes: [] }));
   const status = { mode: "live", window: WINDOW_OPEN, feed: feed("ok") };
   const { view, container } = await mountLive({ status, program: withCrew });
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
   const frame = liveFrame();
   latest().emit("state", frame);
   await settle();
-  const info = text(container.querySelector(".game-info"));
+  assert.equal(container.querySelector(".game-info"), null, "no game line on the page: In Game is one screen");
+  assert.equal(container.querySelector(".strip").parentNode, container.querySelector(".stage-essentials").parentNode, "the strip and the essentials are siblings, so the strip stays sticky");
+  toolButton(container, "Notes").click();
+  await settle();
+  assert.equal(sheetTitle(), "Notes");
+  const notes = sheetBody().querySelector(".notes-sheet");
+  assert.ok(notes, "the Notes sheet");
+  const order = notes.childNodes.map((n) => n.className || "");
+  assert.ok(order[0].includes("gamenotes"), `your own notes first: ${order.join(" | ")}`);
+  assert.ok(text(notes).includes("No notes from the host for this game yet."), text(notes).slice(0, 200));
+  const schemes = notes.querySelectorAll(".notes-sheet__scheme").map(text);
+  assert.equal(schemes.length, 2, "a scheme line for each side");
+  assert.equal(schemes[0], "SWT Spread offense, 4-2-5 defense");
+  assert.ok(schemes[1].endsWith(" Pro style offense") && !schemes[1].includes("defense"), schemes[1]);
+  const info = text(notes.querySelector(".game-info"));
   assert.ok(info.includes("Vaught-Hemingway Stadium") && info.includes("72°F, wind 8 mph"), info);
   assert.ok(info.includes("ABC: Pat Caller, Sam Color, Lee Field (sideline)"), info);
   assert.ok(info.includes("SWT HC Head Us · OC Oc Us") && info.includes("HC Head Them") && !info.includes("DC"), info);
   assert.ok(!info.includes("Add "), "nothing missing, no hint");
-  assert.equal(container.querySelector(".strip").parentNode, container.querySelector(".game-info").parentNode, "the strip and the line are siblings, so the strip stays sticky");
+  assert.equal(notes.childNodes[notes.childNodes.length - 1], notes.querySelector(".game-info"), "the game line last");
+  assert.ok(!RAW.test(text(notes)), text(notes));
+  document.body.querySelector(".side-sheet__head button").click();
+  assert.equal(layer(), null);
   const chart = container.querySelector("#live-chart");
   assert.ok(chart && text(chart.querySelector(".band__title")).includes("SWT offense"));
-  assert.equal(chart.querySelectorAll(".shot-cell").length, 6, "six pass zones");
-  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(chart)), text(chart));
-  chart.querySelectorAll(".shot-chart__seg button")[1].click();
-  await settle();
-  const runs = container.querySelector("#live-chart");
-  assert.equal(runs.querySelectorAll(".shot-cell").length, 3, "three run lanes");
-  assert.ok(text(runs.querySelector(".band__summary")).includes("runs by lane"));
+  assert.match(text(chart.querySelector(".band__summary")), /^\d+ passes, \d+ runs(, \d+ sacks?)?$/, "the counts ride in the summary: no room for a note on one screen");
+  const field = chart.querySelector(".shot-field--both");
+  assert.ok(field && field.querySelector(".shot-field__los"), "passes over the line of scrimmage, runs under it");
+  assert.equal(field.querySelectorAll(".shot-cell").length, 9, "six pass zones and three run lanes");
+  assert.equal(field.querySelectorAll(".shot-row--runs").length, 1, "one row of runs");
+  assert.equal(field.querySelectorAll(".shot-row--runs .shot-cell").length, 3, "three run lanes");
+  assert.equal(chart.querySelector(".shot-chart__seg"), null, "no Passes and Runs switch");
+  assert.ok(!text(chart).includes("Success is CFBD"), "the counts only, on one screen");
+  assert.ok(!RAW.test(text(chart)), text(chart));
   latest().emit("state", frame);
-  assert.equal(container.querySelector("#live-chart").querySelectorAll(".shot-cell").length, 3, "the choice holds across frames");
+  assert.ok(container.querySelector("#live-chart .shot-field--both"), "both across frames");
   view.unmount();
 
-  // no crew and no staffs in the notes: a quiet hint where to add them
+  // no crew and no staffs in the notes: a quiet hint where to add them; no program notes: where to add those
   document.body.replaceChildren();
   const bare = await mountLive({ status, program: PROGRAM });
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
@@ -238,9 +279,15 @@ scenarios.gameinfo = async () => {
   empty.shotChart = { "Swampwater Tech": { passes: { "deep-left": { attempts: "x" }, "short-left": null }, runs: "junk", unzoned: null, sacks: NaN } };
   latest().emit("state", empty);
   await settle();
-  const hint = text(bare.container.querySelector(".game-info"));
+  toolButton(bare.container, "Notes").click();
+  await settle();
+  const plain = sheetBody().querySelector(".notes-sheet");
+  assert.ok(text(plain).includes("No program notes for this game yet."), text(plain).slice(0, 200));
+  assert.equal(plain.querySelectorAll(".notes-sheet__scheme").length, 0, "no schemes, no scheme lines");
+  const hint = text(plain.querySelector(".game-info"));
   assert.ok(hint.includes("on ESPN") && hint.includes("Add the TV crew and the coaches with the notes prompt on the Pre-Game Program."), hint);
-  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(bare.container.querySelector("#live-chart"))), "a damaged chart draws dashes");
+  document.body.querySelector(".side-sheet__head button").click();
+  assert.ok(!RAW.test(text(bare.container.querySelector("#live-chart"))), "a damaged chart draws dashes");
   bare.view.unmount();
 };
 
@@ -465,20 +512,70 @@ scenarios.live = async () => {
   assert.equal(wake.requests, 1, "the screen is held awake on a live frame");
   const tickerNode = container.querySelector(".live-ticker .ticker");
   assert.ok(tickerNode, "the ticker is on the page");
-  assert.equal(text(tickerNode.querySelector(".ticker__label")), "FBS scores");
+  assert.equal(text(tickerNode.querySelector(".ticker__label")), "", "wave F5: no label on the national ticker");
 
-  // F9: CFBD's rate, the source label, the summary only for a judged play, no Success rate row in the feed table.
-  assert.equal(text(container.querySelector("#live-wp .band__summary")), "Last play: success");
-  assert.equal(text(container.querySelector("#live-wp .success__source")), "Success rate, CFBD");
-  assert.equal(text(container.querySelector("#live-wp .success__rate--us")), "SWT 38%");
+  // wave F5 (owner 2026-10-20): In Game on one screen. The frame holds the strip (the percentage and the last play at its
+  // right), the essentials (for a phone; the stage hides them), the stage (the box score side by side, then the last
+  // five plays, Score by quarter with the drive lines, and the shot chart), the ticker, and the panel row with the tools.
+  const frame = container.querySelector(".live-frame");
+  assert.ok(frame, "the frame");
+  assert.deepEqual(partsOf(frame, ["strip", "stage-essentials", "stage", "live-ticker", "remote"]), ["strip", "stage-essentials", "stage", "live-ticker", "remote"], "in order: the strip and the essentials, the stage, the ticker, the panel row");
+  assert.ok(container.querySelector(".remote").className.includes("remote--stage"), "the panel row of the stage kind");
+  const extras = container.querySelector(".strip .strip__right .strip__extras");
+  assert.ok(extras, "the strip's right side carries the extras");
+  assert.match(text(extras.querySelector(".strip__wp .strip__wp-pct")), /^\d+%$/, "the win probability as a percentage");
+  assert.ok(text(extras.querySelector(".strip__wp")).includes("SWT to win"), text(extras));
+  assert.equal(text(extras.querySelector(".strip__last .strip__last-label")), "Last play");
+  const lastWords = text(extras.querySelector(".strip__last .strip__last-words"));
+  assert.ok(lastWords.includes("SWT") && /Q\d \d+:\d\d$/.test(lastWords), lastWords);
+  const essentials = container.querySelector(".stage-essentials");
+  assert.ok(essentials && text(essentials.querySelector(".stage-essentials__words")) === lastWords && text(essentials).includes("SWT to win"), "the essentials repeat the strip's extras, large, for a phone");
+  const stage = container.querySelector(".stage");
+  assert.deepEqual(stage.querySelectorAll(".band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"], "the four cells");
+  const halves = stage.querySelectorAll("#live-box .stage-box__half");
+  assert.equal(halves.length, 2, "both teams' box scores side by side");
+  assert.ok(halves.every((h) => h.querySelector(".stage-box__scroll.stage-step") && h.querySelectorAll(".stat-table-wrap").length >= 2), "each half a stepping column of box tables");
+  assert.deepEqual(halves.map((h) => text(h.querySelector(".stage-box__team b"))), ["SWT", "SIL"], "each half headed by its team");
+  const plays = stage.querySelectorAll("#live-plays ol.stage-plays li.stage-play");
+  assert.equal(plays.length, 5, "the last five plays");
+  assert.ok(plays.every((p) => text(p.querySelector(".stage-play__clock")) && text(p.querySelector(".stage-play__side")) && text(p.querySelector(".stage-play__words"))), "clock, side and words on every play");
+  assert.equal(String(plays[0].dataset.play), String(frame1.plays[0].id), "newest first");
+  assert.equal(stage.querySelectorAll("#live-score .qline__row").length, 2, "Score by quarter, both teams");
+  assert.equal(stage.querySelectorAll("#live-score .stage-drives .stage-drives__row").length, 4, "the four drive lines");
+  assert.ok(stage.querySelector("#live-chart .shot-field--both") && !stage.querySelector("#live-chart .shot-chart__seg"), "passes and runs at once, no switch");
+  for (const id of ["live-wp", "live-stats", "live-leaders"]) assert.equal(container.querySelector(`#${id}`), null, `${id} left the page for a panel`);
+  assert.equal(container.querySelector(".game-info"), null, "the game line left the page for the Notes sheet");
+  assert.equal(container.querySelector(".live-tools"), null, "no tools row: the tools sit in the panel row");
+  const row = container.querySelector(".remote");
+  assert.deepEqual(row.querySelectorAll(".remote__btn[data-id]").map((b) => b.dataset.id), ["box", "drives", "splits", "plays", "situation", "edges", "weather", "visitors", "injuries", "lineups", "scores", "value"], "the twelve panels");
+  assert.deepEqual(row.querySelectorAll(".remote__btn--tool").map(text), ["Delay 30 s", "Radio", "Notes", "Invite", "Big screen"], "then the five tools");
+  const bigScreen = row.querySelectorAll(".remote__btn--tool")[4];
+  assert.ok(bigScreen.tagName === "A" && bigScreen.getAttribute("href") === "#board", "the Big screen is a link");
+  assert.ok(row.querySelectorAll(".remote__btn").slice(-5).every((b) => b.className.includes("remote__btn--tool")), "the tools at the row's end");
+  assert.ok(!RAW.test(text(container)), "no raw value on the live sheet");
+
+  // F9: CFBD's rate, the source label, the summary only for a judged play, no Success rate row in the feed table. Wave F5:
+  // the win probability and the success row sit in the Situation panel, Team stats in the Box score panel.
+  remoteButton(container, "situation").click();
+  assert.equal(sheetTitle(), "Situation");
+  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Situation", "Win probability"], "the situation grid, then the chart");
+  assert.equal(text(sheetBody().querySelector("#live-wp .band__summary")), "Last play: success");
+  assert.equal(text(sheetBody().querySelector("#live-wp .success__source")), "Success rate, CFBD");
+  assert.equal(text(sheetBody().querySelector("#live-wp .success__rate--us")), "SWT 38%");
+  assert.ok(sheetBody().querySelector("#live-wp .wp__svg"), "the win probability chart in the panel");
+  latest().emit("state", liveFrame({ lastPlay: { ...frame1.lastPlay, success: null } }));
+  assert.equal(sheetBody().querySelector("#live-wp .band__summary"), null, "no verdict, no summary");
+  remoteButton(container, "box").click();
+  assert.equal(sheetTitle(), "Box score");
   // wave 2 (2026-10-10): Team stats is the sized two-team kit, its label cell holding the long, middle and short names
-  const statCells = container.querySelectorAll("#live-stats td.txt").map(longWords);
+  const statCells = sheetBody().querySelectorAll("#live-stats td.txt").map(longWords);
   assert.equal(statCells.filter((t) => t === "Success rate").length, 1, "one success-rate row: the team table's, not the feed table's");
   assert.ok(statCells.includes("Standard downs") && statCells.includes("Passing downs"));
-  latest().emit("state", liveFrame({ lastPlay: { ...frame1.lastPlay, success: null } }));
-  assert.equal(container.querySelector("#live-wp .band__summary"), null, "no verdict, no summary");
+  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Team stats", "Swampwater Tech", "Silver Dollar"], "Team stats first, then each team's box");
+  document.body.querySelector(".side-sheet__head button").click();
+  assert.equal(layer(), null);
   assert.equal(container.querySelector(".live-ticker .ticker"), tickerNode, "the ticker survives a frame");
-  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(container)), "no raw value on the live sheet");
+  assert.ok(!RAW.test(text(container)), "no raw value on the live sheet");
 
   // F5: an open Plays sheet follows the game with its filter and scroll.
   const bar = container.querySelector(".remote");
@@ -529,9 +626,10 @@ scenarios.live = async () => {
   assert.equal(splitWraps.length, 4, "each team's quarters and its situations");
   assert.ok(splitWraps.every((w) => w.dataset.size === "large"));
   assert.ok(text(sheetBody()).includes("PPA per play (no TD plays)") && text(sheetBody()).includes("Run success"));
-  assert.deepEqual(container.querySelector("#live-stats .tt-wrap").querySelectorAll("tr.tt__head--a th").map(longWords), ["Statistic", "Swampwater Tech", "Edge", "Silver Dollar"], "Team stats: the schools head it at large");
-  assert.equal(container.querySelectorAll("#live-stats .tt-wrap").length, 2, "Team stats and the feed's efficiency, both on the kit");
-  assert.ok(!/\b(undefined|NaN|null)\b/.test(text(sheetBody())), "no raw value in a panel");
+  remoteButton(container, "box").click(); // wave F5: Team stats in the Box score panel
+  assert.deepEqual(sheetBody().querySelector("#live-stats .tt-wrap").querySelectorAll("tr.tt__head--a th").map(longWords), ["Statistic", "Swampwater Tech", "Edge", "Silver Dollar"], "Team stats: the schools head it at large");
+  assert.equal(sheetBody().querySelectorAll("#live-stats .tt-wrap").length, 2, "Team stats and the feed's efficiency, both on the kit");
+  assert.ok(!RAW.test(text(sheetBody())), "no raw value in a panel");
 
   // Static panels are not rebuilt: Visitors fetches once.
   route("/api/recruiting", () => envelope({ visitors: { home: [{ name: "Five Star", position: "QB", stars: 5, highSchool: "IMG", status: "Committed" }], away: [], opponent: "Silver Dollar" } }));
@@ -652,11 +750,14 @@ scenarios.live = async () => {
   assert.equal(wake.requests, requests + 2, "a held lock is not asked for twice");
 
   // F7: the delay changes on release, nudges settle, and no change means no reconnect. Public release Phase 7b:
-  // the slider lives in a side panel the Delay button opens, so it takes no room on the sheet.
+  // the slider lives in a side panel the Delay button opens, so it takes no room on the sheet. Wave F5: the Delay button
+  // is the first tool in the panel row, and its words are short.
   assert.equal(container.querySelector('input[type="range"]'), null, "no slider on the sheet itself");
-  const delayButton = container.querySelector(".delay-button");
-  assert.equal(text(delayButton), "Spoiler delay 30 s ›");
+  const delayButton = container.querySelector(".remote .remote__delay");
+  assert.equal(delayButton, toolButton(container, "Delay 30 s"));
+  assert.equal(text(delayButton), "Delay 30 s");
   delayButton.click();
+  assert.equal(sheetTitle(), "Spoiler delay");
   const range = document.body.querySelector('.sheet-layer input[type="range"]');
   const sliderNode = document.body.querySelector(".sheet-layer .delay");
   assert.ok(text(document.body.querySelector(".sheet-layer")).includes("Sync to my TV"), "the sync lives in the same panel");
@@ -669,7 +770,7 @@ scenarios.live = async () => {
   assert.ok(latest().url.includes("delay=45"));
   assert.equal(shell(), "Delayed 45 s");
   assert.equal(shell(), "Delayed 45 s");
-  assert.equal(text(delayButton), "Spoiler delay 45 s ›", "the button says the delay");
+  assert.equal(text(delayButton), "Delay 45 s", "the button says the delay");
   latest().emit("hello", { delaySeconds: 45, mode: "live", gameId: 526000600, feed: feed("ok") });
   latest().emit("state", frame2);
   assert.equal(document.body.querySelector(".sheet-layer .delay"), sliderNode, "the slider is not rebuilt by a frame");
@@ -727,9 +828,19 @@ scenarios.ticker = async () => {
   assert.equal(second, first, "new games go into the same ticker, so the crawl carries on");
   assert.equal(firstObserver.disconnected, false, "the running line keeps its observer");
   assert.equal(second.querySelectorAll(".ticker__half:not(.ticker__half--clone) .ticker__game").length, 3);
-  assert.equal(text(second.querySelector(".ticker__label")), "FBS scores, every 5 min");
+  assert.equal(text(second.querySelector(".ticker__label")), "", "wave F5 (owner 2026-10-20): the national ticker has no label, whatever its source");
   assert.ok(text(sheetBody()).includes("Swampwater Tech State"), "the open Scores sheet follows the ticker");
   assert.ok(!text(container).includes("Biscuit Belt") && !text(document.body).includes("Top 25"));
+  // the My teams ticker still names itself, with the schedule's cadence when the scores come from it
+  ticker = { source: "games", mode: "mine", refreshMinutes: 20, games: [game("Swampwater Tech State", "Miami", 3, 0)] };
+  for (let i = 0; i < 4; i += 1) {
+    await advance(15000);
+    latest().emit("ping", { feed: feed("ok"), serverTime: new Date(now).toISOString() });
+  }
+  assert.equal(container.querySelector(".live-ticker .ticker"), first, "the same ticker still");
+  assert.equal(text(first.querySelector(".ticker__label")), "My teams, every 20 min");
+  assert.equal(first.getAttribute("aria-label"), "My teams, every 20 min");
+  assert.ok(text(sheetBody()).includes("Your primary and secondary teams' games"), "the Scores sheet says whose games these are");
   view.unmount();
   assert.equal(timers.size, 0);
 };
@@ -741,19 +852,25 @@ scenarios.pregame = async () => {
   assert.equal(shell(), "Pregame");
   const page = text(container);
   assert.ok(!/(undefined|NaN|null)/.test(page), page);
-  // Phase 17 #25: before kickoff the sheet is the game sheet with dashes, never a promise to open itself
+  // Phase 17 #25: before kickoff the sheet is the game sheet with dashes, never a promise to open itself. Wave F5 (owner
+  // 2026-10-20): the stage, every cell waiting; the kickoff on the strip, the delay on its button (the line that said so
+  // under the sheet is the board's foot now)
   assert.ok(!page.includes("opens by itself") && !page.includes("1 hour before"), page);
-  assert.ok(page.includes("The sheet fills in as the game is played, 30 s behind the broadcast"), page);
   assert.ok(text(container.querySelector(".strip")).includes("Kickoff"), "the strip shows the kickoff");
+  assert.ok(text(container.querySelector(".strip .strip__wp")).includes("40%") && text(container.querySelector(".strip .strip__wp")).includes("at kickoff"), "the pregame number, marked as such");
+  assert.equal(container.querySelector(".strip .strip__last"), null, "no last play before the game");
+  assert.deepEqual(container.querySelectorAll(".stage .band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"], "the stage, waiting");
+  assert.ok(page.includes("Player lines appear after the first pass or run.") && page.includes("Plays appear after kickoff.") && page.includes("The chart fills in with the first pass or run."), page);
   assert.ok(container.querySelector(".live-ticker .ticker"));
   assert.ok(container.querySelector(".remote"), "the remote bar is there before kickoff too");
-  container.querySelector(".delay-button").click();  // public release Phase 7b: the slider opens in a side panel
+  assert.equal(text(container.querySelector(".remote .remote__delay")), "Delay 30 s", "the delay on its button");
+  container.querySelector(".remote .remote__delay").click();  // public release Phase 7b: the slider opens in a side panel
   const slider = document.body.querySelector(".sheet-layer .delay");
   const range = slider.querySelector('input[type="range"]');
   range.value = "45";
   range.dispatchEvent(makeEvent("change"));
   assert.equal(sources.length, 0, "no stream before the window");
-  assert.ok(text(container).includes("45 s behind the broadcast"));
+  assert.equal(text(container.querySelector(".remote .remote__delay")), "Delay 45 s", "the button follows the slider");
   container.querySelector(".remote button").click(); // a side panel opens on the empty sheet without an error
   assert.ok(document.body.querySelector(".sheet-layer"));
   assert.equal(shell(), "Pregame");
@@ -776,7 +893,7 @@ scenarios.pregame = async () => {
   assert.ok(text(second.container).includes("tries again every minute"));
   program = PROGRAM;
   await advance(60000);
-  assert.ok(text(second.container).includes("The sheet fills in as the game is played"));
+  assert.ok(text(second.container.querySelector(".strip")).includes("Kickoff") && second.container.querySelector(".stage"), "the program arrived: the stage, waiting");
   second.view.unmount();
 };
 
@@ -804,16 +921,16 @@ scenarios.held = async () => {
   assert.ok(!/(undefined|NaN|null)/.test(page), page);
   assert.ok(shell().startsWith("Final"), shell());
   assert.ok(shell().includes("·"), "the held final carries its date");
-  const link = container.querySelector(`a[href="#archive=${GID}"]`);
-  assert.ok(link && text(link).includes("Archive"), "the whole game in the Archive");
-  assert.ok(page.includes("In Game shows this final until"), page.slice(0, 400));
+  assert.equal(text(container.querySelector(".strip .strip__final")), "Final");
+  assert.ok(container.querySelector("#live-box .stage-box__half .stat-table-wrap"), "the final box on the stage");
+  // the final's own line (the Archive link, "In Game shows this final until") is scenarios.finalnote
   assert.ok(callsTo(`/api/program/${GID}`) >= 1, "the held game's own program, not next week's");
   assert.ok(callsTo(`/api/games/${GID}/analytics`) >= 1, "the post-game numbers of that game");
   // the hold ends (noon the day after the game): the next game's pregame sheet
   status.held = null;
   await advance(60000);
   assert.equal(shell(), "Pregame");
-  assert.ok(text(container).includes("The sheet fills in as the game is played"));
+  assert.ok(text(container.querySelector(".strip")).includes("Kickoff") && !container.querySelector(".strip .strip__final"), "the next game's kickoff on the strip, no final");
   view.unmount();
   assert.equal(timers.size, 0, "nothing left running");
 
@@ -855,6 +972,28 @@ scenarios.held = async () => {
   third.view.unmount();
 };
 
+// Owner 2026-10-10: after the final, In Game said when it was played, linked the whole game in the Archive and the next
+// game's program, and said until when it shows this final (finalNote). Wave F5 rebuilt In Game as one screen and that line
+// went with the sheet's bottom: liveParts gives it to the board's foot only (boardNote), and the tablet shows nothing of
+// it. Left failing on purpose (2026-10-20): a suspected omission of the rebuild, for the owner to rule on; the board's
+// copy is checked in scenarios.board.
+scenarios.finalnote = async () => {
+  const finalState = liveFrame({ status: "final" });
+  const GID = finalState.gameId;
+  finalState.held = { until: "2026-09-27T16:00:00Z", finalAt: "2026-09-26T22:55:00Z", kickoff: KICKOFF };
+  route(`/api/games/${GID}/analytics`, () => envelope({ winProbability: { available: false }, ppa: { available: false } }));
+  const status = { mode: "live", window: WINDOW_OPEN, feed: feed("ok") };
+  const { view, container, shell } = await mountLive({ status });
+  latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: GID, feed: feed("ok") });
+  latest().emit("state", finalState);
+  await settle();
+  assert.ok(shell().startsWith("Final"), shell());
+  const note = container.querySelector(".final-note");
+  const link = container.querySelector(`a[href="#archive=${GID}"]`);
+  assert.ok(note && link && text(link).includes("Archive") && text(note).includes("In Game shows this final until"), `the final's line on In Game (the whole game in the Archive, the next game's program, until when the final stays): ${note ? text(note) : "no .final-note on the page; the frame holds " + partsOf(container.querySelector(".live-frame"), ["strip", "stage-essentials", "stage", "live-ticker", "remote"]).join(", ")}`);
+  view.unmount();
+};
+
 scenarios.oldserver = async () => {
   const status = { mode: "live", window: { gameId: 526001015, kickoff: KICKOFF, opensAt: KICKOFF, closesAt: KICKOFF, open: true } };
   const { view, container, shell, stripPill } = await mountLive({ status });
@@ -868,9 +1007,11 @@ scenarios.oldserver = async () => {
   frame.lastPlay = { ...frame.plays[1], success: false };
   latest().emit("state", frame);
   assert.equal(shell(), "Delayed 30 s");
-  assert.equal(text(container.querySelector("#live-wp .success__source")), "Success rate, play log");
-  assert.equal(text(container.querySelector("#live-wp .success__rate--us small")), "29 of 75");
-  assert.equal(text(container.querySelector("#live-wp .band__summary")), "Last play: failed");
+  remoteButton(container, "situation").click(); // wave F5: the success row sits in the Situation panel
+  assert.equal(text(sheetBody().querySelector("#live-wp .success__source")), "Success rate, play log");
+  assert.equal(text(sheetBody().querySelector("#live-wp .success__rate--us small")), "29 of 75");
+  assert.equal(text(sheetBody().querySelector("#live-wp .band__summary")), "Last play: failed");
+  document.body.querySelector(".side-sheet__head button").click();
   const first = latest();
   await advance(120000);
   assert.equal(latest(), first, "no pings from this server, so no watchdog reconnects");
@@ -906,15 +1047,13 @@ scenarios.silentstart = async () => {
 };
 
 scenarios.board = async () => {
-  // The game-day board (queue item 7, the owner's mock of 2026-10-11): Win probability and Leaders, the pass chart and the
-  // run chart with the QR cell between them, Team stats and one In Game panel (the Box score until a menu button picks
-  // another), and along the bottom the score strip with the radio, the ticker, the spoiler-delay line and the menu.
-  route("/api/recruiting", () => envelope({ visitors: { home: [{ name: "Five Star", position: "QB", stars: 5, highSchool: "IMG", hometown: "Bradenton, FL", classYear: 2027, status: "confirmed" }], away: [], opponent: "Silver Dollar" } }));
+  // The game-day board (freeze wave F5, owner 2026-10-20: "the big screen should mirror the tablet's exactly"): In Game's
+  // own frame without the chrome: the strip with its extras, the stage, the ticker, then a foot in place of the panel row
+  // with the radio, the delay line (or the final's) and the QR. No panel buttons, no menu, nothing remembered on the device.
   route("/api/program/next", () => envelope(PROGRAM));
   route("/api/live/status", () => envelope({ mode: "live", window: WINDOW_OPEN, feed: feed("ok") }));
   route("/api/ticker", () => envelope(TICKER));
   route("/api/settings", () => envelope({ prefs: {} }));
-  try { localStorage.removeItem("kickoff.board.panel"); } catch { /* none */ }
   const { createLiveView } = await import(moduleUrl("views/live.js"));
   const view = createLiveView({ board: true });
   const container = document.createElement("main");
@@ -922,47 +1061,85 @@ scenarios.board = async () => {
   await view.mount(container);
   await settle();
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
-  latest().emit("state", liveFrame());
+  const frame1 = liveFrame();
+  latest().emit("state", frame1);
   await settle();
   const tv = container.querySelector(".tv");
-  assert.ok(tv && !tv.className.includes("tv--empty"), "the board's layout");
+  assert.ok(tv && tv.className.includes("live-frame") && !tv.className.includes("tv--empty"), `In Game's frame: ${tv && tv.className}`);
   assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(tv)), text(tv).slice(0, 300));
-  const cell = (name) => tv.querySelector(`.tv__cell--${name}`);
-  assert.ok(cell("wp").querySelector("#live-wp") && cell("leaders").querySelector("#live-leaders") && cell("stats").querySelector("#live-stats"), "the sheet's bands in their cells");
-  assert.equal(tv.querySelector("#live-score"), null, "no Score by quarter on the board (owner mock)");
-  assert.equal(tv.querySelector(".game-info"), null, "no game line on the board");
-  const charts = [cell("pass"), cell("runs")].map((c) => c.querySelector(".shot-chart"));
-  assert.ok(charts.every(Boolean) && charts[0].querySelector(".shot-field--passes") && charts[1].querySelector(".shot-field--runs"), "the pass chart and the run chart at once");
-  assert.ok(charts.every((c) => !c.querySelector(".shot-chart__seg")), "no Passes and Runs switch");
-  assert.ok(charts.every((c) => !text(c).includes("Success is CFBD")), "the count only, on a TV");
-  assert.ok(tv.querySelector(".tv__qr") && tv.querySelector(".tv__radio"), "the cells the board view fills: the QR and the radio");
-  assert.ok(tv.querySelector(".tv__bar--strip .strip") && tv.querySelector(".tv__bar--ticker .live-ticker"), "the score strip and the ticker along the bottom");
-  assert.ok(text(tv.querySelector(".tv__note")).includes("30 s behind the broadcast"), "the spoiler-delay line");
-  const buttons = tv.querySelectorAll(".tv__menu-btn");
-  assert.deepEqual(buttons.map((b) => text(b.querySelector(".tv__menu-label"))), ["Box score", "Drives", "Splits", "Plays", "Situation", "Edges", "Weather", "Visitors", "Injuries", "Lineups", "Scores", "Play value"], "In Game's own order");
-  assert.deepEqual(buttons.filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.id), ["box"], "the Box score by default");
-  const panel = cell("panel");
-  assert.equal(panel.dataset.id, "box");
-  assert.ok(panel.querySelectorAll(".stat-table-wrap").length >= 4 && panel.className.includes("tv__cell--split"), "both teams' box score, each its half");
+  assert.deepEqual(partsOf(tv, ["strip", "stage-essentials", "stage", "live-ticker", "remote", "tv__foot"]), ["strip", "stage-essentials", "stage", "live-ticker", "tv__foot"], "the strip and the essentials, the stage, the ticker, the foot; no panel row");
+  assert.equal(tv.childNodes[tv.childNodes.length - 1].className, "tv__foot", "the foot last");
+  // the strip with the percentage and the last play
+  const extras = tv.querySelector(".strip .strip__extras");
+  assert.ok(extras && extras.querySelector(".strip__wp") && extras.querySelector(".strip__last"), "the strip's extras");
+  assert.match(text(extras.querySelector(".strip__wp-pct")), /^\d+%$/);
+  // the stage: In Game's four cells, both teams' box score side by side
+  assert.deepEqual(tv.querySelectorAll(".stage .band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"]);
+  const halves = tv.querySelectorAll("#live-box .stage-box__half");
+  assert.equal(halves.length, 2, "both teams' box score, each its half");
+  assert.ok(halves.every((h) => h.querySelector(".stage-box__scroll.stage-step") && h.querySelectorAll(".stat-table-wrap").length >= 2), "each half a stepping column of box tables");
+  assert.equal(tv.querySelectorAll("#live-plays li.stage-play").length, 5, "the last five plays");
+  assert.ok(tv.querySelector("#live-score .qline__row") && tv.querySelectorAll("#live-score .stage-drives__row").length === 4, "Score by quarter with the drive lines is on the board now: In Game mirrored");
+  const chart = tv.querySelector("#live-chart");
+  assert.ok(chart.querySelector(".shot-field--both") && chart.querySelectorAll(".shot-row--runs .shot-cell").length === 3, "the passes over the line of scrimmage and the runs under it, one chart");
+  assert.equal(chart.querySelector(".shot-chart__seg"), null, "no Passes and Runs switch");
+  assert.ok(!text(chart).includes("Success is CFBD"), "the counts only, on a TV");
   assert.ok(tv.querySelectorAll(".stat-table-wrap").every((w) => ["large", "medium", "small"].includes(w.dataset.size)), "every table sized");
-  // a menu button swaps the right-hand column, remembered on the device
-  buttons.find((b) => b.dataset.id === "drives").click();
-  assert.equal(panel.dataset.id, "drives");
-  assert.ok(panel.querySelector(".tt-wrap"), "the drives on the two-team kit");
-  assert.equal(text(panel.querySelector(".board-panel__title")).startsWith("Drives"), true);
-  assert.deepEqual(tv.querySelectorAll(".tv__menu-btn").filter((b) => b.getAttribute("aria-pressed") === "true").map((b) => b.dataset.id), ["drives"]);
-  assert.equal(JSON.parse(localStorage.getItem("kickoff.board.panel")), "drives");
-  latest().emit("state", liveFrame());
+  // nothing of the old board, and nothing that lives in a panel
+  for (const sel of [".tv__main", ".tv__cell--wp", ".tv__cell--panel", ".tv__menu", ".tv__menu-btn", ".board-panel", ".tv__bar--strip", ".tv__bar--ticker", ".remote", ".remote__btn", ".live-tools", ".game-info", "#live-wp", "#live-stats", "#live-leaders"]) assert.equal(container.querySelector(sel), null, `${sel} is not on the board`);
+  assert.equal(layer(), null, "no sheet on the board");
+  assert.equal(localStorage.getItem("kickoff.board.panel"), null, "nothing remembered on the device");
+  // the foot: the radio and QR cells the board view fills, and the delay line between them
+  const foot = tv.querySelector(".tv__foot");
+  assert.deepEqual(foot.childNodes.map((n) => n.className), ["tv__radio", "tv__note", "tv__qr"]);
+  assert.ok(text(foot.querySelector(".tv__note")).includes("30 s behind the broadcast"), "the spoiler-delay line");
+  assert.equal(text(foot.querySelector(".tv__note .tv__delay")), "30 s");
+  // the box-score halves step through their rows on their own (BOARD_STEP_MS); a frame keeps the frame
+  assert.ok([...timers.values()].some((t) => t.every === 2200), "the stepping timer runs while a game is on");
+  await advance(2500);
+  latest().emit("state", withNewPlay(frame1, "Board play"));
   await settle();
-  assert.equal(cell("panel").dataset.id, "drives", "the pick survives the next play");
-  for (const id of ["splits", "situation", "scores", "visitors", "plays", "lineups", "weather", "injuries", "edges", "value"]) {
-    tv.querySelectorAll(".tv__menu-btn").find((b) => b.dataset.id === id).click();
-    assert.equal(cell("panel").dataset.id, id);
-    assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(cell("panel"))), `${id}: ${text(cell("panel")).slice(0, 200)}`);
-  }
-  await settle(); // the visitors panel's request answers (its 20 s time limit goes with it)
+  assert.equal(container.querySelector(".tv"), tv, "the frame is built once");
+  assert.equal(String(tv.querySelector("#live-plays li.stage-play").dataset.play), "harness-Board play", "the new play leads the list");
+  // after the final the foot carries the final's line: the Archive link and the next game's program
+  route("/api/games/", () => envelope({ winProbability: { available: false }, ppa: { available: false } }));
+  const finalState = liveFrame({ status: "final" });
+  finalState.held = { until: "2026-09-27T16:00:00Z", finalAt: "2026-09-26T22:55:00Z", kickoff: KICKOFF };
+  latest().emit("state", finalState);
+  await settle();
+  const note = foot.querySelector(".tv__note .final-note");
+  assert.ok(note && note.querySelector(`a[href="#archive=${finalState.gameId}"]`) && text(note).includes("the next game's program") && text(note).includes("In Game shows this final until"), `the final's line in the foot: ${text(foot)}`);
+  assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(tv)), text(tv).slice(0, 300));
   view.unmount();
   assert.equal(timers.size, 0, `timers left after unmount: ${timers.size} ${[...timers.values()].map((t) => `${t.every}:${String(t.fn).slice(0, 60)}`).join(" | ")}`);
+
+  // before kickoff the board is the pregame stage with the kickoff line in its foot; with no game at all it is empty
+  document.body.replaceChildren();
+  route("/api/live/status", () => envelope({ mode: "idle", window: { ...WINDOW_OPEN, open: false, liveView: false }, feed: feed("idle") }));
+  const early = createLiveView({ board: true });
+  const main = document.createElement("main");
+  document.body.append(main);
+  await early.mount(main);
+  await settle();
+  const pre = main.querySelector(".tv");
+  assert.ok(pre && !pre.className.includes("tv--empty"), "a game ahead: the stage, waiting");
+  assert.ok(text(pre.querySelector(".strip")).includes("Kickoff") && pre.querySelector("#live-box") && pre.querySelector("#live-chart"));
+  assert.ok(text(pre.querySelector(".tv__foot .tv__note")).includes("The sheet fills in as the game is played, 30 s behind the broadcast"), text(pre.querySelector(".tv__foot")));
+  assert.equal(sources.length, 1, "no stream before the window");
+  early.unmount();
+  assert.equal(timers.size, 0);
+  document.body.replaceChildren();
+  route("/api/program/next", () => envelope({ game: null }));
+  const none = createLiveView({ board: true });
+  const empty = document.createElement("main");
+  document.body.append(empty);
+  await none.mount(empty);
+  await settle();
+  assert.ok(empty.querySelector(".tv").className.includes("tv--empty"), "no game of ours ahead: the empty board");
+  assert.ok(text(empty).includes("No game of ours is on the schedule ahead"));
+  assert.equal(empty.querySelector(".tv .strip"), null);
+  none.unmount();
+  assert.equal(timers.size, 0);
 };
 
 scenarios.archive = async () => {

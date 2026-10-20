@@ -726,23 +726,7 @@
    button row opens everything else in a side sheet. Same palette, denser information.
    ==================================================================================== */
 
-/* --- remote-control live sheet grid ------------------------------------------------------- */
-
-.sheet--remote { grid-template-areas: "score" "stats" "wp" "chart" "leaders"; }
-@media (min-width: 700px) and (max-width: 1099px) {
-  .sheet--remote {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas: "score score" "stats wp" "stats leaders" "chart chart";
-  }
-}
-@media (min-width: 1100px) {
-  .sheet--remote {
-    grid-template-columns: minmax(380px, 5fr) minmax(0, 6fr);
-    grid-template-rows: auto auto 1fr auto;
-    grid-template-areas: "score score" "stats wp" "stats leaders" "chart chart";
-  }
-}
-.area-chart { grid-area: chart; }
+/* --- the live sheet's grid went with wave F5: In Game is one screen (the .stage rules, further down) --- */
 /* public release Phase 7b: the game line under the score, the Delay button, the shot chart */
 .game-info { display: grid; gap: 2px; padding: var(--sp-2) var(--sp-3); background: var(--panel); border-bottom: 1px solid var(--rule); font-size: var(--text-label); color: var(--fog); }
 .game-info__line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 2px; }
@@ -753,7 +737,6 @@
 /* Phase 17 #2: the coaches; the cover redo (owner mockup 2026-10-10) puts each team's under its own block */
 .game-staff { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 4px; color: var(--fog); font-size: var(--text-label); }
 .game-staff b { color: var(--chalk); font-weight: 600; }
-.live-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; padding: 4px var(--sp-3); } /* 2026-10-10: a fourth button (Big screen); the row wraps on a phone */
 .delay-button { min-height: 36px; font-size: var(--text-label); }
 .shot-chart { display: grid; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
 .shot-chart__seg { justify-self: start; }
@@ -1900,86 +1883,34 @@ body.board-awake .board-exit > .btn { opacity: 1; pointer-events: auto; }
 .board-exit .icon { width: 20px; height: 20px; flex: none; }
 .board-exit__short { display: none; }
 @media (max-width: 599px) { .board-exit__long { display: none; } .board-exit__short { display: inline; } } /* a phone: the short words fit beside the QR corner at every text size */
-/* --- the board (queue item 7, the owner's mock of 2026-10-11; views/live.js buildTv) ---------------------------------
-   One 1080p screen with nothing to scroll: Win probability and Leaders top left, the pass chart, the run chart and the QR
-   under them, Team stats and one In Game panel (the Box score until a menu button picks another) as the right half's two
-   full-height columns; along the bottom, edge to edge and tinted with a little of our color: the score strip with the
-   radio at its left, the ticker, the spoiler-delay line and the twelve menu buttons. The long columns step through their
-   rows on their own (views/live.js stepTv). Smaller than a TV: the same cells stack and the page scrolls, the score bar
-   stays at the foot of the screen. */
-.tv { --tint-us: color-mix(in srgb, var(--team-us) 22%, var(--panel)); --tint-us-soft: color-mix(in srgb, var(--team-us) 12%, var(--panel)); --tint-us-faint: color-mix(in srgb, var(--team-us) 7%, var(--panel)); display: grid; min-width: 0; padding-bottom: 72px; }
-.tv--empty .tv__cell, .tv--empty .tv__lower, .tv--empty .tv__bar--note, .tv--empty .tv__bar--menu { display: none; }
-.tv:not(.tv--empty) .tv__empty { display: none; }
-.tv__main { display: grid; gap: var(--gap); padding: var(--gap); grid-template-columns: minmax(0, 1fr); min-width: 0; }
-.tv__empty { grid-column: 1 / -1; display: grid; gap: var(--gap); }
-.tv__cell { min-width: 0; min-height: 0; }
-.tv__cell > .band { margin: 0; height: 100%; }
-.tv__lower { display: grid; gap: var(--gap); grid-template-columns: minmax(0, 1fr); min-width: 0; }
-.tv__cell--qr { display: flex; justify-content: center; }
-.tv__cell--panel { border: 1px solid var(--rule); }
-.tv__cell--panel > .board-panel__title { min-height: var(--tap); align-items: center; padding: 0 var(--sp-2) 0 var(--sp-3); background: var(--band-head); border-left: 4px solid var(--rule-strong); font-size: var(--text-title); }
-.tv__cell--panel > .board-panel__title small { margin-left: auto; font-size: var(--text-label); text-align: right; }
-.tv__cell--split > .board-panel__body > .band:not(:only-child) > .band__head { display: flex; } /* the box score: each team named */
-.tv__cell--split > .board-panel__body > .band + .band { border-top: 2px solid var(--rule-strong); }
-.tv__cell--pass .shot-chart > .note, .tv__cell--runs .shot-chart > .note { margin: 0; }
-.tv__bars { display: grid; min-width: 0; }
-.tv__bar { min-width: 0; border-top: 1px solid var(--rule-strong); }
-.tv__bar--strip { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: var(--sp-3); padding: 0 var(--sp-3); background: var(--tint-us); border-top: 3px solid var(--team-accent); }
-.tv__strip { flex: 1 1 auto; min-width: 0; }
-.tv__strip .strip { position: static; background: transparent; border: 0; justify-content: center; padding: 4px 0; }
+/* --- the board (freeze wave F5, the owner's mock of 2026-10-20; views/live.js buildTv) ------------------------------
+   The big screen mirrors the tablet: In Game's own one-screen frame (the stage rules below), without the top bar and the
+   buttons, scaled to fill the screen (views/board.js boardZoom), with a foot tinted with a little of our color: the radio
+   at the left, the delay line (or the final's) in the middle, the QR at the right. Smaller than a stage (a phone cast
+   sideways): the essentials, as In Game draws them on a phone. */
+.tv { --tint-us: color-mix(in srgb, var(--team-us) 22%, var(--panel)); --tint-us-soft: color-mix(in srgb, var(--team-us) 12%, var(--panel)); --tint-us-faint: color-mix(in srgb, var(--team-us) 7%, var(--panel)); min-width: 0; }
+.tv--empty .tv__foot { display: none; }
+.tv__foot { display: flex; align-items: center; gap: var(--sp-4); min-height: 64px; padding: 6px var(--sp-3); background: var(--tint-us); border-top: 3px solid var(--team-accent); }
 .tv__radio { flex: none; display: flex; }
-.tv__radio .board-exit__radio { display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 4px 14px 4px 6px; border: 1px solid var(--rule-strong); border-radius: 999px; background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--chalk); font-family: var(--font-cond); font-size: calc(19px * var(--ui-scale)); font-weight: 700; }
+.tv__radio .board-exit__radio { display: inline-flex; align-items: center; gap: 10px; min-height: var(--tap); padding: 4px 14px 4px 6px; border: 1px solid var(--rule-strong); border-radius: 999px; background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--chalk); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; }
 .tv__radio .board-exit__radio .icon { width: 32px; height: 32px; padding: 7px; border-radius: 50%; background: var(--team-accent); color: var(--ground); fill: currentColor; }
 .tv__radio .board-exit__short { display: none; }
 .tv__radio .board-exit__long { display: inline; }
-@media (max-width: 599px) { .tv__radio .board-exit__long { display: none; } .tv__radio .board-exit__radio { padding: 4px; } } /* a phone: the play mark alone, its name in aria-label */
-.tv__bar--ticker { background: var(--tint-us-soft); }
-.tv__bar--ticker .live-ticker { margin: 0; }
-.tv__bar--ticker .ticker { background: transparent; border: 0; border-radius: 0; }
-.tv__bar--note { background: var(--tint-us-faint); }
-@media (max-width: 599px) { .tv { padding-bottom: 132px; } } /* a phone: the fixed score bar wraps to three lines; the page ends above it */
-.tv__note > p, .tv__note > .note { margin: 0; padding: 7px var(--sp-4); max-width: none; color: var(--chalk); font-size: calc(17px * var(--ui-scale)); text-align: center; }
+.tv__note { flex: 1 1 auto; min-width: 0; }
+.tv__note > p, .tv__note > .note { margin: 0; max-width: none; color: var(--chalk); font-size: calc(16px * var(--ui-scale)); text-align: center; }
 .tv__delay { color: var(--team-accent); }
-.tv__bar--menu { background: var(--tint-us); }
-.tv__menu { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; padding: 8px var(--sp-3) 9px; }
-.tv__menu-btn { display: grid; justify-items: center; align-content: center; gap: 2px; min-width: 0; min-height: 62px; padding: 4px 6px; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: color-mix(in srgb, var(--panel) 80%, transparent); color: var(--chalk); font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; line-height: 1.1; cursor: pointer; }
-.tv__menu-btn small { color: var(--fog); font-family: var(--font-body); font-size: calc(15px * var(--ui-scale)); font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.tv__menu-btn[aria-pressed="true"] { border-color: var(--team-accent); box-shadow: inset 0 -3px 0 var(--team-accent); }
-@media (hover: hover) { .tv__menu-btn:hover { border-color: var(--fog); } }
-.tv__menu-btn:focus-visible { outline: 3px solid var(--team-accent); outline-offset: 2px; }
-@media (min-width: 700px) {
-  .tv__main { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .tv__lower { grid-column: 1 / -1; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 140px; }
-}
-/* the TV: one screen, nothing to scroll; the cells take the room above the four bars */
-@media (min-width: 1400px) and (min-height: 700px) {
+.tv__qr { flex: none; display: flex; align-items: center; }
+.tv__qr .board__corner { flex-direction: row; align-items: center; gap: 10px; height: auto; padding: 0; background: transparent; border: 0; }
+.tv__qr .board__corner .invite { margin: 0; }
+.tv__qr .board__corner .invite__qr { width: 56px; max-width: 56px; }
+.tv__qr .board__corner .invite__url { display: none; }
+.tv__qr .board__join { font-size: calc(15px * var(--ui-scale)); max-width: 7em; }
+@media (max-width: 599px) { .tv__radio .board-exit__long { display: none; } .tv__radio .board-exit__radio { padding: 4px; } .tv__qr { display: none; } } /* a phone: the play mark alone, its name in aria-label */
+body.board-mode .tv .remote { display: none; }
+@media (min-width: 960px) and (min-height: 560px) {
   body.board-mode { overflow: hidden; }
-  .tv { height: calc(100vh / var(--board-zoom, 1)); grid-template-rows: minmax(0, 1fr) auto; padding-bottom: 0; }
-  .tv__main { min-height: 0; gap: 10px; padding: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: max-content minmax(0, 1fr); grid-template-areas: "wp leaders stats panel" "lower lower stats panel"; }
-  .tv__cell--wp { grid-area: wp; }
-  .tv__cell--leaders { grid-area: leaders; }
-  .tv__lower { grid-area: lower; min-height: 0; gap: 10px; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 132px; }
-  .tv__cell--stats { grid-area: stats; overflow: hidden; }
-  .tv__cell--panel { grid-area: panel; height: 100%; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-  .tv__cell--panel > .board-panel__body { min-height: 0; overflow: hidden; }
-  .tv__cell--split > .board-panel__body { display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
-  .tv__cell--split > .board-panel__body > .band { min-height: 0; overflow: hidden; display: flex; flex-direction: column; border-radius: 0; }
-  .tv__cell--split > .board-panel__body > .band > .band__body { flex: 1 1 0; min-height: 0; overflow: hidden; }
-  .tv__cell--stats > .band { height: auto; min-height: 100%; }
-  .tv__cell--stats > .band > .band__head { position: sticky; top: 0; z-index: 2; } /* the column steps through its rows: its title stays */
-  .tv__cell--split .band__body > .note { display: none; } /* the box score's source line: Leaders says the same */
-  .tv__cell--pass, .tv__cell--runs { height: 100%; overflow: hidden; }
-  :is(.tv__cell--pass, .tv__cell--runs) > .band { display: flex; flex-direction: column; }
-  :is(.tv__cell--pass, .tv__cell--runs) .band__body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
-  :is(.tv__cell--pass, .tv__cell--runs) .shot-chart-host, :is(.tv__cell--pass, .tv__cell--runs) .shot-chart { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
-  :is(.tv__cell--pass, .tv__cell--runs) .shot-field { flex: 1 1 0; min-height: 0; max-width: none; width: 100%; grid-template-rows: repeat(var(--tv-rows, 1), minmax(0, 1fr)) auto; }
-  .tv__cell--pass .shot-field { --tv-rows: 2; } /* deep over short; the run chart's one row stands the whole height */
-  :is(.tv__cell--pass, .tv__cell--runs) .shot-row { min-height: 0; }
-  .tv__bar--strip { position: static; }
-  .tv__bars { min-height: 0; }
-  /* compact rows on a TV: the 44 px press height is for a finger */
-  .tv .stat-table tr[role="button"] > :is(td, th) { height: auto; }
-  .tv__cell--panel .stat-table tbody :is(td, th) { padding-top: 3px; padding-bottom: 3px; }
+  .tv.live-frame { height: calc(100vh / var(--board-zoom, 1)); }
+  .tv .strip { position: static; }
 }
 .board-panel { min-width: 0; display: grid; grid-template-rows: auto 1fr; background: var(--panel); border-radius: var(--radius); overflow: hidden; }
 .board-panel__title { margin: 0; padding: 8px 12px; border-bottom: 1px solid var(--rule); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; display: flex; align-items: baseline; gap: 8px; }
@@ -2282,6 +2213,124 @@ body.board-mode .run-bar { display: none !important; }
 .cover__trophy { text-align: center; font-family: var(--font-cond); font-size: calc(14px * var(--ui-scale)); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fog); }
 .sched__day { grid-column: 1 / -1; font-size: calc(13px * var(--ui-scale)); color: var(--fog); font-style: italic; }
 .team-head__staff { font-size: calc(13px * var(--ui-scale)); color: var(--fog); }
+
+/* --- In Game on one screen (freeze wave F5, the owner's mock of 2026-10-20) --------------------------------------
+   The big screen mirrors the tablet, so In Game itself fits one landscape screen with nothing to scroll: the score strip
+   (score, clock, down and distance, the win probability as a percentage, the last play), the box score with both teams
+   side by side, then the last five plays, Score by quarter with the drive lines, and the shot chart with the passes over
+   the line of scrimmage and the runs under it; the ticker; one row of buttons (the twelve panels and the five tools).
+   Each box-score half steps through its rows on its own when it is longer than its column (views/live.js stepTv).
+   Narrower or shorter than a stage (a phone, an iPad held upright): the strip, the essentials (the last play and the
+   percentage, large), the ticker, the buttons, then the same cells stacked under them and the page scrolls. The board
+   (#board) is the same frame without the top bar and the buttons, scaled to fill the screen (views/board.js fitZoom). */
+.live-frame { display: flex; flex-direction: column; min-width: 0; }
+.live-frame .strip { position: sticky; }
+.live-frame > .final-note { flex: none; margin: 0; padding: 4px var(--sp-3); border-bottom: 1px solid var(--rule); font-size: var(--text-caption); }
+.stage { display: grid; gap: 8px; padding: 8px; min-width: 0; }
+.stage .band { margin: 0; min-height: 0; display: flex; flex-direction: column; }
+.stage .band > .band__body { min-height: 0; }
+.stage__row { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.stage-box { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 0; height: 100%; }
+.stage-box__half { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.stage-box__half--us { border-right: 2px solid var(--rule-strong); }
+.stage-box__team { display: flex; align-items: baseline; gap: 8px; padding: 4px 12px; font-size: var(--text-caption); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); border-bottom: 1px solid var(--rule); }
+.stage-box__team b { color: var(--team-us); }
+.stage-box__team--them b { color: var(--team-them, var(--fog)); }
+.stage-box__team span { font-size: var(--text-caption); letter-spacing: 0; text-transform: none; }
+.stage-box__scroll { min-height: 0; overflow: hidden; }
+.stage-box .note { display: none; } /* the band's summary says where the lines come from */
+.stage-box .stat-table tbody :is(td, th) { padding-top: 2px; padding-bottom: 2px; }
+.stage-plays { list-style: none; margin: 0; padding: 4px 12px; display: flex; flex-direction: column; min-height: 0; }
+.stage-play { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
+.stage-play:last-child { border-bottom: 0; }
+.stage-play__line { display: flex; align-items: baseline; gap: 8px; min-width: 0; font-size: var(--text-caption); color: var(--fog); white-space: nowrap; }
+.stage-play__side--us { color: var(--team-us); }
+.stage-play__side--them { color: var(--team-them, var(--chalk)); }
+.stage-play__sit { overflow: hidden; text-overflow: ellipsis; }
+.stage-play__ppa { margin-left: auto; font-variant-numeric: tabular-nums; }
+.stage-play__ppa--gain { color: var(--good, #4caf7a); }
+.stage-play__ppa--loss { color: var(--bad, #e0705a); }
+.stage-play__words { font-size: var(--text-label); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stage-play--score .stage-play__words { color: var(--team-accent); }
+.stage-plays__empty { margin: 0; padding: 12px; }
+.stage-score { display: flex; flex-direction: column; min-height: 0; }
+.stage-score .qline { padding: 6px 12px; }
+.stage-drives { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 3px 14px; padding: 6px 12px 8px; border-top: 1px solid var(--rule); font-size: var(--text-label); font-variant-numeric: tabular-nums; }
+.stage-drives__head, .stage-drives__row { display: contents; }
+.stage-drives__head > * { font-size: var(--text-caption); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); }
+.stage-drives__us { color: var(--team-us); text-align: right; }
+.stage-drives__them { color: var(--team-them, var(--fog)); text-align: right; }
+.stage-drives__label { color: var(--fog); }
+.stage-drives__val { text-align: right; }
+.shot-chart--both { padding: 6px 12px 6px; gap: 4px; }
+.shot-field--both { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr); }
+.shot-row--runs .shot-cell__label { opacity: 0.85; }
+/* the strip's extras: the percentage and the last play, before the pill */
+.strip__extras { display: flex; align-items: baseline; gap: var(--sp-4); min-width: 0; }
+.strip__wp { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.strip__wp-pct { font-family: var(--font-cond); font-size: var(--text-strip-score); font-weight: 700; color: var(--team-us); }
+.strip__wp-who { font-size: var(--text-label); font-weight: 600; }
+.strip__wp-kick { font-size: var(--text-caption); color: var(--fog); }
+.strip__last { display: inline-flex; align-items: baseline; gap: 8px; min-width: 0; }
+.strip__last-label { font-size: var(--text-caption); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--team-accent); white-space: nowrap; }
+.strip__last-words { font-size: var(--text-body); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the one row of buttons: the panels and the five tools, labels only, every one a press target; narrower than a stage the
+   row scrolls sideways as it always did (a phone: one row, never four stacked over the page) */
+.remote--stage .remote__btn small { display: none; }
+.remote__btn--tool { text-decoration: none; }
+.remote__btn--tool:visited { color: var(--chalk); }
+/* the essentials (a phone, an iPad upright): the last play and the percentage, large, under the strip */
+.stage-essentials { display: none; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--rule); background: var(--panel); }
+.stage-essentials__label { font-size: var(--text-caption); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--team-accent); }
+.stage-essentials__words { font-family: var(--font-cond); font-size: calc(24px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
+.stage-essentials__wp { font-size: var(--text-label); color: var(--fog); }
+.stage-essentials__wp b { font-family: var(--font-cond); font-size: calc(28px * var(--ui-scale)); color: var(--team-us); margin-right: 6px; }
+@media (max-width: 959px), (max-height: 559px) {
+  .stage-essentials { display: grid; }
+  .live-frame .strip__extras { display: none; }
+  .stage-box { grid-template-columns: minmax(0, 1fr); }
+  .stage-box__half--us { border-right: 0; border-bottom: 2px solid var(--rule-strong); }
+}
+/* the stage: one landscape screen, the cells take the room between the strip and the buttons, nothing scrolls */
+@media (min-width: 960px) and (min-height: 560px) {
+  .live-frame { height: calc(100vh - var(--topbar)); }
+  .live-frame > .strip { flex: none; }
+  .live-frame > .live-ticker { flex: none; margin: 0; }
+  .live-frame > .remote { flex: none; }
+  .live-frame > div { min-height: 0; }
+  .stage { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 11fr) minmax(0, 10fr); }
+  .stage__row { grid-template-columns: minmax(0, 23fr) minmax(0, 14fr) minmax(0, 21fr); min-height: 0; }
+  .stage .band { height: 100%; overflow: hidden; }
+  .stage .band > .band__body { flex: 1 1 0; overflow: hidden; display: flex; flex-direction: column; }
+  .stage .band > .band__body > * { min-height: 0; }
+  .stage .stage-plays { flex: 1 1 0; justify-content: space-evenly; overflow: hidden; }
+  .stage .shot-chart-host, .stage .shot-chart { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .stage .shot-field { flex: 1 1 0; min-height: 0; max-width: none; width: 100%; }
+  .stage .shot-row { min-height: 0; }
+  .stage .shot-cell { min-height: 0; padding: 2px 4px; gap: 0; overflow: hidden; }
+  .stage .shot-cell > span { line-height: 1.1; }
+  .stage .shot-cell__main { font-size: calc(17px * var(--ui-scale)); }
+  .stage .shot-field { padding: 4px 6px; gap: 3px; }
+  .stage .shot-field__los { padding: 1px 0; }
+  .stage .shot-chart > .note { margin: 0; }
+  .stage .stat-table tr[role="button"] > :is(td, th) { height: auto; } /* the box score's rows step; a press height is for a finger */
+  .stage .qline { flex: none; }
+  .stage-drives { flex: 1 1 0; align-content: start; }
+  .remote--stage { flex-wrap: wrap; justify-content: center; overflow: visible; }
+  .remote--stage .remote__btn { min-width: 0; flex: 1 1 60px; padding: 4px 6px; min-height: var(--tap); }
+}
+.ticker__label:empty { display: none; }
+/* your notes inside the program notes, the Notes sheet, the matchup buttons, the Setup page's developer line (wave F5) */
+.notes-own { margin-bottom: var(--sp-3); padding-bottom: var(--sp-2); border-bottom: 1px solid var(--rule); }
+.gamenotes__from { color: var(--team-accent); font-family: var(--font-cond); font-weight: 700; margin-right: 6px; }
+.gamenotes__stamp { color: var(--fog); font-size: var(--text-caption); margin-right: 6px; }
+.notes-sheet { display: grid; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.notes-sheet__scheme { margin: 0; }
+.notes-sheet .game-info { border: 1px solid var(--rule); border-radius: var(--radius); }
+.paper-tools { margin: 4px 0 0; }
+.paper-matchup, .top25-card__tools .btn { min-height: 36px; font-size: var(--text-caption); }
+.top25-card__tools { margin: 0; padding: 0 var(--sp-3) var(--sp-2); display: flex; justify-content: flex-end; }
+.setup-dev { margin-top: var(--sp-3); }
 
 /* === NV: national list view, national sheet, search and glossary polish === */
 

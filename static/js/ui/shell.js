@@ -34,7 +34,8 @@ const liveDot = () => el("span", { class: "live-dot", "aria-hidden": "true" });
 // archive, the season in review, the radio), the Glossary and Settings (First time setup lives there). The game-day board
 // is a button on the In Game sheet, not a menu item; the other primary teams are reached from the My Teams page.
 export const MENU = [
-  { group: "Views", items: [...VIEWS, { id: "preseason", label: "Preseason Magazine", hint: "offseason, outlook, staffs" }] },
+  // freeze wave F5 (section 7 of the plan, owner 2026-10-20): the Archive and the Season in review were two taps deep on the Setup page
+  { group: "Views", items: [...VIEWS, { id: "preseason", label: "Preseason Magazine", hint: "offseason, outlook, staffs" }, { id: "archive", label: "Archive", hint: "every game the app watched" }, { id: "review", label: "Season in review", hint: "the season told from the schedule" }] },
   {
     group: "My Teams",
     items: [
@@ -51,6 +52,7 @@ export const MENU = [
     items: [
       { id: "invite", label: "Invite friends", hint: "a QR code for the Wi-Fi" }, // Phase 18.6
       { id: "setup", label: "Setup", hint: "demo, archive, season in review, radio" },
+      { id: "status", label: "Server status", href: "/status", external: true, hint: "the server's own page, in a new tab" }, // wave F5: was a tap on the status pill, then a link
       { id: "glossary", label: "Glossary" },
       { id: "settings", label: "Settings" },
     ],
@@ -182,6 +184,8 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
                 {
                   class: "drawer__item",
                   href: item.href || `#${item.hash || item.id}`,
+                  target: item.external ? "_blank" : null,
+                  rel: item.external ? "noopener" : null,
                   "aria-current": item.id === currentView ? "page" : null,
                   onclick: (event) => {
                     if (item.hash) { // a route with an argument (a primary team's page): close the drawer and go

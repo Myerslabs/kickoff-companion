@@ -39,11 +39,17 @@ const EXIT_CODES = new Set([461, 10009]); // the Back key on LG webOS and Samsun
 const LAYERS = "[data-modal], .hint-pop, .status-card";
 const BOARD_HASH = /^#board(?:$|[=?])/;
 
-/** The zoom for this screen (group five: every panel is on the board, so 1080p draws at 1 and a 4K set at 2). */
-export function boardZoom(width) {
+/** The zoom for this screen (freeze wave F5, owner 2026-10-20: the board mirrors the tablet, so the 1180 by 820 stage is
+ *  scaled to fill whatever shows it: a 1080p set 1.32, a 4K set 2.63, a mirrored iPad 1). A phone or an iPad held upright
+ *  (under 960 by 560) draws the essentials at their own size instead. */
+export const STAGE_WIDTH = 1180;
+export const STAGE_HEIGHT = 820;
+export function boardZoom(width, height = NaN) {
   if (!Number.isFinite(width) || width <= 0) return 1;
-  if (width >= 3000) return 2;
-  return 1;
+  if (!Number.isFinite(height) || height <= 0) return width >= 3000 ? 2 : 1;
+  if (width < 960 || height < 560) return 1;
+  const zoom = Math.min(width / STAGE_WIDTH, height / STAGE_HEIGHT);
+  return Math.max(0.75, Math.min(3, Math.round(zoom * 100) / 100));
 }
 
 /** Whether a key press asks to leave the board: Escape, Backspace, the browser's Back key or a TV remote's Back key. */
@@ -157,7 +163,7 @@ export function createBoardView({ onStatus } = {}) {
   let awakeTimer = null;
   let fallbackTimer = null;
   let wokeAt = -Infinity;
-  const apply = () => document.body.style.setProperty("--board-zoom", String(boardZoom(window.innerWidth)));
+  const apply = () => document.body.style.setProperty("--board-zoom", String(boardZoom(window.innerWidth, window.innerHeight)));
 
   const sleep = () => {
     awakeTimer = null;

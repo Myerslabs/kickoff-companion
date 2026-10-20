@@ -27,6 +27,7 @@
 import { ours, usSchool } from "../identity.js";
 import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text, recordText as sharedRecord } from "../ui/dom.js";
 import { crewText } from "../ui/game-staff.js";
+import { openMatchupSheet } from "../ui/matchup-sheet.js";
 import { ageOf } from "../ui/news.js";
 import { fitNames, fitRows, loosenNames } from "../ui/paper-fit.js";
 import { fillPicture, pixelBanner, pixelPicture, refitPictures, seedOf } from "../ui/pixel-art.js";
@@ -340,6 +341,10 @@ function matchBox(g, size, names) {
   );
   box.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");
   box.style.setProperty("--c-home", typeof home.color === "string" && home.color ? home.color : "var(--rule-strong)");
+  // freeze wave F5 (owner 2026-10-20): a tap on Matchup opens the two teams side by side (ui/matchup-sheet.js, Phase 16)
+  if (status !== "unplayed" && typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
+    mid.append(el("p", { class: "paper-tools" }, el("button", { class: "btn btn--quiet paper-matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
+  }
   return box;
 }
 

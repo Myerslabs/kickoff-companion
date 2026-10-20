@@ -6,7 +6,8 @@ the app's page under the board, else replaces the board with In Game. Escape, Ba
 remotes' Back keys do the same, never while a layer the reader opened is up or while typing. A cold start at the board
 puts In Game under it in the history. While the radio plays, its control sits beside the chip. Neither the "Not loaded
 yet" list nor a guest's welcome shows on the board (step C made both notes above a page; the board never carries one, and
-neither counts as seen there). Unmounting leaves nothing behind."""
+neither counts as seen there), nor on In Game since it became one screen (wave F5, owner 2026-10-20): leaving the board
+lands on In Game, and the note waits for the first page after that. Unmounting leaves nothing behind."""
 
 from __future__ import annotations
 
@@ -346,16 +347,23 @@ scenarios.notOverBoard = async () => {
   assert.ok(slot.hasAttribute("hidden"), "the slot stays shut");
   assert.equal(document.body.querySelector(".sheet-layer"), null, "nothing opens over the board");
   assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "and not marked seen, so the next page shows it");
-  // leaving the board for In Game: shown there (every page but the board, owner 2026-10-13) and marked seen for the day
+  // leaving the board lands on In Game, which carries no note either (one screen since wave F5, owner 2026-10-20: a note
+  // would push it off), and still nothing is marked seen; the first page after that shows it (every page but those two,
+  // owner 2026-10-13) and marks the day
   document.body.classList.remove("board-mode");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
-  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on In Game");
+  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "not on In Game either");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "In Game does not count as seen");
+  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "program" } }));
+  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Pre-Game Program, the first page off the board that is not In Game");
   const { todayKey } = await import(moduleUrl("ui/readiness.js"));
   assert.equal(localStorage.getItem("kickoff.readiness.seen"), todayKey());
-  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "program" } }));
-  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Pre-Game Program too");
+  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "season" } }));
+  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Season too");
+  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
+  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "back on In Game: gone again");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "board" } }));
-  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "back on the board: gone again");
+  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "and on the board");
 };
 
 scenarios.guestNotOverBoard = async () => {
@@ -376,10 +384,15 @@ scenarios.guestNotOverBoard = async () => {
   assert.ok(note && note.hasAttribute("hidden"), "no welcome on the board");
   assert.equal(document.body.querySelector(".sheet-layer"), null, "and never a sheet");
   assert.equal(localStorage.getItem("kickoff.guest.welcome"), null, "not marked seen: the next page greets the guest");
-  // the guest leaves the board: the welcome is on that page, once
+  // the guest leaves the board for In Game, which carries no note either (one screen since wave F5, owner 2026-10-20);
+  // the welcome waits for the first page after that, and shows there once
   document.body.classList.remove("board-mode");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
-  assert.ok(!note.hasAttribute("hidden") && note.textContent.includes("Welcome"), "the welcome on the first page off the board");
+  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "no welcome on In Game");
+  assert.equal(slot.querySelector(".page-note"), note, "and it is still waiting, not gone with the page");
+  assert.equal(localStorage.getItem("kickoff.guest.welcome"), null, "In Game does not count as seen");
+  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "program" } }));
+  assert.ok(!note.hasAttribute("hidden") && note.textContent.includes("Welcome"), "the welcome on the first page that is neither the board nor In Game");
   assert.equal(localStorage.getItem("kickoff.guest.welcome"), "1");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "season" } }));
   assert.equal(slot.querySelector(".page-note"), null, "it goes with that page");
@@ -421,12 +434,14 @@ def test_the_chip_hides_without_leaving_the_tab_order():
 
 
 def test_in_game_has_the_radio_before_the_game_too() -> None:
-    """Owner 2026-10-11: the radio always within reach on In Game, before the game too: a Radio button in the tools row
-    opens the same station list the Pre-Game Program's Radio band draws (ui/radio-stations.js)."""
+    """Owner 2026-10-11: the radio always within reach on In Game, before the game too: a Radio button among the tools
+    opens the same station list the Pre-Game Program's Radio band draws (ui/radio-stations.js). Wave F5 (owner
+    2026-10-20): the tools are buttons at the end of the panel row (ui/stage.js stageTools), built once with the frame."""
     root = Path(__file__).resolve().parents[1] / "static" / "js"
     live = (root / "views" / "live.js").read_text(encoding="utf-8")
     assert 'openSheet({ title: "Radio", body: () => radioStations() })' in live
-    assert 'el("div", { class: "live-tools" }, state.delayButton, radioButton,' in live
+    assert 'stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet })' in live
+    assert 'el("div", { class: "live-tools" }' not in live, "the tools row is gone; the tools sit in the panel row"
     program = (root / "views" / "program.js").read_text(encoding="utf-8")
     assert "radioStations({ onDraw:" in program
 

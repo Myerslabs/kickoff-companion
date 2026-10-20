@@ -110,14 +110,16 @@ def test_the_programs_bands_in_the_owners_order() -> None:
     src = (JS / "views" / "program.js").read_text(encoding="utf-8")
     body = src.split("function sections(data) {", 1)[1].split("\n}\n", 1)[0]
     listed = re.findall(r"^\s+(\w+)\(", body.split("const listed = [", 1)[1].split("];", 1)[0], flags=re.M)
-    assert listed == ["notesBand", "headlinesBand", "tapeBand", "watchBand", "leadersBand", "availabilityBand", "recruitingBand", "lineupsBand", "pickerBand", "seriesBand", "advancedBand", "tendenciesBand", "ppaBand", "commonBand", "lastSeasonBand", "myNotesBand"]
-    assert "return [...listed, matchup(data)" in body, "the unlisted bands follow the sixteen"
+    assert listed == ["notesBand", "headlinesBand", "tapeBand", "watchBand", "leadersBand", "availabilityBand", "recruitingBand", "lineupsBand", "pickerBand", "seriesBand", "advancedBand", "tendenciesBand", "ppaBand", "commonBand", "lastSeasonBand"]  # wave F5: My notes went into Program notes
+    assert "return [...listed, matchup(data)" in body, "the unlisted bands follow the fifteen"
     assert "!isLeader(p, leaders)" in src and "leaderKeys(data.leaders)" in src, "players to watch never repeats a leader"
 
 
 def test_in_game_settings_and_page_check() -> None:
     live = (JS / "views" / "live.js").read_text(encoding="utf-8")
-    assert 'el("a", { class: "btn btn--quiet", href: "#board" }, "Big screen")' in live
+    assert "stageTools({ delayLabel: shortDelayLabel()" in live, "the five tools sit in the panel row (wave F5)"
+    stage = (JS / "ui" / "stage.js").read_text(encoding="utf-8")
+    assert 'el("a", { class: "remote__btn remote__btn--tool", href: boardHref }, "Big screen")' in stage
     settings = (JS / "views" / "settings.js").read_text(encoding="utf-8")
     assert 'row("First time setup", el("a", { class: "btn", href: "/setup" }, "Open")' in settings
     from tools import page_check

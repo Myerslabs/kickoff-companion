@@ -27,11 +27,11 @@ scenarios.menu = async () => {
   const { MENU } = await import(moduleUrl("ui/shell.js"));
   const plain = MENU;
   assert.deepEqual(MENU.map((g) => g.group), ["Views", "My Teams", "National", "App"]);
-  assert.deepEqual(MENU[0].items.map((i) => i.label), ["Newspaper", "Pre-Game Program", "In Game", "Season", "Top 25", "Preseason Magazine"]);
+  assert.deepEqual(MENU[0].items.map((i) => i.label), ["Newspaper", "Pre-Game Program", "In Game", "Season", "Top 25", "Preseason Magazine", "Archive", "Season in review"]);
   assert.deepEqual(MENU[1].items.map((i) => i.id), ["myteams", "injuries", "prompts", "roster", "recruiting"]); // the Prompts phase: Prompts after the Injury Report
   assert.deepEqual(MENU[2].items.map((i) => i.id), ["leaders", "ratings"]);
-  assert.deepEqual(MENU[3].items.map((i) => i.id), ["invite", "setup", "glossary", "settings"]);
-  assert.ok(!MENU.flatMap((g) => g.items).some((i) => ["board", "demo", "archive", "review", "radio"].includes(i.id)), "the board is a button on In Game; the rest are on the Setup page");
+  assert.deepEqual(MENU[3].items.map((i) => i.id), ["invite", "setup", "status", "glossary", "settings"]);
+  assert.ok(!MENU.flatMap((g) => g.items).some((i) => ["board", "demo", "radio"].includes(i.id)), "the board is a button on In Game; the demo and the radio are on the Setup page (wave F5: the Archive and the Season in review joined Views)");
   // the tabs: the views in the same order, Top 25 after Season since 2026-10-13 (the magazine only in the menu); the Pre-Game Program stays home
   const { shell, VIEWS } = await import(moduleUrl("ui/shell.js"));
   assert.deepEqual(VIEWS.map((v) => v.id), ["newspaper", "program", "live", "season", "top25"]);

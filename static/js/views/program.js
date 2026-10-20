@@ -270,10 +270,13 @@ function notesBand(data) {
         notesPaste({ gameId: data.game?.gameId, location: n }),
       );
     }
+    // freeze wave F5 (owner 2026-10-20): your own lines are part of the program notes, "Note from <name>", at the top
+    const own = isNum(data.game?.gameId) ? el("div", { class: "notes-own" }, gameNotesPanel({ gameId: data.game.gameId })) : null;
     if (!n.present) {
       return el(
         "div",
         { class: "notes-empty" },
+        own,
         notesPaste({ gameId: data.game?.gameId, location: n }), // Phase 17 #12: one line, two copy buttons, the box, one Save
         notesTaskControl(data.game?.gameId),
       );
@@ -282,6 +285,7 @@ function notesBand(data) {
     return el(
       "div",
       {},
+      own,
       editorial({ byline: { author: n.author, writtenAt: n.writtenAt }, sources: records(n.sources), sections: records(n.sections) }),
       el("div", { class: "notes-foot" },
         el("details", { class: "notes-replace" }, el("summary", {}, "Replace with a new answer"), notesPaste({ gameId: data.game?.gameId, location: n })),
@@ -309,12 +313,6 @@ function notesNeeded(lead, detail) {
       },
     },
   });
-}
-
-function myNotesBand(data) {
-  const gameId = data.game?.gameId;
-  if (!isNum(gameId)) return null;
-  return band({ id: "program-mynotes", title: "My notes", collapsible: true, foldable: true, collapsed: true, summary: "your own lines", state: { status: "ready" }, body: () => gameNotesPanel({ gameId }) });
 }
 
 function availabilityBand(data) {
@@ -954,7 +952,6 @@ function sections(data) {
     ppaBand(data), // 13 Play value
     commonBand(data), // 14 Common opponents
     lastSeasonBand(data), // 15 Last season
-    myNotesBand(data), // 16 My notes
   ];
   // the cover redo (owner 2026-10-10): the weather and the stadium's facts moved into the cover; no Weather band
   if (done) return [...listed, matchup(data), radioBand(), finalBand(data), advancedBoxBand(data), visitorsBand(data)]; // the visitors last: new bands at the bottom (2026-10-13)

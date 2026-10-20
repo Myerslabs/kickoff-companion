@@ -29,7 +29,15 @@ export function createSetupPageView({ onStatus } = {}) {
             collapsible: false,
             summary: "demo, archive, season in review, radio",
             state: { status: "ready" },
-            body: () => el("div", { class: "setup-links" }, SETUP_LINKS.map(linkCard), el("p", { class: "note" }, "Connecting a phone, a tablet or a TV is First time setup, in Settings.")),
+            body: () =>
+              el(
+                "div",
+                { class: "setup-links" },
+                SETUP_LINKS.map(linkCard),
+                el("p", { class: "note" }, "Connecting a phone, a tablet or a TV is First time setup, in Settings."),
+                // freeze wave F5 (section 7 of the plan): the developer pages, reachable without typing them
+                el("p", { class: "note setup-dev" }, "Developer: ", el("a", { href: "/debug/live" }, "replay a game"), " · ", el("a", { href: "/static/styleguide.html" }, "the design system"), "."),
+              ),
           }),
         ),
       );
