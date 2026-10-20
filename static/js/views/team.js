@@ -18,7 +18,7 @@
 // their own ids (sheet-schedule, sheet-standings, sheet-history), so a team page under the sheet keeps its own.
 
 import { confLabel, isUs, usLabel, usSchool } from "../identity.js";
-import { DASH, el, fmtDate, fmtNum, fmtStat, isNum, records, text } from "../ui/dom.js";
+import { DASH, el, fmtDate, fmtNum, fmtStat, fmtUsd, isNum, records, text } from "../ui/dom.js";
 import { advancedPaired } from "../ui/depth2.js";
 import { nationalHref, pollHref } from "../ui/national-link.js";
 import { seriesTable } from "../ui/series.js";
@@ -37,6 +37,7 @@ import { openPlayer } from "./player.js";
 import { costsBand } from "../ui/roster-costs.js";
 import { blueChipNote } from "./roster.js";
 import { injurySheetBand } from "./injuries.js";
+import { coachesLine } from "../ui/matchup-card.js";
 import { factsBand } from "../ui/school-facts.js";
 
 const TABS = [{ id: "summary", label: "Summary" }, { id: "schedule", label: "Schedule" }, { id: "roster", label: "Roster" }, { id: "coaches", label: "Coaches" }, { id: "history", label: "History" }];
@@ -113,7 +114,7 @@ function roster(data, state, { id = "team-roster", collapsed = false } = {}) {
   const players = records(data.roster);
   // sized by its own box (owner 2026-10-10): never sideways, the head pinned; size is the smallest size that still shows a column.
   // The name steps down with the table (item 6) from CFBD's split, "(RS)" after whichever form shows (it is data)
-  const columns = [{ key: "number", label: "No.", labelShort: "#" }, ROSTER_NAME, { key: "position", label: "Pos", kind: "text" }, { key: "classYear", label: "Class", kind: "text" }, { key: "age", label: "Age", size: "medium" }, { key: "heightText", label: "Ht", kind: "text", sortKey: "height", size: "medium" }, { key: "weight", label: "Wt", size: "medium" }, { key: "hometown", label: "Hometown", kind: "text", size: "large" }, { key: "transferFrom", label: "Transfer from", kind: "text", team: true, size: "large" }];
+  const columns = [{ key: "number", label: "No.", labelShort: "#" }, ROSTER_NAME, { key: "position", label: "Pos", kind: "text" }, { key: "classYear", label: "Class", kind: "text" }, { key: "age", label: "Age", size: "medium" }, { key: "heightText", label: "Ht", kind: "text", sortKey: "height", size: "medium" }, { key: "weight", label: "Wt", size: "medium" }, { key: "hometown", label: "Hometown", kind: "text", size: "large" }, { key: "transferFrom", label: "Transfer from", kind: "text", team: true, size: "large" }, { key: "costUsd", label: "NIL (rumored)", labelShort: "NIL", render: (row) => (isNum(row.costUsd) ? el("span", { title: typeof row.costNote === "string" && row.costNote ? row.costNote : "Rumored, from the roster costs load" }, fmtUsd(row.costUsd)) : DASH), size: "large" }]; // freeze wave F4: the rumored figure beside the player
   return band({
     id,
     title: "Roster",
@@ -373,7 +374,8 @@ export function openTeamFlyout(school) {
     .then((envelope) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
       const team = data.team && typeof data.team === "object" ? data.team : {};
-      const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team, data.facts), tabs: [] });
+      const staffLine = coachesLine(data.staff); // freeze wave F4: "who is their DC", one tap away during the game
+      const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team, data.facts), tabs: [], extra: staffLine ? el("div", { class: "team-head__staff", "aria-label": "Coaches" }, staffLine) : null });
       const [tiles, ...statBands] = summary(data); // owner 2026-10-10: the schedule right under the four tiles, then the stat tables
       // owner 2026-10-10: every team's sheet carries its injury report (from our games' notes), its roster (folded: a long
       // list) and its recruiting, the same bands as the team page under their own ids so a page beneath keeps its own

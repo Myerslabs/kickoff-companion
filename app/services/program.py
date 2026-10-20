@@ -61,14 +61,14 @@ from app.services.identity import conference_short
 from app.services.injuries import injury_report
 from app.services.leader_lines import RankIndex, game_totals, leader_detail
 from app.services.lines import spread_text
-from app.services.lineup_stats import attach_lineup_stats
+from app.services.lineup_stats import attach_lineup_stats, name_key
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches  # Phase 16 NV: the extra-call lists' keys and ranks
 from app.services.notes import load_notes
 from app.services.offday import common_opponents
 from app.services.paper import paper_weeks
 from app.services.parts import Assembled, Part, PartFetcher, assemble, calendar_slot, statuses
-from app.services.players import BOARDS, CATEGORIES, board_entries, fbs_lines, lines_from
+from app.services.players import BOARDS, CATEGORIES, board_entries, cost_players_of, fbs_lines, lines_from
 from app.services.profiles import PROFILE_ROWS, advanced_rows, profiles_for
 from app.services.ratings import fbs_set
 from app.services.season import standings_rows
@@ -582,7 +582,7 @@ class ProgramService:
 
     def _notes_block(self, notes: Any, error: str | None, us_lines: dict | None = None, opp_lines: dict | None = None) -> dict[str, Any]:
         if notes is None:
-            return {"present": False, "error": error, "sections": [], "availability": [], "schemes": None, "lineups": None, "broadcast": None, "coaches": None, "sources": [], "author": None, "writtenAt": None}
+            return {"present": False, "error": error, "sections": [], "availability": [], "schemes": None, "lineups": None, "visitors": None, "broadcast": None, "coaches": None, "sources": [], "author": None, "writtenAt": None}
         return {
             "present": True,
             "error": None,
@@ -595,6 +595,7 @@ class ProgramService:
             "availabilityUpdatedAt": notes.availabilityUpdatedAt,
             "schemes": notes.schemes.model_dump() if notes.schemes else None,
             "lineups": attach_lineup_stats(notes.lineups.model_dump(), us_lines or {}, opp_lines or {}) if notes.lineups else None,  # 2026-10-02: both depth charts, starters first, season chips
+            "visitors": notes.visitors.model_dump() if notes.visitors else None,  # freeze wave F4: the recruits on hand, on the program too
             "broadcast": notes.broadcast.model_dump() if notes.broadcast else None,  # public release Phase 7b: the TV crew
             "coaches": notes.coaches.model_dump() if notes.coaches else None,  # and both coaching staffs, from the notes
         }
@@ -1034,11 +1035,14 @@ class ProgramService:
         roster = []
         transfers = portal_index(parts["portal"].records, school) if "portal" in parts else {}
         today = self.client._clock().astimezone(self.settings.tzinfo).date()
+        cost_players = cost_players_of(self.season_notes.costs_for(school))  # freeze wave F4: the rumored figure beside each player
         for p in parts["teamRoster"].records:
             # item 6 (owner 2026-10-11): CFBD's first and last name ride along, so the team page and every side sheet shorten a
             # name to "K. Crawford" and the surname from the exact split (a two-word surname with no particle stays whole)
-            age, born = self.season_notes.age(school, " ".join(x for x in (p.first_name, p.last_name) if x), today)  # Phase 17 #38
-            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": " ".join(x for x in (p.first_name, p.last_name) if x) or None, "firstName": p.first_name or None, "lastName": p.last_name or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "height": int(p.height) if isinstance(p.height, (int, float)) and p.height > 0 else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}"})
+            full_name = " ".join(x for x in (p.first_name, p.last_name) if x)
+            age, born = self.season_notes.age(school, full_name, today)  # Phase 17 #38
+            cost = cost_players.get(name_key(full_name))
+            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": full_name or None, "firstName": p.first_name or None, "lastName": p.last_name or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "height": int(p.height) if isinstance(p.height, (int, float)) and p.height > 0 else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}", "costUsd": cost[0] if cost else None, "costNote": cost[1] if cost else None})
         roster.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"] or ""))
         coaches = []
         for c in parts["coaches"].records:

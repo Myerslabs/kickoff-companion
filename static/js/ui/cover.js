@@ -302,6 +302,13 @@ export function cover(props) {
 
   // GX-07 (owner pick 2026-09-28): a face-off. Our 112px dark-variant logo on the left, as in every
   // two-team table, the opponent's facing it on the right, each name and record under its logo.
+  // freeze wave F4: the school's facts under its block (founded, the stadium and its opened year), from the facts load
+  const factsOf = (side) => {
+    const f = obj(obj(p.facts)[side]);
+    const stadium = [typeof f.stadium === "string" && f.stadium.trim() ? f.stadium.trim() : null, isNum(f.stadiumOpened) ? `opened ${f.stadiumOpened}` : null].filter(Boolean).join(", ");
+    const bits = [isNum(f.founded) ? `Founded ${f.founded}` : null, stadium || null].filter(Boolean);
+    return bits.length && !compact ? el("div", { class: "cover__facts" }, bits.join(" · ")) : null;
+  };
   const teamBlock = (team, side) => {
     const parts = recordParts(team, us, { compact });
     return el(
@@ -311,8 +318,10 @@ export function cover(props) {
       el("div", { class: "cover__name" }, team.school ? teamLink(team.school, text(team.school)) : text(null)), // 2026-10-10: the name opens the team page (the logo keeps Wikipedia)
       el("div", { class: "cover__rec" }, parts.length ? parts : "No record yet"),
       formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) }),
+      factsOf(side),
     );
   };
+  const trophy = typeof p.trophy === "string" && p.trophy.trim() && !compact ? el("div", { class: "cover__trophy" }, p.trophy.trim()) : null; // the rivalry's trophy, under the kicker
 
   const lineParts = [];
   const homeName = homeIsUs ? us.school : them.school;
@@ -335,6 +344,7 @@ export function cover(props) {
     "section",
     { class: `cover${reveal ? " cover--reveal" : ""}${compact ? " cover--compact" : ""}`, "aria-label": compact && typeof p.label === "string" && p.label ? p.label : "Pre-Game Program cover", dataset: { state: kind } },
     el("div", { class: "cover__kicker-row" }, compact ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Pre-Game Program")), compact ? null : navArrow("next", p.next)),
+    trophy,
     el("h1", { class: "cover__matchup sr-only" }, `${text(away.school)} ${neutralSite ? "vs" : "at"} ${text(home.school)}`),
     el(
       "div",

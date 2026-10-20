@@ -106,6 +106,7 @@ PHONE_SIZE = (390, 844)  # an iPhone held upright
 BIG_SCREEN = (1920, 1080)  # a 1080p screen: the board's own layout
 ANCHOR_NAMES = {(1180, 820): "iPad, landscape", (820, 1180): "iPad, portrait", BIG_SCREEN: "1080p screen, the board", PHONE_SIZE: "phone"}
 BAD = re.compile(r"\b(undefined|null|NaN|Infinity)\b|\[object \w+\]")  # any object printed as text ([object HTMLElement] too, 2026-10-10)
+BROKEN = re.compile(r"The page could not be drawn \(([^)]{0,200})\)")  # the app's own error band: a render that threw (wave F4, 2026-10-20: a missing import got past the sweep)
 # The old names (owner 2026-10-10: Pre-Game Program, In Game, Preseason Magazine, First time setup), never on a page again.
 OLD_NAMES = re.compile(r"(?<![-\w])(Game program|Live sheet|live sheet|Preseason page|Device setup)(?![-\w])")
 # Any Chromium browser with the DevTools protocol works: Edge on Windows, Chrome or Chromium elsewhere.
@@ -913,6 +914,8 @@ def check_page(edge: Edge, url: str, budget_ms: int) -> tuple[list[str], int]:
         hits.append(context)
     for match in OLD_NAMES.finditer(text):
         hits.append("old name: " + text[max(0, match.start() - 60): match.end() + 60].strip())
+    for match in BROKEN.finditer(text):
+        hits.append("the page could not be drawn: " + (match.group(1).strip() or "no reason given"))
     return hits, len(text)
 
 

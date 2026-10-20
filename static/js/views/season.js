@@ -116,7 +116,7 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
       summary: `${recordText(record.overall)} · ${recordText(record.conference)} ${confLabel()}`,
       state: partState(data.parts?.schedule, games.length > 0),
       emptyText: "No games on the schedule yet.",
-      body: () => el("div", {}, recordLine({ ...record, team }), scheduleList({ games, nextGameId: data.nextGameId ?? null, onSelect: openGame, context: true, spOf: data.ratings?.sp?.of })),
+      body: () => el("div", {}, recordLine({ ...record, team }), scheduleList({ games, nextGameId: data.nextGameId ?? null, onSelect: openGame, context: true, spOf: data.ratings?.sp?.of, events: data.dates })), // freeze wave F4: the facts' dated events on their rows
     });
   }
 

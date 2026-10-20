@@ -2272,6 +2272,17 @@ body.board-mode .run-bar { display: none !important; }
 .depth-row__order { flex: none; min-width: 18px; padding: 0 4px; border-radius: 999px; font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); font-weight: 700; line-height: 1.35; text-align: center; color: var(--chalk); background: var(--team-accent); }
 .depth-row__order--more { color: var(--fog); background: var(--panel-raised); border: 1px solid var(--rule-strong); }
 
+/* Freeze wave F4 (the prompts' data woven in): the opponent's coaches under the matchup hero, each lineup head's
+   coordinator and scheme, the facts and the trophy on the cover, the dated events under a schedule row, the sheet's coaches */
+.mcard__staff { margin-top: 2px; font-size: calc(13px * var(--ui-scale)); color: var(--fog); }
+.lu-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.lu-head__side { display: inline-flex; flex-direction: column; align-items: flex-start; min-width: 0; }
+.lu-head__detail { font-family: var(--font-body); font-weight: 400; font-size: calc(13px * var(--ui-scale)); letter-spacing: 0; text-transform: none; color: var(--fog); }
+.cover__facts { margin-top: 4px; font-size: calc(13px * var(--ui-scale)); color: var(--fog); }
+.cover__trophy { text-align: center; font-family: var(--font-cond); font-size: calc(14px * var(--ui-scale)); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fog); }
+.sched__day { grid-column: 1 / -1; font-size: calc(13px * var(--ui-scale)); color: var(--fog); font-style: italic; }
+.team-head__staff { font-size: calc(13px * var(--ui-scale)); color: var(--fog); }
+
 /* === NV: national list view, national sheet, search and glossary polish === */
 
 /* --- the national list (G3-01, DS-01, LRP-01): one table in a side sheet or on its own page ------------- */

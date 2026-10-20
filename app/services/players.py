@@ -74,6 +74,47 @@ def lineup_orders(lineup: Any) -> dict[str, Any]:
     return {"names": names, "numbers": numbers}
 
 
+def cost_players_of(costs: dict[str, Any] | None) -> dict[str, tuple[int, str | None]]:
+    """The roster costs load's players by name key: {"k crawford": (amountUsd, note)} (freeze wave F4)."""
+    out: dict[str, tuple[int, str | None]] = {}
+    for row in (costs or {}).get("players") or []:
+        if not isinstance(row, dict):
+            continue
+        key = _name_key(row.get("name"))
+        amount = row.get("amountUsd")
+        if key and isinstance(amount, int | float) and not isinstance(amount, bool) and amount > 0:
+            note = row.get("note")
+            out[key] = (int(amount), note.strip() if isinstance(note, str) and note.strip() else None)
+    return out
+
+
+def player_status(notes: Any, preseason: Any, name: Any, team: str | None) -> str | None:
+    """A player's standing this week (freeze wave F4, the card's Status fact): the next game's availability row for his name
+    (ours, or one naming his team, or one naming no team), else the preseason load's season-long entry."""
+    key = _name_key(name)
+    if not key:
+        return None
+    for row in getattr(notes, "availability", None) or []:
+        if _name_key(getattr(row, "name", None)) != key:
+            continue
+        row_team = getattr(row, "team", None)
+        if row_team and team and row_team.strip().lower() != team.strip().lower():
+            continue
+        status = getattr(row, "status", None)
+        note = getattr(row, "note", None)
+        words = status.strip() if isinstance(status, str) and status.strip() else "Listed"
+        return f"{words}{f', {note.strip()}' if isinstance(note, str) and note.strip() else ''} (this week's report)"
+    for item in getattr(preseason, "injuries", None) or []:
+        if _name_key(getattr(item, "name", None)) != key:
+            continue
+        status = getattr(item, "status", None)
+        detail = getattr(item, "detail", None)
+        back = getattr(item, "expectedReturn", None)
+        bits = [status.strip() if isinstance(status, str) and status.strip() else "Listed", detail.strip() if isinstance(detail, str) and detail.strip() else None, f"back {back.strip()}" if isinstance(back, str) and back.strip() else None]
+        return f"{', '.join(b for b in bits if b)} (preseason load)"
+    return None
+
+
 def depth_for(orders: dict[str, Any], number: Any, name: Any, roster_keys: set[str]) -> int | None:
     """A roster player's place on the chart: by his name; by his number only when the chart's name at that number is nobody the
     roster knows (a spelling the roster lacks), never when it names another player."""
@@ -608,10 +649,13 @@ class PlayerService:
         notes, _error = load_notes(self.settings.data_dir, next_game.id if next_game else None)
         orders = lineup_orders(notes.lineups.us if notes and notes.lineups else None)
         roster_keys = {_name_key(p.get("name")) for p in players if _name_key(p.get("name"))}
+        cost_players = cost_players_of(self.season_notes.costs_for(self.team))  # freeze wave F4: the rumored figure beside each player
         for p in players:
             p["isUs"] = True  # Phase 16 (LRP-07): the roster is ours, so a card opened from it is never "them"
             p["transfer"] = transfer_for(transfers, p["firstName"], p["lastName"])  # Phase 13: where a transfer came from
             p["depth"] = depth_for(orders, p.get("number"), p.get("name"), roster_keys)
+            cost = cost_players.get(_name_key(p.get("name")))
+            p["costUsd"], p["costNote"] = (cost[0], cost[1]) if cost else (None, None)
             p["ppaPerPlay"] = (ppa_by_id.get(p["playerId"]) or {}).get("all")
             p["ppaPlays"] = (ppa_by_id.get(p["playerId"]) or {}).get("plays")
             p["usageShare"] = (usage_by_id.get(p["playerId"]) or {}).get("overall")
@@ -802,6 +846,13 @@ class PlayerService:
         portal_part = await self.fetcher.fetch("portal", "/player/portal", {"year": self.year}, PlayerTransfer, DataKind.SEASON_STATS)
         parts["portal"] = portal_part
         row["transfer"] = transfer_for(portal_index(portal_part.records, team), found.first_name, found.last_name)
+        # freeze wave F4: the rumored figure and this week's standing on the card
+        full_name = " ".join(x for x in (found.first_name, found.last_name) if x)
+        cost = cost_players_of(self.season_notes.costs_for(team)).get(_name_key(full_name))
+        row["costUsd"], row["costNote"] = (cost[0], cost[1]) if cost else (None, None)
+        next_game, _opponent = self._next_game(schedule_part.records)
+        week_notes, _error = load_notes(self.settings.data_dir, next_game.id if next_game else None)
+        row["status"] = player_status(week_notes, self.season_notes.preseason_for(team), full_name, team)
         teams = self._team_lookup(teams_part.records)
         row["team"] = team
         row["teamAbbr"] = teams.get(team, {}).get("abbreviation")

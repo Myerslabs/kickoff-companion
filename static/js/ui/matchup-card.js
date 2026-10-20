@@ -69,7 +69,15 @@ export function lastFive(form) {
  * conference's short name alone for a conference game. schemes.offense/defense are ours and schemes.opponent theirs,
  * each under its own columns in the group row; where one is missing, onNotes (the way to the notes band) is offered.
  */
-export function matchupCard({ kicker = "This week's opponent", us = {}, them = {}, teamTags = [], tags = [], schemes = null, onNotes, rows = [], foot } = {}) {
+/** "HC Name · OC Name · DC Name" from a coaches block (the one resolver's names, freeze wave F4), or null. */
+export function coachesLine(coaches) {
+  const c = coaches && typeof coaches === "object" ? coaches : {};
+  const word = (value) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  const parts = [["HC", word(c.headCoach)], ["OC", word(c.offensiveCoordinator)], ["DC", word(c.defensiveCoordinator)]].filter(([, v]) => v).map(([k, v]) => `${k} ${v}`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
+export function matchupCard({ kicker = "This week's opponent", us = {}, them = {}, teamTags = [], tags = [], schemes = null, coaches = null, onNotes, rows = [], foot } = {}) {
   const u = us && typeof us === "object" ? us : {};
   const t = them && typeof them === "object" ? them : {}; // junk never throws
   const list = (Array.isArray(rows) ? rows : []).filter((row) => row && typeof row === "object");
@@ -106,6 +114,7 @@ export function matchupCard({ kicker = "This week's opponent", us = {}, them = {
           mascot ? el("span", { class: "mcard__mascot" }, mascot) : null,
           record ? el("span", { class: "mcard__rec" }, record) : null,
         ),
+        coachesLine(coaches) ? el("div", { class: "mcard__staff", "aria-label": "Their coaches" }, coachesLine(coaches)) : null, // freeze wave F4
         teamChips.length || gameChips.length || t.form ? el("div", { class: "mcard__chips", "aria-label": "This team and this game" }, teamChips, lastFive(t.form), gameChips) : null,
       ),
     ),

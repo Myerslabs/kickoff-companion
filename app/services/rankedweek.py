@@ -235,6 +235,7 @@ class RankedWeekService:
         pool = [g for g in [*core["games"].records, *core["schedule"].records, *week_games] if isinstance(g, Game) and g.id not in hidden]
         table = form_table(pool)
         notes_coaches = self._our_notes_coaches(ranked)  # freeze wave F3: our game's notes name its coaches first
+        notes_broadcast = self._our_notes_broadcast(ranked)  # freeze wave F4: and its TV crew
 
         def side(school: str, points: int | None, line_scores: Any, final: bool) -> dict[str, Any]:
             block = program._team_block(school, teams, records, ranks)
@@ -263,6 +264,7 @@ class RankedWeekService:
                 "conference": g.home_conference if g.conference_game else None,
                 "venue": g.venue,
                 "tv": media.get(g.id),
+                "broadcast": notes_broadcast if is_us else None,  # freeze wave F4: the crew from our notes, beside the network
                 "status": status,
                 "detail": detail,
                 "period": period,
@@ -322,12 +324,22 @@ class RankedWeekService:
                     block = side
         return resolve_coaches(school, notes=block, season=self.program.season_notes.coaches_for(school), cfbd_head=cfbd_heads.get(school))["headCoach"]
 
-    def _our_notes_coaches(self, games: list[Any]) -> dict[str, Any] | None:
-        """The coaches block of our game's notes this week, if the week has our game and the notes name anyone."""
+    def _our_notes_file(self, games: list[Any]) -> tuple[Any, Any]:
+        """(our game this week, its notes file) or (None, None)."""
         ours = next((g for g in games if self.team in (g.home_team, g.away_team)), None)
         if ours is None:
-            return None
+            return None, None
         notes, _error = load_notes(self.program.settings.data_dir, ours.id)
+        return ours, notes
+
+    def _our_notes_broadcast(self, games: list[Any]) -> dict[str, Any] | None:
+        """The TV crew of our game's notes this week (freeze wave F4: the Top 25 card and the paper's box carry it)."""
+        _ours, notes = self._our_notes_file(games)
+        return notes.broadcast.model_dump() if notes is not None and notes.broadcast is not None else None
+
+    def _our_notes_coaches(self, games: list[Any]) -> dict[str, Any] | None:
+        """The coaches block of our game's notes this week, if the week has our game and the notes name anyone."""
+        ours, notes = self._our_notes_file(games)
         if notes is None or notes.coaches is None:
             return None
         block = notes.coaches.model_dump()

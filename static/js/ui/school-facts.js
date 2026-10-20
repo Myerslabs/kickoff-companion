@@ -27,6 +27,14 @@ export function factRows(facts) {
   const heismans = list(f.heismans).filter((x) => str(x));
   const rivals = list(f.rivalries).map(rivalry).filter(Boolean);
   const alumni = list(f.nflAlumni).filter((x) => str(x));
+  // freeze wave F4: the dated events, which only the once-a-day note showed before; a year alone keeps its year
+  const dayWithYear = (iso) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+    if (!m) return iso; // a year alone stays a year
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])); // a local day: no zone shift off the date written
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString([], { month: "long", day: "numeric", year: "numeric" });
+  };
+  const dates = list(f.dates).filter((d) => d && typeof d === "object" && str(d.date) && str(d.event)).map((d) => `${dayWithYear(d.date.trim())}: ${d.event.trim()}`);
   return [
     { label: "Founded", value: isNum(f.founded) ? String(f.founded) : DASH },
     { label: "Stadium", value: stadium.length ? stadium.join(", ") : DASH },
@@ -42,6 +50,7 @@ export function factRows(facts) {
     { label: "Colors", value: str(f.colorsOrigin) ? f.colorsOrigin.trim() : DASH },
     { label: "Fight song", value: str(f.fightSong) ? f.fightSong.trim() : DASH },
     { label: "In the NFL now", value: alumni.length ? alumni.join(", ") : DASH },
+    { label: "Dates", value: dates.length ? dates.join("; ") : DASH },
   ];
 }
 

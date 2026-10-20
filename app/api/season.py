@@ -43,4 +43,8 @@ async def season_overview(request: Request) -> Any:
         first = result.errors[0]["message"] if result.errors else "no part of the overview could be loaded"
         return error_response(503, "upstream_unavailable", f"CFBD is not answering and nothing is cached yet. {first}")
     mark_archived(result.data.get("schedule"), archived_ids(request))
+    # freeze wave F4: the facts' dated events, for "On this day" lines under the schedule's rows
+    notes = getattr(request.app.state, "season_notes", None)
+    facts = notes.facts_for(request.app.state.settings.team) if notes is not None else None
+    result.data["dates"] = [d for d in ((facts or {}).get("dates") or []) if isinstance(d, dict) and isinstance(d.get("date"), str) and isinstance(d.get("event"), str)]
     return envelope(result.data, stale=result.stale, source=result.source, fetched_at=result.fetched_at, errors=result.errors)

@@ -140,8 +140,34 @@ function byeRow(row) {
   );
 }
 
-export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null } = {}) {
+/** The facts' dated events by month and day ("10-24" -> [{ year, event }]), for the "On this day" lines (freeze wave F4). */
+export function eventsByDay(events) {
+  const out = new Map();
+  for (const e of Array.isArray(events) ? events : []) {
+    if (!e || typeof e !== "object" || typeof e.date !== "string" || typeof e.event !== "string" || !e.event.trim()) continue;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(e.date.trim());
+    if (!m) continue; // a year alone makes no anniversary
+    const key = `${m[2]}-${m[3]}`;
+    if (!out.has(key)) out.set(key, []);
+    out.get(key).push({ year: Number(m[1]), event: e.event.trim() });
+  }
+  return out;
+}
+
+function dayLine(game, onDay) {
+  if (!(onDay instanceof Map) || !onDay.size) return null;
+  const d = new Date(game.date);
+  if (Number.isNaN(d.getTime())) return null;
+  const pad = (n) => String(n).padStart(2, "0");
+  const hits = onDay.get(`${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+  if (!hits || !hits.length) return null;
+  const year = d.getFullYear();
+  return el("div", { class: "sched__day" }, hits.slice(0, 2).map((h, i) => [i ? " " : null, `On this day${isNum(h.year) && h.year !== year ? ` in ${h.year}` : ""}: ${h.event}`]));
+}
+
+export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null, events = null } = {}) {
   const list = withByes(games);
+  const onDay = eventsByDay(events);
   return el(
     "ul",
     { class: "sched" },
@@ -180,6 +206,7 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
         result,
         tappable ? el("span", { class: "sched__go", "aria-hidden": "true" }, "›") : null,
         context ? contextLine(game, spOf) : null,
+        dayLine(game, onDay), // freeze wave F4: the facts' dated events under the row they fall on
       );
       if (tappable) {
         li.addEventListener("click", (event) => {

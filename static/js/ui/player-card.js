@@ -25,7 +25,7 @@
 // team's abbreviation and "#" at small.
 
 import { icon } from "./icons.js";
-import { DASH, el, fmtDate, fmtNum, fmtStat, isNum, layerZ, personName, playerFace, rating100, ratingTier, retireLayer, sheetAnchor, starCount, swipeToClose, syncPageLock, teamLink, text, watchNames } from "./dom.js";
+import { DASH, el, fmtDate, fmtNum, fmtStat, fmtUsd, isNum, layerZ, personName, playerFace, rating100, ratingTier, retireLayer, sheetAnchor, starCount, swipeToClose, syncPageLock, teamLink, text, watchNames } from "./dom.js";
 import { holdLayer, placeLayers } from "./layers.js";
 import { nationalHref } from "./national-link.js";
 import { sparkline } from "./sparkline.js";
@@ -232,6 +232,9 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
     ["High school", text(p.highSchool)],
     ...(recruit ? [["Recruit", recruit]] : []),
     ...(transfer ? [["Transfer", transfer]] : []),
+    // freeze wave F4: the prompts' data on the card: this week's standing and the rumored figure
+    ...(typeof p.status === "string" && p.status.trim() ? [["Status", p.status.trim()]] : []),
+    ...(isNum(p.costUsd) ? [["Rumored value", `${fmtUsd(p.costUsd)}${typeof p.costNote === "string" && p.costNote.trim() ? ` (${p.costNote.trim()})` : ""}`]] : []),
   ];
 
   const statsPanel = loading

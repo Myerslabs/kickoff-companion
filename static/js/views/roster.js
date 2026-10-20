@@ -21,7 +21,7 @@
 // value is a rank chip placed beside the row's button, never inside it.
 
 import { usSchool } from "../identity.js";
-import { DASH, el, fitNames, fmtNum, fmtPct, fmtStat, isNum, personName, recall, remember, settleNames, text, watchNames } from "../ui/dom.js";
+import { DASH, el, fitNames, fmtNum, fmtPct, fmtStat, fmtUsd, isNum, personName, recall, remember, settleNames, text, watchNames } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { recruitHref } from "../ui/player-card.js";
 import { band, note, subhead } from "../ui/states.js";
@@ -207,6 +207,7 @@ function tableColumns() {
     { key: "ppaPerPlay", label: "PPA/play", format: "+2f", size: "large" },
     { key: "usageShare", label: "Usage", format: "pct", size: "large" },
     { key: "gradeValue", label: "Grade", render: (row) => gradeChip(row.grade), size: "medium" }, // public release Phase 7: our stat grade; the phone keeps number, name, position, class
+    { key: "costUsd", label: "NIL (rumored)", labelShort: "NIL", render: (row) => (isNum(row.costUsd) ? el("span", { title: typeof row.costNote === "string" && row.costNote ? row.costNote : "Rumored, from the roster costs load" }, fmtUsd(row.costUsd)) : DASH), size: "large" }, // freeze wave F4: the rumored figure beside the player
   ];
   return cols;
 }

@@ -19,7 +19,7 @@
 import { usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { el, isNum, obj, records, teamLink, text } from "../ui/dom.js";
-import { teamStaff } from "../ui/game-staff.js";
+import { crewText, teamStaff } from "../ui/game-staff.js";
 import { fitNames } from "../ui/paper-fit.js";
 import { band, note } from "../ui/states.js";
 import { getPrefs } from "../prefs.js";
@@ -76,6 +76,7 @@ function card(g) {
     venue: g.venue,
     neutralSite: g.neutralSite === true,
     tv: g.tv,
+    crew: g.broadcast ? crewText({ broadcast: g.broadcast }, g) : null, // freeze wave F4: our game's announcers from the notes, as on the program's cover
     line: { formatted: typeof line.short === "string" && line.short ? line.short : line.formatted, overUnder: line.overUnder },
     pregame: { homeWinProbability: g.homeWinProbability },
     state: status === "pre" ? undefined : status,

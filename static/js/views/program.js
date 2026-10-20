@@ -42,7 +42,8 @@ import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
 import { commonOpponentsBlock, lastSeasonTwoTeam } from "../ui/offday.js";
 import { resultsBand } from "../ui/results.js";
-import { twoSchoolsBand } from "../ui/two-schools.js";
+import { trophyLine, twoSchoolsBand } from "../ui/two-schools.js";
+import { visitorRows, visitorsTable } from "../ui/in-game-tables.js";
 
 /** A payload part as an object, or {} (a list, a string or null never reaches a band). */
 function objOf(value) {
@@ -160,6 +161,8 @@ function coverProps(data, { reveal = false } = {}) {
       them: teamStaff(data.notes, "them", { abbr: abbrOf(data.them), school: data.them?.school }),
     },
     conditions: coverConditions(data),
+    facts: data.facts, // freeze wave F4: founded and the stadium's opened year under each team block
+    trophy: trophyLine(data.facts, data.us, data.them), // and the trophy the two play for, under the kicker
     homeIsUs: g.homeIsUs,
     us: data.us || {},
     them: data.them || {},
@@ -342,8 +345,29 @@ function lineupsBand(data) {
     summary: lineupSummary(n.lineups) || "",
     state: { status: "ready" },
     body: () => (hasLineups(n.lineups)
-      ? lineupBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) })
+      ? lineupBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, coaches: n.coaches, schemes: n.schemes, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) // freeze wave F4: the coordinators and the schemes head each matchup
       : notesNeeded("No lineups for this game yet.", "They come with the game's notes, from both teams' published depth charts.")),
+  });
+}
+
+/** Freeze wave F4: the recruits on hand this week, from the notes, as In Game's Visitors sheet and the Recruiting page draw them. */
+function visitorsBand(data) {
+  const n = data.notes && typeof data.notes === "object" ? data.notes : {};
+  const v = n.visitors && typeof n.visitors === "object" ? n.visitors : null;
+  const home = v ? visitorRows(v.home) : [];
+  const away = v ? visitorRows(v.away) : [];
+  const total = home.length + away.length;
+  const source = v && typeof v.source === "string" && v.source.trim() ? v.source.trim() : null;
+  return band({
+    id: "program-visitors",
+    title: "Recruits on hand",
+    collapsible: true,
+    foldable: true,
+    summary: total ? `${total} expected${source ? `, ${source}` : ""}` : "",
+    state: { status: "ready" },
+    body: () => (total
+      ? el("div", {}, el("div", { class: "twocol" }, el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.us?.school : data.them?.school) || "Home"} visitors`), visitorsTable(home, { caption: "Home side's visitors" })), el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.them?.school : data.us?.school) || "Away"} visitors`), visitorsTable(away, { caption: "Away side's visitors" }))), source ? el("p", { class: "note" }, `From ${source}${typeof v.updatedAt === "string" && v.updatedAt ? `, ${fmtDate(v.updatedAt, "short")}` : ""}. No list is published for every game.`) : null)
+      : notesNeeded("No visitor list for this game yet.", "It comes with the game's notes, from the recruiting sites' visitor lists.")),
   });
 }
 
@@ -387,6 +411,7 @@ function matchup(data) {
     teamTags,
     tags,
     schemes,
+    coaches: data.notes?.coaches?.them || null, // freeze wave F4: their head coach and coordinators under the hero's name
     onNotes: () => {
       const notes = document.getElementById("program-notes");
       if (notes) revealBand(notes); // 2026-10-10: a missing scheme sends the reader to the notes, never a blank
@@ -932,8 +957,8 @@ function sections(data) {
     myNotesBand(data), // 16 My notes
   ];
   // the cover redo (owner 2026-10-10): the weather and the stadium's facts moved into the cover; no Weather band
-  if (done) return [...listed, matchup(data), radioBand(), finalBand(data), advancedBoxBand(data)];
-  return [...listed, matchup(data), radioBand()];
+  if (done) return [...listed, matchup(data), radioBand(), finalBand(data), advancedBoxBand(data), visitorsBand(data)]; // the visitors last: new bands at the bottom (2026-10-13)
+  return [...listed, matchup(data), radioBand(), visitorsBand(data)];
 }
 
 const OPP_VARS = ["--opp", "--opp-alt", "--opp-text"];

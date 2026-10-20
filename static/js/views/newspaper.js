@@ -26,6 +26,7 @@
 
 import { ours, usSchool } from "../identity.js";
 import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text, recordText as sharedRecord } from "../ui/dom.js";
+import { crewText } from "../ui/game-staff.js";
 import { ageOf } from "../ui/news.js";
 import { fitNames, fitRows, loosenNames } from "../ui/paper-fit.js";
 import { fillPicture, pixelBanner, pixelPicture, refitPictures, seedOf } from "../ui/pixel-art.js";
@@ -230,6 +231,12 @@ function helmet(t, flip, isUs) {
 }
 
 // a line of facts breaks only between its facts, never inside a stadium's or a network's name
+/** The network, or our game's announcers from the notes (freeze wave F4), for a game box's facts line. */
+function crewOrTv(g) {
+  const crew = g && g.broadcast ? crewText({ broadcast: g.broadcast }, g) : null;
+  return crew || (g && g.tv ? text(g.tv) : null);
+}
+
 function facts(list) {
   return list.filter((f) => typeof f === "string" && f && f !== "–").flatMap((f, i) => [i ? `${NBSP}· ` : null, el("span", { class: "paper-nw" }, f)]).filter(Boolean);
 }
@@ -300,7 +307,7 @@ function matchBox(g, size, names) {
     // a kept edition's game the season never finished (postponed or cancelled): no score, no headline
     mid.append(el("p", { class: "paper-status__clock paper-unplayed" }, `${rankedName(away)} ${g.neutralSite ? "vs." : "at"} ${rankedName(home)} was not played`), el("p", { class: "paper-facts" }, facts([fmtDate(g.kickoff, "medium"), text(g.venue)])));
   } else if (status === "live") {
-    mid.append(statusLine(g), el("p", { class: "paper-facts" }, facts([`kicked off ${fmtTime(g.kickoff)}`, text(g.venue), g.tv ? text(g.tv) : null])));
+    mid.append(statusLine(g), el("p", { class: "paper-facts" }, facts([`kicked off ${fmtTime(g.kickoff)}`, text(g.venue), crewOrTv(g)])));
   } else {
     const headText = typeof line.text === "string" && line.text ? line.text : `${rankedName(away)} ${g.neutralSite ? "vs." : "at"} ${rankedName(home)}`;
     mid.append(el("h3", { class: `paper-head paper-head--match${status === "final" ? " paper-head--final" : ""}` }, href ? el("a", { href }, richText(headText, names)) : richText(headText, names)));
@@ -311,12 +318,12 @@ function matchBox(g, size, names) {
         q.classList.add("paper-qline");
         mid.append(q);
       }
-      mid.append(el("p", { class: "paper-facts" }, facts([fmtDate(g.kickoff, "medium"), text(g.venue), g.tv ? text(g.tv) : null])));
+      mid.append(el("p", { class: "paper-facts" }, facts([fmtDate(g.kickoff, "medium"), text(g.venue), crewOrTv(g)])));
     } else {
       const l = obj(g.line);
       const spread = typeof l.short === "string" && l.short ? l.short : typeof l.formatted === "string" && l.formatted ? l.formatted : null;
       mid.append(
-        el("p", { class: "paper-facts paper-facts--when" }, facts([fmtDate(g.kickoff, "medium"), g.startTimeTbd === true ? "time TBD" : fmtTime(g.kickoff), text(g.venue), g.tv ? text(g.tv) : null])),
+        el("p", { class: "paper-facts paper-facts--when" }, facts([fmtDate(g.kickoff, "medium"), g.startTimeTbd === true ? "time TBD" : fmtTime(g.kickoff), text(g.venue), crewOrTv(g)])),
         spread || isNum(l.overUnder) ? el("p", { class: "paper-facts paper-facts--line" }, "Line ", el("b", {}, text(spread)), " · Over/under ", el("b", {}, isNum(l.overUnder) ? String(l.overUnder) : "–")) : null,
         wpBar(g),
       );

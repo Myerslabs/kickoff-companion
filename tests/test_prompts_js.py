@@ -24,7 +24,7 @@ scenarios.facts = async () => {
   const { factRows, factsBand } = await import(moduleUrl("ui/school-facts.js"));
   const full = { founded: 1853, stadium: "The Bog", stadiumOpened: 1930, capacity: 88548, conferenceSince: 1932, allTimeRecord: "750-440-40", nationalTitles: [1996, 2006, "x"], conferenceTitles: 8, heismans: ["One, 1966", 5, null], bowlRecord: "24-23", rivalries: [{ rival: "Rival U", trophy: "The Cup", firstMeeting: 1915, record: "68-44-2" }, { trophy: "no rival" }, "junk"], headCoachRecord: "30-20", mascotOrigin: " A marsh. ", colorsOrigin: null, fightSong: "Fight!", nflAlumni: ["Pro One", "", null], savedAt: "2026-08-02T10:00:00Z", sources: [{ label: "Guide", url: "https://example.org/g" }, { label: "No link" }, { url: "javascript:alert(1)" }] };
   const rows = factRows(full);
-  assert.equal(rows.length, 14);
+  assert.equal(rows.length, 15); // freeze wave F4: the Dates row joined the fourteen
   assert.equal(rows[1].value, "The Bog, opened 1930, 88,548 seats");
   assert.equal(rows[4].value, "2: 1996, 2006");
   assert.equal(rows[8].value, "Rival U (The Cup, since 1915, 68-44-2)", "a rivalry with its trophy, the first meeting and the record; one without a rival is left out");

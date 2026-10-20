@@ -895,7 +895,7 @@ export const GLOSSARY = [
     id: "roster-cost",
     term: "Roster cost (rumored)",
     group: "Recruiting and roster",
-    aliases: ["Roster cost (rumored)", "Roster costs (rumored)", "Rumored total", "Position group", "Amount"],
+    aliases: ["Roster cost (rumored)", "Roster costs (rumored)", "Rumored total", "Position group", "Amount", "NIL (rumored)", "NIL", "Rumored value"],
     text: "What a program is reported to spend on its players this season through revenue sharing and NIL. Schools don't publish it, so every figure is rumored or estimated from press reports and NIL valuation sites, with its source and date. The Preseason Magazine's roster-costs load collects them.",
     read: "A bigger total usually means a deeper, more experienced roster, but the reports vary a lot; read it as a rough size, not an exact amount.",
     source: "App",

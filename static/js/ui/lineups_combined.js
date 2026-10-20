@@ -157,7 +157,7 @@ function whoCell(side, onPlayer) {
     "span",
     { class: "lu-who" },
     name,
-    el("small", {}, side.classYear || DASH, status ? [" · ", el("span", { class: `avail${cls ? ` avail--${cls}` : ""}` }, status), str(side.listed.note) ? ` (${side.listed.note})` : ""] : null),
+    el("small", {}, side.classYear || DASH, status ? [" · ", el("span", { class: `avail${cls ? ` avail--${cls}` : ""}` }, status), str(side.listed.note) ? ` (${side.listed.note})` : ""] : str(side.note) ? ` · ${side.note}` : null), // the chart's own note when the report says nothing (freeze wave F4)
     side.next.length ? el("em", {}, "then ", side.next.map((n, i) => [i ? ", " : null, el("span", { class: "lu-next", title: n.full }, n.text)])) : null,
   );
 }
@@ -204,25 +204,43 @@ function matchupTable(pairs, { leftOwner, rightOwner, availability, onPlayer, ca
 }
 
 /** The matchup's title over its table: "Swampwater Tech offense vs Diner Tech defense", each school its link. */
+/** A matchup's head: each unit's name, and under it (freeze wave F4) its coordinator and its scheme from the notes. */
 function matchupHead(left, right, leftOwner) {
-  return el("h3", { class: "subhead lu-head" }, subhead(left.name, { team: left.school, side: leftOwner, level: 4 }), el("span", { class: "lu-head__vs" }, " vs "), subhead(right.name, { team: right.school, side: leftOwner === "us" ? "them" : "us", level: 4 }));
+  const detail = (side) => (str(side.detail) ? el("small", { class: "lu-head__detail" }, side.detail) : null);
+  return el(
+    "h3",
+    { class: "subhead lu-head" },
+    el("span", { class: "lu-head__side" }, subhead(left.name, { team: left.school, side: leftOwner, level: 4 }), detail(left)),
+    el("span", { class: "lu-head__vs" }, " vs "),
+    el("span", { class: "lu-head__side" }, subhead(right.name, { team: right.school, side: leftOwner === "us" ? "them" : "us", level: 4 }), detail(right)),
+  );
 }
 
-export function lineupBlock({ lineups, us, them, availability, onPlayer } = {}) {
+/** "OC Name · Spread" for a unit: its coordinator from the coaches block and its scheme from the schemes block (or the chart's own heading). */
+function unitDetail(unit, side, coaches, schemes, lineup) {
+  const c = obj(obj(coaches)[side]);
+  const s = side === "us" ? obj(schemes) : obj(obj(schemes).opponent);
+  const coach = unit === "offense" ? str(c.offensiveCoordinator) : unit === "defense" ? str(c.defensiveCoordinator) : null;
+  const scheme = unit === "offense" ? str(s.offense) : unit === "defense" ? str(s.defense) : null;
+  return [coach ? `${unit === "offense" ? "OC" : "DC"} ${coach}` : null, scheme || (unit !== "special" ? str(obj(lineup).scheme) : null)].filter(Boolean).join(" · ") || null;
+}
+
+export function lineupBlock({ lineups, us, them, availability, coaches = null, schemes = null, onPlayer } = {}) {
   const l = obj(lineups);
   if (!hasLineups(l)) return note("No lineups for this game yet. They come with the game's notes: both teams' published depth charts.");
   const usName = str(obj(us).school) || usSchool();
   const themName = str(obj(them).school) || str(obj(l.them).team) || "Opponent";
   const slotsOf = (side, unit) => lineupSlots(side === "us" ? l.us : l.them).filter((s) => s.unit === unit && s.players.length);
+  const detailOf = (unit, side) => unitDetail(unit, side, coaches, schemes, side === "us" ? l.us : l.them);
   const tables = [];
   const push = (title, pairs, leftOwner, rightOwner, caption) => {
     if (!pairs.length) return;
     tables.push(el("div", { class: "lineups__matchup" }, title, matchupTable(pairs, { leftOwner, rightOwner, availability, onPlayer, caption })));
   };
-  push(matchupHead({ name: `${usName} offense`, school: usName }, { name: `${themName} defense`, school: themName }, "us"), pairSlots(slotsOf("us", "offense"), slotsOf("them", "defense")), "us", "them", `${usName} offense against ${themName} defense`);
+  push(matchupHead({ name: `${usName} offense`, school: usName, detail: detailOf("offense", "us") }, { name: `${themName} defense`, school: themName, detail: detailOf("defense", "them") }, "us"), pairSlots(slotsOf("us", "offense"), slotsOf("them", "defense")), "us", "them", `${usName} offense against ${themName} defense`);
   // our defense first on its table, the opposing offense beside it: the same map, read from the other side
   const theirs = pairSlots(slotsOf("them", "offense"), slotsOf("us", "defense")).map((p) => ({ off: p.def, def: p.off }));
-  push(matchupHead({ name: `${usName} defense`, school: usName }, { name: `${themName} offense`, school: themName }, "us"), theirs, "us", "them", `${usName} defense against ${themName} offense`);
+  push(matchupHead({ name: `${usName} defense`, school: usName, detail: detailOf("defense", "us") }, { name: `${themName} offense`, school: themName, detail: detailOf("offense", "them") }, "us"), theirs, "us", "them", `${usName} defense against ${themName} offense`);
   push(matchupHead({ name: `${usName} special teams`, school: usName }, { name: `${themName} special teams`, school: themName }, "us"), pairSame(slotsOf("us", "special teams"), slotsOf("them", "special teams")), "us", "them", `${usName} and ${themName} specialists`);
   if (!tables.length) return note("No chart written for either team yet.");
   return el("div", { class: "lineups" }, experienceBlock({ lineups: l, us, them }), tables);
