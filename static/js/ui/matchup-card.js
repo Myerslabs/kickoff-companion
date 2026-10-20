@@ -8,7 +8,7 @@
 
 import { icon } from "./icons.js";
 import { usLabel, usSchool } from "../identity.js";
-import { el, fmtNum, isNum, teamLink, teamLogo, text } from "./dom.js";
+import { el, fmtNum, isNum, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { pollHref } from "./national-link.js";
 import { pollBadge } from "./stat-table.js";
 import { listLink, twoTeamTable } from "./two-team.js";
@@ -16,8 +16,7 @@ import { fillWiki, wikiLink } from "./wiki-links.js";
 import { kickWind } from "./wind.js";
 
 function recordText(record) {
-  if (!record || !isNum(record.wins) || !isNum(record.losses)) return null;
-  return record.ties ? `${record.wins}-${record.losses}-${record.ties}` : `${record.wins}-${record.losses}`;
+  return sharedRecord(record); // freeze wave F3: the one formatter (ui/dom.js)
 }
 
 /** "2-3 (0-3)": the record with the conference record in brackets, as the team page header has it. */

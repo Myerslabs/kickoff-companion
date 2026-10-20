@@ -37,6 +37,7 @@ from urllib.parse import quote, urlencode
 import httpx
 
 from app.http import shared_ssl_context
+from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.wiki")
 
@@ -118,7 +119,7 @@ class WikiClient:
 
     def _save(self) -> None:
         try:
-            self.path.write_text(json.dumps(self._store, ensure_ascii=False, indent=1), encoding="utf-8")
+            atomic_write(self.path, json.dumps(self._store, ensure_ascii=False, indent=1))  # never a half-written file (freeze wave F1, B6)
         except OSError as exc:
             log.warning("Could not store Wikipedia links: %s", exc)
 

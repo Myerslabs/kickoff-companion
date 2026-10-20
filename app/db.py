@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS quota_calls (
     live      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS quota_calls_month ON quota_calls(month, at);
+CREATE INDEX IF NOT EXISTS quota_calls_at ON quota_calls(at);  -- the "since the last reconcile" count, asked on every call (freeze wave F1, B3)
 
 CREATE TABLE IF NOT EXISTS quota_reconcile (
     id            INTEGER PRIMARY KEY CHECK (id = 1),

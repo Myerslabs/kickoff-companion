@@ -117,11 +117,13 @@ function renderPlan(plan) {
     ["Plan", str(plan.tierName) || DASH],
     ["The app runs", str(plan.profileLabel) || DASH],
     ["Calls a month", fmt(plan.monthlyLimit)],
-    ["Used so far", fmt(plan.used)],
+    ["Calls used this month", fmt(plan.used)],
     ["Resets", localDate(plan.resetAt)],
     ["This month", str(plan.forecast?.text) || DASH],
   ];
-  els.planFacts.replaceChildren(...facts.flatMap(([label, value]) => [el("dt", {}, label), el("dd", {}, value)]));
+  const rows = facts.flatMap(([label, value]) => [el("dt", {}, label), el("dd", {}, value)]);
+  if (str(plan.warning)) rows.push(el("dt", {}, "Note"), el("dd", { class: "note-bad", role: "alert" }, plan.warning)); // the key CFBD reports as out of calls
+  els.planFacts.replaceChildren(...rows);
   els.planFacts.hidden = false;
   if (str(plan.plansUrl)?.startsWith("https://")) els.seePlans.href = plan.plansUrl;
   if (str(plan.keyUrl)?.startsWith("https://")) els.getKey.href = plan.keyUrl;

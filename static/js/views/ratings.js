@@ -267,7 +267,9 @@ async function findNext(state) {
     if (!next) return;
     remember(NEXT_OPPONENT_KEY, next);
     state.next = next.school;
-    if (state.envelope && state.container?.isConnected) render(state.envelope, state.container, state);
+    // Only while this view is still the one on the page: the container is the shell's shared <main>, so without the check
+    // a late answer redrew Ratings over whatever page the reader had moved to (freeze wave F1, F1).
+    if (state.mounted && state.envelope && state.container?.isConnected) render(state.envelope, state.container, state);
   } catch (error) {
     console.warn("Ratings: the next opponent could not be read; its row is not marked.", error?.message || error);
   }
@@ -278,7 +280,7 @@ const RATINGS_WIDE = ["ratings-sp", "ratings-more", "ratings-side"]; // the elev
 export function createRatingsView({ onStatus, arg, params } = {}) {
   const target = ratingTarget(arg);
   const team = typeof params?.team === "string" && params.team.trim() ? params.team.trim() : null;
-  const state = { scope: "all", sorts: {}, target, team, next: null, arrivedAt: 0, envelope: null, container: null };
+  const state = { scope: "all", sorts: {}, target, team, next: null, arrivedAt: 0, envelope: null, container: null, mounted: false };
   if (target) state.sorts[target.band] = { key: target.column, dir: "ascending" };
   const view = poller({
     url: "/api/ratings",
@@ -290,11 +292,15 @@ export function createRatingsView({ onStatus, arg, params } = {}) {
   });
   const mount = view.mount;
   view.mount = (target2) => {
+    state.mounted = true;
     findNext(state);
     mount(target2);
   };
   const unmount = view.unmount;
   view.unmount = () => {
+    state.mounted = false;
+    state.container = null;
+    state.envelope = null;
     stopFlow(state.ui);
     unmount.call(view);
   };

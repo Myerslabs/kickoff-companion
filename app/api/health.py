@@ -251,7 +251,7 @@ def health(request: Request) -> dict[str, Any]:
         upstream = cfbd.status()
         cache_stats = cfbd.cache.stats(now)
         try:
-            publications = cfbd.publications.summary(now)
+            publications = cfbd.publications.summary(now, lean_profile=cfbd.lean_profile)
         except Exception:  # noqa: BLE001 - a helper table must not break the health page
             log.exception("Could not read the publication log")
             publications = None
@@ -310,3 +310,17 @@ def health(request: Request) -> dict[str, Any]:
         "checks": checks,
     }
     return envelope(data)
+
+
+@router.get("/api/quota/calls")
+async def quota_calls(request: Request) -> Any:
+    """Where the calls go (freeze wave F2): this month's ledger by endpoint and by day, the way the free-tier estimate was
+    built, so an install can see what its month is spent on. A read of the ledger, no upstream call."""
+    cfbd: CfbdClient | None = getattr(request.app.state, "cfbd", None)
+    if cfbd is None:
+        return envelope({"month": None, "total": 0, "live": 0, "byEndpoint": [], "byDay": []})
+    import asyncio
+
+    breakdown = await asyncio.to_thread(cfbd.quota.breakdown, cfbd._clock())
+    breakdown["profile"] = "free" if cfbd.lean_profile else "full"
+    return envelope(breakdown)

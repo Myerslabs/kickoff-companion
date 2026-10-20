@@ -34,9 +34,11 @@ from typing import Any
 from app.cache import DataKind
 from app.cfbd.models import BettingGame, CalendarWeek, Coach, Game, GameMedia, GameWeather, PregameWinProbability
 from app.services import gamekeys, headlines
+from app.services.coaches import resolve as resolve_coaches
 from app.services.context16 import form_for, form_table
 from app.services.editions import Editions, key_for, label_for, order_of
 from app.services.lines import line_block
+from app.services.notes import load_notes
 from app.services.parts import Assembled, Part, assemble, calendar_slot, statuses
 from app.services.program import POLL_NAMES, ProgramService, compass
 from app.services.ticker import TickerService
@@ -232,11 +234,12 @@ class RankedWeekService:
         hidden = {gid for gid, state in states.items() if state[0] != "final"}
         pool = [g for g in [*core["games"].records, *core["schedule"].records, *week_games] if isinstance(g, Game) and g.id not in hidden]
         table = form_table(pool)
+        notes_coaches = self._our_notes_coaches(ranked)  # freeze wave F3: our game's notes name its coaches first
 
         def side(school: str, points: int | None, line_scores: Any, final: bool) -> dict[str, Any]:
             block = program._team_block(school, teams, records, ranks)
             scores = [s for s in (line_scores or []) if _int(s) is not None] if final else []
-            block.update(rank=ap.get(school), points=points, lineScores=scores or None, headCoach=coaches.get(school), form=form_for(table, school))
+            block.update(rank=ap.get(school), points=points, lineScores=scores or None, headCoach=self._coach_for(school, coaches, notes_coaches), form=form_for(table, school))
             return block
 
         out = []
@@ -296,7 +299,8 @@ class RankedWeekService:
         return answer
 
     def _head_coaches(self, records: list[Any]) -> dict[str, str]:
-        """{school: head coach} for this season from /coaches; the season's coaches load (data/season, newer) wins."""
+        """{school: head coach} for this season as CFBD's /coaches lists them (the resolver puts the notes and the season's
+        load ahead of these, freeze wave F3)."""
         out: dict[str, str] = {}
         for coach in records:
             if not isinstance(coach, Coach):
@@ -305,12 +309,33 @@ class RankedWeekService:
             for season in coach.seasons or []:
                 if name and season.year == self.year and _word(season.school) and season.school not in out:
                     out[season.school] = name
-        notes = self.program.season_notes
-        for school in list(out):
-            mine = notes.coaches_for(school) or {}
-            if _word(mine.get("headCoach")):
-                out[school] = mine["headCoach"].strip()
         return out
+
+    def _coach_for(self, school: str, cfbd_heads: dict[str, str], notes_coaches: dict[str, Any] | None) -> str | None:
+        """One school's head coach through the one resolver: our game's notes (when the school is in them), the season's
+        coaches load, then CFBD."""
+        block = None
+        if isinstance(notes_coaches, dict):
+            for key in ("us", "them"):
+                side = notes_coaches.get(key)
+                if isinstance(side, dict) and side.get("team") == school:
+                    block = side
+        return resolve_coaches(school, notes=block, season=self.program.season_notes.coaches_for(school), cfbd_head=cfbd_heads.get(school))["headCoach"]
+
+    def _our_notes_coaches(self, games: list[Any]) -> dict[str, Any] | None:
+        """The coaches block of our game's notes this week, if the week has our game and the notes name anyone."""
+        ours = next((g for g in games if self.team in (g.home_team, g.away_team)), None)
+        if ours is None:
+            return None
+        notes, _error = load_notes(self.program.settings.data_dir, ours.id)
+        if notes is None or notes.coaches is None:
+            return None
+        block = notes.coaches.model_dump()
+        for key, school in (("us", self.team), ("them", ours.away_team if ours.home_team == self.team else ours.home_team)):
+            side = block.get(key)
+            if isinstance(side, dict) and not side.get("team"):
+                side["team"] = school
+        return block
 
     @staticmethod
     def _weather(row: Any) -> dict[str, Any] | None:

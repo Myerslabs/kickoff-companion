@@ -89,9 +89,10 @@ async def peek(conn: socket.socket, timeout: float | None = None) -> bytes:
 class DualProtocolServer(uvicorn.Server):
     """uvicorn's server with our own accept loop that sniffs TLS versus plain HTTP."""
 
-    def __init__(self, config: uvicorn.Config, *, open_url: str | None = None) -> None:
+    def __init__(self, config: uvicorn.Config, *, open_url: str | None = None, ready_note: str | None = None) -> None:
         super().__init__(config)
         self.open_url = open_url  # opened in this computer's browser once the server listens (Phase 4b)
+        self.ready_note = ready_note  # printed to the server window once it listens (app/cli.py ready_note; tester 2026-10-19)
         self.tls: TlsState | None = None
         self.listeners: list[socket.socket] = []
         self.servers: list[asyncio.base_events.Server] = []  # uvicorn's shutdown() iterates this
@@ -166,6 +167,8 @@ class DualProtocolServer(uvicorn.Server):
                 mode = "plain HTTP"
             log.info("Listening on %s:%s (%s). Press CTRL+C to quit.", host, port, mode)
         self.started = True
+        if self.ready_note:
+            print(self.ready_note, flush=True)
         if self.open_url:
             open_in_browser(self.open_url)
 
@@ -311,9 +314,10 @@ def open_in_browser(url: str) -> None:
 RESTART_BIND_SECONDS = 20  # after a restart the old listener may need a moment to let go of the port
 
 
-def run_server(settings: Settings, *, reload: bool = False, open_url: str | None = None, restarting: bool = False, asgi: Any = None) -> int:
+def run_server(settings: Settings, *, reload: bool = False, open_url: str | None = None, restarting: bool = False, asgi: Any = None, ready_note: str | None = None) -> int:
     """Run the app. Returns a process exit code, or restart.RESTART when the app asked to restart. `asgi` serves a
-    ready-made app instead of building one from the settings (public release Phase 9b: the demo on this address)."""
+    ready-made app instead of building one from the settings (public release Phase 9b: the demo on this address).
+    `ready_note` is printed to the window once the server listens."""
     reload = reload and asgi is None
     config = uvicorn.Config(
         asgi if asgi is not None else "app.main:create_app",
@@ -326,7 +330,7 @@ def run_server(settings: Settings, *, reload: bool = False, open_url: str | None
         reload=reload,
         reload_dirs=[str(Path(__file__).resolve().parent)] if reload else None,
     )
-    server = DualProtocolServer(config, open_url=open_url)
+    server = DualProtocolServer(config, open_url=open_url, ready_note=ready_note)
 
     # The port first, before the app is built: a second copy then stops before it opens the database,
     # renames a file or asks CFBD anything (found 2026-10-02).

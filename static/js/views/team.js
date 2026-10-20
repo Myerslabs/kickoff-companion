@@ -138,34 +138,10 @@ function roster(data, state, { id = "team-roster", collapsed = false } = {}) {
   });
 }
 
+/** Freeze wave F3 (one fact, one source): the Coaches table and the Staff band were two answers to one question; the
+ *  Staff band is the one, with CFBD's hire date and record on the head coach's line. */
 function coaches(data) {
-  const list = records(data.coaches);
-  return [band({
-    id: "team-coaches",
-    title: "Coaches",
-    collapsible: false,
-    state: partState(data.parts?.coaches, list.length > 0),
-    emptyText: "CFBD lists no coach for this team this season.",
-    body: () => {
-      // owner bug 2026-10-10: a tap on a coach did nothing here. Each name opens the coach's own Wikipedia page, as on the Staff band
-      const school = data.team?.school || null;
-      // wave 3: sized by its own box. The hire date is its year at small and sorts by the day it names; SRS at large.
-      const wrap = statTable({
-        compact: true,
-        sizes: true,
-        columns: [
-          { key: "name", label: "Coach", kind: "text", render: (c) => (typeof c.name === "string" && c.name.trim() ? wikiLink("coach", { person: c.name.trim(), team: school }, c.name.trim()) : DASH) },
-          { key: "hired", label: "Hired", kind: "text", shortKey: "hiredYear", sortKey: "hiredAt" },
-          { key: "recordText", label: "This season", labelShort: "Record", kind: "text" },
-          { key: "spOverall", label: "SP+", format: "1f" },
-          { key: "srs", label: "SRS", format: "1f", size: "large" },
-        ],
-        rows: list.map(coachRow),
-      });
-      fillWiki(wrap);
-      return wrap;
-    },
-  }), staffBand(data)];
+  return [staffBand(data)];
 }
 
 /** One coach as the table reads him: the hire date (its year for the small table, the moment it names to sort by) and
@@ -185,29 +161,38 @@ export function coachRow(coach) {
   };
 }
 
-/** Phase 17 Part 3a: the coordinators from the season's coaches load, and for a primary team the whole staff. */
+/** Phase 17 Part 3a, freeze wave F3: the head coach and coordinators as the server's one resolver names them (the game's
+ *  notes, the season's load, then CFBD), the head coach's line with CFBD's hire date and this season's record, the whole
+ *  staff for a primary team, and any other coach CFBD lists (an interim) on a line of his own. */
 function staffBand(data) {
   const s = data.staff && typeof data.staff === "object" ? data.staff : null;
   const name = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+  const cfbd = records(s?.cfbd).map(coachRow);
   const top = s ? [["Head coach", s.headCoach], ["Offensive coordinator", s.offensiveCoordinator], ["Defensive coordinator", s.defensiveCoordinator]].filter(([, v]) => name(v)) : [];
   // owner bug 2026-10-10: the three at the top were listed again in the full staff; the full list now carries the rest
   const named = new Set(top.map(([, v]) => name(v).toLowerCase()));
   const full = s ? records(s.full).filter((m) => name(m.name) && !named.has(name(m.name).toLowerCase())) : [];
+  const others = cfbd.filter((c) => name(c.name) && !named.has(name(c.name).toLowerCase()));
+  const head = name(s?.headCoach);
+  const headRow = head ? cfbd.find((c) => name(c.name) && name(c.name).toLowerCase() === head.toLowerCase()) : null;
+  const source = name(s?.source);
   return band({
     id: "team-staff",
     title: "Staff",
     collapsible: false,
-    summary: s?.savedAt ? `the season's load, ${fmtDate(s.savedAt, "short")}` : "",
-    state: top.length || full.length ? { status: "ready" } : { status: "empty", message: "Coordinators come from the season's coaches load in the Preseason Magazine." },
+    summary: [source ? `from ${source === "CFBD" ? source : source.charAt(0).toLowerCase() + source.slice(1)}` : null, s?.savedAt ? fmtDate(s.savedAt, "short") : null].filter(Boolean).join(", "),
+    state: top.length || full.length || others.length ? { status: "ready" } : { status: "empty", message: "CFBD lists no coach for this team this season; the coordinators come from the season's coaches load on the Load data page." },
     body: () => {
       // Phase 19: each coach's name opens his own Wikipedia page
       const school = data.team?.school || null;
       const link = (who) => wikiLink("coach", { person: who, team: school }, who);
+      const detail = (row) => (row ? [row.hiredYear ? `hired ${row.hiredYear}` : null, row.recordText !== DASH ? `${row.recordText} this season` : null, isNum(row.spOverall) ? `SP+ ${row.spOverall.toFixed(1)}` : null].filter(Boolean).join(", ") : "");
       const node = el(
         "div",
         { style: { padding: "var(--sp-2) var(--sp-3)" } },
-        top.length ? el("dl", { class: "staff-list" }, top.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, link(name(v)))])) : null,
+        top.length ? el("dl", { class: "staff-list" }, top.flatMap(([k, v]) => [el("dt", {}, k), el("dd", {}, link(name(v)), k === "Head coach" && detail(headRow) ? el("span", { class: "note" }, ` (${detail(headRow)}, CFBD)`) : null)])) : null,
         full.length ? el("ul", { class: "preseason__items preseason__items--cols" }, full.map((m) => el("li", {}, el("b", {}, link(m.name)), name(m.role) ? `, ${m.role}` : null))) : null,
+        others.length ? el("p", { class: "note" }, "Also listed by CFBD this season: ", others.map((c, i) => [i ? "; " : null, link(name(c.name)), detail(c) ? ` (${detail(c)})` : null])) : null,
       );
       fillWiki(node);
       return node;

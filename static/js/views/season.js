@@ -411,7 +411,7 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
   }
 
   /** The Season bands that span two columns on a wide page (owner pick 2026-10-07: the big tables). */
-  const SEASON_WIDE = ["season-profile", "season-advanced", "season-last"]; // final pass: "This season and last" was clipped in one column on the iPad
+  const SEASON_WIDE = ["season-profile", "season-advanced", "season-last", "season-playoff"]; // final pass: "This season and last" was clipped in one column on the iPad; the playoff bracket needs the width (2026-10-20)
 
   function render(envelope, container) {
     const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};

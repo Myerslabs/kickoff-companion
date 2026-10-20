@@ -121,7 +121,7 @@ function positionCard(pos, label, players) {
         el(
           "li",
           { class: `depth-li${chip || sort.id === "recruit" ? " depth-li--chip" : ""}` },
-          el("button", { class: "depth-row", type: "button", title: `${text(p.name)}, #${isNum(p.number) ? p.number : DASH}, ${text(p.classYear)}`, onclick: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }, el("span", { class: "depth-row__num" }, isNum(p.number) ? String(p.number) : DASH), el("span", { class: "depth-row__name" }, cardName(p)), value),
+          el("button", { class: "depth-row", type: "button", title: `${text(p.name)}, #${isNum(p.number) ? p.number : DASH}, ${text(p.classYear)}${isNum(p.depth) ? `, ${p.depth === 1 ? "the starter" : `number ${p.depth}`} on the coaches' chart` : ""}`, onclick: () => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }, el("span", { class: "depth-row__num" }, isNum(p.number) ? String(p.number) : DASH), el("span", { class: "depth-row__name" }, cardName(p)), isNum(p.depth) ? el("span", { class: `depth-row__order depth-row__order--${p.depth === 1 ? "one" : "more"}`, "aria-label": `${p.depth === 1 ? "Starter" : `Number ${p.depth}`} on the coaches' chart` }, String(p.depth)) : null, value),
           chip || (sort.id === "recruit" ? el("span", { class: "depth-row__val depth-row__val--none" }, DASH) : null),
         ),
       );
@@ -253,15 +253,18 @@ function render(envelope, container, state) {
         summary: `${players.length} players by position and class`,
         state: partState(parts.roster, players.length > 0),
         emptyText: "The roster loads the first time the app opens.",
-        body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average }), rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) })), // the grid's note follows its size (ui/roster-grid.js)
+        body: () => rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), // the grid's note follows its size (ui/roster-grid.js); the star strip is once, in Recruiting stars on the roster (freeze wave F3)
       }),
       costsBand(data.costs, { id: "roster-costs" }), // Phase 17 Part 3b: rumored, from the Preseason page's load
       band({
+        // Freeze wave F3 (one fact, one source): this is the roster sorted by rating, not the coaches' chart, so it is no longer
+        // called a depth chart; the chart of record is the Pre-Game Program's Lineups and depth, from the notes, and its
+        // starter and second man are badged here (`depth` on each player, from the next game's notes).
         id: "roster-depth",
-        title: `${typeof data.team === "string" && data.team.trim() ? data.team.trim() : typeof data.team?.school === "string" && data.team.school.trim() ? data.team.school.trim() : usSchool()} depth chart`,
+        title: "Position groups",
         collapsible: false,
         foldable: true,
-        summary: `${players.length} players, each position sorts on its own`,
+        summary: `${players.length} players by rating; the coaches' chart is on the Pre-Game Program${players.some((p) => isNum(p.depth)) ? ", its order badged here" : ""}`,
         state: partState(parts.roster, players.length > 0),
         emptyText: "The roster loads the first time the app opens.",
         body: () => depthChart(players),

@@ -125,7 +125,7 @@ export function statusFor(envelope) {
   const meta = envelope?.meta || {};
   const age = ageSeconds(meta.fetched_at);
   const ago = agoText(age);
-  const failed = Array.isArray(envelope?.errors) ? envelope.errors.filter((e) => e.code === "part_unavailable") : [];
+  const failed = Array.isArray(envelope?.errors) ? envelope.errors.filter((e) => e && e.code === "part_unavailable") : []; // a null entry must not read as Offline (freeze wave F1, F10)
   if (meta.stale) return { kind: "stale", label: `Stale ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min`, detail: `CFBD did not answer, so this page shows the server's last good copy${ago ? `, fetched ${ago}` : ""}. The app tries again on its own.` };
   if (failed.length) return { kind: "stale", label: `${failed.length} part${failed.length > 1 ? "s" : ""} failed`, detail: `${failed.length === 1 ? "One part" : `${failed.length} parts`} of this page could not load and ${failed.length === 1 ? "says" : "say"} so where ${failed.length === 1 ? "it sits" : "they sit"}; the rest is current. The app tries again on its own.` };
   // `updatedAt` lets the top bar keep the words true between refreshes ("just now" becomes "5 min ago").
@@ -194,8 +194,10 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
   let inFlight = null;
   let drawn = null; // the signature of what the page shows now; null when it shows a skeleton or an error
   let slowTries = 0; // rounds in a row that timed out before the first answer
+  let controller = null; // the request in flight, aborted on unmount (freeze wave F1, F2: a dead view wrote the pill under the next one)
+  let mounted = 0; // counts up on every mount; an answer from an earlier mount is dropped
   const setStatus = (status) => {
-    if (typeof onStatus === "function") onStatus(status);
+    if (container && typeof onStatus === "function") onStatus(status);
   };
 
   function draw(envelope) {
@@ -222,12 +224,15 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
 
   async function refresh() {
     if (inFlight) return inFlight;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const ctl = new AbortController();
+    controller = ctl;
+    const mine = mounted;
+    const timeout = setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS);
     if (!last && !slowTries) setStatus({ kind: "quiet", label: "Loading" }); // an ask-again keeps saying Still loading
     inFlight = (async () => {
       try {
-        const envelope = await fetchJson(url, controller.signal);
+        const envelope = await fetchJson(url, ctl.signal);
+        if (mine !== mounted) return; // the view was replaced meanwhile: nothing to draw, nothing to say
         slowTries = 0;
         last = envelope;
         lastAt = Date.now();
@@ -235,6 +240,7 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
         draw(envelope);
         setStatus(statusFor(envelope));
       } catch (error) {
+        if (mine !== mounted) return; // aborted by unmount, or answered after it
         const timedOut = error?.name === "AbortError";
         const answered = isNum(error?.status); // the server sent an HTTP error: it is up
         if (timedOut && !last && container && slowTries < SLOW_TRIES) {
@@ -260,7 +266,10 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
         setStatus(timedOut ? (last ? slowStatus(last) : { kind: "stale", label: "Server slow", detail: "The server has not finished gathering this page. Try now, or open the server status page; its log says what it is waiting on." }) : answered ? serverErrorStatus(last, message) : offlineStatus(last));
       } finally {
         clearTimeout(timeout);
-        inFlight = null;
+        if (mine === mounted) {
+          inFlight = null;
+          controller = null;
+        }
       }
     })();
     return inFlight;
@@ -283,6 +292,8 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
     mount(target) {
       container = target;
       drawn = null;
+      mounted += 1;
+      inFlight = null;
       const cached = kept.get(url);
       const fresh = cached && isNum(refreshMs) && Date.now() - cached.at < refreshMs;
       if (fresh) {
@@ -307,6 +318,10 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
       document.removeEventListener("kickoff:data-loaded", onDataLoaded);
       container = null;
       drawn = null;
+      mounted += 1; // an answer still in flight belongs to the old mount and is dropped
+      if (controller) controller.abort();
+      controller = null;
+      inFlight = null;
     },
     get last() {
       return last;

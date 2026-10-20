@@ -681,11 +681,15 @@ class LiveEngine:
         self.stats.last_new_event_at = None
         self.stats.consecutive_failures = 0
 
-    def _set_settle_until(self, value: datetime) -> None:
-        """Contract C4: until this time the client caches finished-game answers for an hour, not for good."""
-        if getattr(self.client, "settle_until", None) != value:
+    def _set_settle_until(self, value: datetime, *, game_id: int | None = None, week: int | None = None, season_type: str | None = None) -> None:
+        """Contract C4: until this time the client caches the settling game's finished-game answers for an hour, not for
+        good. The game is named (freeze wave F2): before, every finished-game answer asked for in that day, an opponent's
+        games from weeks ago included, was kept hours instead of for good and refetched, a few dozen calls a Sunday."""
+        scope = {"gameId": game_id, "week": week, "seasonType": season_type or "regular"}
+        if getattr(self.client, "settle_until", None) != value or getattr(self.client, "settle_game", None) != scope:
             self.client.settle_until = value
-            log.info("Finished-game answers are cached for an hour, not for good, until %s", _iso(value))
+            self.client.settle_game = scope
+            log.info("Game %s's finished-game answers are cached for an hour, not for good, until %s", game_id if game_id is not None else "?", _iso(value))
 
     def _last_status(self, game_id: int) -> str | None:
         data = self.store.latest(game_id, "status")
@@ -775,12 +779,13 @@ class LiveEngine:
         self.client.game_day = any((k := self._local(g.start_date)) is not None and k.astimezone(self.settings.tzinfo).date() == today for g in parsed.records)
         candidates = []
         recent: datetime | None = None
+        recent_game: Any = None
         for game in parsed.records:
             kickoff = self._local(game.start_date)
             if kickoff is None:
                 continue
             if now - SETTLE_AFTER <= kickoff <= now and (recent is None or kickoff > recent):
-                recent = kickoff
+                recent, recent_game = kickoff, game
             if game.completed or game.id in self._done_games:
                 continue
             if game.start_time_tbd:
@@ -794,7 +799,7 @@ class LiveEngine:
             if window.closes_at >= now:
                 candidates.append(window)
         if recent is not None:
-            self._set_settle_until(recent + SETTLE_AFTER)
+            self._set_settle_until(recent + SETTLE_AFTER, game_id=recent_game.id, week=recent_game.week, season_type=recent_game.season_type)
         candidates.sort(key=lambda w: w.kickoff)
         return candidates[0] if candidates else None
 
@@ -816,7 +821,7 @@ class LiveEngine:
         self._last_raw_status = None
         self._check_poll_at = None
         self._scoreboard_at = None
-        self._set_settle_until(window.kickoff + SETTLE_AFTER)
+        self._set_settle_until(window.kickoff + SETTLE_AFTER, game_id=window.game_id, week=window.week, season_type=window.season_type)
         log.info("Live window open for game %s (%s at %s)", window.game_id, window.away, window.home)
 
     async def _extend_if_in_progress(self, window: GameWindow, now: datetime) -> None:

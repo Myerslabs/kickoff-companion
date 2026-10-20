@@ -54,6 +54,8 @@ from app.feeds import FeedStore, SeasonArchive, merge_headlines
 from app.services import context16, gamekeys
 from app.services.analytics import player_rows, season_average, team_game_rows
 from app.services.classes import class_fields
+from app.services.coaches import ROLES as COACH_ROLES
+from app.services.coaches import resolve as resolve_coaches
 from app.services.depth2 import adjusted_matchup, advanced_box, portal_index, tendencies, transfer_for
 from app.services.identity import conference_short
 from app.services.injuries import injury_report
@@ -237,8 +239,21 @@ class ProgramService:
             return value.strip() if isinstance(value, str) and value.strip() else None
 
         capacity = raw.get("capacity")
-        out = {"city": word("city"), "state": word("state"), "venue": word("name"), "capacity": capacity if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity > 0 else None}
+        built = raw.get("yearConstructed")
+        out = {
+            "city": word("city"), "state": word("state"), "venue": word("name"),
+            "capacity": capacity if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity > 0 else None,
+            "yearBuilt": built if isinstance(built, int) and not isinstance(built, bool) and 1800 < built < 2100 else None,  # freeze wave F3: for the facts bands
+        }
         return out if out["city"] or out["state"] else None
+
+    async def location_of(self, school: str | None) -> dict[str, Any] | None:
+        """Where a school plays, from the cached /teams/fbs (no new call once the season has loaded): for the facts bands,
+        whose stadium name, capacity and opened year come from CFBD where it has them (freeze wave F3)."""
+        if not isinstance(school, str) or not school.strip():
+            return None
+        part = await self._f("teams", "/teams/fbs", {"year": self.year}, Team, DataKind.TEAMS)
+        return self._location(part, school)
 
     def _poll_ranks(self, part: Part) -> tuple[dict[str, dict[str, int]], int | None]:
         pool = [w for w in part.records if isinstance(w.week, int)]
@@ -413,7 +428,7 @@ class ProgramService:
             "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None, self._player_ids(parts, game)) if "advancedBox" in parts else None,
             "leaders": side_by_side,
             "series": series,
-            "notes": self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent),
+            "notes": self._with_preseason_injuries(self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent), opponent),
             "final": final,
             "ppa": self._ppa_block(parts, opponent, us_week, them_week, us_last, them_last, abbreviations),
             "commonOpponents": common_opponents(parts["games"].records, self.team, opponent, abbreviations),  # Phase 15; wave 2: the abbreviations for a small table
@@ -590,8 +605,46 @@ class ProgramService:
             return None
         return {"totalUsd": row.get("totalUsd"), "note": row.get("note"), "asOf": row.get("asOf"), "savedAt": row.get("savedAt")}
 
-    def _staff(self, school: str) -> dict[str, Any] | None:
+    def _with_preseason_injuries(self, block: dict[str, Any], opponent: str | None) -> dict[str, Any]:
+        """Freeze wave F3 (one fact, one source): the preseason load's season-long injuries ("Out for the season" in August)
+        join the week's availability rows for the names the weekly report does not carry, so the Availability band, the
+        In Game Injuries sheet and the lineups' status marks all read from one list. Each such row says it is from the
+        preseason load."""
+        rows = block.get("availability") if isinstance(block.get("availability"), list) else []
+        named = {str(r.get("name", "")).strip().lower() for r in rows if isinstance(r, dict)}
+        added: list[dict[str, Any]] = []
+        for school in (self.team, opponent):
+            pre = self.season_notes.preseason_for(school)
+            for item in (pre.injuries if pre else []):
+                name = item.name.strip() if isinstance(item.name, str) else ""
+                if not name or name.lower() in named:
+                    continue
+                named.add(name.lower())
+                detail = item.detail.strip() if isinstance(item.detail, str) and item.detail.strip() else None
+                back = item.expectedReturn.strip() if isinstance(item.expectedReturn, str) and item.expectedReturn.strip() else None
+                note = "; ".join(p for p in (detail, f"back {back}" if back else None) if p)
+                added.append({"name": name, "team": school, "position": item.position, "status": item.status or "Not reported", "note": f"{note + ' ' if note else ''}(preseason load)", "preseason": True})
+        if not added:
+            return block
+        return {**block, "availability": [*rows, *added]}
+
+    def _staff(self, school: str, cfbd: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+        """The team page's one Staff band (freeze wave F3): the coordinators and the head coach through the resolver (the
+        season's load, then CFBD's head coach), the full staff for a primary team, and CFBD's rows (hire date, record)."""
         coaches = self.season_notes.coaches_for(school)
+        cfbd_rows = [c for c in (cfbd or []) if isinstance(c, dict) and c.get("name")]
+        if cfbd_rows or coaches:
+            pre = self.season_notes.preseason_for(school)
+            full = [m.model_dump(exclude_none=True) for m in pre.staff] if pre else []
+            resolved = resolve_coaches(school, season=coaches, cfbd_head=cfbd_rows[0]["name"] if cfbd_rows else None)
+            return {
+                **{role: resolved[role] for role in COACH_ROLES},
+                "sources": resolved["sources"],
+                "source": resolved["source"],
+                "savedAt": (coaches or {}).get("savedAt"),
+                "full": full,
+                "cfbd": cfbd_rows,
+            }
         pre = self.season_notes.preseason_for(school)
         full = [m.model_dump(exclude_none=True) for m in pre.staff] if pre else []
         if not coaches and not full:
@@ -605,24 +658,23 @@ class ProgramService:
         }
 
     def _with_season_coaches(self, block: dict[str, Any], opponent: str | None) -> dict[str, Any]:
-        """Phase 17 Part 3a: each side's head coach and coordinators from the season's coaches batch where the game's
-        own notes name none (the notes are newer, so a name they give always stands)."""
+        """Phase 17 Part 3a, freeze wave F3: each side's head coach and coordinators through the one resolver
+        (app/services/coaches.py): the game's notes first, the season's coaches load where they are silent."""
         coaches = block.get("coaches") if isinstance(block.get("coaches"), dict) else {}
-        filled = False
         out = dict(coaches)
+        used: list[str] = []
         for side, school in (("us", self.team), ("them", opponent)):
+            have = out.get(side) if isinstance(out.get(side), dict) else None
             season = self.season_notes.coaches_for(school)
-            if not season:
+            if have is None and not season:
                 continue
-            have = dict(out.get(side) or {})
-            for key in ("headCoach", "offensiveCoordinator", "defensiveCoordinator"):
-                if not have.get(key) and season.get(key):
-                    have[key] = season[key]
-                    filled = True
-            have.setdefault("team", school)
-            out[side] = have
-        if filled:
-            out.setdefault("source", "The season's coaches load")
+            resolved = resolve_coaches(school, notes=have, season=season)
+            if resolved["source"]:
+                used.append(resolved["source"])
+            out[side] = {**(have or {}), **{role: resolved[role] for role in COACH_ROLES}, "team": school, "sources": resolved["sources"]}
+        if not out.get("source") and used:
+            out["source"] = "The game's notes and the season's coaches load" if len(set(used)) > 1 else used[0]
+        if out != coaches:
             return {**block, "coaches": out}
         return block
 
@@ -937,7 +989,8 @@ class ProgramService:
         team = school or self.team
         if team != self.team and team not in teams and parts["teams"].ok:
             return None
-        data = injury_report(parts["schedule"].records, lambda game_id: load_notes(self.settings.data_dir, game_id), us=self.team, team=team, teams=teams, season=self.year)
+        pre = self.season_notes.preseason_for(team)  # freeze wave F3: the preseason load's season-long injuries join the report
+        data = injury_report(parts["schedule"].records, lambda game_id: load_notes(self.settings.data_dir, game_id), us=self.team, team=team, teams=teams, season=self.year, preseason=pre.injuries if pre else None)
         used = {"schedule": parts["schedule"], "teams": parts["teams"]}
         data["parts"] = statuses(used, self.client._clock())
         return assemble(data, used)
@@ -1004,7 +1057,7 @@ class ProgramService:
             "roster": roster,
             "coaches": coaches,
             "standings": self._team_standings(parts, teams, ranks, school),
-            "staff": self._staff(school),  # Phase 17 Part 3a: coordinators for every team, the full staff for primaries
+            "staff": self._staff(school, coaches),  # Phase 17 Part 3a; freeze wave F3: one Staff band, CFBD's rows inside it
             "costs": self.season_notes.costs_for(school),  # Phase 17 Part 3b: rumored roster costs  # Phase 17 #2: the conference record chip opens these
             "series": self._series(parts["series"].records, school) if "series" in parts else None,
             "recruiting": self._team_recruiting(parts, school, "team"),

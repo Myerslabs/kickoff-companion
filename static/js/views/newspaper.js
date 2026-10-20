@@ -25,7 +25,7 @@
 //   createNewspaperView({ onStatus, edition })   edition: "week-6" or "postseason" opens an earlier edition
 
 import { ours, usSchool } from "../identity.js";
-import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text } from "../ui/dom.js";
+import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text, recordText as sharedRecord } from "../ui/dom.js";
 import { ageOf } from "../ui/news.js";
 import { fitNames, fitRows, loosenNames } from "../ui/paper-fit.js";
 import { fillPicture, pixelBanner, pixelPicture, refitPictures, seedOf } from "../ui/pixel-art.js";
@@ -209,8 +209,8 @@ function quarterWords(g) {
 function recordText(t) {
   const r = obj(t.record);
   const c = obj(t.conferenceRecord);
-  const main = isNum(r.wins) && isNum(r.losses) ? `${r.wins}-${r.losses}` : null;
-  const conf = isNum(c.wins) && isNum(c.losses) ? `${c.wins}-${c.losses}` : null;
+  const main = sharedRecord(r); // freeze wave F3: the one formatter (ui/dom.js), so a tie shows here as everywhere
+  const conf = sharedRecord(c);
   return main ? (conf ? `${main} (${conf} conf)` : main) : "No record yet";
 }
 
@@ -493,6 +493,7 @@ export function createNewspaperView({ onStatus, edition = null } = {}) {
   const inner = poller({
     url,
     refreshMs: asked ? pollMs() : REFRESH_MS,
+    holdDuringRuns: Boolean(asked), // this week's paper carries live scores: never held for a data load, like the Top 25 (freeze wave F1, F5); a kept edition can wait
     onStatus,
     render: (envelope, container) => {
       page = render(envelope, container, asked);

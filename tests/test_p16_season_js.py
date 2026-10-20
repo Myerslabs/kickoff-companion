@@ -137,6 +137,16 @@ def team_payload(school: str) -> dict[str, Any]:
             {"name": "Pat Whistler", "hireDate": "2021-11-28T00:00:00.000Z", "wins": 6, "losses": 2, "ties": 0, "year": 2026, "srs": 12.4, "spOverall": 18.3},
             {"name": "Lee Clipboard", "hireDate": "2024-01-05", "wins": None, "losses": None, "ties": None, "year": 2026, "srs": None, "spOverall": None},
         ],
+        # freeze wave F3: one Staff band; the resolver's names, the season load's date, CFBD's rows inside it
+        "staff": {
+            "headCoach": "Pat Whistler", "offensiveCoordinator": "Ora Chalk", "defensiveCoordinator": None,
+            "sources": {"headCoach": "season", "offensiveCoordinator": "season"}, "source": "The season's coaches load", "savedAt": "2026-08-01",
+            "full": [{"name": "Ora Chalk", "role": "Offensive coordinator"}, {"name": "Sam Whistle", "role": "Tight ends coach"}],
+            "cfbd": [
+                {"name": "Pat Whistler", "hireDate": "2021-11-28T00:00:00.000Z", "wins": 6, "losses": 2, "ties": 0, "year": 2026, "srs": 12.4, "spOverall": 18.3},
+                {"name": "Lee Clipboard", "hireDate": "2024-01-05", "wins": None, "losses": None, "ties": None, "year": 2026, "srs": None, "spOverall": None},
+            ],
+        },
         "standings": None if us else {"conference": "Pancake Athletic", "conferenceShort": "PA", "rows": [
             {"place": 1, "team": "Diner Tech", "abbreviation": "DT", "logo": "/media/logo/DT", "conference": {"wins": 2, "losses": 0}, "overall": {"wins": 3, "losses": 0}, "apRank": 8, "isUs": True, "form": [{"result": "W", "points": 41, "opponentPoints": 38}]},
             {"place": 2, "team": "Swampwater Tech", "abbreviation": "SWT", "logo": "/media/logo/SWT", "conference": {"wins": 1, "losses": 1}, "overall": {"wins": 2, "losses": 1}, "apRank": None, "isUs": False, "form": []},
@@ -514,17 +524,18 @@ scenarios.teamTables = async () => {
   heads(standings)[3].querySelector("button").click();
   await view.refresh();
   assert.equal(heads(main.querySelector("#team-standings"))[3].getAttribute("aria-sort"), "descending", "the reader's order survives a refresh");
-  // Coaches: the hire date (its year at small, sorting by the day), the record ("Record" at small), SP+, SRS at large
+  // Freeze wave F3 (one fact, one source): no Coaches table beside the Staff band; the one band names the head coach and the
+  // coordinators as the resolver does, with CFBD's hire date and record on the head coach's line, the rest of the staff, and
+  // any other coach CFBD lists on a line of his own
   main.querySelector('button[data-tab="coaches"]').click();
-  const coaches = main.querySelector("#team-coaches");
-  clean("coaches", coaches);
-  assert.deepEqual(terms(coaches), ["Coach", "Hired", "This season", "SP+", "SRS"]);
-  assert.deepEqual(marks(heads(coaches)), ["", "", "", "", "L"]);
-  assert.equal(heads(coaches)[2].querySelector(".sz-t--short").textContent, "Record");
-  assert.deepEqual([cells(coaches, 0)[1].querySelector(".sz-t--short").textContent, text(cells(coaches, 0)[2]), text(cells(coaches, 0)[4])], ["2021", "6-2", "12.4"]);
-  assert.deepEqual([text(cells(coaches, 1)[2]), text(cells(coaches, 1)[3])], ["–", "–"]);
-  heads(coaches)[1].querySelector("button").click();
-  assert.equal(cells(coaches, 0)[1].querySelector(".sz-t--short").textContent, "2024", "the newest hire first");
+  assert.equal(main.querySelector("#team-coaches"), null, "the Coaches table went");
+  const staff = main.querySelector("#team-staff");
+  clean("staff", staff);
+  const st = text(staff);
+  assert.ok(st.includes("Head coach") && st.includes("Pat Whistler") && st.includes("hired") && st.includes("6-2 this season") && st.includes("SP+ 18.3") && st.includes("CFBD"), st.slice(0, 400));
+  assert.ok(st.includes("Offensive coordinator") && st.includes("Ora Chalk") && st.includes("Sam Whistle, Tight ends coach"), "the coordinator once, the rest of the staff after");
+  assert.ok(st.includes("Also listed by CFBD this season") && st.includes("Lee Clipboard"), "a second listed coach on his own line");
+  assert.ok(text(staff.querySelector(".band__summary")).includes("the season's coaches load"), "the band says its source");
   assert.deepEqual(coachRow({ hireDate: "soon", wins: "6", ties: 1 }), { hireDate: "soon", wins: "6", ties: 1, hired: "–", hiredYear: null, hiredAt: null, recordText: "–", spOverall: null, srs: null });
   assert.equal(coachRow(null).hired, "–");
   // History: the Pre-Game Program's series table, newest first, never sorted

@@ -13,6 +13,7 @@ POST   /api/board/close         close it again
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, Request, Response
@@ -167,7 +168,7 @@ async def board_open(body: OpenBody, request: Request) -> Any:
     if not on_server_computer(request.scope):
         return error_response(403, "not_here", "The board opens on the server computer's own monitors. Open it from that computer.")
     port = request.app.state.settings.port
-    result = request.app.state.board.open(f"{http_url('localhost', port)}/#board", body.screen)
+    result = await asyncio.to_thread(request.app.state.board.open, f"{http_url('localhost', port)}/#board", body.screen)  # a process start, off the loop (freeze wave F1, B5)
     if result.get("error"):
         return error_response(500, "board_failed", result["error"])
     return envelope(result, source="live")
@@ -177,4 +178,4 @@ async def board_open(body: OpenBody, request: Request) -> Any:
 async def board_close(request: Request) -> Any:
     if not on_server_computer(request.scope):
         return error_response(403, "not_here", "Close the board from the server computer.")
-    return envelope({"closed": request.app.state.board.close()}, source="live")
+    return envelope({"closed": await asyncio.to_thread(request.app.state.board.close)}, source="live")  # waits up to 10 s for the window: off the loop (freeze wave F1, B5)

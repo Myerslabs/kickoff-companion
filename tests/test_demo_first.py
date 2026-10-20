@@ -59,13 +59,15 @@ def test_the_cli_serves_the_demo_then_the_app_after_a_switch(tmp_path: Path, mon
     monkeypatch.delenv("CONFERENCE", raising=False)
     seen: list[tuple[str, object, bool]] = []
 
-    def fake_demo(settings, *, open_url=None, restarting=False):
+    def fake_demo(settings, *, open_url=None, restarting=False, ready_note=None):
         seen.append(("demo", open_url, restarting))
+        assert ready_note and "READY" in ready_note and "demo" in ready_note  # the window's ready lines (freeze wave F1)
         startmode.save_mode(settings.data_dir, startmode.APP)  # "Use my own team"
         return restart.RESTART
 
-    def fake_app(settings, *, reload=False, open_url=None, restarting=False, asgi=None):
+    def fake_app(settings, *, reload=False, open_url=None, restarting=False, asgi=None, ready_note=None):
         seen.append(("app", open_url, restarting))
+        assert ready_note and "READY" in ready_note and "The app is" in ready_note
         return 0
 
     monkeypatch.setattr("app.demo.run.serve_embedded", fake_demo)

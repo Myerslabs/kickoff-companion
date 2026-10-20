@@ -134,16 +134,18 @@ def test_a_restart_picks_the_held_game_back_up_and_another_teams_final_is_ignore
 
 def test_the_program_says_how_long_the_final_is_held(app):
     """The program route marks its game with the hold's end (the server's time), so the cover offers In Game until then."""
+    import asyncio
+
     from app.api.program import _mark_program
 
     engine: LiveEngine = app.state.live
     request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(live=engine, archive=None)))
     result = SimpleNamespace(data={"game": {"gameId": GAME}})
-    _mark_program(result, request)
+    asyncio.run(_mark_program(result, request))  # async since freeze wave F3 (the facts' venue)
     assert result.data["game"]["heldUntil"] is None
     engine.held = {"gameId": GAME, "home": "A", "away": "B", "kickoff": "2026-01-01T00:00:00Z", "finalAt": "2026-01-01T03:00:00Z", "until": "2999-01-01T16:00:00Z"}
-    _mark_program(result, request)
+    asyncio.run(_mark_program(result, request))  # async since freeze wave F3 (the facts' venue)
     assert result.data["game"]["heldUntil"] == "2999-01-01T16:00:00Z"
     result = SimpleNamespace(data={"game": {"gameId": GAME + 1}})
-    _mark_program(result, request)
+    asyncio.run(_mark_program(result, request))  # async since freeze wave F3 (the facts' venue)
     assert result.data["game"]["heldUntil"] is None, "another game is not held"

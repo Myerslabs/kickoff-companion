@@ -348,7 +348,7 @@ EMBEDDED_START = 25.0  # simulated minutes after kickoff: a fresh install opens 
 EMBEDDED_SPEED = 6.0  # about half an hour of live game before the final
 
 
-def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool = False) -> int:
+def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool = False, ready_note: str | None = None) -> int:
     """The demo on this install's own address and port (public release Phase 9b): a fresh install, or the menu's
     Demo item, starts here. Phones reach it as they would the app (the QR code, the network name). The demo's
     data is a scratch folder deleted at the end; `home` (this install's settings) only gives the address and
@@ -357,7 +357,10 @@ def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool =
 
     season = demo_season()
     say(f"Starting the demo: the made-up {season} league (built once, then cached in {CACHE_DIR}).")
+    say("The first start builds the league, about half a minute on most computers; the window is not stuck.")
+    started = time.monotonic()
     world = load_world(season=season, seed=2026, cache_dir=CACHE_DIR)
+    say(f"league ready in {time.monotonic() - started:.0f} s; starting the server...")
     game = next_game(world)
     clock = SimClock(game.slot.start + timedelta(minutes=EMBEDDED_START), EMBEDDED_SPEED)
     data_dir = Path(tempfile.mkdtemp(prefix="kickoff-demo-"))
@@ -370,7 +373,7 @@ def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool =
             if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
                 handler.addFilter(ConsoleFilter())
         say("This is the demo: a made-up league with a game under way. The demo page in the browser explains how to use your own team.")
-        return run_server(home, open_url=open_url, restarting=restarting, asgi=asgi)
+        return run_server(home, open_url=open_url, restarting=restarting, asgi=asgi, ready_note=ready_note)
     finally:
         shutil.rmtree(data_dir, ignore_errors=True)
 

@@ -75,8 +75,14 @@ class KeepAwake:
             elif active:
                 self._child = self._spawn()
             elif self._child is not None:
-                self._child.terminate()
-                self._child = None
+                child, self._child = self._child, None
+                child.terminate()
+                wait = getattr(child, "wait", None)
+                if callable(wait):
+                    try:
+                        wait(timeout=2)  # reaped, so no zombie entry stays behind (freeze wave F1, B17)
+                    except (subprocess.TimeoutExpired, OSError):
+                        pass
         except (OSError, AttributeError, ValueError) as exc:
             log.warning("Could not %s the computer's sleep hold: %s", "set" if active else "clear", exc)
             return

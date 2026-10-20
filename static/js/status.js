@@ -18,6 +18,9 @@ const els = {
   quota: document.getElementById("quota-facts"),
   config: document.getElementById("config-facts"),
   published: document.getElementById("published-body"),
+  calls: document.getElementById("calls-body"),
+  callsNote: document.getElementById("calls-note"),
+  callsDays: document.getElementById("calls-days"),
   updated: document.getElementById("updated"),
   refresh: document.getElementById("refresh"),
 };
@@ -157,6 +160,57 @@ function lateText(minutes) {
 }
 
 // Phase 14: the publication schedules and when each source actually changed.
+// Where the calls go (freeze wave F2): this month's ledger by endpoint, the top rows, and the last days in one line.
+function renderCalls(data) {
+  const info = obj(data);
+  const rows = Array.isArray(info.byEndpoint) ? info.byEndpoint.map(obj) : [];
+  els.calls.replaceChildren();
+  if (!rows.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 4;
+    td.className = "note";
+    td.textContent = "No calls this month yet.";
+    tr.append(td);
+    els.calls.append(tr);
+  }
+  const shown = rows.slice(0, 14);
+  const rest = rows.slice(14);
+  const addRow = (name, calls, live, failed) => {
+    const tr = document.createElement("tr");
+    for (const value of [name, calls, live, failed]) {
+      const td = document.createElement("td");
+      td.textContent = typeof value === "number" ? value.toLocaleString() : text(value);
+      tr.append(td);
+    }
+    tr.lastChild.className = "checks__rule";
+    els.calls.append(tr);
+  };
+  for (const r of shown) addRow(r.endpoint, r.calls, r.live, r.failed);
+  if (rest.length) addRow(`${rest.length} more endpoints`, rest.reduce((n, r) => n + (typeof r.calls === "number" ? r.calls : 0), 0), rest.reduce((n, r) => n + (typeof r.live === "number" ? r.live : 0), 0), rest.reduce((n, r) => n + (typeof r.failed === "number" ? r.failed : 0), 0));
+  const total = typeof info.total === "number" ? info.total : null;
+  const live = typeof info.live === "number" ? info.live : null;
+  const profile = info.profile === "free" ? "the free profile (lean refreshes)" : info.profile === "full" ? "the full profile" : null;
+  els.callsNote.textContent = total === null
+    ? "This month's CFBD calls by endpoint, from the app's own ledger."
+    : `${total.toLocaleString()} calls this month${live ? `, ${live.toLocaleString()} of them the live poller` : ""}${profile ? `, on ${profile}` : ""}. From the app's own ledger, which also counts attempts CFBD did not bill.`;
+  const days = Array.isArray(info.byDay) ? info.byDay.map(obj).slice(0, 10) : [];
+  els.callsDays.textContent = days.length ? `By day: ${days.map((d) => `${text(d.day).slice(5)} ${typeof d.calls === "number" ? d.calls.toLocaleString() : DASH}`).join(", ")}.` : "";
+}
+
+async function fetchCalls() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch("/api/quota/calls", { cache: "no-store", signal: controller.signal });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const body = await response.json();
+    return body && typeof body === "object" && body.data && typeof body.data === "object" ? body.data : {};
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function renderPublished(list) {
   els.published.replaceChildren();
   const rows = Array.isArray(list) ? list.map(obj) : [];
@@ -260,9 +314,9 @@ function render(data) {
   const flag = (value) => (value === true ? "available" : value === false ? "not on this tier" : "unknown");
   setFacts(els.quota, [
     ["Tier", caps.tier_name],
-    ["Used this month", typeof quota.used === "number" && typeof quota.budget === "number"
+    ["Calls used this month", typeof quota.used === "number" && typeof quota.budget === "number"
       ? `${quota.used.toLocaleString()} of ${quota.budget.toLocaleString()} (${text(quota.pct_used)}%)` : DASH],
-    ["Remaining", typeof quota.remaining === "number" ? quota.remaining.toLocaleString() : DASH],
+    ["Calls left", typeof quota.remaining === "number" ? quota.remaining.toLocaleString() : DASH],
     ["Mode", quota.mode],
     ["Resets", localDate(quota.reset_at)],
     ["Checked with CFBD", quota.reconciled === true ? localTime(quota.reconciled_at) : quota.reconciled === false ? "not yet" : DASH],
@@ -357,6 +411,7 @@ async function tick() {
     state.receivedAt = Date.now();
     state.failing = false;
     render(data);
+    fetchCalls().then(renderCalls).catch((err) => console.warn("Where the calls go did not load:", err && err.message ? err.message : err)); // its own ask: the health page stays cheap
     els.pill.classList.remove("flash");
     void els.pill.offsetWidth;
     els.pill.classList.add("flash");

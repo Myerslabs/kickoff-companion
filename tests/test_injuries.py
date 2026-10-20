@@ -92,7 +92,7 @@ def test_our_report_newest_first_with_the_next_game(tmp_path: Path) -> None:
     assert first["rows"][0]["note"] == "Knee, week 1", "the team named in the note is taken off it"
     assert first["rows"][1]["note"] == "ankle", "a row with its own team keeps its note"
     assert [r["name"] for r in first["unassigned"]] == ["Who Knows"], "a row naming neither team is kept apart"
-    assert data["counts"] == {"games": 3, "reports": 1}
+    assert data["counts"] == {"games": 3, "reports": 1, "seasonLong": 0}  # freeze wave F3: the preseason load's rows count too
     assert data["games"][1]["notes"] is False and data["games"][1]["rows"] == []
 
 

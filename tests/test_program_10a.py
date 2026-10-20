@@ -626,7 +626,7 @@ def test_team_page_carries_its_location(program_client):
     client, _ = program_client
     data = client.get("/api/team/Diner%20Tech").json()["data"]
     where = OPPONENT["location"]
-    assert data["location"] == {"city": where["city"], "state": where["state"], "venue": where["name"], "capacity": where["capacity"]}
+    assert data["location"] == {"city": where["city"], "state": where["state"], "venue": where["name"], "capacity": where["capacity"], "yearBuilt": where.get("yearConstructed")}  # freeze wave F3: the opened year for the facts bands
     ours = next(t["location"] for t in fixture_payload("teams_fbs") if t["school"] == "Swampwater Tech")
     assert client.get("/api/team/Swampwater Tech").json()["data"]["location"]["city"] == ours["city"]
 
@@ -637,8 +637,8 @@ def test_team_page_carries_its_location(program_client):
         (None, None),
         ({}, None),
         ({"name": "Stadium"}, None),  # no city or state to show
-        ({"city": " Oxford ", "state": None, "capacity": "big"}, {"city": "Oxford", "state": None, "venue": None, "capacity": None}),
-        ({"city": 5, "state": "MS", "name": ["x"], "capacity": True}, {"city": None, "state": "MS", "venue": None, "capacity": None}),
+        ({"city": " Oxford ", "state": None, "capacity": "big"}, {"city": "Oxford", "state": None, "venue": None, "capacity": None, "yearBuilt": None}),
+        ({"city": 5, "state": "MS", "name": ["x"], "capacity": True}, {"city": None, "state": "MS", "venue": None, "capacity": None, "yearBuilt": None}),
     ],
 )
 def test_team_location_guards_every_field(location, expected):

@@ -224,6 +224,7 @@ class ArchiveService:
     # --- Phase 18.2: look again two days later -------------------------------------------------------------
 
     REFRESH_AFTER = timedelta(hours=48)
+    RETRY_AFTER = timedelta(hours=6)  # a refresh that did not complete is tried again this much later, not every tick (freeze wave F1, B2)
     REFRESH_FILE = ".refreshed.json"
 
     def _refreshed(self) -> dict[str, str]:
@@ -233,9 +234,10 @@ class ArchiveService:
             return {}
         return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
 
-    def _mark_refreshed(self, game_id: int, now: Any) -> None:
+    def _mark_refreshed(self, game_id: int, now: Any, *, tried: bool = False) -> None:
+        """Note the game as refreshed, or (tried) as attempted, in the same file: "tried:<id>" keeps the attempt's time."""
         marks = self._refreshed()
-        marks[str(game_id)] = now.isoformat(timespec="seconds")
+        marks[f"tried:{game_id}" if tried else str(game_id)] = now.isoformat(timespec="seconds")
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
             (self.folder / self.REFRESH_FILE).write_text(json.dumps(marks, indent=1), encoding="utf-8")
@@ -270,6 +272,13 @@ class ArchiveService:
                 continue
             if start.tzinfo is None or now - start < self.REFRESH_AFTER:
                 continue
+            tried = marks.get(f"tried:{game_id}")
+            if tried:
+                try:
+                    if now - datetime.fromisoformat(tried) < self.RETRY_AFTER:
+                        continue  # an attempt that did not complete waits its turn, so an outage costs a handful of calls, not one a minute
+                except ValueError:
+                    pass
             keys = [cache_key("/game/box/advanced", {"id": game_id}), cache_key("/metrics/wp", {"gameId": game_id})]
             for team in (game.home_team, game.away_team):
                 if team:
@@ -281,8 +290,9 @@ class ArchiveService:
                 await asyncio.to_thread(self._client.cache.delete, key)
             complete = False
             try:
-                result = await self.game(game_id)  # fetches it all again and caches it
-                complete = not (getattr(result, "all_failed", False) or getattr(result, "errors", None))  # every part answered
+                result = await self.game(game_id)  # fetches it all again and caches it: a dict with "errors" (freeze wave F1, B2: it was read with getattr, so a failed refetch always counted as complete)
+                errors = result.get("errors") if isinstance(result, dict) else None
+                complete = isinstance(result, dict) and not errors  # every part answered
             except Exception:  # noqa: BLE001 - one game's refresh must not stop the others; logged
                 log.exception("Archive refresh of game %s failed", game_id)
             if not complete:
@@ -290,7 +300,8 @@ class ArchiveService:
                     if entry is not None and await asyncio.to_thread(self._client.cache.get, key) is None:
                         ttl = entry.expires_at - entry.fetched_at if entry.expires_at is not None else None
                         await asyncio.to_thread(self._client.cache.put, key, entry.endpoint, entry.params, entry.payload, fetched_at=entry.fetched_at, ttl=ttl)
-                log.warning("Archive refresh of game %s did not complete; the earlier copies are kept and it is tried again next time", game_id)
+                self._mark_refreshed(game_id, now, tried=True)
+                log.warning("Archive refresh of game %s did not complete; the earlier copies are kept and it is tried again in %d hours", game_id, int(self.RETRY_AFTER.total_seconds() // 3600))
                 continue
             self._mark_refreshed(game_id, now)
             done.append(game_id)

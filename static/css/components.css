@@ -484,8 +484,8 @@
   background-clip: padding-box;
 }
 .field__bar { position: absolute; top: 3px; bottom: 3px; }
-.field__bar--us { background: color-mix(in srgb, var(--team-us) 80%, var(--chalk)); }
-.field__bar--them { background: color-mix(in srgb, var(--opp) 70%, var(--chalk)); }
+.field__bar--us { background: var(--team-us); background: color-mix(in srgb, var(--team-us) 80%, var(--chalk)); } /* the plain color first: a browser without color-mix (iOS before 16.2) keeps it instead of no bar at all */
+.field__bar--them { background: var(--opp); background: color-mix(in srgb, var(--opp) 70%, var(--chalk)); }
 .field__end { position: absolute; top: -3px; width: 4px; height: 22px; background: var(--chalk); }
 .drive__result { display: flex; flex-direction: column; align-items: flex-end; min-width: 70px; }
 .drive__outcome { font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 700; }
@@ -2229,6 +2229,48 @@ body.board-mode .run-bar { display: none !important; }
 .pill--notice .pill__notice { position: absolute; top: 1px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--team-accent); box-shadow: 0 0 0 2px var(--topbar-bg); pointer-events: none; } /* in the pill's own corner: it takes no width from the label */
 .status-card__notice { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
 .status-card__subtitle { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); }
+
+/* ~~ The playoff picture (owner 2026-10-20): "if the season ended today", a bracket like a tournament's ~~
+   A deliberate exception to tables-only, at his word. The rounds stack in a narrow band; from 1,000 px (the playoff band's
+   own container) they stand side by side with connector lines: each game a stub to the right, each pair a joint between its
+   two games' centres and a stub on to the game they feed. space-around in equal-height columns puts a pair's centre on the
+   game it feeds. */
+.pic { display: grid; gap: var(--sp-3); }
+.pic__line { margin: 0; font-family: var(--font-cond); font-weight: 600; font-size: calc(17px * var(--ui-scale)); }
+.pic__head { margin: 0; font-family: var(--font-cond); font-weight: 600; font-size: calc(14px * var(--ui-scale)); text-transform: uppercase; letter-spacing: 0.05em; color: var(--fog); }
+.pic__bracket { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); }
+.pic__round { display: grid; grid-template-rows: auto 1fr; gap: var(--sp-2); min-width: 0; }
+.pic__games, .pic__pair { display: flex; flex-direction: column; justify-content: space-around; gap: var(--sp-2); min-width: 0; }
+.pic__pair { flex: 1 1 0; position: relative; }
+.pic__game { position: relative; display: grid; gap: 2px; padding: 6px 8px; min-width: 0; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel); }
+.pic__game--us { border-color: var(--team-accent); }
+.pic__slot { font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); letter-spacing: 0.04em; text-transform: uppercase; color: var(--fog); }
+.pic__team { display: flex; align-items: center; gap: 6px; min-height: 26px; min-width: 0; padding: 0 4px; border-radius: 3px; }
+.pic__team--us { background: var(--row-group); background: color-mix(in srgb, var(--team-us) 14%, var(--panel)); }
+.pic__team--tbd .pic__name { color: var(--fog); font-style: italic; }
+.pic__seed { flex: none; width: 22px; text-align: center; font-family: var(--font-cond); font-weight: 700; color: var(--fog); font-variant-numeric: tabular-nums; }
+.pic__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pic__name .team-link { white-space: nowrap; }
+.pic__champ, .pic__move { flex: none; font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); line-height: 1.4; padding: 0 5px; border-radius: 999px; }
+.pic__champ { border: 1px solid var(--rule-strong); color: var(--fog); }
+.pic__move { color: var(--fog); }
+.pic__move--up { color: var(--good); }
+.pic__move--down { color: var(--bad); }
+.pic__edges b { font-family: var(--font-cond); }
+.pic__champions { max-width: 720px; }
+@container playoff (min-width: 1000px) {
+  .pic__bracket { grid-template-columns: repeat(4, minmax(0, 1fr)); column-gap: 30px; align-items: stretch; }
+  .pic__games, .pic__pair { gap: 0; height: 100%; }
+  .pic__game::after { content: ""; position: absolute; top: 50%; right: -15px; width: 15px; border-top: 1px solid var(--rule-strong); }
+  .pic__pair::after { content: ""; position: absolute; top: 25%; bottom: 25%; right: -15px; width: 0; border-right: 1px solid var(--rule-strong); }
+  .pic__pair::before { content: ""; position: absolute; top: 50%; right: -30px; width: 15px; border-top: 1px solid var(--rule-strong); }
+  .pic__round--final .pic__game::after { display: none; }
+  .pic__round--first .pic__games { gap: 0; }
+}
+
+/* The coaches' order on the Roster page's position groups (freeze wave F3): the notes' starter and second man badged */
+.depth-row__order { flex: none; min-width: 18px; padding: 0 4px; border-radius: 999px; font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); font-weight: 700; line-height: 1.35; text-align: center; color: var(--chalk); background: var(--team-accent); }
+.depth-row__order--more { color: var(--fog); background: var(--panel-raised); border: 1px solid var(--rule-strong); }
 
 /* === NV: national list view, national sheet, search and glossary polish === */
 

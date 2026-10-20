@@ -20,13 +20,12 @@
 
 import { confName } from "../identity.js";
 import { weekLong, weekShort } from "./weeks.js";
-import { el, fmtDate, fmtTime, isNum, teamLink, teamLogo, text } from "./dom.js";
+import { el, fmtDate, fmtTime, isNum, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { pollHref } from "./national-link.js";
 import { pollBadge, rankChip } from "./stat-table.js";
 
 function recordText(rec) {
-  if (!rec || !isNum(rec.wins) || !isNum(rec.losses)) return "–";
-  return rec.ties ? `${rec.wins}-${rec.losses}-${rec.ties}` : `${rec.wins}-${rec.losses}`;
+  return sharedRecord(rec) ?? "–"; // freeze wave F3: the one formatter (ui/dom.js)
 }
 
 function school(value) {

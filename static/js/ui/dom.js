@@ -770,3 +770,13 @@ export function swipeToClose(node, close, { distance = 80, maxDrift = 50, maxMs 
     node.removeEventListener("pointercancel", cancel);
   };
 }
+
+/**
+ * A record as every page writes it (freeze wave F3: one formatter for the six that each page had): "6-1", "6-1-1" when
+ * there are ties; null when the wins or losses are not numbers (each caller picks its own dash).
+ */
+export function recordText(record) {
+  const r = record && typeof record === "object" ? record : {};
+  if (!isNum(r.wins) || !isNum(r.losses)) return null;
+  return isNum(r.ties) && r.ties > 0 ? `${r.wins}-${r.losses}-${r.ties}` : `${r.wins}-${r.losses}`;
+}

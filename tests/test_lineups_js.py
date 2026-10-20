@@ -72,78 +72,17 @@ scenarios.helpers = async () => {
 };
 
 scenarios.blocks = async () => {
-  const { startersBlock, depthBlock, LINEUPS_EMPTY } = await import(moduleUrl("ui/lineups.js"));
+  // Freeze wave F3 (one fact, one source): the starters and depth tables went; ui/lineups_combined.js is the one kit
+  const mod = await import(moduleUrl("ui/lineups.js"));
+  assert.equal(mod.startersBlock, undefined);
+  assert.equal(mod.depthBlock, undefined);
+  assert.ok(typeof mod.LINEUPS_EMPTY === "string" && mod.LINEUPS_EMPTY.length > 10, "the empty-state words still live here");
+  const { lineupBlock } = await import(moduleUrl("ui/lineups_combined.js"));
   const l = lineups();
-  const opened = [];
-  const starters = startersBlock({ lineups: l, us, them, availability, onPlayer: (row) => opened.push(row) });
-  document.body.replaceChildren(starters);
-  const t = clean("starters", starters);
-  // three matchup rows: SWT offense | MIZ defense, MIZ offense | SWT defense, SWT specialists | MIZ specialists
-  const pairs = starters.querySelectorAll(".lineups__pair");
-  assert.equal(pairs.length, 4, "three matchup rows and the foot");
-  const sides = starters.querySelectorAll(".lineups__side");
-  assert.equal(sides.length, 6);
-  assert.deepEqual([...sides].map((s) => text(s.querySelector(".subhead"))), ["Swampwater Tech offense", "Sweet Tea State defense", "Sweet Tea State offense", "Swampwater Tech defense", "Swampwater Tech special teams", "Sweet Tea State special teams"]);
-  // SWT offense: only the first name at each slot, the class under it, chips relabelled like the impact cards
-  const offense = sides[0].querySelector("table");
-  assert.deepEqual(heads(offense), ["Slot", "No.", "Starter", "Season"], "no Note column where nobody is listed");
-  assert.equal(offense.querySelectorAll("tbody tr").length, 3, "QB, RB and LT start; the empty WR slot is left out");
-  assert.ok(t.includes("Mason Hamilton") && t.includes("Lucas Griffin") && !t.includes("Dante Clayborn"), "backups are not starters");
-  const qbRow = offense.querySelectorAll("tbody tr")[0];
-  assert.deepEqual([...qbRow.querySelectorAll(".chip")].map(text), ["917 passing yards", "7 TD", "2 INT", "72% Cmp"], "plain labels, as on the impact cards");
-  assert.deepEqual([...offense.querySelectorAll("tbody tr")[1].querySelectorAll(".chip")].map(text), ["600 rushing yards", "83 Car"], "CFBD keys get the plain labels");
-  assert.equal(text(offense.querySelectorAll("tbody tr")[2].childNodes[3]), "–", "a lineman with no numbers shows a dash");
-  // the availability report verifies the chart: a listed starter shows its status, coloured like the report
-  const defense = sides[3].querySelector("table");
-  assert.deepEqual(heads(defense), ["Slot", "No.", "Starter", "Season", "Note"]);
-  const star = defense.querySelector("tbody tr");
-  assert.ok(star.querySelector(".avail--questionable") && text(star).includes("Questionable ankle"), text(star));
-  assert.ok(!text(star).includes("chart says"), "the report's status replaces the chart's own note");
-  const jack = sides[1].querySelector("table tbody tr");
-  assert.ok(jack.querySelector(".avail--out") && text(jack).includes("Out"));
-  // a tap on a row with an id opens that player's card; a row without one does nothing
-  qbRow.click();
-  offense.querySelectorAll("tbody tr")[2].click();
-  assert.equal(opened.length, 1);
-  assert.equal(opened[0].playerId, "4536127");
-  assert.equal(opened[0].isUs, true);
-  sides[2].querySelector("table tbody tr").click();
-  assert.equal(opened.length, 2);
-  assert.equal(opened[1].isUs, false, "the opponent's starter opens as theirs");
-  // scheme and source under the rows: a link when it has a URL, plain text otherwise
-  assert.ok(t.includes("Swampwater Tech chart heading: Spread option."));
-  const link = [...starters.querySelectorAll("a")].find((a) => a.getAttribute("href") === "https://example.invalid/uf");
-  assert.ok(link && text(link) === "Mudpuppies Wire");
-  assert.ok(t.includes("Source: Ourlads, updated ") && t.includes("Sep 26"));
-
-  const depth = depthBlock({ lineups: l, us, them, availability });
-  document.body.replaceChildren(depth);
-  const d = clean("depth", depth);
-  const dsides = depth.querySelectorAll(".lineups__side");
-  assert.equal(dsides.length, 6);
-  const table = dsides[0].querySelector("table");
-  assert.deepEqual(heads(table), ["Slot", "Starter", "Second", "Third", "Fourth"], "as many columns as the deepest slot, up to five");
-  const rb = [...table.querySelectorAll("tbody tr")].find((row) => text(row).startsWith("RB"));
-  assert.ok(text(rb).includes("#13 Lucas Griffin (JR)") && text(rb).includes("#24 Landon Merriweather"));
-  const qb = [...table.querySelectorAll("tbody tr")].find((row) => text(row).startsWith("QB"));
-  assert.ok(text(qb).includes("–"), "a slot shorter than the table gets dashes");
-  assert.ok(d.includes("#20 Kane Clayborn (RS SR), questionable") && d.includes("#19 Darius Smithers (RS SR), out"), "a listed name carries its status");
-  const themTable = dsides[1].querySelector("table");
-  assert.deepEqual(heads(themTable), ["Slot", "Starter", "Second"]);
-
-  // one unit missing on a side says so instead of vanishing; nothing written is the honest empty note
-  assert.ok(text(depthBlock({ lineups: { us: l.us }, us, them })).includes("No chart written for this unit."));
-  for (const empty of [undefined, null, {}, { us: null, them: "x" }, { us: { slots: [] } }, { us: { slots: [{ slot: "QB", players: [] }] } }]) {
-    assert.equal(clean("empty", startersBlock({ lineups: empty, us, them })), LINEUPS_EMPTY);
-    assert.equal(clean("empty depth", depthBlock({ lineups: empty, us, them })), LINEUPS_EMPTY);
-  }
-  // damage: junk rows, wrong types, missing teams, chips that are not strings
-  const bad = { us: { team: 3, scheme: 9, source: 4, sourceUrl: "javascript:alert(1)", slots: [null, "x", { slot: "QB", unit: null, players: [{ name: "A", number: "12", classYear: 3, note: {}, chips: [null, 4, "x"], playerId: 7 }, null, 5] }, { slot: 7, players: [{ name: "B" }] }] }, them: 11 };
-  clean("damaged starters", startersBlock({ lineups: bad, us: null, them: undefined, availability: "x", onPlayer: 3 }));
-  const badDepth = depthBlock({ lineups: bad });
-  clean("damaged depth", badDepth);
-  assert.ok(!badDepth.querySelector("a"), "a non-http source URL is never a link");
-  assert.ok(text(badDepth).includes("Opponent"), "no opponent name falls back to a word, never undefined");
+  const node = lineupBlock({ lineups: l, us, them, availability });
+  document.body.replaceChildren(node);
+  const t = clean("combined", node);
+  assert.ok(t.includes("Mason Hamilton"), "the one kit draws the chart");
 };
 
 async function mountProgram(data) {

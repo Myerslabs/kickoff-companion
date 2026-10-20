@@ -1235,4 +1235,13 @@ export const GLOSSARY = [
     read: "Positive is a win by that many; a big season margin usually goes with a strong SP+.",
     source: "App",
   },
+  {
+    id: "playoff-picture",
+    term: "Playoff picture",
+    group: "Reading the app",
+    aliases: ["Playoff", "Leader today", "Conference leader", "If the season ended today", "Last four in", "First four out"],
+    text: "The twelve-team field if the season ended today, on the Season page: the five highest-ranked conference leaders are in, seven more at large, all seeded by the ranking (the AP poll until the committee's first ranking in November, then the committee's); seeds 1 to 4 skip the first round, which is played at the higher seed's home. A conference's leader today is its best conference record, then conference wins, then the overall record. Teams outside the Top 25 are ordered by SP+. The leaders' table says whether each is in and what its rank rests on.",
+    read: "Last four in and first four out are the edge of the field; a leader far down the order still gets in as a conference champion.",
+    source: "App",
+  },
 ];

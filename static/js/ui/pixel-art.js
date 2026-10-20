@@ -563,7 +563,7 @@ function paintFill(canvas, kind, o) {
  * page's own team tokens. It draws itself once its box has a size: refitPictures(root) after a layout or a resize.
  */
 export function fillPicture(kind, opts = {}, label = "") {
-  const k = Object.hasOwn(FILL, kind) ? kind : "stadium";
+  const k = Object.prototype.hasOwnProperty.call(FILL, kind) ? kind : "stadium"; // not Object.hasOwn: Safari before 15.4 has none, and the whole paper failed to draw (freeze wave F1, F8)
   const canvas = document.createElement("canvas");
   canvas.width = 40;
   canvas.height = 24;

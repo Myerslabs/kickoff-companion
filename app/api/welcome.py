@@ -116,6 +116,11 @@ async def check_key(request: Request) -> Any:
     if payload is None:
         return error_response(502, "cfbd_error", f"CFBD answered the check oddly ({error}). Try again in a minute.")
     client._apply_info(payload, client._clock())  # the plan and the quota guard both learn the key's limit
+    caps = client.capabilities  # the numbers, never the key (tester 2026-10-19: the log had nothing to say about a key "out of calls")
+    log.info(
+        "A new CFBD key checked: %s, %s of %s calls left this month, resets %s",
+        caps.tier_name or "tier unknown", "?" if caps.remaining_calls is None else f"{caps.remaining_calls:,}", "?" if caps.monthly_limit is None else f"{caps.monthly_limit:,}", caps.reset_at or "?",
+    )
     if settings.setup_needed or not settings.api_key_configured:
         request.app.state.pending_key = key
         client.use_key(key)  # setup mode: the team list comes with this key

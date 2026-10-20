@@ -229,7 +229,7 @@ class SeasonService:
             "ratings": self._ratings(parts["sp"].records, parts["elo"].records, parts["fpi"].records, fbs),
             "trends": self._trends(completed, boxes),
             "resume": resume(parts["schedule"].records, parts["games"].records, team, parts["sp"].records, parts["rankings"].records),  # Phase 13
-            "playoff": playoff_block(parts["rankings"].records, parts["games"].records, team, teams),  # Phase 15
+            "playoff": playoff_block(parts["rankings"].records, parts["games"].records, team, teams, records=parts["records"].records, sp=parts["sp"].records),  # Phase 15; the picture (2026-10-20)
             "lastSeason": {"year": self.settings.season - 1, "rows": last_season(profile["rows"], last_profiles, team, self.settings.season)},  # Phase 15
             "roadAhead": road_ahead(parts["schedule"].records, parts["games"].records, team, parts["sp"].records, poll_ranks.get("AP", {}), fbs),  # Phase 15
             "parts": {name: part.status(now) for name, part in parts.items() if not name.startswith("box_")}

@@ -43,8 +43,10 @@ NO_CACHE = timedelta(0)
 THURSDAY = 3
 SATURDAY = 5
 FINISHED_GAME_EMPTY_TTL = timedelta(minutes=10)  # a just-played game CFBD has not posted yet: ask again soon
+FINISHED_GAME_EMPTY_LEAN_TTL = timedelta(hours=1)  # the same on the free profile (freeze wave F2): six asks a night, not 144
 FINISHED_GAME_EMPTY_SETTLED_TTL = timedelta(hours=6)  # an older game CFBD never filled: a few asks a day, not 144
 FINISHED_GAME_SETTLING_TTL = timedelta(hours=1)  # CFBD still corrects a game in the day after it
+FINISHED_GAME_SETTLING_LEAN_TTL = timedelta(hours=6)  # the free profile takes CFBD's corrections a few times, not hourly
 
 
 def ttl_for(kind: DataKind, local_now: datetime, *, game_day: bool = False) -> timedelta | None:
@@ -81,25 +83,25 @@ def is_empty_payload(payload: Any) -> bool:
     return isinstance(payload, (list, dict, str)) and len(payload) == 0
 
 
-def finished_game_empty_ttl(now: datetime, settle_until: datetime | None) -> timedelta:
-    """How long an empty finished-game answer is kept: ten minutes while the latest game settles,
-    six hours otherwise, so an old game CFBD never filled does not cost a call every ten minutes."""
+def finished_game_empty_ttl(now: datetime, settle_until: datetime | None, *, lean: bool = False) -> timedelta:
+    """How long an empty finished-game answer is kept: ten minutes while the latest game settles (an hour on
+    the free profile), six hours otherwise, so an old game CFBD never filled does not cost a call every ten minutes."""
     if settle_until is not None and now < settle_until:
-        return FINISHED_GAME_EMPTY_TTL
+        return FINISHED_GAME_EMPTY_LEAN_TTL if lean else FINISHED_GAME_EMPTY_TTL
     return FINISHED_GAME_EMPTY_SETTLED_TTL
 
 
-def finished_game_ttl(payload: Any, now: datetime, settle_until: datetime | None) -> timedelta | None:
+def finished_game_ttl(payload: Any, now: datetime, settle_until: datetime | None, *, lean: bool = False) -> timedelta | None:
     """The lifetime of a finished-game answer; None means permanent.
 
     Empty answers are never permanent (see finished_game_empty_ttl). While `now` is before
     `settle_until` (UTC-aware, set by the live engine to kickoff + 24 h of the latest game) answers
-    are kept an hour so corrections land.
+    are kept an hour so corrections land (six hours on the free profile).
     """
     if is_empty_payload(payload):
-        return finished_game_empty_ttl(now, settle_until)
+        return finished_game_empty_ttl(now, settle_until, lean=lean)
     if settle_until is not None and now < settle_until:
-        return FINISHED_GAME_SETTLING_TTL
+        return FINISHED_GAME_SETTLING_LEAN_TTL if lean else FINISHED_GAME_SETTLING_TTL
     return None
 
 

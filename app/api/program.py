@@ -19,9 +19,34 @@ router = APIRouter(tags=["program"])
 log = logging.getLogger("kickoff.program")
 
 
-def _mark_program(result: Assembled, request: Request) -> None:
+def facts_with_venue(facts: dict[str, Any] | None, location: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The school's facts with CFBD's stadium figures where it has them (freeze wave F3, one fact, one source): the cover's
+    conditions line took the venue from CFBD while the facts bands took it from the AI's answer, so one page could show two
+    capacities and two opened years for one stadium. The name, the capacity and the opened year come from CFBD's team
+    record when present; the AI's stay for the rest, and `venueSource` says which won."""
+    if not isinstance(facts, dict):
+        return facts
+    loc = location if isinstance(location, dict) else {}
+    out = dict(facts)
+    took = False
+    name = loc.get("venue")
+    if isinstance(name, str) and name.strip():
+        out["stadium"], took = name.strip(), True
+    capacity = loc.get("capacity")
+    if isinstance(capacity, int) and not isinstance(capacity, bool) and capacity > 0:
+        out["capacity"], took = capacity, True
+    built = loc.get("yearBuilt")
+    if isinstance(built, int) and not isinstance(built, bool):
+        out["stadiumOpened"], took = built, True
+    out["venueSource"] = "CFBD" if took else "notes"
+    return out
+
+
+async def _mark_program(result: Assembled, request: Request) -> None:
     """Phase 16 (audit P-03): game.archived says the Archive holds this game, so the cover can link
-    to it; the picker rows carry the same flag."""
+    to it; the picker rows carry the same flag. Async since freeze wave F3: the two schools' facts take each school's
+    stadium from the cached team list."""
+    service: ProgramService | None = getattr(request.app.state, "program", None)
     archived = archived_ids(request)
     game = result.data.get("game")
     if isinstance(game, dict):
@@ -35,7 +60,11 @@ def _mark_program(result: Assembled, request: Request) -> None:
     lock = getattr(request.app.state, "program_lock", None)
     if isinstance(game, dict):
         game["locked"] = bool(lock is not None and lock.has(game.get("gameId")))
-    result.data["facts"] = {"us": notes.facts_for((result.data.get("us") or {}).get("school")) if notes else None, "them": notes.facts_for((result.data.get("them") or {}).get("school")) if notes else None}
+    facts: dict[str, Any] = {}
+    for side in ("us", "them"):
+        school = (result.data.get(side) or {}).get("school")
+        facts[side] = facts_with_venue(notes.facts_for(school) if notes else None, await service.location_of(school) if service is not None else None)  # freeze wave F3: CFBD's stadium figures first
+    result.data["facts"] = facts
     block = result.data.get("notes")
     if isinstance(game, dict) and isinstance(block, dict) and isinstance(game.get("gameId"), int):  # 2026-10-16: notes by hand
         from app.api.prompts import notes_location
@@ -53,7 +82,7 @@ async def program_next(request: Request) -> Any:
     result = await service.program(None)
     if result is None:
         return error_response(404, "not_found", "No games on the schedule.")
-    _mark_program(result, request)
+    await _mark_program(result, request)
     return respond(result)
 
 
@@ -65,7 +94,7 @@ async def program_game(game_id: str, request: Request) -> Any:
     result = await service.program(int(game_id))
     if result is None:
         return error_response(404, "not_found", "That game is not on our schedule.")
-    _mark_program(result, request)
+    await _mark_program(result, request)
     return respond(result)
 
 
@@ -155,7 +184,7 @@ async def team_page(school: str, request: Request) -> Any:
         return error_response(404, "not_found", f"No FBS team called {name}.")
     if (result.data.get("team") or {}).get("isUs"):  # Phase 16 (G3-05): our schedule rows open the Archive too
         mark_archived(result.data.get("schedule"), archived_ids(request))
-    result.data["facts"] = request.app.state.season_notes.facts_for((result.data.get("team") or {}).get("school") or name)  # the Prompts phase: school history
+    result.data["facts"] = facts_with_venue(request.app.state.season_notes.facts_for((result.data.get("team") or {}).get("school") or name), result.data.get("location"))  # the Prompts phase: school history; freeze wave F3: CFBD's stadium figures first
     # 2026-10-16: the season loads cover my teams only; a page of another team says so instead of pointing at Load data
     from app.api.season_notes import load_set
 

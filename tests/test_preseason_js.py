@@ -48,10 +48,10 @@ scenarios.page = async () => {
   const t = clean("preseason", main);
   assert.ok(t.includes("2026 preseason") && t.includes("isn't saved yet"), "the reminder");
   assert.ok(t.includes("preseason 1 of 2 teams") && t.includes("coaches 3 of 16") && t.includes("costs 0 of 16"));
-  assert.equal(main.querySelectorAll(".season-load__row").length, 5, "the one-paste row, two teams and two conferences; the damaged row is left out");
-  assert.ok(t.includes("Show each conference (2, 1 not loaded)"), "the conferences sit behind one button");
-  assert.ok(t.includes("Not loaded") && t.includes("80 birthdates, 22 staff"));
-  assert.ok(t.includes("Claude Code is working: 1 of 2 done") && t.includes("Small Pie: running"));
+  // freeze wave F3 (one fact, one source): the copy, paste and run of every batch live on the Load data page; this band counts and points
+  assert.equal(main.querySelectorAll(".season-load__row").length, 0, "no batch rows here any more");
+  assert.ok(t.includes("Preseason 1 of 2 primary teams") && t.includes("coaches 3 of 16 conferences"), t.slice(0, 400));
+  assert.ok(main.querySelector('#preseason-loads a[href="#prompts"]'), "the band leads to Load data");
   assert.ok(t.includes("A good year.") && t.includes("Gone Guy (WR): NFL draft, Round 2") && t.includes("Hurt Guy: Status not reported"));
   assert.ok(t.includes("HC Coach A · OC Coach B") && !t.includes("DC "));
   assert.ok(t.includes("Not loaded yet. Copy the prompt"), "the team with no load says how");
@@ -59,60 +59,22 @@ scenarios.page = async () => {
   view.unmount();
 };
 
-scenarios.save = async () => {
-  const sent = [];
-  globalThis.fetch = async (url, options = {}) => {
-    sent.push({ url: String(url), body: options.body ? JSON.parse(options.body) : null });
-    if (String(url).startsWith("/api/season-notes/save")) {
-      const body = JSON.parse(options.body);
-      if (body.text.includes("bad")) return { ok: false, status: 422, json: async () => ({ errors: [{ message: "The answer lists no teams." }] }) };
-      return { ok: true, status: 200, json: async () => ({ data: { saved: true, warnings: ["No staff for X."] } }) };
-    }
-    return { ok: true, status: 200, json: async () => ({ data: { prompt: "P" } }) };
-  };
+scenarios.loads = async () => {
+  // freeze wave F3: the loads band is a pointer to the Load data page, with the counts; no paste here
   const { loadsBand } = await import(moduleUrl("views/preseason.js"));
-  let changed = 0;
-  const node = loadsBand({ preseason: [{ school: "Home U" }], coaches: [] }, { commandFound: false }, () => { changed += 1; });
+  const node = loadsBand({ preseason: [{ school: "Home U" }], coaches: [], season: 2026, remind: true }, { commandFound: false }, () => {});
   document.body.append(node);
-  const clip = { text: "", wrote: null, canRead: true };
-  Object.defineProperty(globalThis, "navigator", { configurable: true, value: { clipboard: { readText: async () => { if (!clip.canRead) throw new Error("no"); return clip.text; }, writeText: async (v) => { clip.wrote = v; } } } });
-  const [copy, paste] = node.querySelectorAll(".season-load__row button");
-  assert.equal(text(copy), "Copy the prompt");
-  assert.equal(text(paste), "Paste the answer");
-  assert.equal(node.querySelectorAll("textarea").filter((b) => b.getAttribute("hidden") === null).length, 0, "no text box is open: the prompt is never shown, the paste needs no box");
-  paste.click();
-  await settle();
-  assert.ok(text(node).includes("There is nothing to paste yet"));
-  clip.text = "bad answer";
-  paste.click();
-  await settle();
-  assert.ok(text(node).includes("Not saved. The answer lists no teams."), text(node).slice(-200));
-  clip.text = "good answer";
-  paste.click();
-  await settle();
-  assert.ok(text(node).includes("Saved, with 1 note.") && text(node).includes("No staff for X.") && changed === 1);
-  assert.deepEqual(sent.filter((s) => s.body).map((s) => s.body.kind), ["season", "season"]);
-  copy.click();
-  await settle();
-  assert.ok(sent.some((s) => s.url.startsWith("/api/season-notes/prompt?kind=season&key=all")));
-  assert.equal(clip.wrote, "P", "the prompt went to the clipboard");
-  assert.ok(node.querySelectorAll("textarea").every((b) => b.getAttribute("hidden") !== null), "and was never shown");
-  // a browser that will not let the page read the clipboard (plain HTTP): one small box opens, and a paste into it saves by itself
-  clip.canRead = false;
-  const before = sent.filter((s) => s.body).length;
-  paste.click();
-  await settle();
-  const box = node.querySelectorAll("textarea").find((b) => b.getAttribute("hidden") === null);
-  assert.ok(box && text(node).includes("Press and hold in the box"));
-  box.dispatchEvent({ type: "paste", clipboardData: { getData: () => "a pasted answer" }, preventDefault() {} });
-  await settle();
-  assert.equal(sent.filter((s) => s.body).length, before + 1, "saved without another tap");
-  assert.ok(text(node).includes("Claude Code isn't installed"));
+  const t = clean("loads", node);
+  assert.ok(t.includes("isn't saved yet") && t.includes("Preseason 0 of 1 primary teams"), t);
+  assert.ok(node.querySelector('a[href="#prompts"]') && t.includes("Copy and paste each load there"), "Claude Code not found: copy and paste on Load data");
+  assert.equal(node.querySelectorAll("button").filter((b) => /Copy|Paste|Run/.test(text(b))).length, 0, "no Copy, Paste or Run buttons here (the band's fold button stays)");
+  const withClaude = loadsBand({ preseason: [], coaches: [] }, { commandFound: true }, () => {});
+  assert.ok(text(withClaude).includes("Copy, paste or run each load there"));
 };
 """
 
 
 @needs_node
-@pytest.mark.parametrize("scenario", ["page", "save"])
+@pytest.mark.parametrize("scenario", ["page", "loads"])
 def test_preseason_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)

@@ -113,6 +113,7 @@ export function playoffBlock(p, teamName = usSchool(), { sorts } = {}) {
     parts.push(el("div", { class: "bracket", style: { "--rounds": String(tables.length) } }, tables));
     parts.push(note("Seeds in parentheses, as the committee placed the field. Away team first; the score reads away-home."));
   }
+  if (data.picture && typeof data.picture === "object") parts.push(pictureBlock(data.picture, teamName)); // the picture, at the bottom of the band (new bands at the bottom, 2026-10-13)
   if (rankings.length) {
     parts.push(el("div", { class: "playoff__rankings" }, el("h4", { class: "d2-head" }, `Committee rankings${isNum(data.week) ? `, week ${data.week}` : ""}`), statTable({
       compact: true,
@@ -136,5 +137,92 @@ export function playoffSummary(p, teamName = usSchool()) {
   const rounds = records(p.rounds);
   const ours = rounds.flatMap((r) => records(r.games).filter((g) => g.isUs === true).map(() => text(r.round)));
   if (ours.length) return `${text(teamName)}: ${ours.join(", ")}`;
+  const line = p.picture && typeof p.picture === "object" && p.picture.us && typeof p.picture.us.line === "string" ? p.picture.us.line : "";
+  if (line) return line; // the picture's one line: "Swampwater Tech: the 7th seed, hosting (10) Red Clay"
   return isNum(p.usRank) ? `${text(teamName)} #${p.usRank} in the committee's rankings` : `${text(teamName)} unranked by the committee`;
+}
+
+// --- The playoff picture (owner 2026-10-20): if the season ended today, as a bracket ---------------------------------
+// A deliberate exception to tables-only: "a playoff bracket, like in most sports tournaments". Four rounds; stacked in a
+// narrow band, side by side with connector lines in a wide one (components.css .pic). The field's rules are the server's
+// (app/services/playoff.py picture): the five highest-ranked conference leaders in, seven at large, straight seeding,
+// seeds 1 to 4 with a bye, the first round at the higher seed's home.
+
+function moveChip(side) {
+  if (!isNum(side.seed)) return null;
+  if (!isNum(side.lastSeed)) return el("span", { class: "pic__move pic__move--new", title: "Not in last week's picture" }, "new");
+  if (side.lastSeed === side.seed) return null;
+  const up = side.lastSeed > side.seed;
+  const by = Math.abs(side.lastSeed - side.seed);
+  return el("span", { class: `pic__move ${up ? "pic__move--up" : "pic__move--down"}`, title: `Was the ${side.lastSeed} seed last week` }, `${up ? "up" : "down"} ${by}`);
+}
+
+/** One line of a game box: the seed, the logo and name, the champion's conference, the move since last week. */
+function picTeam(side, tbd) {
+  if (!side || typeof side !== "object" || !school(side)) {
+    return el("div", { class: "pic__team pic__team--tbd" }, el("span", { class: "pic__seed", "aria-hidden": "true" }, ""), el("span", { class: "pic__name" }, text(tbd || "To be decided")));
+  }
+  const name = school(side);
+  return el(
+    "div",
+    { class: `pic__team${side.isUs ? " pic__team--us" : ""}` },
+    el("span", { class: "pic__seed", title: `Seed ${isNum(side.seed) ? side.seed : DASH}` }, isNum(side.seed) ? String(side.seed) : DASH),
+    el("span", { class: "pic__name" }, logoLink(name, side)),
+    side.champion ? el("span", { class: "pic__champ", title: `${text(side.champion)} leader, in as a conference champion` }, text(side.conferenceShort || "champ")) : null,
+    moveChip(side),
+  );
+}
+
+function picGame(top, bottom, { slot, tbdTop, tbdBottom, classes = "" } = {}) {
+  return el("div", { class: `pic__game${classes ? ` ${classes}` : ""}` }, slot ? el("div", { class: "pic__slot" }, slot) : null, picTeam(top, tbdTop), picTeam(bottom, tbdBottom));
+}
+
+function picRound(title, kind, children) {
+  return el("div", { class: `pic__round pic__round--${kind}` }, el("h5", { class: "pic__head" }, title), el("div", { class: "pic__games" }, children));
+}
+
+const PIC_COLUMNS = [
+  { key: "conference", label: "Conference", kind: "text" },
+  { key: "school", label: "Leader today", kind: "text", render: (row) => logoLink(row.school, row), renderShort: (row) => teamAbbrLink(row.school, row.abbreviation) },
+  { key: "rank", label: "Rank", labelShort: "Rk", order: true, render: (row) => (isNum(row.rank) ? `${row.rank}${row.rankBasis && row.rankBasis !== "poll" ? ` (${row.rankBasis})` : ""}` : DASH) },
+  { key: "in", label: "Playoff", kind: "text", render: (row) => (row.in ? `in, the ${text(row.seed)} seed` : "out") },
+];
+
+export function pictureBlock(picture, teamName = usSchool()) {
+  const p = picture && typeof picture === "object" ? picture : {};
+  const b = p.bracket && typeof p.bracket === "object" ? p.bracket : {};
+  const first = records(b.firstRound);
+  const quarters = records(b.quarterfinals);
+  const byeSeed = (q) => (q.home && isNum(q.home.seed) ? q.home.seed : null);
+  const firstRound = first.map((g) => picGame(g.home, g.away, { slot: typeof g.label === "string" ? g.label : null, classes: g.home?.isUs || g.away?.isUs ? "pic__game--us" : "" }));
+  const quarterGames = quarters.map((q, i) => picGame(q.home, null, { slot: "Quarterfinal", tbdBottom: first[i] ? `Winner of (${text(first[i].home?.seed)}) v (${text(first[i].away?.seed)})` : "First-round winner", classes: q.home?.isUs ? "pic__game--us" : "" }));
+  const quarterPairs = [el("div", { class: "pic__pair" }, quarterGames.slice(0, 2)), el("div", { class: "pic__pair" }, quarterGames.slice(2, 4))];
+  const semiGames = [0, 2].map((i) => picGame(null, null, { slot: "Semifinal", tbdTop: `Winner of the (${text(byeSeed(quarters[i] || {}))}) game`, tbdBottom: `Winner of the (${text(byeSeed(quarters[i + 1] || {}))}) game` }));
+  const finalGame = picGame(null, null, { slot: "National championship", tbdTop: "Semifinal 1 winner", tbdBottom: "Semifinal 2 winner" });
+  const bracket = el(
+    "div",
+    { class: "pic__bracket", role: "group", "aria-label": "The playoff bracket if the season ended today" },
+    picRound("First round", "first", firstRound.length ? firstRound : [note("No field yet.")]),
+    picRound("Quarterfinals", "quarter", quarterPairs),
+    picRound("Semifinals", "semi", el("div", { class: "pic__pair" }, semiGames)),
+    picRound("Championship", "final", finalGame),
+  );
+  const champions = records(p.champions).map((row) => ({ ...row, conference: text(row.conference), rank: isNum(row.rank) ? row.rank : null }));
+  const names = (list) => records(list).map((t) => `(${isNum(t.seed) ? t.seed : isNum(t.rank) ? `#${t.rank}` : DASH}) ${text(school(t))}`).join(", ");
+  const lastIn = names(p.lastFourIn);
+  const firstOut = names(p.firstFourOut);
+  const fmt = p.format && typeof p.format === "object" ? p.format : {};
+  const line = p.us && typeof p.us.line === "string" ? p.us.line : "";
+  return el(
+    "div",
+    { class: "pic" },
+    el("h4", { class: "d2-head" }, `If the season ended today${isNum(p.week) ? `, by ${text(p.sourceLabel)} of week ${p.week}` : ""}`),
+    line ? el("p", { class: "pic__line" }, line) : null,
+    bracket,
+    el("p", { class: "note" }, `${isNum(fmt.teams) ? `${fmt.teams} teams: ` : ""}the ${isNum(fmt.autoBids) ? fmt.autoBids : "five"} highest-ranked conference leaders are in, the rest at large, seeded by the ranking; seeds 1 to ${isNum(fmt.byes) ? fmt.byes : 4} have a bye; first-round games at the higher seed's home. A leader is the best conference record today, then conference wins, then the overall record. Teams outside the Top 25 are ordered by SP+.`),
+    lastIn || firstOut ? el("p", { class: "note pic__edges" }, lastIn ? el("span", {}, el("b", {}, "Last four in: "), lastIn) : null, lastIn && firstOut ? " " : null, firstOut ? el("span", {}, el("b", {}, "First four out: "), firstOut) : null) : null,
+    champions.length
+      ? el("div", { class: "pic__champions" }, el("h5", { class: "pic__head" }, "Conference leaders today"), statTable({ compact: true, sizes: true, sortable: false, columns: PIC_COLUMNS, rows: champions, rowClass: (r) => (r.isUs ? "is-us" : null), caption: "Conference leaders if the season ended today" }))
+      : null,
+  );
 }

@@ -27,6 +27,8 @@ RATE_MAX = 30
 RATE_WINDOW = 60.0
 REPEAT_SECONDS = 300.0
 MAX_DEVICES = 50
+# The browser's own benign notices, never a fault of the app (freeze wave F1, B18: they filled the log at ERROR).
+NOISE = ("ResizeObserver loop completed with undelivered notifications", "ResizeObserver loop limit exceeded")
 
 
 class ClientReport(BaseModel):
@@ -73,6 +75,8 @@ async def client_log(request: Request) -> Any:
     except ValidationError as exc:
         first = exc.errors()[0] if exc.errors() else {}
         return error_response(422, "bad_report", f"{'.'.join(str(p) for p in first.get('loc', ())) or 'report'}: {first.get('msg', 'invalid')}")
+    if any(marker in report.message for marker in NOISE):
+        return envelope({"logged": False, "reason": "noise"})
     address = request.client.host if request.client else "unknown"
     device = _device(address)
     now = time.monotonic()

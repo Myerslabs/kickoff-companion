@@ -93,6 +93,7 @@ class PartFetcher:
     once, not on every page view."""
 
     MEMO_LIMIT = 40
+    PARSE_IN_THREAD_ROWS = 2000  # a list this long is validated in a worker thread
 
     def __init__(self, client: CfbdClient, concurrency: int = 4) -> None:
         self.client = client
@@ -114,7 +115,13 @@ class PartFetcher:
         key = (endpoint, tuple(sorted(fetched.params.items())), iso(fetched.fetched_at) or "")
         hit = self._memo.get(key)
         if hit is None:
-            parsed = parse_records(model, fetched.payload, context=name)
+            payload = fetched.payload
+            if isinstance(payload, list) and len(payload) >= self.PARSE_IN_THREAD_ROWS:
+                # The national lists (30,000 player rows) take a quarter second to validate: off the loop, so the streams
+                # and the live poll go on meanwhile (freeze wave F1, B4).
+                parsed = await asyncio.to_thread(parse_records, model, payload, context=name)
+            else:
+                parsed = parse_records(model, payload, context=name)
             hit = (parsed.records, parsed.skipped, parsed.problems)
             if len(self._memo) >= self.MEMO_LIMIT:
                 self._memo.pop(next(iter(self._memo)))

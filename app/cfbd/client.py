@@ -39,6 +39,7 @@ from app.cache import (
 )
 from app.cfbd.capabilities import Capabilities
 from app.cfbd.publish import PublicationLog, learn_game_days, schedule_for
+from app.cfbd.publish import lean as lean_schedule
 from app.cfbd.quota import QuotaBlocked, QuotaGuard, QuotaStatus
 from app.config import Settings
 from app.db import Database
@@ -67,6 +68,7 @@ BREAKER_OPEN_SECONDS = 60.0
 PROBE_STUCK_SECONDS = 60.0  # a half-open probe out longer than this is reported as stuck
 RECONCILE_TIMEOUT = 45.0
 EMPTY_WARN_AFTER = 6  # an hour of ten-minute refetches of one finished-game answer that stays empty
+ESSENTIAL_KINDS = frozenset({DataKind.TICKER, DataKind.SCHEDULE})  # allowed in RESTRICTED mode beside the live calls (freeze wave F2)
 EMPTY_WARN_EVERY = 36  # then a reminder every six hours while it still costs a call each time
 
 Source = Literal["live", "cache"]
@@ -267,12 +269,17 @@ class CfbdClient:
         self.breaker = Breaker("general")  # every call that is not live=True
         self.live_breaker = Breaker("live")  # the game-day poller's own lane
         self.capabilities = Capabilities()
+        self._scale = 1  # the cache-lifetime factor of the last quota status seen (freeze wave F2): above 1 is the free profile
         self.live_window = False
         self.ticker_ttl: timedelta | None = None  # the ticker's cadence, set by the ticker service (final pass)  # Phase 6's poller sets this inside a game window
         self.game_day = False  # Phase 3 sets this from the schedule
         # The live engine sets this to kickoff + 24 h after our game: until then CFBD may still
         # correct a finished game, so its answers are kept an hour instead of forever. UTC-aware.
         self.settle_until: datetime | None = None
+        # The settling game (freeze wave F2): {"gameId", "week", "seasonType"}, set with settle_until by the engine. Only its
+        # own answers follow the settle rule; another finished game's answer is permanent as ever. None means every answer
+        # (the rule before the game was named).
+        self.settle_game: dict[str, Any] | None = None
         self._clock = clock
         self._sleep = sleep
         self._locks: dict[str, asyncio.Lock] = {}
@@ -376,7 +383,12 @@ class CfbdClient:
                     return self._from_entry(entry, now, stale=False)
 
             try:
-                quota_status = self.quota.check(live=live, now=now, reconciling=endpoint == "/info")
+                # The slate and the schedule are essential (freeze wave F2): in RESTRICTED mode they go on with the live calls,
+                # so a free key, which has no live calls, still shows Saturday's scores in its last 10%.
+                quota_status = self.quota.check(live=live, now=now, reconciling=endpoint == "/info", essential=kind in ESSENTIAL_KINDS)
+                self._scale = self.ttl_scale(quota_status)
+                if schedule is not None and self._scale > 1:
+                    schedule = lean_schedule(schedule)  # the free profile looks once a week where the full one looks daily
             except QuotaBlocked as exc:
                 self.stats["blocked_by_quota"] += 1
                 if entry is not None:
@@ -422,7 +434,7 @@ class CfbdClient:
                 if schedule is not None:
                     ttl = await self._scheduled_ttl(schedule, key, endpoint, canonical, payload, now, asked=not prewarm)
                 else:
-                    ttl = self._ttl(kind, payload, now, quota_status)
+                    ttl = self._ttl(kind, payload, now, quota_status, endpoint=endpoint, params=canonical)
                 fetched_at = now
                 if use_cache and kind is DataKind.FINISHED_GAME:
                     self._count_empty_answer(key, payload)
@@ -462,11 +474,11 @@ class CfbdClient:
             return self._from_entry(entry, now, stale=True, error=reason)
         raise CfbdUnavailable(reason)
 
-    def _ttl(self, kind: DataKind, payload: Any, now: datetime, quota_status: QuotaStatus) -> timedelta | None:
+    def _ttl(self, kind: DataKind, payload: Any, now: datetime, quota_status: QuotaStatus, *, endpoint: str = "", params: dict[str, Any] | None = None) -> timedelta | None:
         """The lifetime of a fresh answer. Finished-game answers follow the settle rule and are never
         budget-scaled: ten minutes when empty, an hour while the game settles, then permanent."""
         if kind is DataKind.FINISHED_GAME:
-            return finished_game_ttl(payload, now, self._settle_until())
+            return finished_game_ttl(payload, now, self._settle_until() if self._settling(endpoint, params) else None, lean=quota_status is not None and self.ttl_scale(quota_status) > 1)
         ttl = ttl_for(kind, now.astimezone(self.settings.tzinfo), game_day=self.game_day)
         if kind is DataKind.TICKER and self.ticker_ttl is not None:
             ttl = self.ticker_ttl  # final pass: the ticker service sets its cadence (5 min paid, 20 min Free), so the slate is not refetched at 5 on the Free tier
@@ -506,6 +518,22 @@ class CfbdClient:
                 count,
             )
 
+    def _settling(self, endpoint: str, params: dict[str, Any] | None) -> bool:
+        """Whether a finished-game key belongs to the game that is settling: by game id for the keys that carry one, by
+        week (and season type) for the week-keyed box scores, and everything while no game is named."""
+        scope = self.settle_game
+        if not isinstance(scope, dict):
+            return True
+        params = params or {}
+        game_id = params.get("id", params.get("gameId"))
+        if game_id is not None:
+            return str(game_id) == str(scope.get("gameId"))
+        week = params.get("week")
+        if week is not None:
+            season_type = str(params.get("seasonType", "regular"))
+            return str(week) == str(scope.get("week")) and season_type == str(scope.get("seasonType") or "regular")
+        return True
+
     def _settle_until(self) -> datetime | None:
         """settle_until as a UTC-aware datetime; a naive one is read as UTC, anything else is ignored."""
         value = self.settle_until
@@ -525,7 +553,7 @@ class CfbdClient:
         if not entry.is_fresh(now):
             return False
         age = entry.age_seconds(now)
-        if kind is DataKind.FINISHED_GAME and is_empty_payload(entry.payload) and age >= finished_game_empty_ttl(now, self._settle_until()).total_seconds():
+        if kind is DataKind.FINISHED_GAME and is_empty_payload(entry.payload) and age >= finished_game_empty_ttl(now, self._settle_until() if self._settling(entry.endpoint, entry.params) else None, lean=self._scale > 1).total_seconds():
             return False
         return max_age is None or age <= max_age.total_seconds()
 
@@ -607,16 +635,28 @@ class CfbdClient:
             now = self._clock()
             if self._closed:
                 return self.quota.status(now)
-            self.quota.mark_reconcile_attempt(now)
             if payload is not None:
+                self.quota.mark_reconcile_attempt(now)
                 return self._apply_info(payload, now)
+            # The attempt is marked after the call, not before (freeze wave F1, B1): the guard lets /info through in
+            # EXHAUSTED mode only when the last attempt is an hour old, and marking first made that never true, so a key
+            # the local ledger had written off could not be corrected by CFBD until the month turned.
             try:
                 await asyncio.wait_for(self.info(), timeout=RECONCILE_TIMEOUT)  # a good answer applies itself
             except (TimeoutError, CfbdError) as exc:
                 log.warning("Quota check with /info failed: %s", exc)
+            except QuotaBlocked as exc:
+                log.info("Quota check with /info waits: %s", exc)
             except RuntimeError as exc:  # the HTTP client was closed underneath us
                 log.info("Quota check skipped: %s", exc)
+            finally:
+                self.quota.mark_reconcile_attempt(now)
             return self.quota.status(self._clock())
+
+    @property
+    def lean_profile(self) -> bool:
+        """The free profile, as of the last quota status seen (freeze wave F2): lifetimes stretched, schedules lean."""
+        return self._scale > 1
 
     def _apply_info(self, payload: Any, now: datetime) -> QuotaStatus:
         self.capabilities.update_from_info(payload, now)
@@ -628,6 +668,7 @@ class CfbdClient:
             raw=payload,
             now=now,
         )
+        self._scale = self.ttl_scale(status)
         log.info(
             "Quota reconciled with CFBD: %s of %s calls left this month, tier %s, mode %s, cache lifetimes x%d",
             f"{status.remaining:,}" if status.reconciled else "unknown",
@@ -829,7 +870,17 @@ class CfbdClient:
         try:
             self._reconcile_task = asyncio.get_running_loop().create_task(self.reconcile())
         except RuntimeError:
-            pass
+            return
+        self._reconcile_task.add_done_callback(_log_failed_task)
+
+
+def _log_failed_task(task: asyncio.Task[Any]) -> None:
+    """A background task's exception goes to the log at once, not to "Task exception was never retrieved" at garbage collection."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        log.error("The quota check task failed: %s: %s", exc.__class__.__name__, exc)
 
 
 def _lane_stats() -> dict[str, Any]:

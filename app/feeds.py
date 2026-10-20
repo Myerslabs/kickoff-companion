@@ -38,6 +38,7 @@ import httpx
 
 from app.http import shared_ssl_context
 from app.httpcap import get_capped
+from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.feeds")
 
@@ -417,7 +418,7 @@ class SeasonArchive:
         del rows[SEASON_ARCHIVE_LIMIT:]
         if added:
             try:
-                self._path(season).write_text(json.dumps({"season": int(season), "headlines": rows}, ensure_ascii=False), encoding="utf-8")
+                atomic_write(self._path(season), json.dumps({"season": int(season), "headlines": rows}, ensure_ascii=False))  # never a half-written season file (freeze wave F1, B6)
             except OSError as exc:
                 log.warning("Could not store the season's headlines: %s", exc)
             for old in self.dir.glob("season-*.json"):

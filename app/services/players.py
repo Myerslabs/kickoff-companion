@@ -48,6 +48,46 @@ from app.services.profiles import tie_ranks
 from app.services.season_notes import SeasonNotes
 from app.services.stats_extra import blue_chip, ppa_game_rows, ppa_season_rows, recruit_block, usage_rows  # Phase 10
 
+
+def _name_key(name: Any) -> str:
+    """lineup_stats' name_key, imported late: that module imports Line from here."""
+    from app.services.lineup_stats import name_key
+
+    return name_key(name)
+
+
+def lineup_orders(lineup: Any) -> dict[str, Any]:
+    """Each player's place on a published chart (freeze wave F3): {"names": {"k crawford": 1, ...}, "numbers": {"#12": (1, "k crawford")}},
+    the best place when a name is on two slots (a returner who also starts at receiver). Names through name_key, as the
+    lineup stats match them; the number carries the chart's name beside it, so a roster with two number 7s (one on each
+    unit) badges the right one."""
+    names: dict[str, int] = {}
+    numbers: dict[str, tuple[int, str]] = {}
+    for slot in getattr(lineup, "slots", None) or []:
+        for place, player in enumerate(getattr(slot, "players", None) or [], start=1):
+            key = _name_key(getattr(player, "name", None))
+            if key and place < names.get(key, 99):
+                names[key] = place
+            number = getattr(player, "number", None)
+            if isinstance(number, int) and not isinstance(number, bool) and place < numbers.get(f"#{number}", (99, ""))[0]:
+                numbers[f"#{number}"] = (place, key)
+    return {"names": names, "numbers": numbers}
+
+
+def depth_for(orders: dict[str, Any], number: Any, name: Any, roster_keys: set[str]) -> int | None:
+    """A roster player's place on the chart: by his name; by his number only when the chart's name at that number is nobody the
+    roster knows (a spelling the roster lacks), never when it names another player."""
+    key = _name_key(name)
+    place = orders.get("names", {}).get(key) if key else None
+    if place is not None:
+        return place
+    if isinstance(number, int) and not isinstance(number, bool):
+        entry = orders.get("numbers", {}).get(f"#{number}")
+        if entry is not None and (not entry[1] or entry[1] not in roster_keys):
+            return entry[0]
+    return None
+
+
 log = logging.getLogger("kickoff.players")
 PPA_MIN_PLAYS = 50  # a season PPA average means little under this many plays (the national board)
 PPA_MIN_PLAYS_TEAM = 10
@@ -553,6 +593,7 @@ class PlayerService:
             *page_fetches(self.fetcher, self.year, returning=False),  # Phase 16 NV: the blue-chip rank, the list's own keys
         )
         portal_part = await self.fetcher.fetch("portal", "/player/portal", {"year": self.year}, PlayerTransfer, DataKind.SEASON_STATS)
+        schedule_part = await self.fetcher.fetch("schedule", "/games", {"year": self.year, "team": self.team}, Game, DataKind.SCHEDULE)  # the key every page shares: no new call
         parts: dict[str, Part] = {"roster": roster_part, "teams": teams_part, "team": team_part, "ppaSeason": ppa_part, "usage": usage_part, "portal": portal_part}
         for part in recruit_parts:  # the team's classes, then the nationwide classes behind the blue-chip rank
             parts[part.name] = part
@@ -561,9 +602,16 @@ class PlayerService:
         ppa_by_id = {r["playerId"]: r for r in ppa_season_rows(ppa_part.records, self.team)}
         usage_by_id = {r["playerId"]: r for r in usage_rows(usage_part.records, self.team)}
         transfers = portal_index(portal_part.records, self.team)
+        # Freeze wave F3 (one fact, one source): the coaches' chart of record is the next game's notes; its order is badged on
+        # the Roster page's position groups (1 the starter, 2 the next man), matched by number, else by name.
+        next_game, _opponent = self._next_game(schedule_part.records)
+        notes, _error = load_notes(self.settings.data_dir, next_game.id if next_game else None)
+        orders = lineup_orders(notes.lineups.us if notes and notes.lineups else None)
+        roster_keys = {_name_key(p.get("name")) for p in players if _name_key(p.get("name"))}
         for p in players:
             p["isUs"] = True  # Phase 16 (LRP-07): the roster is ours, so a card opened from it is never "them"
             p["transfer"] = transfer_for(transfers, p["firstName"], p["lastName"])  # Phase 13: where a transfer came from
+            p["depth"] = depth_for(orders, p.get("number"), p.get("name"), roster_keys)
             p["ppaPerPlay"] = (ppa_by_id.get(p["playerId"]) or {}).get("all")
             p["ppaPlays"] = (ppa_by_id.get(p["playerId"]) or {}).get("plays")
             p["usageShare"] = (usage_by_id.get(p["playerId"]) or {}).get("overall")

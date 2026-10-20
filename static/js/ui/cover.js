@@ -34,7 +34,7 @@
 //   countdownParts(kickoffIso, now), openingLine(spreadOpen, spread, homeName, awayName)   as before.
 
 import { usLabel } from "../identity.js";
-import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLink, teamLogo, text } from "./dom.js";
+import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { pollBadge } from "./stat-table.js";
 import { listLink } from "./two-team.js";
@@ -43,8 +43,7 @@ import { fillWiki, wikiLink } from "./wiki-links.js";
 const SOON_MS = 60 * 60 * 1000;
 
 function record(rec) {
-  if (!rec || !isNum(rec.wins) || !isNum(rec.losses)) return "–";
-  return rec.ties ? `${rec.wins}-${rec.losses}-${rec.ties}` : `${rec.wins}-${rec.losses}`;
+  return sharedRecord(rec) ?? "–"; // freeze wave F3: the one formatter (ui/dom.js), ties shown the same everywhere
 }
 
 function isHash(href) {

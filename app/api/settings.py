@@ -3,6 +3,7 @@ switch. Secrets never appear here."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 from urllib.parse import urlsplit
@@ -120,7 +121,7 @@ async def put_settings(request: Request) -> Any:
     errors: list[dict[str, str]] = []
     after = prefs.as_dict()
     if after["autoStart"] != before["autoStart"] or (after["autoStart"] and after["trayMode"] != before["trayMode"]):
-        result = launcher.set_enabled(after["autoStart"], tray=after["trayMode"])
+        result = await asyncio.to_thread(launcher.set_enabled, after["autoStart"], tray=after["trayMode"])  # PowerShell takes seconds: off the loop (freeze wave F1, B5)
         if result.get("error"):
             errors.append({"code": "autostart_failed", "message": result["error"]})
     if after.get("awayFromHome") != before.get("awayFromHome"):
@@ -189,7 +190,7 @@ async def desktop_shortcut(request: Request) -> Any:
         return error_response(403, "not_here", "Make the Desktop icon from the server computer itself.")
     prefs: PrefsStore = request.app.state.prefs
     launcher: Launcher = request.app.state.launcher
-    result = launcher.desktop_shortcut(tray=prefs.prefs.trayMode)
+    result = await asyncio.to_thread(launcher.desktop_shortcut, tray=prefs.prefs.trayMode)  # off the loop (freeze wave F1, B5)
     if result.get("error"):
         return error_response(500, "shortcut_failed", result["error"])
     return envelope(result, source="live")

@@ -116,9 +116,19 @@
         var mine = run;
         setTimeout(function () { ask(0, mine); }, delay);
       }
-      function fail() {
+      // A loading screen that stays tells the server why (kickoff.client in the log), with the device's browser, so a
+      // phone that shows nothing can be understood from the server (tester 2026-10-19: an iPhone's screen stayed black).
+      function report(reason) {
+        try {
+          if (typeof fetch !== "function" || typeof JSON === "undefined") return;
+          var body = JSON.stringify({ level: "warn", kind: "boot", message: "The app did not draw: " + reason, page: window.location.hash || "/", agent: navigator.userAgent });
+          fetch("/api/client-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: body, keepalive: true }).catch(function () {});
+        } catch (e) { /* the report is a courtesy */ }
+      }
+      function fail(reason) {
         if (failed || drawn()) return;
         failed = true;
+        report(reason || "no reason given");
         var main = document.querySelector("main.boot");
         if (main) { main.setAttribute("aria-busy", "false"); main.setAttribute("aria-label", "Could not load"); }
         var bands = document.querySelectorAll("main.boot .band");
@@ -132,12 +142,12 @@
           say("Could not load", "offline", "Reload to try again. If it keeps happening, check the server's window on the server computer.");
         }
       }
-      window.kickoffBootFailed = fail;
+      window.kickoffBootFailed = function () { fail("one of the app's script files did not arrive or did not run"); };
       window.kickoffBootReload = function () {
         say("Waiting for the server", "quiet", "It reloads by itself as soon as the server answers.");
         startAsking(0);
       };
-      setTimeout(fail, WAIT_MS);
+      setTimeout(function () { fail("the Menu was not drawn within " + (WAIT_MS / 1000) + " s"); }, WAIT_MS);
     })();
   </script>
   <script type="module" src="/static/js/app.js" onerror="window.kickoffBootFailed &amp;&amp; window.kickoffBootFailed()"></script>

@@ -113,8 +113,11 @@ class QuotaGuard:
         raw: Any,
         now: datetime,
     ) -> QuotaStatus:
-        """Store what /info said. remaining None means the endpoint gave no usable number."""
+        """Store what /info said. remaining None means the endpoint gave no usable number. The ledger rows older than last
+        month go at the same time (freeze wave F1, B3): the table grew by every call for the life of the install, and the
+        "calls since the reconcile" count on every call walked it."""
         with self.db.transaction() as conn:
+            conn.execute("DELETE FROM quota_calls WHERE month < ?", (month_of(now.replace(day=1) - timedelta(days=1)),))
             conn.execute(
                 "INSERT OR REPLACE INTO quota_reconcile (id, at, month, remaining, budget, tier_level, tier_name, raw)"
                 " VALUES (1, ?, ?, ?, ?, ?, ?, ?)",
@@ -139,19 +142,46 @@ class QuotaGuard:
 
     # --- decisions ----------------------------------------------------------------
 
-    def check(self, *, live: bool, now: datetime, reconciling: bool = False) -> QuotaStatus:
-        """Raise QuotaBlocked when the call must not happen. Returns the status otherwise."""
+    def check(self, *, live: bool, now: datetime, reconciling: bool = False, essential: bool = False) -> QuotaStatus:
+        """Raise QuotaBlocked when the call must not happen. Returns the status otherwise. `essential` marks the week's
+        slate and the schedule (freeze wave F2): they go on in RESTRICTED mode like the live calls, so a free key, which
+        has no live calls, still shows Saturday's scores in its last 10%; EXHAUSTED stops them too."""
         status = self.status(now)
         if status.mode is QuotaMode.EXHAUSTED:
             if reconciling and self._reconcile_allowed_when_exhausted(now):
                 return status
             raise QuotaBlocked(f"CFBD quota exhausted: {status.reason}. Calls resume next month.")
-        if status.mode is QuotaMode.RESTRICTED and not live:
+        if status.mode is QuotaMode.RESTRICTED and not (live or essential):
             raise QuotaBlocked(
-                f"CFBD quota at {status.pct_used:.0f}% of the monthly budget: only live-game calls are"
-                " allowed until next month."
+                f"CFBD quota at {status.pct_used:.0f}% of the monthly budget: only live-game calls, the week's slate and"
+                " the schedule are allowed until next month."
             )
         return status
+
+    # --- where the calls go (freeze wave F2) ---------------------------------------------------------
+
+    def breakdown(self, now: datetime, *, days: int = 31) -> dict[str, Any]:
+        """This month's ledger by endpoint and by day, for the status page: how this install spends its calls."""
+        month = month_of(now)
+        with self.db.read() as conn:
+            by_endpoint = [
+                {"endpoint": row["endpoint"], "calls": int(row["calls"]), "live": int(row["live"] or 0), "failed": int(row["failed"] or 0)}
+                for row in conn.execute(
+                    "SELECT endpoint, COUNT(*) AS calls, SUM(live) AS live, SUM(CASE WHEN ok THEN 0 ELSE 1 END) AS failed"
+                    " FROM quota_calls WHERE month = ? GROUP BY endpoint ORDER BY calls DESC, endpoint",
+                    (month,),
+                )
+            ]
+            by_day = [
+                {"day": row["day"], "calls": int(row["calls"]), "live": int(row["live"] or 0)}
+                for row in conn.execute(
+                    "SELECT substr(at, 1, 10) AS day, COUNT(*) AS calls, SUM(live) AS live FROM quota_calls WHERE month = ?"
+                    " GROUP BY day ORDER BY day DESC LIMIT ?",
+                    (month, int(days)),
+                )
+            ]
+        total = sum(row["calls"] for row in by_endpoint)
+        return {"month": month, "total": total, "live": sum(row["live"] for row in by_endpoint), "byEndpoint": by_endpoint, "byDay": by_day}
 
     def should_reconcile(self, now: datetime, *, live_window: bool) -> bool:
         last = self.last_reconcile_attempt
@@ -213,8 +243,15 @@ class QuotaGuard:
         else:
             mode = QuotaMode.NORMAL
 
-        basis = "CFBD's remaining-calls figure" if reconciled else "the local ledger only (not reconciled yet)"
-        reason = f"{used:,} of {budget:,} calls used this month ({pct:.0f}%), {remaining:,} left, based on {basis}"
+        # Plain words (tester 2026-10-19: "out of calls" on a new free key, with nothing saying whose count that was).
+        reset_note = f"; resets {reset_at[:10]}" if reset_at else ""
+        if reconciled and int(rec["remaining"]) <= 0:
+            reason = f"CFBD reports no calls left on this key this month ({budget:,} a month{reset_note}), based on CFBD's remaining-calls figure; the app asks again every hour"
+        elif reconciled:
+            made = f", less the {since:,} made since" if since else ""
+            reason = f"{used:,} of {budget:,} calls used this month ({pct:.0f}%), {remaining:,} left, based on CFBD's remaining-calls figure{made}{reset_note}"
+        else:
+            reason = f"{used:,} of {budget:,} calls used this month ({pct:.0f}%), {remaining:,} left, based on the app's own count (not reconciled yet with CFBD)"
         return QuotaStatus(
             month=month,
             mode=mode,

@@ -188,6 +188,7 @@ def archive_service(tmp_path: Path, games: list[SimpleNamespace]) -> tuple[Archi
 
     async def game(game_id):
         fetched.append(game_id)
+        return {"data": {"gameId": game_id}, "stale": False, "errors": []}  # what ArchiveService.game answers (a dict)
 
     service._schedule = schedule
     service.game = game
@@ -218,7 +219,36 @@ def test_archive_refresh_survives_a_failing_game_and_tries_again_later(tmp_path)
 
     service.game = broken
     assert asyncio.run(service.refresh_finished(NOW)) == []
-    assert service._refreshed() == {}
+    assert "1" not in service._refreshed() and "tried:1" in service._refreshed()
+    # Freeze wave F1, B2: the attempt is noted and not repeated on the next tick (a minute later), only six hours on.
+    calls = 0
+
+    async def counting(_game_id):
+        nonlocal calls
+        calls += 1
+        raise RuntimeError("down")
+
+    service.game = counting
+    assert asyncio.run(service.refresh_finished(NOW + timedelta(minutes=1))) == [] and calls == 0
+    assert asyncio.run(service.refresh_finished(NOW + timedelta(hours=7))) == [] and calls == 1
+
+
+def test_archive_refresh_that_answers_with_errors_keeps_the_old_copies(tmp_path):
+    # Freeze wave F1, B2: game() answers a dict; one that carries errors is not complete, so the game is not marked refreshed
+    # and the copies kept aside are put back (the old code read the dict with getattr and always called it complete).
+    service, cache, fetched = archive_service(tmp_path, [a_game(1, NOW - timedelta(days=3))])
+    kept = SimpleNamespace(endpoint="/metrics/wp", params={"gameId": "1"}, payload=[{"x": 1}], fetched_at=NOW - timedelta(days=1), expires_at=None)
+    cache.get = lambda key: kept if key == "/metrics/wp?gameId=1" and key not in cache.deleted else None  # gone once deleted
+
+    async def partial(game_id):
+        fetched.append(game_id)
+        return {"data": {}, "stale": True, "errors": [{"code": "analytics_failed", "message": "analytics: TimeoutError"}]}
+
+    service.game = partial
+    assert asyncio.run(service.refresh_finished(NOW)) == []
+    assert fetched == [1]
+    assert "1" not in service._refreshed() and "tried:1" in service._refreshed()
+    assert cache.restored == ["/metrics/wp?gameId=1"]
 
 
 # --- the clock changes -----------------------------------------------------------------------------------------

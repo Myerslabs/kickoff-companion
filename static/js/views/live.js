@@ -50,7 +50,6 @@ import { noteBuild } from "../build.js";
 import { fetchJson } from "./common.js";
 import { openPlayer } from "./player.js";
 
-const DELAY_KEY = "live:delay";
 const DEFAULT_DELAY = 30;
 const STATUS_POLL_MS = 60 * 1000;
 const FALLBACK_POLL_MS = 15 * 1000;
@@ -254,7 +253,7 @@ const BOARD_STEP_MS = 2200; // one row every couple of seconds
 const BOARD_REST_MS = 5000; // the pause at the end before the pane returns to the top
 
 export function createLiveView({ onStatus, board = false } = {}) {
-  const savedDelay = Number(getPrefs().delaySeconds ?? recall(DELAY_KEY, DEFAULT_DELAY));
+  const savedDelay = Number(getPrefs().delaySeconds ?? DEFAULT_DELAY); // the server's prefs always carry a delay; the device memory that was read here was never reached (freeze wave F1, F15)
   const state = {
     delay: isNum(savedDelay) && savedDelay >= 0 && savedDelay <= 120 ? clampDelay(savedDelay) : DEFAULT_DELAY,
     mode: "pregame", // pregame, live, postgame
@@ -699,7 +698,6 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const next = clampDelay(value);
     if (next === null || next === state.delay) return; // nothing changed: no reconnect
     state.delay = next;
-    remember(DELAY_KEY, next);
     if (state.delayButton) state.delayButton.textContent = delayLabel();
     savePrefs({ delaySeconds: next }).catch((error) => console.warn(`In Game: the delay is kept on this device only; the server did not save it: ${error?.message || error}`));
     if (!container) return; // a nudge that settled after the sheet closed is saved, nothing more
@@ -1527,6 +1525,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     try {
       const envelope = await fetchJson(`/api/live/state?delay=${state.delay}`);
       if (!container || !state.errors) return; // the stream came back while this was in flight
+      if (state.heldFor !== null && state.heldFor !== undefined) return; // the held final is the sheet now; the engine's state is not (freeze wave F1, F6)
       const data = envelope?.data;
       state.polled = true;
       if (data && typeof data === "object" && !Array.isArray(data) && data.gameId) {
@@ -1587,6 +1586,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
         state.mode = "live";
         connect();
       } else if (!open && held && (state.mode === "pregame" || String(state.heldFor ?? "") === String(held.gameId) || String(state.live?.gameId ?? "") === String(held.gameId)) && state.live?.status !== "final") {
+        disconnect(); // a stream that was down stays down, and its fallback poll stops, so nothing overwrites the held final (freeze wave F1, F6)
+        state.errors = 0;
         await loadHeld(); // a fresh sheet, or one still mid-game on the held game (a restart cut its stream): the final at its delay
       } else if (!open && !held && !replayed(data) && (state.heldFor !== null && state.heldFor !== undefined || state.live?.status === "final" || sheetGameOver())) {
         await letGo();
@@ -1686,6 +1687,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
       state.statusTimer = state.tickerTimer = state.watchTimer = null;
       clearTimeout(state.analyticsTimer);
       state.analyticsTimer = null;
+      clearTimeout(state.heldTimer); // freeze wave F1, F9
+      state.heldTimer = null;
       releaseWakeLock();
       if (state.tickerNode && typeof state.tickerNode.destroy === "function") state.tickerNode.destroy();
       state.tickerNode = null;

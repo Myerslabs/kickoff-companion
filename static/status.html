@@ -90,6 +90,20 @@
       </dl>
     </section>
 
+    <section class="panel panel--table" aria-labelledby="h-calls">
+      <h2 id="h-calls">Where the calls go</h2>
+      <p class="note" id="calls-note">This month's CFBD calls by endpoint, from the app's own ledger: what the month is spent on, and how a free key's 1,000 fit.</p>
+      <table class="checks">
+        <thead>
+          <tr><th scope="col">Endpoint</th><th scope="col">Calls</th><th scope="col"><span class="checks__long">Of which live</span><span class="checks__short">Live</span></th><th scope="col" class="checks__rule">Failed</th></tr>
+        </thead>
+        <tbody id="calls-body">
+          <tr><td><span class="skel"></span></td><td><span class="skel skel-label"></span></td><td><span class="skel skel-label"></span></td><td class="checks__rule"><span class="skel skel-label"></span></td></tr>
+        </tbody>
+      </table>
+      <p class="note" id="calls-days"></p>
+    </section>
+
     <section class="panel panel--table" aria-labelledby="h-published">
       <h2 id="h-published">Published data</h2>
       <p class="note">Data CFBD changes on a weekly rhythm is kept until its next update time, then asked for again (the polls and weekly ratings by the server itself, so pages open without a call). Times are yours; each change CFBD makes is logged below with how long after the update time it landed.</p>

@@ -83,10 +83,26 @@ function render(envelope, container, state) {
     games.length
       ? games.map((game, index) => gameBand(game, index, { isUs: data.isUs === true, team }))
       : band({ id: "injuries-none", title: "Injury Report", collapsible: false, state: emptyState(data), errorLead: "Could not load the schedule." }),
-    el("p", { class: "note flow-full" }, "From the availability reports in each game's notes (the conference's report where it publishes one). Newest week first."),
+    seasonLongBand(data), // freeze wave F3: the preseason load's season-long injuries, at the bottom
+    el("p", { class: "note flow-full" }, "From the availability reports in each game's notes (the conference's report where it publishes one). Newest week first. Season-long injuries and suspensions from the preseason load are at the end."),
   );
   // each game's report spans two columns where there are two or more (wave 3): a table with a column of notes needs the room
-  mountFlow(state.ui, container, page, { chips: games.length > 1, wide: games.map((game) => `injuries-${game.gameId}`) });
+  mountFlow(state.ui, container, page, { chips: games.length > 1, wide: [...games.map((game) => `injuries-${game.gameId}`), "injuries-season"] });
+}
+
+/** The preseason load's "Injuries and suspensions" (freeze wave F3): the same table kit as a game's report, once, at the end. */
+function seasonLongBand(data) {
+  const rows = records(data.seasonLong);
+  if (!rows.length) return null;
+  return band({
+    id: "injuries-season",
+    title: "Season-long",
+    collapsible: false,
+    foldable: true,
+    summary: `${rows.length} from the preseason load`,
+    state: { status: "ready" },
+    body: () => el("div", {}, availabilityTable({ rows, showTeam: false }), el("p", { class: "note" }, "From the preseason load's injuries and suspensions, as of the season's start; a week's report above says more when it names the player.")),
+  });
 }
 
 export function createInjuriesView({ onStatus } = {}) {

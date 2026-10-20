@@ -19,7 +19,7 @@
 import { isUs } from "../identity.js";
 import { ageSeconds, fetchPatient } from "../views/common.js";
 import { teamBarColors } from "./colors.js";
-import { DASH, el, fmtDateTime, fmtStat, isNum, obj, records, teamLink, teamLogo, text } from "./dom.js";
+import { DASH, el, fmtDateTime, fmtStat, isNum, obj, records, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
 import { band, stateBlock } from "./states.js";
@@ -33,9 +33,7 @@ function name(value) {
 }
 
 function recordText(record) {
-  const r = obj(record);
-  if (!isNum(r.wins) || !isNum(r.losses)) return null;
-  return isNum(r.ties) && r.ties > 0 ? `${r.wins}-${r.losses}-${r.ties}` : `${r.wins}-${r.losses}`;
+  return sharedRecord(record); // freeze wave F3: the one formatter (ui/dom.js)
 }
 
 function fbsCount(data) {

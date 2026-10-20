@@ -10,7 +10,6 @@
 import { el, fmtDate, fmtUsd, isNum, obj, str, teamLogo, text } from "../ui/dom.js";
 import { band, note, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
-import { promptPaste } from "../ui/prompt-paste.js";
 import { fillWiki, wikiLink } from "../ui/wiki-links.js";
 import { errorPanel, fetchJson, poller } from "./common.js";
 
@@ -31,69 +30,6 @@ async function send(url, body) {
 }
 
 /** One batch's row: what's saved, then Copy the prompt and Paste the answer (Phase 19: the prompt is never shown). */
-function batchRow({ kind, key, label, detail, savedAt, onSaved }) {
-  return el(
-    "li",
-    { class: "season-load__row" },
-    el("div", { class: "season-load__head" }, el("b", {}, text(label)), el("span", { class: `season-load__state${savedAt ? " season-load__state--saved" : ""}` }, savedAt ? `Saved ${fmtDate(savedAt, "short")}` : "Not loaded"), detail ? el("small", {}, detail) : null),
-    promptPaste({
-      label,
-      getPrompt: async () => {
-        const data = await fetchJson(`/api/season-notes/prompt?kind=${encodeURIComponent(kind)}&key=${encodeURIComponent(key)}`);
-        return typeof data?.data?.prompt === "string" ? data.data.prompt : "";
-      },
-      saveAnswer: (value) => send("/api/season-notes/save", { kind, key, text: value }),
-      onSaved: () => {
-        if (typeof onSaved === "function") onSaved();
-      },
-    }),
-  );
-}
-
-const STATE_WORDS = { waiting: "waiting", running: "running…", saved: "saved", failed: "failed", stopped: "stopped" };
-
-function runBlock(run, kind, onChange) {
-  const r = obj(run);
-  if (r.commandFound !== true) return null; // said once at the top of the band
-  const mine = r.kind === kind ? list(r.batches) : [];
-  const said = el("span", { class: "note season-load__said", role: "status" }); // final pass: a refused run says why, on the page
-  const start = (missingOnly) => el("button", {
-    class: missingOnly ? "btn btn--primary" : "btn", type: "button", disabled: r.running ? true : null,
-    onclick: async () => {
-      said.textContent = "";
-      try {
-        await send("/api/season-notes/run", { kind, missingOnly });
-      } catch (error) {
-        console.warn("The run did not start.", error?.message || error);
-        said.textContent = `The run did not start: ${error?.message || error}`;
-      }
-      if (typeof onChange === "function") onChange();
-    },
-  }, missingOnly ? "Run the missing with Claude Code" : "Run all again");
-  return el(
-    "div",
-    { class: "season-load__run" },
-    el("div", { class: "season-load__tools" }, start(true), start(false)),
-    said,
-    r.running && r.kind === kind ? el("p", { class: "note", role: "status" }, `Claude Code is working: ${isNum(r.done) ? r.done : 0} of ${isNum(r.of) ? r.of : mine.length} done. Each batch takes a few minutes.`) : null,
-    mine.length ? el("ul", { class: "season-load__runlist" }, mine.map((b) => el("li", { class: `season-load__runitem is-${text(b.state)}` }, `${text(b.key)}: ${STATE_WORDS[b.state] || text(b.state)}${str(b.error) ? ` (${b.error})` : ""}`))) : null,
-  );
-}
-
-/** The conferences behind one button: about a dozen rows would push the teams far down the page. */
-function conferenceList(coaches, onChange, kind = "coaches") {
-  const missing = coaches.filter((c) => !str(c.savedAt)).length;
-  const rows = el("ul", { class: "season-load__list", hidden: "" }, coaches.map((c) => batchRow({ kind, key: c.conference, label: c.conference, savedAt: str(c.savedAt), detail: `${isNum(c.saved) ? c.saved : 0} of ${isNum(c.schools) ? c.schools : 0} teams`, onSaved: onChange })));
-  const toggle = el("button", { class: "btn btn--quiet", type: "button", "aria-expanded": "false", onclick: () => {
-    const opening = rows.getAttribute("hidden") !== null;
-    if (opening) rows.removeAttribute("hidden");
-    else rows.setAttribute("hidden", "");
-    toggle.setAttribute("aria-expanded", opening ? "true" : "false");
-    toggle.textContent = opening ? "Hide the conferences" : `Show each conference (${coaches.length}${missing ? `, ${missing} not loaded` : ""})`;
-  } }, `Show each conference (${coaches.length}${missing ? `, ${missing} not loaded` : ""})`);
-  return coaches.length ? el("div", {}, toggle, rows) : null;
-}
-
 export function loadsBand(status, run, onChange) {
   const s = obj(status);
   const pre = list(s.preseason);
@@ -110,31 +46,15 @@ export function loadsBand(status, run, onChange) {
     collapsed: complete, // everything loaded: folded out of the way of the teams (a remembered fold still wins)
     summary: `preseason ${savedTeams} of ${pre.length} teams · coaches ${isNum(s.coachesSaved) ? s.coachesSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0} · costs ${isNum(s.costsSaved) ? s.costsSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0}`,
     state: { status: "ready" },
+    // Freeze wave F3 (one fact, one source): the copy, paste and run of every batch live on the Load data page, where every
+    // "not loaded yet" leads; this band says what is loaded and points there.
     body: () =>
       el(
         "div",
         { class: "season-load" },
         s.remind ? el("p", { class: "season-load__remind", role: "note" }, `The ${text(s.season)} preseason load isn't saved yet for every primary team. Run it once before the season starts.`) : null,
-        obj(run).commandFound !== true ? el("p", { class: "note" }, "Claude Code isn't installed on the server computer, so copy and paste each batch. (CLAUDE_COMMAND in the .env file sets its path.)") : null,
-        subhead("Everything for the season, one paste"),
-        el("p", { class: "note" }, "One prompt for the primary teams' deep preseason and every FBS team's head coach and coordinators. Copy it into an AI chat that can search the web, paste the answer back, done."),
-        el("ul", { class: "season-load__list" }, batchRow({ kind: "season", key: "all", label: "The whole season", savedAt: allSavedAt, detail: `${savedTeams} of ${pre.length} primary teams · coaches ${isNum(s.coachesSaved) ? s.coachesSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0}`, onSaved: onChange })),
-        runBlock(run, "season", onChange),
-        el("details", { class: "season-load__more" },
-          el("summary", {}, "Or one batch at a time"),
-          subhead("Preseason, one batch per primary team"),
-        el("p", { class: "note" }, "Staff, players' birthdates (for ages), offseason moves, the outlook, injuries and suspensions, and program facts."),
-        el("ul", { class: "season-load__list" }, pre.map((t) => batchRow({ kind: "preseason", key: t.school, label: t.school, savedAt: str(t.savedAt), detail: t.counts ? `${obj(t.counts).birthdates ?? 0} birthdates, ${obj(t.counts).staff ?? 0} staff` : null, onSaved: onChange }))),
-        runBlock(run, "preseason", onChange),
-        subhead("Coaches, one batch per conference"),
-        el("p", { class: "note" }, "Head coach, offensive and defensive coordinator for every FBS team. A game's own notes still win when they name someone else."),
-        conferenceList(coaches, onChange),
-        runBlock(run, "coaches", onChange),
-        subhead("Roster costs, one batch per conference"),
-        el("p", { class: "note" }, "Rumored figures from a shallow search: each team's total, and for your primary teams position groups and players where reported."),
-        conferenceList(costs, onChange, "costs"),
-        runBlock(run, "costs", onChange),
-        ),
+        el("p", { class: "note" }, `Preseason ${savedTeams} of ${pre.length} primary teams${allSavedAt ? ` (${fmtDate(allSavedAt, "short")})` : ""}, coaches ${isNum(s.coachesSaved) ? s.coachesSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0} conferences, costs ${isNum(s.costsSaved) ? s.costsSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0}.`),
+        el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "#prompts" }, "Open Load data"), " ", el("span", { class: "note" }, obj(run).commandFound === true ? "Copy, paste or run each load there." : "Copy and paste each load there (Claude Code is not installed on the server computer).")),
       ),
   });
 }

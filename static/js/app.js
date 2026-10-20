@@ -282,6 +282,7 @@ function holdsAViewer() {
  */
 const RELOADED_AT_KEY = "kickoff.update.reloadedAt";
 const RELOAD_LOOP_MS = 60000;
+const UPDATE_RETRY_MS = 60000; // while a new build waits behind a game, a look every minute (the board has no other trigger)
 
 /**
  * A reload for a new build is remembered for a minute (owner bug 2026-10-13: "the page refreshes every 5 seconds"): when
@@ -307,10 +308,24 @@ function rememberReload() {
 
 function watchForUpdates(page) {
   let pending = false;
+  let retryTimer = null;
+  // The board never changes visibility and shows no notes, so a build that arrived during the game reloads once the
+  // game is over (freeze wave F1, F3): a look every minute while an update waits.
+  const armRetry = () => {
+    if (retryTimer) return;
+    retryTimer = setInterval(() => {
+      if (!pending || document.visibilityState === "hidden" || holdsAViewer() || reloadedJustNow()) return;
+      clearInterval(retryTimer);
+      retryTimer = null;
+      rememberReload();
+      reloadWhenServerAnswers();
+    }, UPDATE_RETRY_MS);
+  };
   document.addEventListener("kickoff:update", (event) => {
     if (pending) return;
     pending = true;
     const looping = reloadedJustNow();
+    if (!looping) armRetry();
     if (looping) console.warn("The server answered with another build within a minute of a reload; the page keeps still.", event?.detail);
     const said = el("span", { class: "note", role: "status" }, "");
     const reloadButton = el("button", { class: "btn", type: "button", onclick: async () => {

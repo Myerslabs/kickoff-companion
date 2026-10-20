@@ -24,7 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -164,6 +164,28 @@ DAILY = Schedule("daily", "Daily lists (pregame odds, transfer portal)", (Slot(E
 YEARLY = Schedule("yearly", "Yearly figures (talent, returning production)", (Slot((MON,), 4, 0),))
 
 SCHEDULES: tuple[Schedule, ...] = (POLLS, RATINGS, RESULTS, MEDIA, DAILY, YEARLY)
+
+# The free profile (freeze wave F2, 2026-10-20): a free key has 1,000 calls a month, and the schedules above were the one
+# cost the small budget did not scale, so a daily viewer spent 900 to 1,400 a month on refreshes alone. On that profile
+# every schedule keeps its name (the publications table and the status page read the same rows) and looks once where
+# the full profile looks several times: no rechecks, no watch, no prewarm, the slots below. The slate and the schedule
+# kinds keep their own lifetimes (app/cache.py, scaled by the budget).
+LEAN_SLOTS: dict[str, tuple[Slot, ...]] = {
+    "polls": (Slot((SUN,), 15, 0), Slot((TUE,), 21, 0)),  # an hour after each announcement, one call each
+    "ratings": (Slot((MON,), 4, 0), Slot((WED,), 4, 0)),  # FPI and Elo by Monday morning, SP+ by midweek
+    "results": (Slot((SUN,), 12, 0), Slot((MON,), 4, 0)),  # Saturday's games by Sunday noon, the late ones by Monday
+    "media": (Slot((MON,), 4, 0), Slot((TUE,), 4, 0), Slot((THU,), 4, 0)),  # the week's TV windows land Sunday night or Monday
+    "daily": (Slot((TUE,), 4, 0), Slot((FRI,), 4, 0)),  # pregame odds early in the week and before the game
+    "yearly": (Slot((MON,), 4, 0),),
+}
+
+
+def lean(schedule: Schedule) -> Schedule:
+    """The schedule's free-profile shape: the same name, the LEAN_SLOTS, no recheck, no prewarm, no game-day slots."""
+    slots = LEAN_SLOTS.get(schedule.name)
+    if slots is None:
+        return schedule
+    return replace(schedule, slots=slots, recheck=None, watch=timedelta(0), prewarm=False, after_games=False)
 
 ENDPOINT_SCHEDULES: dict[str, Schedule] = {
     "/rankings": POLLS,
@@ -339,8 +361,9 @@ class PublicationLog:
             out.append((row["key"], row["endpoint"], params if isinstance(params, dict) else {}, schedule))
         return out
 
-    def summary(self, now: datetime, limit: int = 8) -> list[dict[str, Any]]:
-        """Per schedule: its next slot and the recent times its sources actually changed."""
+    def summary(self, now: datetime, limit: int = 8, *, lean_profile: bool = False) -> list[dict[str, Any]]:
+        """Per schedule: its next slot and the recent times its sources actually changed. On the free profile the
+        slots shown are the lean ones (freeze wave F2)."""
         with self.db.read() as conn:
             rows = conn.execute(
                 "SELECT endpoint, schedule, slot, changed_at, checks FROM publication_log ORDER BY changed_at DESC LIMIT 200"
@@ -348,7 +371,8 @@ class PublicationLog:
             keys = conn.execute("SELECT schedule, COUNT(*) AS n FROM publications GROUP BY schedule").fetchall()
         counts = {row["schedule"]: int(row["n"]) for row in keys}
         out = []
-        for schedule in SCHEDULES:
+        for full in SCHEDULES:
+            schedule = lean(full) if lean_profile else full
             changes = [
                 {
                     "endpoint": row["endpoint"],
@@ -360,7 +384,7 @@ class PublicationLog:
                 for row in rows
                 if row["schedule"] == schedule.name
             ][:limit]
-            out.append({**schedule.as_dict(now), "keys": counts.get(schedule.name, 0), "changes": changes})
+            out.append({**schedule.as_dict(now), "keys": counts.get(schedule.name, 0), "changes": changes, "lean": lean_profile})
         return out
 
 

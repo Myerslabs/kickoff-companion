@@ -53,6 +53,53 @@ def check_report(settings: Settings) -> str:
     return "\n".join(lines)
 
 
+RULE = "=" * 76
+
+
+def console_banner(settings: Settings, *, demo: bool) -> str:
+    """The server window's first lines, in plain words. A tester (2026-10-19) took the quiet half minute of a first start
+    for a crash, and closed the window as soon as the browser opened, which stops the server for every device."""
+    lines = [
+        RULE,
+        f" {APP_NAME} {__version__}: this window is the server.",
+        " Keep it open while you watch. Closing it stops the app on every phone and tablet.",
+        (" Starting the demo. The first start builds its league, about half a minute; the window is not stuck."
+         if demo else " Starting. The browser opens by itself once the server is ready."),
+        f" Log file: {settings.log_dir / LOG_FILE_NAME}",
+        RULE,
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def ready_note(settings: Settings, *, demo: bool) -> str:
+    """What the window says once the server listens (printed by app/serving.py), with both addresses."""
+    ip = lan_ip()
+    what = "The demo is" if demo else "The app is"
+    lines = [
+        "",
+        RULE,
+        f" READY. {what} at {http_url('localhost', settings.port)} on this computer,",
+        f" and at {tablet_url(settings, ip)} on a phone or tablet on this Wi-Fi (or scan the QR code above).",
+        " Keep this window open. To hide it behind a tray icon: Settings, Start and the server, Desktop icon (tray).",
+        RULE,
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def set_console_title(title: str, system: str = sys.platform) -> bool:
+    """Name the server window on Windows, so the taskbar says what it is. Returns True when it did."""
+    if not system.startswith("win"):
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.kernel32.SetConsoleTitleW(title))  # type: ignore[attr-defined]
+    except (OSError, AttributeError, ValueError, TypeError):
+        return False
+
+
 def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "prompts":  # the Prompts phase (2026-10-13): every prompt through Claude Code on the running server
@@ -95,16 +142,21 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     from app import restart, startmode
     from app.serving import run_server
 
+    def demo_start(settings: Settings) -> bool:
+        return not args.reload and startmode.start_mode(settings) == startmode.DEMO
+
     def serve(settings: Settings, *, first: bool) -> int:
         """One serve: the demo or this install's own team (public release Phase 9b: a fresh install starts in the
         demo; data/startup.json remembers a switch)."""
         opening = browser_url(settings, no_browser=args.no_browser or args.reload, login=args.login) if first else None
-        if not args.reload and startmode.start_mode(settings) == startmode.DEMO:
+        if demo_start(settings):
             from app.demo.run import serve_embedded
 
-            return serve_embedded(settings, open_url=f"{opening.rstrip('/')}/demo" if opening else None, restarting=not first)
-        return run_server(settings, reload=args.reload, open_url=opening, restarting=not first)
+            return serve_embedded(settings, open_url=f"{opening.rstrip('/')}/demo" if opening else None, restarting=not first, ready_note=ready_note(settings, demo=True))
+        return run_server(settings, reload=args.reload, open_url=opening, restarting=not first, ready_note=ready_note(settings, demo=False))
 
+    set_console_title(f"{APP_NAME} server (keep this window open)")
+    print(console_banner(settings, demo=demo_start(settings)), flush=True)
     code = serve(settings, first=True)
     while code == restart.RESTART:  # setup finished, the team changed, or the demo was switched: serve again
         try:

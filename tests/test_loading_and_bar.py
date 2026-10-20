@@ -183,10 +183,17 @@ scenarios.boot_a_hung_health_ask_ends_at_four_seconds = async () => {
   const real = globalThis.fetch;
   let asks = 0;
   const signals = [];
-  globalThis.fetch = (url, init) => { asks += 1; signals.push(init && init.signal); return new Promise(() => {}); };
+  const reports = [];
+  globalThis.fetch = (url, init) => {
+    if (String(url).indexOf("/api/client-log") >= 0) { reports.push(JSON.parse(init.body)); return Promise.resolve({ ok: true }); } // the boot report (freeze wave F1)
+    asks += 1; signals.push(init && init.signal); return new Promise(() => {});
+  };
   try {
     runWatchdog();
     window.kickoffBootFailed();
+    assert.equal(reports.length, 1, "the failed start is reported to the server log once");
+    assert.equal(reports[0].kind, "boot");
+    assert.ok(reports[0].message.indexOf("script file") >= 0 && typeof reports[0].agent === "string");
     await advance(2000);
     assert.equal(asks, 1);
     await advance(3990);
@@ -514,13 +521,14 @@ def test_the_app_forgets_the_retry_once_drawn_and_waits_for_the_server_after_a_r
     assert app.index("forgetBootRetry();", drawn) - drawn < 200, "forgotten right after the real bar is drawn"
     watch = app[app.index("function watchForUpdates") : app.index("const BOOT_RETRY_KEY")]
     assert "window.location.reload()" not in watch, "no reload straight into a server that may not be back"
-    assert watch.count("reloadWhenServerAnswers(") == 3, "the banner's Reload, the reload at once (owner bug 2026-10-13) and the reload on coming back into view"
+    assert watch.count("reloadWhenServerAnswers(") == 4, "the banner's Reload, the reload at once (owner bug 2026-10-13), the reload on coming back into view, and the board's look every minute once the game is over (freeze wave F1, F3)"
     assert 'if (!looping && document.visibilityState === "visible" && !holdsAViewer()) {' in watch, "a visible page reloads as soon as the server answers"
     assert re.search(r'"visibilitychange", \(\) => \{\s*//[^\n]*\n\s*if \(pending && document\.visibilityState === "visible" && !holdsAViewer\(\) && !reloadedJustNow\(\)\) \{\s*rememberReload\(\);\s*reloadWhenServerAnswers\(\);', watch)
     # owner bug 2026-10-13 ("the page refreshes every 5 seconds"): one reload a minute, never a loop
     guard = app[app.index("function reloadedJustNow") : app.index("function watchForUpdates")]
     assert "Date.now() - at < RELOAD_LOOP_MS" in guard and "window.sessionStorage.getItem(RELOADED_AT_KEY)" in guard and "RELOAD_LOOP_MS = 60000" in app
-    assert "two different builds within a minute" in watch and watch.count("rememberReload();") == 2
+    assert "two different builds within a minute" in watch and watch.count("rememberReload();") == 3  # at once, on coming back into view, and the board's look every minute (freeze wave F1, F3)
+    assert "UPDATE_RETRY_MS = 60000" in app and "const armRetry" in watch and "if (!looping) armRetry();" in watch, "the board reloads once the game is over"
     hold = app[app.index("function holdsAViewer") : app.index("function watchForUpdates")]
     assert 'gameUnderWay && ["live", "board"].includes(viewInAddress())' in hold, "only In Game and the board during our game keep the banner instead"
     live = app[app.index("function watchLiveGame") : app.index("function viewInAddress")]

@@ -109,8 +109,24 @@ def _sorted(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (STATUS_ORDER.get(str(r.get("status") or "").lower(), 5), r["name"].lower()))
 
 
-def injury_report(games: list[Any], load: Loader, *, us: str, team: str, teams: dict[str, dict[str, Any]], season: int) -> dict[str, Any]:
-    """The report for `team` (us, or an opponent of ours) from our schedule's games and their notes."""
+def season_long_rows(injuries: list[Any] | None) -> list[dict[str, Any]]:
+    """The preseason load's injuries and suspensions as report rows (freeze wave F3: one report, both sources): the
+    status as written ("Out for the season"), the detail and the expected return in the note."""
+    rows: list[dict[str, Any]] = []
+    for item in injuries or []:
+        name = _clean(getattr(item, "name", None))
+        if not name:
+            continue
+        detail = _clean(getattr(item, "detail", None))
+        back = _clean(getattr(item, "expectedReturn", None))
+        note = "; ".join(p for p in (detail, f"back {back}" if back else None) if p) or None
+        rows.append({"name": name, "team": None, "position": _clean(getattr(item, "position", None)), "status": _clean(getattr(item, "status", None)) or "Not reported", "note": note, "preseason": True})
+    return rows
+
+
+def injury_report(games: list[Any], load: Loader, *, us: str, team: str, teams: dict[str, dict[str, Any]], season: int, preseason: list[Any] | None = None) -> dict[str, Any]:
+    """The report for `team` (us, or an opponent of ours) from our schedule's games and their notes, and the preseason
+    load's season-long injuries at the end (`seasonLong`)."""
     ordered = sorted((g for g in games if getattr(g, "id", None) is not None and (g.week is not None or gamekeys.is_post(g))), key=gamekeys.order)
     upcoming = next((g for g in ordered if not g.completed), None)
     if team == us:
@@ -152,4 +168,5 @@ def injury_report(games: list[Any], load: Loader, *, us: str, team: str, teams: 
             "rows": _sorted(rows),
             "unassigned": _sorted(unassigned) if team == us else [],
         })
-    return {"season": season, "team": {**teams.get(team, {}), "school": team}, "isUs": team == us, "games": out, "counts": {"games": len(out), "reports": reports}}
+    season_long = season_long_rows(preseason)
+    return {"season": season, "team": {**teams.get(team, {}), "school": team}, "isUs": team == us, "games": out, "seasonLong": season_long, "counts": {"games": len(out), "reports": reports, "seasonLong": len(season_long)}}

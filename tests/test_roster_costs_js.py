@@ -78,7 +78,7 @@ scenarios.loads = async () => {
   document.body.append(node);
   const t = text(node);
   assert.ok(!RAW.test(t), t);
-  assert.ok(t.includes("Roster costs, one batch per conference") && t.includes("costs 0 of 2"));
+  assert.ok(t.includes("costs 0 of 2") && node.querySelector('a[href="#prompts"]'), "freeze wave F3: the counts and a link to Load data, where the batches live");
   assert.equal(node.getAttribute("data-collapsed"), "false", "a missing costs batch keeps the band open");
 };
 """

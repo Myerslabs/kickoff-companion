@@ -24,14 +24,13 @@
 //       newest on the right; null when there is no finished game.
 
 import { icon } from "./icons.js";
-import { DASH, el, fmtNum, fmtStat, isNum, personName, teamLink, teamLogo, text } from "./dom.js";
+import { DASH, el, fmtNum, fmtStat, isNum, personName, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { metricLink, nationalHref, pollHref } from "./national-link.js";
 import { pollBadge, rankChip, sizedText, statTable } from "./stat-table.js";
 import { fillWiki, wikiLink } from "./wiki-links.js";
 
 function recordText(record) {
-  if (!record || !isNum(record.wins) || !isNum(record.losses)) return null;
-  return record.ties ? `${record.wins}-${record.losses}-${record.ties}` : `${record.wins}-${record.losses}`;
+  return sharedRecord(record); // freeze wave F3: the one formatter (ui/dom.js)
 }
 
 const RESULT_WORD = { W: "Won", L: "Lost", T: "Tied" };

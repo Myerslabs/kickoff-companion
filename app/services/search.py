@@ -142,7 +142,7 @@ class SearchService:
             if len(term) < MIN_WIDE:
                 wide_note = f"Type at least {MIN_WIDE} letters to search every player."
             else:
-                part = await self.fetcher.fetch("playerSearch", "/player/search", {"searchTerm": term_raw}, PlayerSearchResult, DataKind.ROSTER)
+                part = await self.fetcher.fetch("playerSearch", "/player/search", {"searchTerm": term_raw.lower()}, PlayerSearchResult, DataKind.ROSTER)  # one cache key for "Sanchez" and "sanchez" (freeze wave F1, B10; CFBD's search ignores case)
                 parts["playerSearch"] = part
                 local_ids = {p["playerId"] for p in players}
                 for r in part.records:

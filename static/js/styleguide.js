@@ -1025,7 +1025,7 @@ import { teamStaff as p16TeamStaff } from "./ui/game-staff.js";
 import { venueLine as p16VenueLine } from "./ui/matchup-card.js";
 import { passZonesTable as p16Zones, runLanesTable as p16Lanes } from "./ui/depth2.js";
 import { statLine as p16StatLine } from "./ui/leaders.js";
-import { depthBlock as p16Depth, startersBlock as p16Starters } from "./ui/lineups.js";
+import { lineupBlock as p16Lineup } from "./ui/lineups_combined.js";
 
 /** Example lineups in the notes file's shape (2026-10-02): CFBD has no depth chart, so the styleguide's numbers are examples. */
 function p16Lineups() {
@@ -1100,12 +1100,10 @@ function program16Section() {
     ),
     label("Where the opponent throws and runs (GX-15): example numbers"),
     el("div", { class: "band" }, el("div", { class: "zones-pair" }, p16Zones(zones), p16Lanes(lanes))),
-    label("Starting lineups (2026-10-02): the first name at every slot of each team's published chart, a table per unit, the source under it"),
-    el("div", { class: "band" }, p16Starters({ lineups: p16Lineups(), us: program.us || { school: US.name }, them: opponent })),
-    label("Depth charts: one row per slot, as many columns as the deepest slot; folded by default on the program"),
-    el("div", { class: "band" }, p16Depth({ lineups: p16Lineups(), us: program.us || { school: US.name }, them: opponent })),
+    label("Lineups and depth (Phase 19; the one chart of record since freeze wave F3): the starter and the men behind him on one row, our unit beside theirs, the availability report's status on a listed name"),
+    el("div", { class: "band" }, p16Lineup({ lineups: p16Lineups(), us: program.us || { school: US.name }, them: opponent, availability: [{ name: "Kane Clayborn", status: "Questionable", note: "ankle" }] })),
     label("Nothing written yet: the honest empty state the program and the In Game sheet share"),
-    el("div", { class: "band" }, p16Starters({ lineups: null, us: program.us || { school: US.name }, them: opponent })),
+    el("div", { class: "band" }, p16Lineup({ lineups: null, us: program.us || { school: US.name }, them: opponent })),
     label("The cover redo (owner mockup 2026-10-10): each team's coaches under its block, the first coach of a shared role only; the weather row with its Radar link-out (UX-14) and the venue line (GX-19) in the foot's right cell. Example names and values"),
     cover({
       ...base,

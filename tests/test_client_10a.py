@@ -390,20 +390,20 @@ def test_live_box_poll_also_stops_after_two_attempts(harness):
 
 
 @pytest.mark.parametrize("empty", [[], {}, None], ids=["list", "object", "null"])
-def test_empty_finished_game_answer_is_cached_ten_minutes_then_refetched(harness, empty):
+def test_empty_finished_game_answer_is_cached_briefly_then_refetched(harness, empty):
     first = httpx.Response(200, content=b"null", headers={"content-type": "application/json"}) if empty is None else httpx.Response(200, json=empty)
     harness.upstream.route("/games/teams", sequence=[first, httpx.Response(200, json=BOX_TEAMS)])
     key = cache_key("/games/teams", BOX_PARAMS)
-    harness.client.settle_until = harness.clock() + timedelta(minutes=10, seconds=30)  # the game settles until just after the refetch
+    harness.client.settle_until = harness.clock() + timedelta(minutes=60, seconds=30)  # the game settles until just after the refetch
 
     async def scenario():
-        await harness.client.reconcile()  # the fake /info is the Free tier: other lifetimes x4, these never
+        await harness.client.reconcile()  # the fake /info is the Free tier: other lifetimes x4, an empty settling answer an hour (freeze wave F2; ten minutes on a paid key)
         answers = [await harness.client.get("/games/teams", BOX_PARAMS, kind=DataKind.FINISHED_GAME)]
         entry = harness.client.cache.get(key)
-        assert entry is not None and entry.expires_at == entry.fetched_at + timedelta(minutes=10)
-        harness.clock.advance(minutes=9)
+        assert entry is not None and entry.expires_at == entry.fetched_at + timedelta(hours=1)
+        harness.clock.advance(minutes=50)
         answers.append(await harness.client.get("/games/teams", BOX_PARAMS, kind=DataKind.FINISHED_GAME))
-        harness.clock.advance(minutes=2)
+        harness.clock.advance(minutes=11)
         answers.append(await harness.client.get("/games/teams", BOX_PARAMS, kind=DataKind.FINISHED_GAME))
         return answers
 

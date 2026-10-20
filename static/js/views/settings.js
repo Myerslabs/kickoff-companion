@@ -9,7 +9,6 @@
 // the left and the switch or picker on the right; switches instead of checkboxes; a green "saved" line.
 
 import { cvdOn, setCvd } from "../ui/cvd.js";
-import { promptPaste } from "../ui/prompt-paste.js";
 import { readinessBand } from "../ui/readiness.js";
 import { setSpoiler, spoilerOn } from "../ui/spoiler.js";
 import { restartFlow } from "../ui/restart.js";
@@ -211,6 +210,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       state: { status: "ready" },
       body: () => el("div", {},
         factList(rows, "Your CFBD plan"),
+        typeof plan.warning === "string" && plan.warning ? el("p", { class: "note note-bad", role: "alert" }, plan.warning) : null, // a key CFBD reports as out of calls
         el("ul", { class: "plain-list plan-features" }, featureRows),
         el("p", { class: "note plan-note" }, "Every feature your plan includes is on. A bigger plan adds the rest; nothing else changes. ", el("a", { href: plansUrl, target: "_blank", rel: "noopener" }, "See CFBD's plans")),
         el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", changeKey),
@@ -221,13 +221,10 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
   function serverBand() {
     const meta = prefsMeta() || {};
     const s = meta.server || {};
+    // freeze wave F3 (one fact, one source): the season, conference, time zone, port and live poll are the status page's
+    // Configuration panel; this band keeps the teams (which only Settings knows) and the two folders
     const rows = [
       { label: "Team", value: text(s.team) },
-      { label: "Season", value: text(s.season) },
-      { label: "Conference", value: text(s.conference) },
-      { label: "Time zone", value: text(s.timezone) },
-      { label: "Port", value: text(s.port) },
-      { label: "Live poll", value: isNum(s.livePollSeconds) ? `every ${s.livePollSeconds} s` : DASH },
       { label: "Data folder", value: text(s.dataDir) },
       { label: "Log folder", value: text(s.logDir) },
     ];
@@ -240,7 +237,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     rows[0] = { label: "Home team", value: text(s.team) };
     rows.splice(1, 0, { label: "More primary teams", value: extra.length ? extra.join(", ") : names(prefs.primaryTeams).length ? `${names(prefs.primaryTeams).join(", ")}${locked}` : DASH });
     rows.splice(2, 0, { label: "Secondary teams", value: secondary.length ? `${secondary.join(", ")}${locked}` : DASH });
-    return band({ id: "settings-server", title: "Server", collapsible: false, summary: "teams from My Teams; the rest from .env", state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Server"), el("p", { class: "note" }, "Change the home team and the primary and secondary teams with Change my teams on the My Teams page (the server restarts for a new home team). Only the home team's colors and mascot theme the app. The CFBD key and the network settings live in .env and never show here. The status page has the rest.")) });
+    return band({ id: "settings-server", title: "Server", collapsible: false, summary: "teams from My Teams; the rest on the status page", state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Server"), el("p", { class: "note" }, "Change the home team and the primary and secondary teams with Change my teams on the My Teams page (the server restarts for a new home team). Only the home team's colors and mascot theme the app. The season, the time zone, the port, the live poll, the network name and the CFBD plan are on the ", el("a", { href: "/status" }, "status page"), "; the key and the network settings live in .env and never show here.")) });
   }
 
   async function saveStations(next, label) {
@@ -367,50 +364,13 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     return envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
   }
 
-  function promptCard({ id, title, intro, getPrompt, saveAnswer }) {
-    return {
-      load() {},
-      view: () => band({ id, title, collapsible: true, foldable: true, summary: "copy and paste", state: { status: "ready" }, body: () => el("div", { class: "settings" }, el("p", { class: "note" }, intro), promptPaste({ label: title, getPrompt, saveAnswer })) }),
-    };
-  }
-
-  let notesGame = null; // the game the notes prompt was written for, so a pasted answer saves to the same one
+  // Freeze wave F3 (one fact, one source): the four prompt cards that were here (the notes, the coaches, the costs, the
+  // season) live on the Load data page, with their Copy, Paste and Run; Settings keeps one pointer.
   const prompts = [
-    promptCard({
-      id: "settings-notes-prompt",
-      title: "Notes prompt",
-      intro: "This week's notes for the next game: the program notes, injury report, depth charts, TV crew and coaches. Copy the prompt into an AI chat that can search the web, copy its whole answer, and tap Paste the answer.",
-      getPrompt: async () => {
-        const data = await api("/api/notes/prompt");
-        notesGame = data.gameId;
-        return data.prompt;
-      },
-      saveAnswer: async (value) => {
-        if (!notesGame) notesGame = (await api("/api/notes/prompt")).gameId;
-        return api("/api/notes/save", { method: "POST", body: JSON.stringify({ gameId: notesGame, text: value }) });
-      },
-    }),
-    promptCard({
-      id: "settings-coaches-prompt",
-      title: "Coaches prompt",
-      intro: "Every FBS team's head coach and offensive and defensive coordinators, all conferences in one paste. The Season prompt asks for these too; use this one to refresh only the coaches.",
-      getPrompt: async () => (await api("/api/season-notes/prompt?kind=coaches&key=all")).prompt,
-      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "coaches", key: "all", text: value }) }),
-    }),
-    promptCard({
-      id: "settings-costs-prompt",
-      title: "Roster costs prompt",
-      intro: "Rumored roster costs from a shallow search: every team's total, and your primary teams' positions and players, all conferences in one paste.",
-      getPrompt: async () => (await api("/api/season-notes/prompt?kind=costs&key=all")).prompt,
-      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "costs", key: "all", text: value }) }),
-    }),
-    promptCard({
-      id: "settings-season-prompt",
-      title: "Season prompt",
-      intro: "The whole season in one paste: your primary teams' deep preseason look and every FBS team's head coach and coordinators. The coaches and the roster costs have their own prompts below.",
-      getPrompt: async () => (await api("/api/season-notes/prompt?kind=season&key=all")).prompt,
-      saveAnswer: (value) => api("/api/season-notes/save", { method: "POST", body: JSON.stringify({ kind: "season", key: "all", text: value }) }),
-    }),
+    {
+      load() {},
+      view: () => band({ id: "settings-prompts", title: "Prompts", collapsible: false, summary: "on the Load data page", state: { status: "ready" }, body: () => el("div", { class: "settings" }, el("p", { class: "note" }, "This week's notes, the season load, the coaches and the roster costs: copy each prompt, paste the answer, or run it with Claude Code, on the Load data page."), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "#prompts" }, "Open Load data"))) }),
+    },
   ];
 
   // --- Phase 16 wave 3: restart from here, and the update check ----------------------------------------
@@ -520,8 +480,8 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         ),
         s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
         s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
-        next.length ? el("div", {}, subhead("Next"), el("ul", { class: "plain-list" }, next.map((n) => el("li", {}, el("b", {}, text(n.label)), ` from ${when(n.at)}${s.enabled === true ? "" : " (off)"}`)))) : el("p", { class: "note" }, "Nothing is planned: no game this week and no season run due."),
-        recent.length ? el("div", {}, subhead("Lately"), el("ul", { class: "plain-list" }, recent.map((r) => el("li", {}, `${text(r.key)}: ${r.skipped ? "skipped, " + r.skipped : r.ok ? (r.changed === true ? "done, new information" : r.changed === false ? "done, nothing new" : "done") : "failed" + (typeof r.error === "string" ? ` (${r.error})` : "")} · ${when(r.finishedAt)}`)))) : null,
+        // freeze wave F3 (one fact, one source): the Next and Lately lists live on the Load data page, once
+        el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "#prompts" }, "Open Load data"), " ", el("span", { class: "note" }, next.length ? `Next: ${text(next[0].label)} from ${when(next[0].at)}${s.enabled === true ? "" : " (off)"}${recent.length ? `; the last run ${when(recent[0].finishedAt)}` : ""}. The whole schedule and what ran are there.` : "Nothing is planned: no game this week and no season run due. The schedule and what ran are there.")),
       ].filter(Boolean));  // replaceChildren would write a null as the word "null"
     }
     draw();
@@ -664,7 +624,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     const o = optionRows();
     const sections = [
       section("settings-gameday", "Game day", [...o.problems, ...o.gameday], "saved on the server for every device"),
-      readinessBand(),
+      // freeze wave F3: the readiness list ("Not loaded yet") is the status pill's card and the Load data page, not a band here
       section("settings-display", "Display", o.display),
       section("settings-start", "Start and the server", o.start),
       claudeBand(),

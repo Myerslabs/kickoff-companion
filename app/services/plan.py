@@ -86,6 +86,12 @@ def summary(client: Any, now: datetime | None = None) -> dict[str, Any]:
     budget = quota.get("budget")
     used = quota.get("used")
     which = profile(caps, budget)
+    warning = None  # tester 2026-10-19: a key CFBD reports as out of calls must say so in plain words, wherever the plan shows
+    if quota.get("reconciled") and isinstance(quota.get("reconciled_remaining"), int) and quota["reconciled_remaining"] <= 0:
+        reset = quota.get("reset_at") or caps.reset_at
+        when = f" It resets on {str(reset)[:10]}." if reset else ""
+        warning = (f"CFBD says this key has no calls left this month.{when} A new key should have all of its calls, so check the key on CFBD's key page"
+                   " or ask CFBD about it. The app asks CFBD again every hour and shows what it has cached meanwhile.")
     features = []
     for fid, label, needs, what in FEATURES:
         available = _available(fid, caps)
@@ -102,6 +108,7 @@ def summary(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "resetAt": caps.reset_at or quota.get("reset_at"),
         "checkedAt": caps.checked_at.isoformat(timespec="seconds") if caps.checked_at else None,
         "forecast": forecast(used, budget, now),
+        "warning": warning,
         "features": features,
         "likedAllowed": allows_liked(caps),
         "plansUrl": PLANS_URL,
