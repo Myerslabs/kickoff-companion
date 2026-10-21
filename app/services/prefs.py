@@ -75,6 +75,9 @@ class Prefs(BaseModel):
     likedConferences: list[str] = Field(default_factory=list, max_length=12)
     likedStates: list[str] = Field(default_factory=list, max_length=12)
     tickerMode: Literal["national", "mine"] = "national"  # every FBS game, or only my teams' games (Tier 2)
+    trivia: bool = True  # the trivia (owner 2026-10-21): the question popups for the tablets that joined, all game day
+    triviaBoard: bool = True  # the room's leaderboard by team name; off hides the standings everywhere
+    triviaPace: Literal["15", "30", "game"] = "15"  # before and after our game: a question every 15 or 30 minutes, or only during the game
     # Radio stations added in Settings (Phase 5b), after the RADIO_SOURCES in .env. `team` says whose station it is.
     radioStations: list[SavedStation] = Field(default_factory=list, max_length=MAX_STATIONS)
     @field_validator("primaryTeams", "likedTeams", "likedConferences", "likedStates")

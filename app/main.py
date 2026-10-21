@@ -36,6 +36,7 @@ from app.api import search as search_api
 from app.api import season_notes as season_notes_api  # Phase 17 Part 3a
 from app.api import server as server_api  # Phase 16 wave 3: restart from the app
 from app.api import settings as settings_api
+from app.api import trivia as trivia_api  # the trivia (owner 2026-10-21)
 from app.api import wiki as wiki_api  # Phase 17 #4
 from app.api.envelope import error_response
 from app.api.health import format_duration
@@ -83,6 +84,7 @@ from app.services.season import SeasonService
 from app.services.season_notes import SeasonNotes
 from app.services.season_task import SeasonRunner
 from app.services.ticker import TickerService
+from app.services.trivia import TriviaService
 from app.services.updates import UpdateChecker
 from app.tls import TlsState
 from app.weather import NwsClient
@@ -502,6 +504,7 @@ def create_app(
     app.state.logos = LogoStore(settings.data_dir, transport=logo_transport or media_transport, user_agent=agent)  # Phase 16: logos served from our own route
     app.state.program_lock = ProgramLock(settings.data_dir, settings.season)  # wave B: the Pre-Game Program locked at kickoff
     app.state.postgame_lock = PostgameLock(settings.data_dir, settings.season)  # F8 feature 1: the Post-Game Program locked with the poll after
+    app.state.trivia = TriviaService(settings.data_dir, settings.season, settings.tzinfo, lambda: cfbd._clock(), app.state.prefs, lambda: app.state.season_notes.facts().get("teams", {}), app.state.live, settings.team, on_mark=app.state.season_notes.mark_fact)  # the trivia (owner 2026-10-21): the game-day session and the master file
     app.state.maintenance = Maintenance(  # Phase 18.2: keep-awake, nightly backup, packed recordings, the archive's second look
         lock_program=build_program_lock(app),
         lock_postgame=build_postgame_lock(app),
@@ -559,6 +562,7 @@ def create_app(
     app.include_router(wiki_api.router)  # Phase 17 #4: Wikipedia links for the big headers
     app.include_router(season_notes_api.router)  # Phase 17 Part 3a: the preseason and coaches prompts
     app.include_router(prompts_api.router)  # the Prompts phase (2026-10-13): the Prompts page and the one run
+    app.include_router(trivia_api.router)  # the trivia (2026-10-21): the popups, the Trivia page, the joins and answers
     app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app
     app.include_router(gamenotes_api.router)  # Phase 19
     app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen

@@ -35,7 +35,7 @@ const liveDot = () => el("span", { class: "live-dot", "aria-hidden": "true" });
 // is a button on the In Game sheet, not a menu item; the other primary teams are reached from the My Teams page.
 export const MENU = [
   // freeze wave F5 (section 7 of the plan, owner 2026-10-20): the Archive and the Season in review were two taps deep on the Setup page
-  { group: "Views", items: [...VIEWS, { id: "preseason", label: "Preseason Magazine", hint: "offseason, outlook, staffs" }, { id: "archive", label: "Archive", hint: "every game the app watched" }, { id: "review", label: "Season in review", hint: "the season told from the schedule" }] },
+  { group: "Views", items: [...VIEWS, { id: "preseason", label: "Preseason Magazine", hint: "offseason, outlook, staffs" }, { id: "archive", label: "Archive", hint: "every game the app watched" }, { id: "review", label: "Season in review", hint: "the season told from the schedule" }, { id: "trivia", label: "Trivia", hint: "game-day trivia for the room, by team name" }] }, // the trivia (owner 2026-10-21)
   {
     group: "My Teams",
     items: [

@@ -108,7 +108,7 @@ scenarios.notesAndMenu = async () => {
   assert.equal(noteAuthor(""), "the host", "no name set: the host");
   const { MENU } = await import(moduleUrl("ui/shell.js"));
   const views = MENU.find((g) => g.group === "Views").items.map((i) => i.label);
-  assert.deepEqual(views.slice(-3), ["Preseason Magazine", "Archive", "Season in review"], "the Archive and the Season in review after the Magazine");
+  assert.deepEqual(views.slice(-4), ["Preseason Magazine", "Archive", "Season in review", "Trivia"], "the Archive and the Season in review after the Magazine, then the trivia (2026-10-21)");
   const app = MENU.find((g) => g.group === "App").items;
   const status = app.find((i) => i.label === "Server status");
   assert.ok(status && status.href === "/status" && status.external === true, "the server's page, in a new tab");

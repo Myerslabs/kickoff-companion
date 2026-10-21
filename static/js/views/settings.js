@@ -132,6 +132,11 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Pre-Game Program uses first. Add stations for any team under Radio stations."),
         row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams with Change my teams on the My Teams page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
       ],
+      trivia: [
+        row("Trivia during the game", toggle(p.trivia !== false, (value) => change({ trivia: value }, "Trivia"), "Trivia during the game"), "Three-choice questions from the schools' facts in a small popup in the corner of any page, for the tablets that joined with a team name; each tablet is asked when it connects on a game day. Off is off for every tablet."),
+        row("Leaderboard", toggle(p.triviaBoard !== false, (value) => change({ triviaBoard: value }, "Leaderboard"), "Leaderboard"), "The room's standings by team name, in the popup between questions and on the Trivia page. Off, every tablet keeps its own score."),
+        row("Before and after our game", select([{ value: "15", label: "A question every 15 minutes (default)" }, { value: "30", label: "A question every 30 minutes" }, { value: "game", label: "Only during our game" }], p.triviaPace || "15", (value) => change({ triviaPace: value }, "Before and after our game"), "Before and after our game"), "Game day runs from the first join to the last tablet. Before kickoff and after the final the questions are about the teams in the games on, from the ticker; during our game one a quarter, whatever the pace."),
+      ],
       display: [
         row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme"), "Charcoal or light; the team's colors mark what is ours either way."),
         row("Text size", select(TEXT_SIZES.map((s) => ({ value: s.id, label: `${s.label} (${Math.round(s.scale * 100)}%)` })), textSize(), (value) => {
@@ -627,6 +632,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     const o = optionRows();
     const sections = [
       section("settings-gameday", "Game day", [...o.problems, ...o.gameday], "saved on the server for every device"),
+      section("settings-trivia", "Trivia", o.trivia, "the popups for the tablets that joined, the room's board, the pace"), // the trivia (owner 2026-10-21)
       // freeze wave F3: the readiness list ("Not loaded yet") is the status pill's card and the Load data page, not a band here
       section("settings-display", "Display", o.display),
       section("settings-start", "Start and the server", o.start),

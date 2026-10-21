@@ -27,7 +27,7 @@ scenarios.menu = async () => {
   const { MENU } = await import(moduleUrl("ui/shell.js"));
   const plain = MENU;
   assert.deepEqual(MENU.map((g) => g.group), ["Views", "My Teams", "National", "App"]);
-  assert.deepEqual(MENU[0].items.map((i) => i.label), ["Newspaper", "Pre-Game Program", "In Game", "Season", "Top 25", "Preseason Magazine", "Archive", "Season in review"]);
+  assert.deepEqual(MENU[0].items.map((i) => i.label), ["Newspaper", "Pre-Game Program", "In Game", "Season", "Top 25", "Preseason Magazine", "Archive", "Season in review", "Trivia"]);
   assert.deepEqual(MENU[1].items.map((i) => i.id), ["myteams", "injuries", "prompts", "roster", "recruiting"]); // the Prompts phase: Prompts after the Injury Report
   assert.deepEqual(MENU[2].items.map((i) => i.id), ["leaders", "ratings"]);
   assert.deepEqual(MENU[3].items.map((i) => i.id), ["invite", "setup", "status", "glossary", "settings"]);

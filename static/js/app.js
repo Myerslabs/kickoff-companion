@@ -59,6 +59,7 @@ import { installCvd } from "./ui/cvd.js";
 import { startGuestMode } from "./ui/guest.js";
 import { installSpoiler } from "./ui/spoiler.js";
 import { startReadiness } from "./ui/readiness.js";
+import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): the join note and the popups
 import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";
 import { createBoardView, seedBoardHistory } from "./views/board.js";
 import { createInviteView } from "./views/invite.js";
@@ -66,6 +67,7 @@ import { createPreseasonView } from "./views/preseason.js";
 import { createReviewView } from "./views/review.js";
 import { createInjuriesView } from "./views/injuries.js";
 import { createPromptsView } from "./views/prompts.js";
+import { createTriviaView } from "./views/trivia.js";
 import { addNote } from "./ui/page-notes.js";
 import { installRunBar } from "./ui/run-bar.js";
 import { createSetupPageView } from "./views/setup-page.js";
@@ -95,6 +97,7 @@ const BUILT = {
   board: (opts) => createBoardView(opts), // Phase 18.6: the Live sheet made for a wall
   injuries: (opts) => createInjuriesView(opts), // owner 2026-10-10: our injuries through the season, from the game notes
   prompts: (opts) => createPromptsView(opts), // the Prompts phase (2026-10-13): every prompt, its Copy, Paste and Run, the one run, the schedule
+  trivia: (opts) => createTriviaView(opts), // the trivia (2026-10-21): the room's board by team name, today's answers, the rules
   setup: (opts) => createSetupPageView(opts), // owner 2026-10-10: the demo, the archive, the season in review and the radio
 };
 
@@ -632,6 +635,7 @@ async function start() {
     startTodayNote().catch((error) => console.warn("The on-this-day check did not finish.", error?.message || error));
   };
   const guestKnown = startGuestMode().catch(() => null); // Phase 18.6: a guest's page says it is view-only
+  guestKnown.then(() => startTrivia()).catch((error) => console.error("The trivia could not start.", error)); // the trivia (2026-10-21): the join note once a day, then the popups while this tablet plays
   const drawn = new Promise((resolve) => {
     document.addEventListener("kickoff:rendered", resolve, { once: true });
     setTimeout(resolve, 4000); // a page that draws without the event (its own stream) still gets the check

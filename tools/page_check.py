@@ -94,7 +94,7 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     "DS": ["glossary=success-rate", "radio", "no-such-page"],
     # --- public release Phase 5b: My teams, the opponents and My teams lists ---
     # --- Phase 18.6: Invite friends and the game-day board ---
-    "FRIENDS": ["invite", "board", "review"],
+    "FRIENDS": ["invite", "board", "review", "trivia"],  # the trivia page (2026-10-21)
     "MYTEAMS": ["myteams", "injuries", "national=rating:sp?scope=opponents", "national=profile:ypp?scope=mine", "national=board:passing:YDS?scope=opponents"],
 }
 ROUTES = list(dict.fromkeys(route for group in ROUTE_GROUPS.values() for route in group))

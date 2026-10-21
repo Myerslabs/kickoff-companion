@@ -438,7 +438,12 @@ class SeasonNotes:
                         log.warning("The season's facts could not be copied to %s: %s", self.facts_file, exc)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
-        return {"teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}, "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)}}
+        marks = raw.get("marks") if isinstance(raw.get("marks"), dict) else {}
+        return {
+            "teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)},
+            "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)},
+            "marks": {k: [m for m in v if isinstance(m, dict)] for k, v in marks.items() if isinstance(k, str) and isinstance(v, list)},  # the trivia's "wrong? mark it" notes, until the school is saved again
+        }
 
     def facts(self) -> dict[str, Any]:
         """Every school's facts: the shipped file under the install's own (a school the install loaded itself wins).
@@ -461,7 +466,7 @@ class SeasonNotes:
         except ValidationError:
             log.warning("The saved facts for %s could not be read; shown as not loaded.", school)
             return None
-        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt"), "checkedAt": row.get("checkedAt"), "shipped": bool(row.get("shipped"))}
+        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt"), "checkedAt": row.get("checkedAt"), "shipped": bool(row.get("shipped")), "marks": self._own_facts()["marks"].get(school, [])}
 
     def save_facts(self, batch: FactsBatch, conference: str, schools: list[str]) -> dict[str, Any]:
         """Keep the teams of this conference the answer names (spelled as CFBD spells them) in the install's own file,
@@ -481,9 +486,24 @@ class SeasonNotes:
             data["teams"][school] = {**dump, "conference": conference, "savedAt": when, "checkedAt": when, "sources": [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)][:8]}
             kept.append(school)
         data["batches"][conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
+        for school in kept:
+            data["marks"].pop(school, None)  # a fresh row answers the trivia's marks against the old one
         atomic_write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
         log.info("School facts saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
+
+    def mark_fact(self, school: str, kind: str, note: str, question: str, at: str) -> None:
+        """The trivia's "wrong? mark it" (owner 2026-10-21): a note against one school's fact, kept in the install's own
+        facts file beside the rows until that school is saved again (a paste or a run of the facts prompt), which
+        clears it. The History band shows the marks."""
+        if not isinstance(school, str) or not school:
+            return
+        data = self._own_facts()
+        marks = data["marks"].setdefault(school, [])
+        marks.append({"kind": str(kind or ""), "question": str(question or "")[:300], "note": str(note or "")[:300], "at": str(at or _now())})
+        data["marks"][school] = marks[-20:]
+        atomic_write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        log.info("A trivia mark against %s's %s was kept in the facts file", school, kind)
 
     @staticmethod
     def facts_stale(checked_at: Any, today: date) -> bool:

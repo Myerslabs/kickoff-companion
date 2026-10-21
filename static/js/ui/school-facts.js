@@ -70,6 +70,7 @@ export function factsBand(facts, { id = "team-facts", school, outside = false } 
   const f = facts && typeof facts === "object" ? facts : null;
   const name = str(school) ? school.trim() : "this school";
   const sources = f ? list(f.sources).filter((s) => s && typeof s === "object" && str(s.url) && /^https?:\/\//.test(s.url)) : [];
+  const marks = f ? list(f.marks).filter((m) => m && typeof m === "object" && str(m.question)) : []; // the trivia's "wrong? mark it" notes (2026-10-21), until the school is loaded again
   return band({
     id,
     title: "School history",
@@ -81,6 +82,7 @@ export function factsBand(facts, { id = "team-facts", school, outside = false } 
       el(
         "div",
         { class: "facts" },
+        marks.length ? el("p", { class: "note facts__marks" }, `Marked as wrong in the trivia: ${marks.slice(0, 5).map((m) => `${m.question}${str(m.note) ? ` (${m.note})` : ""}`).join("; ")}. The next load of the school's facts clears the mark.`) : null,
         el(
           "table",
           { class: "stat-table facts__table", "aria-label": `${name}: history and facts` },

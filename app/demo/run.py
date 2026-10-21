@@ -123,6 +123,9 @@ def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, t
         season=world.season, host=host, port=port, lan_hostname="", mdns_name=mdns_name, data_dir=str(data_dir), log_dir=str(data_dir / "logs"),
         monthly_call_budget={0: 1000, 1: 5000}.get(tier, 30000),
     )
+    from app.demo.facts import write_demo_facts
+
+    write_demo_facts(data_dir, world.league, world.season)  # the trivia (2026-10-21): the league's school facts, so the demo can ask questions
     upstream = DemoUpstream(world, clock, tier=tier, fail=fail)
     sites = DemoSites(world, clock)
     application = create_app(

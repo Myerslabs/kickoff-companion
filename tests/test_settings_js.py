@@ -36,7 +36,7 @@ scenarios.settings = async () => {
   assert.ok(!RAW.test(t), t.slice(0, 400));
   // the sections, listed beside the page
   const nav = page.querySelectorAll(".settings-nav__item").map(text);
-  assert.deepEqual(nav.slice(0, 3), ["Game day", "Display", "Start and the server"]); // freeze wave F3: the Readiness band went (the status pill's card and Load data have the list)
+  assert.deepEqual(nav.slice(0, 4), ["Game day", "Trivia", "Display", "Start and the server"]); // the trivia band (2026-10-21) after Game day // freeze wave F3: the Readiness band went (the status pill's card and Load data have the list)
   assert.ok(nav.includes("About"));
   // one row per setting in the right section, each with its help
   const inSection = (id) => main.querySelector(`#${id}`).querySelectorAll(".setting__label").map((l) => text(l.childNodes[0]));

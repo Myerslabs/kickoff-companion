@@ -28,7 +28,7 @@ from app.netinfo import lan_ip
 from app.services.host import COOKIE, JOIN_COOKIE
 
 SAFE = frozenset({"GET", "HEAD", "OPTIONS"})
-GUEST_WRITES = frozenset({"/api/client-log", "/api/host/login", "/api/myteams/warm"})
+GUEST_WRITES = frozenset({"/api/client-log", "/api/host/login", "/api/myteams/warm", "/api/trivia/join", "/api/trivia/leave", "/api/trivia/rename", "/api/trivia/answer", "/api/trivia/mark"})  # the trivia (2026-10-21): a guest joins, answers and marks for its own team; ending the day is the host's
 LOOPBACK = ("127.0.0.1", "::1", "localhost")
 AWAY_OPEN = ("/join/", "/api/health", "/api/client-log", "/favicon", "/icons/", "/manifest.webmanifest")
 AWAY_PAGE = (

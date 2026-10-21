@@ -3344,6 +3344,68 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
   .cover--compact .cover__foot { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "end"; }
 }
 
+/* --- The trivia (owner 2026-10-21): the corner popups on any page and the board, the join card, the Trivia page --- */
+.trivia-pop { position: fixed; right: var(--sp-3); bottom: calc(var(--dock-h, 0px) + var(--sp-3)); width: min(380px, calc(100vw - 2 * var(--sp-3))); z-index: 58; }
+.trivia-pop[hidden] { display: none; }
+.trivia-pop__card { background: var(--panel-raised); border: 1px solid var(--rule-strong); border-left: 4px solid var(--team-accent); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }
+.trivia-pop__head { display: flex; align-items: baseline; gap: var(--sp-2); }
+.trivia-pop__title { font-family: var(--font-cond); font-size: var(--text-title); color: var(--team-accent); }
+.trivia-pop__sub { font-size: var(--text-caption); color: var(--fog); flex: 1 1 auto; }
+.trivia-pop__close { margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) calc(-1 * var(--sp-2)) auto; }
+.trivia-pop__q { margin: 0; font-size: var(--text-body); line-height: 1.4; }
+.trivia-pop__choices { display: flex; flex-direction: column; gap: var(--sp-1); }
+.trivia-pop__choice { min-height: 44px; padding: var(--sp-2) var(--sp-3); text-align: left; border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel); color: inherit; font: inherit; display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; }
+.trivia-pop__choice.is-picked { border-color: var(--team-accent); }
+.trivia-pop__choice[disabled] { opacity: 0.7; cursor: default; }
+.trivia-pop__choice--plain { cursor: default; }
+.trivia-pop__letter { color: var(--fog); min-width: 1.2em; }
+.trivia-pop__foot { display: flex; justify-content: space-between; gap: var(--sp-3); font-size: var(--text-caption); color: var(--fog); }
+.trivia-pop__table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
+.trivia-pop__table th { text-align: left; font-family: var(--font-cond); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.04em; color: var(--fog); padding: 2px 0; font-weight: 600; }
+.trivia-pop__table td { padding: 5px 0; border-top: 1px solid var(--rule); }
+.trivia-pop__table .num { text-align: right; padding-left: var(--sp-2); font-variant-numeric: tabular-nums; }
+.trivia-pop__table tr.is-you { color: var(--team-accent); font-weight: 600; }
+body.board-mode .trivia-pop { right: var(--sp-5); bottom: var(--sp-5); width: 520px; font-size: 1.25em; }
+body.board-mode .trivia-pop button { display: none !important; }
+body.board-mode .trivia-pop__q { font-size: 1.3em; }
+.trivia-join { display: flex; flex-direction: column; gap: var(--sp-2); }
+.trivia-join__row { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.trivia-join__row input { flex: 1 1 160px; min-width: 0; min-height: 44px; padding: 0 var(--sp-3); border: 1px solid var(--rule-strong); border-radius: var(--radius); background: var(--panel); color: inherit; font: inherit; }
+.trivia-join__status { font-size: var(--text-caption); color: var(--fog); min-height: 1.2em; }
+.trivia-join__lead { font-size: var(--text-body); }
+.trivia-head { display: flex; flex-direction: column; gap: var(--sp-3); }
+.trivia-head__team, .trivia-head__day { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.trivia-head__name { font-family: var(--font-cond); font-size: var(--text-title); }
+.trivia-head__status { font-size: var(--text-caption); color: var(--fog); }
+.trivia-cells { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); }
+.trivia-cell { padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.trivia-cell + .trivia-cell { border-left: 1px solid var(--rule); }
+.trivia-cell__label { font-family: var(--font-cond); font-size: var(--text-caption); text-transform: uppercase; letter-spacing: 0.04em; color: var(--fog); }
+.trivia-cell__value { font-family: var(--font-cond); font-size: var(--text-stat); line-height: 1; }
+.trivia-cell__detail { font-size: var(--text-caption); color: var(--fog); }
+.trivia-board tr.is-you td { font-weight: 600; background: var(--us-row); }
+.trivia-board tr.is-away td { color: var(--fog); }
+.trivia-board__tag { color: var(--fog); font-weight: 400; }
+.trivia-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--sp-3); }
+.trivia-card { padding: var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); display: flex; flex-direction: column; gap: var(--sp-2); min-width: 0; }
+.trivia-card__head { display: flex; align-items: baseline; gap: var(--sp-2); font-family: var(--font-cond); }
+.trivia-card__verdict { font-size: var(--text-title); }
+.trivia-card--right .trivia-card__verdict { color: var(--good); }
+.trivia-card--wrong .trivia-card__verdict, .trivia-card--no-pick .trivia-card__verdict { color: var(--bad); }
+.trivia-card__sub { font-size: var(--text-caption); color: var(--fog); }
+.trivia-card__q { margin: 0; line-height: 1.4; }
+.trivia-card__choices { display: flex; flex-direction: column; gap: var(--sp-1); }
+.trivia-card__choice { min-height: 40px; padding: var(--sp-1) var(--sp-3); display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--rule-strong); border-radius: var(--radius); }
+.trivia-card__choice.is-right { border-color: var(--good); }
+.trivia-card__choice.is-wrong { border-color: var(--bad); }
+.trivia-card__tag { margin-left: auto; font-size: var(--text-caption); color: var(--fog); font-weight: 600; text-align: right; }
+.trivia-card__fact { margin: 0; font-size: var(--text-caption); line-height: 1.45; }
+.trivia-card__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--text-caption); color: var(--fog); border-top: 1px solid var(--rule); padding-top: var(--sp-2); }
+.trivia-card__marked { font-size: var(--text-caption); color: var(--fog); }
+.trivia-rules { display: flex; flex-direction: column; gap: var(--sp-2); }
+.trivia-rule { margin: 0; line-height: 1.5; }
+@media (max-width: 699px) { .trivia-cells { grid-template-columns: minmax(0, 1fr); } .trivia-cell + .trivia-cell { border-left: 0; border-top: 1px solid var(--rule); } }
+
 /* === LIVE: Live sheet and Archive === */
 /* Phase 16 wave 3 (L-11, DS-03): the archive game's Back row with the saved date beside it */
 .archive-top { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; }
