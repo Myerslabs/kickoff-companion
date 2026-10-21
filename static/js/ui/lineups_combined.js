@@ -1,17 +1,18 @@
 // Lineups and depth in one view (Phase 19, owner 2026-10-08: "combine the line-up and the depth chart", "visualize offense vs
 // defense for each team as far as the roster goes"; owner 2026-10-10: "the opposite player should be on the other team and
 // aligned: offensive tackle against edge defender, center against nose tackle, WR against cornerback, RB against linebacker").
-// The same notes chart feeds everything: the starter at every slot and the names behind him. Each matchup is ONE table with
-// a row per pairing: our starter on the left, the man he faces on the right, matched by the slot map below (our offense
-// against their defense, then our defense against their offense, then the specialists slot for slot). A starter's cell is
-// his name, his class and the next man on the chart, so there is no "then, in order" column and the table never scrolls.
-// It sizes itself (ui/sizes.js): large with numbers and season chips, medium without them, small with the slot and the
-// name only (still the button to his card). The starters' names step down with the table (item 6, owner 2026-10-11: full,
-// "K. Crawford", the surname, the reduced surname; a notes name shortens only when it reads cleanly as First Last) and the men
-// behind him read "then K. Crawford (SO)", each on one line. Above it, how experienced each unit's starters are. Tables only
-// (design rule 12).
+// The same notes chart feeds everything: the starter at every slot. Each matchup is ONE table with a row per pairing: our
+// starter on the left, the man he faces on the right, matched by the slot map below (our offense against their defense, then
+// our defense against their offense, then the specialists slot for slot). A starter's cell is his name and his class; the men
+// behind him are no longer drawn (the Pre-Game Program from the mock, owner 2026-10-20: "Keep the Experience of the starters
+// ... Remove the depth portion"), so the table never scrolls. It sizes itself (ui/sizes.js): large with numbers and season
+// chips, medium without them, small with the slot and the name only (still the button to his card). The starters' names step
+// down with the table (item 6, owner 2026-10-11: full, "K. Crawford", the surname, the reduced surname; a notes name shortens
+// only when it reads cleanly as First Last). Above the matchups, how experienced each unit's starters are, the table the
+// band's whole width. Tables only (design rule 12).
 //
-//   lineupBlock({ lineups, us, them, availability, onPlayer })   the matchup tables, or the empty note
+//   lineupBlock({ lineups, us, them, availability, coaches, schemes, onPlayer })   the experience table, the formation (ui/formation.js)
+//       and the matchup tables, or the empty note
 //   experienceBlock({ lineups, us, them })                       the starters' experience by unit, or null when no chart
 //   pairSlots(offense, defense) -> [{ off, def }]                the matchups by the slot map (exported for the tests)
 //   (the names are ui/dom.js playerNames and personName, shared with every table of players; the availability report is
@@ -19,10 +20,11 @@
 //   classNumber(label) -> 1..4 | null                            "FR" 1 ... "SR" 4; "RS SO" 2; "GR" 4 (fifth year is a senior)
 
 import { usSchool } from "../identity.js";
-import { DASH, el, isNum, obj, personName, playerNames, str, text } from "./dom.js";
+import { DASH, el, isNum, obj, personName, str, text } from "./dom.js";
 import { note, subhead } from "./states.js";
 import { statTable } from "./stat-table.js";
 import { availabilityFor, hasLineups, lineupSlots, lineupStarters } from "./lineups.js";
+import { formationBlock } from "./formation.js";
 import { plainChip } from "./stat-labels.js";
 
 const CLASS_NUMBERS = { FR: 1, SO: 2, JR: 3, SR: 4, GR: 4 };
@@ -115,7 +117,7 @@ function who(team, fallback) {
   return str(obj(team).abbreviation) || str(obj(team).school) || fallback;
 }
 
-/** One side of a row: the starter, the men behind him, his listing on the availability report. */
+/** One side of a row: the starter and his listing on the availability report. */
 function sideOf(slot, availability, owner) {
   if (!slot) return null;
   const starter = slot.players[0];
@@ -131,12 +133,6 @@ function sideOf(slot, availability, owner) {
     note: str(starter.note),
     listed,
     isUs: owner === "us",
-    next: slot.players.slice(1).map((p) => {
-      const on = availabilityFor(availability, p.name); // matched on the name as written
-      const status = on ? str(on.status) : null;
-      const short = playerNames(p.name, { notes: true }).initial; // "K. Crawford", or the notes' words when they do not read cleanly
-      return { text: `${short}${str(p.classYear) ? ` (${p.classYear})` : ""}${status ? `, ${status.toLowerCase()}` : ""}`, full: text(p.name) };
-    }),
   };
 }
 
@@ -146,8 +142,7 @@ function starterName(side, onPlayer) {
   return side.playerId && typeof onPlayer === "function" ? el("button", { class: "lu-name", type: "button", onclick: () => onPlayer(side) }, name) : el("b", {}, name);
 }
 
-/** The starter's cell: his name (a tap opens his card), his class and status, the next men ("then K. Crawford (SO)", each on
- *  one line); a dash where the chart has no slot. */
+/** The starter's cell: his name (a tap opens his card), his class and status; a dash where the chart has no slot. */
 function whoCell(side, onPlayer) {
   if (!side) return DASH;
   const name = starterName(side, onPlayer);
@@ -158,7 +153,6 @@ function whoCell(side, onPlayer) {
     { class: "lu-who" },
     name,
     el("small", {}, side.classYear || DASH, status ? [" · ", el("span", { class: `avail${cls ? ` avail--${cls}` : ""}` }, status), str(side.listed.note) ? ` (${side.listed.note})` : ""] : str(side.note) ? ` · ${side.note}` : null), // the chart's own note when the report says nothing (freeze wave F4)
-    side.next.length ? el("em", {}, "then ", side.next.map((n, i) => [i ? ", " : null, el("span", { class: "lu-next", title: n.full }, n.text)])) : null,
   );
 }
 
@@ -243,7 +237,8 @@ export function lineupBlock({ lineups, us, them, availability, coaches = null, s
   push(matchupHead({ name: `${usName} defense`, school: usName, detail: detailOf("defense", "us") }, { name: `${themName} offense`, school: themName, detail: detailOf("offense", "them") }, "us"), theirs, "us", "them", `${usName} defense against ${themName} offense`);
   push(matchupHead({ name: `${usName} special teams`, school: usName }, { name: `${themName} special teams`, school: themName }, "us"), pairSame(slotsOf("us", "special teams"), slotsOf("them", "special teams")), "us", "them", `${usName} and ${themName} specialists`);
   if (!tables.length) return note("No chart written for either team yet.");
-  return el("div", { class: "lineups" }, experienceBlock({ lineups: l, us, them }), tables);
+  // the formation mock (owner 2026-10-20): both matchups on a field between the experience table and the matchup tables
+  return el("div", { class: "lineups" }, experienceBlock({ lineups: l, us, them }), formationBlock({ lineups: l, us, them, schemes, availability, detail: detailOf, onPlayer }), tables);
 }
 
 /** How experienced each unit's starters are, one row per team and unit; null when no chart names a starter's class. */

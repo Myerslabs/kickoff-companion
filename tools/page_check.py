@@ -202,7 +202,7 @@ STRETCH_JS = r"""
   if (document.body.classList.contains('board-mode')) return []; // the board is drawn at a zoom: its gaps are the zoom's
   const BY_DESIGN = /(__head|faceoff|__ends|kicker-row|team-head|mast__line|wp__caption|game-card|leaders__head|rgrid|tt__group|^setting$|play-drive)/; // tt__group: each team's scheme under its own columns, the bar's column empty between them on purpose; play-drive: a drive's head over its plays (the team and drive left, its plays and yards right), a band head's pattern
   for (const el of document.querySelectorAll('main *')) {
-    if (BY_DESIGN.test(typeof el.className === 'string' ? el.className : '') || el.closest('.band__head, thead, .rgrid')) continue;
+    if (BY_DESIGN.test(typeof el.className === 'string' ? el.className : '') || el.closest('.band__head, thead, .rgrid, .lineups__experience')) continue; // .lineups__experience: the starters' experience runs edge to edge by the owner's mark (2026-10-20)
     const display = getComputedStyle(el).display;
     if (!(display.includes('flex') || display.includes('grid') || display === 'table-row')) continue;
     const box = el.getBoundingClientRect();

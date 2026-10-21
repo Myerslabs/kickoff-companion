@@ -92,10 +92,25 @@ scenarios.setup = async () => {
 };
 
 scenarios.leaders = async () => {
-  const { leaderKeys } = await import(moduleUrl("views/program.js"));
-  const keys = leaderKeys([{ us: { playerId: "41", player: "Al One" }, them: { playerId: 7, player: "Bo Two" } }, { us: null, them: { name: "Cy Three" } }, null, "junk"]);
-  assert.ok(keys.has("id:41") && keys.has("id:7") && keys.has("name:al one") && keys.has("name:cy three"));
-  assert.equal(leaderKeys(undefined).size, 0);
+  // the mock (owner 2026-10-20): a leader carries his value for the row on the pole; the headlines fit their row
+  const { fitHeadlines, programLeader } = await import(moduleUrl("views/program.js"));
+  const lead = programLeader({ player: "Al One", playerId: "41", position: "QB", value: 1204 }, { format: "0f", stat: "YDS" });
+  assert.deepEqual([lead.name, lead.playerId, lead.value, lead.line.hero], ["Al One", "41", 1204, "1,204 yds"]);
+  assert.equal(programLeader({ player: "Bo", value: "x" }).value, null, "a damaged value is null, never a string");
+  assert.equal(programLeader(null), null);
+  fitHeadlines(null);
+  fitHeadlines(document.createElement("div"));
+  const body = document.createElement("div");
+  const list = document.createElement("ul");
+  list.className = "news";
+  for (let i = 0; i < 3; i += 1) {
+    const li = document.createElement("li");
+    li.hidden = true;
+    list.append(li);
+  }
+  body.append(list);
+  fitHeadlines(body);
+  assert.ok([...list.children].every((li) => !li.hidden), "a body that sizes itself hides nothing");
 };
 """
 
@@ -109,10 +124,12 @@ def test_menu_pages_in_a_fake_browser(tmp_path: Path, name: str) -> None:
 def test_the_programs_bands_in_the_owners_order() -> None:
     src = (JS / "views" / "program.js").read_text(encoding="utf-8")
     body = src.split("function sections(data) {", 1)[1].split("\n}\n", 1)[0]
-    listed = re.findall(r"^\s+(\w+)\(", body.split("const listed = [", 1)[1].split("];", 1)[0], flags=re.M)
-    assert listed == ["notesBand", "headlinesBand", "tapeBand", "watchBand", "leadersBand", "availabilityBand", "recruitingBand", "lineupsBand", "pickerBand", "seriesBand", "advancedBand", "tendenciesBand", "ppaBand", "commonBand", "lastSeasonBand"]  # wave F5: My notes went into Program notes
-    assert "return [...listed, matchup(data)" in body, "the unlisted bands follow the fifteen"
-    assert "!isLeader(p, leaders)" in src and "leaderKeys(data.leaders)" in src, "players to watch never repeats a leader"
+    listed = re.findall(r"(\w+Band)\(", body.split("const listed = [", 1)[1].split("];", 1)[0])
+    # the mock (owner 2026-10-20): the notes beside the headlines, the recruits beside the availability report, common
+    # opponents over the radio beside last season, the two schools and the series last
+    assert listed == ["notesBand", "headlinesBand", "tapeBand", "visitorsBand", "availabilityBand", "leadersBand", "recruitingBand", "lineupsBand", "advancedBand", "tendenciesBand", "ppaBand", "commonBand", "radioBand", "lastSeasonBand", "twoSchoolsBand", "seriesBand"]
+    assert "const unplaced = [matchup(data)]" in body, "the matchup card was not on his canvas: it follows the order"
+    assert "watchBand" not in src and "pickerBand" not in src, "players to watch and prior weeks' programs are gone"
 
 
 def test_in_game_settings_and_page_check() -> None:

@@ -1,6 +1,8 @@
-// The Game program (P1 to P10): picker, cover, notes and availability, matchup card with
-// schemes, tale of the tape with the edges table, leaders side by side, series, weather, and
-// the final box for a past game. Tap the opponent for its team page.
+// The Pre-Game Program (P1 to P10; the owner's mock of 2026-10-20 sets the page): the cover, the program notes beside the
+// team's headlines, the tale of the tape, the recruits on hand beside the availability report, the leaders side by side on
+// the pole, talent and recruiting, the lineups, the advanced matchup, the opponent's tendencies, play value, common
+// opponents over the radio beside last season, the two schools and the series; then the matchup card and a finished game's
+// box scores. Tap the opponent for its team page.
 
 import { confLabel, usLabel, usName, usSchool } from "../identity.js";
 import { weekCell, weekLong } from "../ui/weeks.js";
@@ -13,7 +15,6 @@ import { fullName, matchupCard, venueLine, weatherRow } from "../ui/matchup-card
 import { crewText, teamStaff } from "../ui/game-staff.js";
 import { flow } from "../ui/flow.js";
 import { starStrip } from "../ui/team-page.js";
-import { scheduleList } from "../ui/schedule.js";
 import { backRow, band, note, revealBand, sectionChips, settleOn, stateBlock, subhead } from "../ui/states.js";
 import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one sized box score on every page
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
@@ -24,8 +25,8 @@ import { PPA_SCALE, twoTeamTable } from "../ui/two-team.js";
 import { nationalHref } from "../ui/national-link.js";
 import { edgesSummary } from "../ui/edges.js";
 import { tapeTable } from "../ui/tape.js";
-import { leadersGrid, statLine } from "../ui/leaders.js";
-import { leaderLines } from "../ui/leader-lines.js";
+import { statLine } from "../ui/leaders.js";
+import { leaderPairs } from "../ui/leader-lines.js";
 import { quarterLine, teamStatRows, teamStatsTable } from "../ui/team-stats.js";
 import { radioSnapshot } from "../radio.js";
 import { radioStations } from "../ui/radio-stations.js";
@@ -34,7 +35,6 @@ import { gameNotesPanel } from "../ui/game-notes.js";
 import { printButton } from "../ui/print.js";
 import { newsDigest, newsSkeleton } from "../ui/news.js";
 import { notesPaste } from "../ui/notes-paste.js";
-import { GRADE_NOTE, gradedTable } from "../ui/grade.js";
 import { playValueTable } from "../ui/play-value.js";
 import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common.js";
 import { dataRunActive, onRunProgress, watchRun } from "../ui/run-bar.js";
@@ -330,14 +330,14 @@ function availabilityBand(data) {
 }
 
 /**
- * Lineups and depth in one band (Phase 19, owner 2026-10-08): the starter at every slot with his season chips, the depth behind
- * him in the last column, the starters' experience on top, our unit beside theirs. It replaces the two bands of 2026-10-02.
+ * The lineups (Phase 19, owner 2026-10-08; the mock of 2026-10-20: starters only, the depth behind them gone): the starters'
+ * experience by unit across the band, then each matchup, our starter with his season chips beside the man he faces.
  */
 function lineupsBand(data) {
   const n = data.notes && typeof data.notes === "object" ? data.notes : {};
   return band({
     id: "program-lineups",
-    title: "Lineups and depth",
+    title: "Lineups",
     collapsible: true,
     foldable: true,
     summary: lineupSummary(n.lineups) || "",
@@ -689,108 +689,36 @@ function tapeBand(data) {
   });
 }
 
-/** A program leaders payload side as a leadersGrid player: its number in the board's format with a unit. */
+/** A program leaders payload side as a leader-row player: its number in the board's format with a unit. */
 export function programLeader(entry, cat) {
   if (!entry || typeof entry !== "object") return null;
-  return { name: entry.player ?? entry.name, playerId: entry.playerId, number: entry.number, position: entry.position, headshotUrl: entry.headshotUrl, line: { hero: statLine(entry.value, cat?.format, cat?.stat), rest: "" } };
-}
-
-/** Public release Phase 7: each team's best graded players, any position (/api/grades/teams), loaded on its own. */
-// Group five (owner 2026-10-09: the program is a matchup): the grade groups by the side of the ball they play on.
-const WATCH_SIDE = { QB: "offense", RB: "offense", WR: "offense", TE: "offense", OL: "offense", DL: "defense", LB: "defense", DB: "defense" };
-const WATCH_TOP = 3; // the best three of a side
-const WATCH_ASK = 16; // each team's best graded, enough to leave three a side once the leaders are taken out
-
-/** The leaders' players (Leaders side by side) as ids and names, so players to watch never repeats one (owner 2026-10-10).
-    Exported for the tests. */
-export function leaderKeys(leaders) {
-  const keys = new Set();
-  for (const cat of Array.isArray(leaders) ? leaders : []) {
-    for (const side of [cat?.us, cat?.them]) {
-      if (!side || typeof side !== "object") continue;
-      const id = side.playerId === undefined || side.playerId === null ? "" : String(side.playerId).trim();
-      if (id) keys.add(`id:${id}`);
-      const name = typeof side.player === "string" ? side.player : typeof side.name === "string" ? side.name : "";
-      if (name.trim()) keys.add(`name:${name.trim().toLowerCase()}`);
-    }
-  }
-  return keys;
-}
-
-function isLeader(player, keys) {
-  const id = player?.playerId === undefined || player?.playerId === null ? "" : String(player.playerId).trim();
-  const name = typeof player?.name === "string" ? player.name.trim().toLowerCase() : "";
-  return Boolean((id && keys.has(`id:${id}`)) || (name && keys.has(`name:${name}`)));
-}
-
-function watchBand(data) {
-  const us = typeof data.us?.school === "string" && data.us.school ? data.us.school : usSchool();
-  const them = typeof data.them?.school === "string" && data.them.school ? data.them.school : null;
-  const host = el("div", {});
-  const leaders = leaderKeys(data.leaders); // never the same players as Leaders side by side (owner 2026-10-10)
-  const draw = (state) => {
-    const teams = (Array.isArray(state?.data?.teams) ? state.data.teams : []).filter((t) => t && typeof t === "object" && typeof t.team === "string");
-    const byTeam = new Map(teams.map((t) => [t.team, t]));
-    const players = (team, side) => (Array.isArray(byTeam.get(team)?.players) ? byTeam.get(team).players : [])
-      .filter((p) => p && typeof p === "object" && (WATCH_SIDE[p.group] || "specialists") === side && !isLeader(p, leaders))
-      .slice(0, WATCH_TOP);
-    const count = teams.reduce((n, t) => n + (Array.isArray(t.players) ? t.players.length : 0), 0);
-    const cell = (team, side, owner) => {
-      const rows = players(team, side);
-      return el("div", { class: `watch__side watch__side--${owner}` },
-        subhead(`${text(team)} ${side}`, { team, side: owner }),
-        rows.length ? gradedTable(rows, { us, showTeam: false, onTap: (row) => openPlayer(row.playerId, { ...row, isUs: row.team === us }), caption: `${text(team)} ${side}, best stat grades` }) : note(`No ${side} grades for ${text(team)} yet.`),
-      );
-    };
-    const pairs = them
-      ? [[us, "offense", "us", them, "defense", "them"], [them, "offense", "them", us, "defense", "us"]] // each offense beside the defense it faces
-      : [[us, "offense", "us", us, "defense", "us"]];
-    const specialists = players(us, "specialists").length || (them && players(them, "specialists").length);
-    host.replaceChildren(band({
-      id: "program-watch",
-      title: "Players to watch",
-      collapsible: true,
-      foldable: true,
-      summary: count ? "the best stat grades beyond the leaders, each offense against the defense it faces" : "",
-      state: state?.error ? { status: "error", message: `${state.error}.` } : !state ? { status: "loading" } : count ? { status: "ready" } : { status: "empty" },
-      emptyText: "Grades appear once players have enough plays this season.",
-      body: () => el("div", { class: "watch" },
-        pairs.map(([a, aSide, aOwner, b, bSide, bOwner]) => el("div", { class: "twocol watch__pair" }, cell(a, aSide, aOwner), cell(b, bSide, bOwner))),
-        specialists ? el("div", { class: "twocol watch__pair" }, cell(us, "specialists", "us"), them ? cell(them, "specialists", "them") : null) : null,
-        el("p", { class: "note" }, GRADE_NOTE),
-      ),
-    }));
-  };
-  draw(null);
-  fetchJson(`/api/grades/teams?teams=${encodeURIComponent([us, them].filter(Boolean).join(","))}&top=${WATCH_ASK}`)
-    .then((envelope) => draw({ data: envelope?.data && typeof envelope.data === "object" ? envelope.data : null }))
-    .catch((error) => draw({ error: error?.message || "The grades did not load" }));
-  return host;
+  return { name: entry.player ?? entry.name, playerId: entry.playerId, number: entry.number, position: entry.position, headshotUrl: entry.headshotUrl, value: isNum(entry.value) ? entry.value : null, line: { hero: statLine(entry.value, cat?.format, cat?.stat), rest: "" } };
 }
 
 /**
  * Phase 17 #17: the leaders draw at once from the program's own answer; then /api/program/<id>/leaders adds each
  * leader's whole line with national and conference ranks and the line over conference games (it can take a
- * moment the first time a week's conference games are read, so it loads on its own).
+ * moment the first time a week's conference games are read, so it loads on its own). The mock (owner 2026-10-20): each
+ * pair on the pole, the numbers outside the faces, the row in the middle of the band (ui/leader-lines.js).
  */
 function leadersBand(data) {
   const leaders = (Array.isArray(data.leaders) ? data.leaders : []).filter((l) => l && typeof l === "object");
   const usAbbr = abbrOf(data.us, usLabel());
   const themAbbr = abbrOf(data.them);
-  const host = el("div", { class: "flow-wide" }); // the whole lines need the room of two columns
+  const host = el("div", { class: "flow-wide" }); // the rows need the room of two columns
   const draw = (extra) => {
     const detailed = new Map((Array.isArray(extra?.categories) ? extra.categories : []).filter((c) => c && typeof c === "object").map((c) => [`${c.category}:${c.stat}`, c]));
     const confGames = objOf(extra?.conferenceGames);
-    const categories = leaders.map((cat) => {
-      const more = detailed.get(`${cat.category || ""}:${cat.stat}`) || [...detailed.values()].find((c) => c.label === cat.label) || null;
-      return {
-        id: `${text(cat.stat)}-${text(cat.label)}`,
-        label: cat.label,
-        us: programLeader(cat.us, cat),
-        them: programLeader(cat.them, cat),
-        detail: more ? leaderLines(more, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, usConfGames: objOf(confGames.us).games, themConfGames: objOf(confGames.them).games }) : null,
-      };
-    });
+    const categories = leaders.map((cat) => ({
+      id: `${text(cat.stat)}-${text(cat.label)}`,
+      label: cat.label,
+      category: cat.category,
+      stat: cat.stat,
+      format: cat.format,
+      us: programLeader(cat.us, cat),
+      them: programLeader(cat.them, cat),
+      more: detailed.get(`${cat.category || ""}:${cat.stat}`) || [...detailed.values()].find((c) => c.label === cat.label) || null,
+    }));
     host.replaceChildren(band({
       id: "program-leaders",
       title: "Leaders side by side",
@@ -799,7 +727,7 @@ function leadersBand(data) {
       summary: detailed.size ? "season and conference games, with ranks" : "season totals",
       state: partState(data.parts?.playersTeam, categories.some((l) => l.us || l.them)),
       emptyText: "Leaders appear after the first game.",
-      body: () => el("div", {}, leadersGrid({ categories, usAbbr, themAbbr, className: "leaders--program", onTap: (player, side) => (player?.playerId ? openPlayer(player.playerId, { ...player, isUs: side === "us" }) : null) }), extra?.error ? el("p", { class: "note" }, `The whole lines did not load: ${text(extra.error)}.`) : detailed.size ? el("p", { class: "note" }, "Each rank is among FBS players and among the players of the leader's own conference. Conference games count only games against conference teams.") : null),
+      body: () => el("div", {}, leaderPairs(categories, { usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, usConfGames: objOf(confGames.us).games, themConfGames: objOf(confGames.them).games, onTap: (player, side) => (player?.playerId ? openPlayer(player.playerId, { ...player, isUs: side === "us" }) : null) }), extra?.error ? el("p", { class: "note" }, `The whole lines did not load: ${text(extra.error)}.`) : detailed.size ? el("p", { class: "note" }, "Each rank is among FBS players and among the players of the leader's own conference. Conference games count only games against conference teams.") : null),
     }));
   };
   draw(null);
@@ -894,24 +822,6 @@ function finalBand(data) {
   });
 }
 
-/** Prior weeks' programs (owner 2026-10-16, was "Programs"): the games already played, each opening its program. The
- *  games ahead stay on the Season page's schedule. */
-function pickerBand(data) {
-  const games = listOf(data.picker).filter((g) => (isNum(g.gameId) || /^\d+$/.test(String(g.gameId ?? ""))) && g.completed === true);
-  const scheduled = listOf(data.picker).length > 0;
-  return band({
-    id: "program-picker",
-    title: "Prior weeks' programs",
-    collapsible: true,
-    foldable: true,
-    collapsed: true,
-    summary: games.length ? "tap a game" : "",
-    state: partState(data.parts?.schedule, games.length > 0),
-    emptyText: scheduled ? "No games played yet this season. Each game's program shows here once it is played." : "The schedule loads the first time the app opens.",
-    body: () => scheduleList({ games, nextGameId: data.game?.gameId ?? null, onSelect: (game) => openProgram(game?.gameId) }),
-  });
-}
-
 /** Another game's program: only the hash changes, and the router builds the view once (bug 13: it was twice). */
 function openProgram(gameId) {
   if (!(isNum(gameId) || /^\d+$/.test(String(gameId ?? "")))) return;
@@ -919,43 +829,73 @@ function openProgram(gameId) {
   if (window.location.hash !== hash) window.location.hash = hash;
 }
 
-/** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
- *  from the Newspaper's feeds, loaded on their own so the program itself stays fast. */
-function headlinesBand() {
-  const host = el("div", {}, newsSkeleton(4));
-  fetchPatient("/api/newspaper")
-    .then((envelope) => {
-      const items = Array.isArray(envelope?.data?.news) ? envelope.data.news.slice(0, 12) : [];
-      host.replaceChildren(items.length ? newsDigest({ items }) : note(`No ${usName()} headlines in the feeds yet. They appear as the feeds publish.`));
-    })
-    .catch((error) => host.replaceChildren(note(`${text(error?.message || error)}. The band tries again with the next refresh.`, { kind: "error" })));
-  return band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: "from the news feeds", body: () => host });
+/** The headlines as deep as the notes (owner 2026-10-20: "Have as many recent headlines as there are program notes to give an
+ *  uniform appearance"): beside the notes the band's body takes the row's height (CSS) and the list is cut to the headlines
+ *  that fit whole; a body that sizes itself (a phone, or the notes folded) shows what it holds. Exported for the tests. */
+export function fitHeadlines(body) {
+  const list = body && typeof body.querySelector === "function" ? body.querySelector(".news") : null;
+  if (!list) return;
+  const cut = typeof getComputedStyle === "function" && getComputedStyle(body).overflowY === "hidden" ? body.clientHeight : Infinity;
+  const items = [...list.children];
+  for (const item of items) item.hidden = false;
+  const bottoms = items.map((item) => item.offsetTop + item.offsetHeight);
+  items.forEach((item, i) => {
+    item.hidden = bottoms[i] > cut;
+  });
 }
 
-/** The bands in the owner's order (2026-10-10). The page flows in columns, so this is the reading order across the top,
-    the shortest column next. The bands he left unlisted follow the sixteen, in their earlier order, until he sets it. */
+/** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
+ *  from the Newspaper's feeds, loaded on their own so the program itself stays fast; beside the notes and as deep (2026-10-20). */
+function headlinesBand() {
+  const host = el("div", {}, newsSkeleton(4));
+  const section = band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: "from the news feeds, as deep as the notes", body: () => host });
+  section.classList.add("band--fill");
+  const body = section.querySelector(".band__body");
+  const fit = () => fitHeadlines(body);
+  if (body && typeof ResizeObserver === "function") new ResizeObserver(fit).observe(body);
+  fetchPatient("/api/newspaper")
+    .then((envelope) => {
+      const items = Array.isArray(envelope?.data?.news) ? envelope.data.news.slice(0, 20) : [];
+      host.replaceChildren(items.length ? newsDigest({ items }) : note(`No ${usName()} headlines in the feeds yet. They appear as the feeds publish.`));
+      fit();
+    })
+    .catch((error) => host.replaceChildren(note(`${text(error?.message || error)}. The band tries again with the next refresh.`, { kind: "error" })));
+  return section;
+}
+
+/** Two bands side by side (the mock, owner 2026-10-20): one row of the flow, both the same height; a phone stacks them. */
+function pairRow(id, left, right) {
+  return el("div", { class: "program-pair flow-wide", id }, left, right);
+}
+
+/** Bands one over the other in a pair's column (common opponents over the radio): the last one takes the room left. */
+function stack(...bands) {
+  return el("div", { class: "program-stack" }, bands.filter(Boolean));
+}
+
+/** The bands in the owner's order: his arrangement of the page on the canvas (2026-10-20, every band a board he moved) and his
+    marks on the drawn mock. The page flows in two columns; a pair of bands is one row of it. Players to watch and Prior weeks'
+    programs are gone (the Season page's schedule opens any week's program). The matchup card and a finished game's box scores
+    were not on his canvas, so they follow the order until he places them (new or unplaced bands go to the bottom, 2026-10-13). */
 function sections(data) {
   const done = Boolean(data.game?.completed);
   const listed = [
-    notesBand(data), // 1 Program notes
-    headlinesBand(), // 2 the team's headlines (N4)
-    tapeBand(data), // 3 Tale of the tape
-    watchBand(data), // 4 Players to watch, never the leaders' players
-    leadersBand(data), // 5 Leaders side by side
-    availabilityBand(data), // 6 Availability report
-    recruitingBand(data), // 7 Talent and recruiting
-    lineupsBand(data), // 8 Lineups and depth
-    pickerBand(data), // 9 Prior weeks' programs (the game picker; renamed 2026-10-16)
-    seriesBand(data), // 10 Series
-    advancedBand(data), // 11 Advanced matchup
-    tendenciesBand(data), // 12 Tendencies
-    ppaBand(data), // 13 Play value
-    commonBand(data), // 14 Common opponents
-    lastSeasonBand(data), // 15 Last season
+    pairRow("program-pair-notes", notesBand(data), headlinesBand()), // 1 Program notes | the team's headlines, as deep as the notes
+    tapeBand(data), // 2 Tale of the tape
+    pairRow("program-pair-report", visitorsBand(data), availabilityBand(data)), // 3 Recruits on hand | Availability report
+    leadersBand(data), // 4 Leaders side by side, each pair on the pole
+    recruitingBand(data), // 5 Talent and recruiting
+    lineupsBand(data), // 6 Lineups: the starters' experience, then the matchups
+    advancedBand(data), // 7 Advanced matchup
+    tendenciesBand(data), // 8 Tendencies: the shot chart beside the down-and-distance table
+    ppaBand(data), // 9 Play value
+    pairRow("program-pair-context", stack(commonBand(data), radioBand()), lastSeasonBand(data)), // 10 Common opponents over the radio | Last season
+    twoSchoolsBand({ us: data.us, them: data.them, facts: data.facts }), // 11 The two schools (nothing without facts)
+    seriesBand(data), // 12 Series, the whole width
   ];
-  // the cover redo (owner 2026-10-10): the weather and the stadium's facts moved into the cover; no Weather band
-  if (done) return [...listed, matchup(data), radioBand(), finalBand(data), advancedBoxBand(data), visitorsBand(data)]; // the visitors last: new bands at the bottom (2026-10-13)
-  return [...listed, matchup(data), radioBand(), visitorsBand(data)];
+  const unplaced = [matchup(data)];
+  if (done) unplaced.push(finalBand(data), advancedBoxBand(data));
+  return [...listed, ...unplaced].filter(Boolean);
 }
 
 const OPP_VARS = ["--opp", "--opp-alt", "--opp-text"];
@@ -984,7 +924,7 @@ function resetOpponentColors() {
 }
 
 /** The program's bands that span two columns on a wide page (owner pick 2026-10-07: the big side-by-side tables). */
-const PROGRAM_WIDE = ["program-results", "program-schools", "program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box", "program-watch", "program-ppa"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups and depth tables want two columns
+const PROGRAM_WIDE = ["program-results", "program-schools", "program-matchup", "program-tape", "program-advanced", "program-recruiting", "program-lineups", "program-tendencies", "program-advanced-box", "program-ppa", "program-series"]; // final pass: the tendencies and the advanced box score wrapped every label in one column // Phase 19: the lineups tables want two columns // the mock (2026-10-20): the series takes the whole bottom row; a pair of bands is one wide row by its class
 
 function render(envelope, container, state) {
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
@@ -1002,12 +942,11 @@ function render(envelope, container, state) {
   state.cover = coverEl;
   useOpponentColors(data.them);
   const tools = el("div", { class: "program-tools flow-full" }, printButton()); // Phase 19: print the program
-  // wave B (owner 2026-10-13): the expectations locked at kickoff beside the result on a finished game's program, and the
-  // two schools' history on every program that has facts. New bands go to the bottom of a page until the owner orders
-  // them ("for every screen in the future, the new stuff goes to the bottom, until I reorder them", 2026-10-13).
+  // wave B (owner 2026-10-13): the expectations locked at kickoff beside the result on a finished game's program, at the
+  // bottom until the owner orders it ("for every screen in the future, the new stuff goes to the bottom, until I reorder
+  // them", 2026-10-13); the two schools' history is in the order now (the mock, 2026-10-20)
   const results = data.game?.completed ? resultsSlot(data, state) : null;
-  const schools = twoSchoolsBand({ us: data.us, them: data.them, facts: data.facts });
-  page.append(...[back, tools, coverEl, ...sections(data), results, schools].filter(Boolean));
+  page.append(...[back, tools, coverEl, ...sections(data), results].filter(Boolean));
   if (back) back.classList.add("flow-full");
   coverEl.classList.add("flow-full");
   if (state.flow) state.flow.stop();

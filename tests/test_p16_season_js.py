@@ -269,13 +269,13 @@ scenarios.seasonLinks = async () => {
   // trends: the last value captioned, the average beside it, and the wait text under two games
   assert.ok(t.includes("Trend after game 2"));
   assert.ok([...all(main, ".trend__avg")].some((n) => text(n) === "avg 14.7"), [...all(main, ".trend__avg")].map(text).join("|"));
-  // schedule rows open the game: the archive when the app watched it, else the program
+  // every row opens the game's program (the mock, owner 2026-10-20: the prior weeks' programs are reached here; a finished game's program leads to the Archive)
   const rows = [...all(main, "#season-schedule li.sched__game")];
   assert.equal(rows.length, 3);
   assert.ok(rows.every((li) => li.getAttribute("role") === "button" && text(li).includes("›")));
-  assert.deepEqual(rows.map((li) => li.getAttribute("data-href")), ["#archive=1001", "#program=1002", "#program=1003"]);
+  assert.deepEqual(rows.map((li) => li.getAttribute("data-href")), ["#program=1001", "#program=1002", "#program=1003"]);
   rows[0].click();
-  assert.equal(window.location.hash, "archive=1001");
+  assert.equal(window.location.hash, "program=1001");
   rows[2].click();
   assert.equal(window.location.hash, "program=1003");
   // GX-08: the opponent's SP+ chip and the win chance, the estimate marked
@@ -430,7 +430,7 @@ scenarios.teamPage = async () => {
   const rows = [...all(main, "li.sched__game")].filter((li) => !li.className.includes("sched__game--bye")); // Phase 17 #37: a bye row sits in the gap
   assert.equal(rows.length, 2);
   assert.ok(rows.every((li) => li.getAttribute("role") === "button"), "Swampwater Tech's own games open");
-  assert.equal(rows[0].getAttribute("data-href"), "#archive=1001");
+  assert.equal(rows[0].getAttribute("data-href"), "#program=1001");
   view.unmount();
 };
 
@@ -597,8 +597,8 @@ scenarios.graphics = async () => {
   clean("record", recordLine({ overall: null, apRank: "x", spRank: NaN }));
   clean("record", recordLine());
   clean("schedule", scheduleList({ games: [null, { gameId: "x", opponent: "Silver Dollar", completed: true, result: 3, winPct: { value: 2 }, opponentSp: { rank: "x" } }, {}], onSelect: () => {}, context: true }));
-  assert.equal(gameHref({ gameId: 5, completed: true, archived: true }), "#archive=5");
-  assert.equal(gameHref({ gameId: 5, completed: false, archived: true }), "#program=5", "an unplayed game has no archive");
+  assert.equal(gameHref({ gameId: 5, completed: true, archived: true }), "#program=5", "a played game opens its program (the mock, 2026-10-20); the program leads to the Archive");
+  assert.equal(gameHref({ gameId: 5, completed: false, archived: true }), "#program=5");
   assert.equal(gameHref({ gameId: "x" }), null);
   assert.equal(gameHref(null), null);
 };

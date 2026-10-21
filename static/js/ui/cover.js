@@ -16,7 +16,9 @@
 //       the when line (date · time · stadium · TV) under them, larger. staff: { us, them } (nodes, ui/game-staff.js
 //       teamStaff) puts each team's coaches under its own block, level with the when line. The foot is three cells:
 //       the buttons on the left, the pregame win probability in the middle, conditions (a node: the weather and the
-//       stadium's facts) on the right. A narrow cover stacks them.
+//       stadium's facts) on the right. A narrow cover stacks them. The mock (owner 2026-10-20): the foot is one line, the
+//       button, the weather, the stadium's facts and the bar at the right hand, wrapping on a narrow cover (CSS); the
+//       rivalry's trophy line sits under the when line, not under the kicker.
 //       Each W/L square opens that game (ours: the Archive or the program; any other: its box score), and the
 //       conference record opens the standings (ours on the Season page; another conference's on that team's page).
 //       Phase 17 #4: the logo opens the team's football page on Wikipedia, the name its school's page, the venue
@@ -292,7 +294,7 @@ export function cover(props) {
 
   const crew = typeof p.crew === "string" && p.crew.trim() ? p.crew.trim() : null;
   const venueName = typeof venue === "string" && venue.trim() ? venue.trim() : null;
-  const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venueName ? [wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null] : text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]
+  const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venueName ? el("span", { class: "cover__venue" }, wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null) : text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]
     .filter(Boolean)
     .flatMap((part, i) => (i ? [" · ", part] : [part]));
   const staff = obj(p.staff);
@@ -321,7 +323,7 @@ export function cover(props) {
       factsOf(side),
     );
   };
-  const trophy = typeof p.trophy === "string" && p.trophy.trim() && !compact ? el("div", { class: "cover__trophy" }, p.trophy.trim()) : null; // the rivalry's trophy, under the kicker
+  const trophy = typeof p.trophy === "string" && p.trophy.trim() && !compact ? el("div", { class: "cover__trophy" }, p.trophy.trim()) : null; // the rivalry's trophy, under the when line (the mock, owner 2026-10-20: "move this down")
 
   const lineParts = [];
   const homeName = homeIsUs ? us.school : them.school;
@@ -344,7 +346,6 @@ export function cover(props) {
     "section",
     { class: `cover${reveal ? " cover--reveal" : ""}${compact ? " cover--compact" : ""}`, "aria-label": compact && typeof p.label === "string" && p.label ? p.label : "Pre-Game Program cover", dataset: { state: kind } },
     el("div", { class: "cover__kicker-row" }, compact ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Pre-Game Program")), compact ? null : navArrow("next", p.next)),
-    trophy,
     el("h1", { class: "cover__matchup sr-only" }, `${text(away.school)} ${neutralSite ? "vs" : "at"} ${text(home.school)}`),
     el(
       "div",
@@ -359,7 +360,7 @@ export function cover(props) {
       ),
       teamBlock(them, "them"),
       usStaff,
-      el("div", { class: "cover__when" }, when),
+      el("div", { class: "cover__when" }, when, trophy),
       themStaff,
     ),
     el(

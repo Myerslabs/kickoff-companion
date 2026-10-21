@@ -412,36 +412,25 @@ scenarios.weatherVenue = async () => {
 };
 
 scenarios.zones = async () => {
-  const { passZonesTable, runLanesTable, tendenciesBlock } = await import(moduleUrl("ui/depth2.js"));
-  const zones = passZonesTable(FIXTURE.tendencies.passZones);
-  const t = clean("zones", zones);
-  const rows = zones.querySelectorAll("tbody tr");
-  assert.equal(rows.length, 2);
-  assert.equal(text(rows[0].childNodes[0]), "Deep", "the deep row sits over the short row");
-  assert.equal(text(rows[1].childNodes[0]), "Short");
-  assert.equal(text(zones.querySelector("thead")), "PassesLeftMiddleRight");
-  assert.ok(text(rows[0].childNodes[1]).startsWith("4 att") && text(rows[0].childNodes[1]).includes("25.0% comp"));
-  assert.ok(text(rows[1].childNodes[2]).startsWith("0 att"), "a zero is a zero");
-  assert.ok(text(rows[0].childNodes[2]).startsWith("–"), "a zone missing from the payload is a dash");
-  // wave 2 (owner 2026-10-10): sized by its own box, the field's shape kept; each cell says less as the box narrows
-  assert.equal(zones.dataset.size, "large");
-  assert.ok(typeof zones.measure === "function", "it measures itself like a stat table");
-  const deepLeft = rows[0].childNodes[1];
-  assert.equal(text(deepLeft.querySelector(".zone__rates--long")), "25.0% comp · 25.0% success");
-  assert.deepEqual(deepLeft.querySelectorAll(".zone__rates--mid small").map(text), ["25.0% comp", "25.0% succ."]);
-  assert.equal(text(deepLeft.querySelector(".zone__rates--short")), "25.0% succ.");
-  assert.ok(!rows[1].childNodes[2].querySelector(".zone__rates") && text(rows[1].childNodes[2]).includes("no throws"), "no throws: the count and the words, at every size");
-  const lanes = runLanesTable(FIXTURE.tendencies.runLanes);
-  clean("lanes", lanes);
-  assert.ok(text(lanes).includes("12 car") && text(lanes).includes("4.2 Y/C") && text(lanes).includes("0 car"), "the yards are per carry, so they say Y/C");
-  assert.ok(!text(lanes).includes("yds"));
-  const left = lanes.querySelector("tbody td");
-  assert.deepEqual([text(left.querySelector(".zone__rates--long")), text(left.querySelector(".zone__rates--short"))], ["4.2 Y/C · 41.7% success", "4.2 Y/C"]);
-  assert.equal(lanes.dataset.size, "large");
+  // the mock (owner 2026-10-20): the tendencies' zones and lanes drawn as the shot chart In Game draws
+  const { zonesChart, tendenciesBlock } = await import(moduleUrl("ui/depth2.js"));
+  const chart = zonesChart(FIXTURE.tendencies);
+  assert.deepEqual(chart.passes["deep-left"], { attempts: 4, completions: 1, successRate: 0.25, yardsPerAttempt: null });
+  assert.deepEqual(chart.passes["short-middle"], { attempts: 0, completions: 0, successRate: null, yardsPerAttempt: null }, "a zero is a zero");
+  assert.deepEqual(chart.runs.left, { attempts: 12, successRate: 0.417, yardsPerAttempt: 4.2 });
+  assert.deepEqual(chart.unzoned, { passes: 2, runs: 0 });
+  assert.equal(zonesChart({ passZones: [{ depth: "deep", direction: "right", attempts: 8, completionPct: 0.5 }] }).passes["deep-right"].completions, 4, "no completions count: the rate makes one");
   const block = tendenciesBlock(FIXTURE.tendencies, "GRID");
-  assert.ok(text(block).includes("2 passes had no charted zone"));
-  clean("junk zones", passZonesTable([null, { depth: "deep", direction: "left", attempts: "x", completionPct: NaN }]));
-  clean("junk lanes", runLanesTable("x"));
+  const t = clean("tendencies", block);
+  assert.ok(block.querySelector(".shot-field--both") && block.querySelectorAll(".shot-row").length === 3, "deep, short, then the runs");
+  const cells = block.querySelectorAll(".shot-cell");
+  assert.equal(cells.length, 9);
+  assert.ok(text(cells[0]).includes("1/4") && text(cells[0]).includes("25% success"), text(cells[0]));
+  assert.ok(text(cells[6]).includes("12 runs") && text(cells[6]).includes("4.2 yds"), "the runs by lane under the line, their yards per carry");
+  assert.ok(text(cells[4]).includes("none"), "no throws: the cell says so");
+  assert.ok(t.includes("2 passes had no charted zone"));
+  assert.ok(block.querySelector(".tend__table"), "the down-and-distance table beside the chart");
+  clean("junk zones", tendenciesBlock({ plays: 3, passZones: [null, { depth: "deep", direction: "left", attempts: "x", completionPct: NaN }], runLanes: "x" }));
   assert.ok(t.length > 0);
 };
 
@@ -472,11 +461,19 @@ scenarios.programPage = async () => {
   assert.ok(root.querySelector("a.weather__radar"));
   assert.ok(t.includes("Built 1939"));
   assert.ok(t.includes("4.5 sacks"));
-  // prior weeks' programs (owner 2026-10-16, was "Programs"): the games already played, nothing ahead
-  const picker = root.querySelector("#program-picker");
-  assert.equal(text(picker.querySelector(".band__title")), "Prior weeks' programs");
-  const listed = text(picker);
-  assert.ok(listed.includes("Campbell") && !listed.includes("Diner Tech") && !listed.includes("Silver Dollar"), listed);
+  // the mock (owner 2026-10-20): no prior weeks' programs and no players to watch; the notes beside the headlines, the
+  // recruits beside the availability report, common opponents over the radio beside last season, the series last
+  assert.equal(root.querySelector("#program-picker"), null);
+  assert.equal(root.querySelector("#program-watch"), null);
+  const notesPair = root.querySelector("#program-pair-notes");
+  assert.ok(notesPair && notesPair.className.includes("flow-wide") && notesPair.querySelector("#program-notes") && notesPair.querySelector("#program-headlines.band--fill"), "the notes and the headlines share a row");
+  assert.ok(root.querySelector("#program-pair-report #program-visitors") && root.querySelector("#program-pair-report #program-availability"));
+  const stackEl = root.querySelector("#program-pair-context .program-stack");
+  assert.ok(stackEl && stackEl.querySelector("#program-common") && stackEl.querySelector("#program-radio") && root.querySelector("#program-pair-context #program-last-season"), "common opponents over the radio, last season beside them");
+  const ids = [...root.querySelectorAll("section.band")].map((s) => s.getAttribute("id") || "");
+  const order = ["program-notes", "program-headlines", "program-tape", "program-visitors", "program-availability", "program-leaders", "program-recruiting", "program-lineups", "program-advanced", "program-tendencies", "program-ppa", "program-common", "program-radio", "program-last-season", "program-series"];
+  assert.deepEqual(ids.filter((id) => order.includes(id)), order, ids.join(","));
+  assert.ok(root.querySelector("#program-leaders .lpair"), "the leaders on the pole");
   // the opponent's colors are switched on while the page is up, and reset when it goes
   assert.ok(document.documentElement.style["--opp"]);
   view.unmount();

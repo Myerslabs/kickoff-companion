@@ -24,9 +24,9 @@ import { usLabel, usSchool } from "../identity.js";
 import { weekCell } from "./weeks.js";
 import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, records, teamLink, text } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
-import { DROPPED, fitSize, watchSize } from "./sizes.js";
 import { note } from "./states.js";
-import { applyStatSize, pollBadge, statTable } from "./stat-table.js";
+import { pollBadge, statTable } from "./stat-table.js";
+import { shotChart } from "./shot-chart.js";
 
 const h4 = (label) => el("h4", { class: "d2-head" }, label);
 
@@ -215,83 +215,30 @@ const madeOf = (s) => (s && isNum(s.made) && isNum(s.of) && s.of > 0 ? `${s.made
 // GX-15 (restrained): the opponent's throws as a 2x3 table laid out like the field (the deep row over the
 // short row; left, middle, right) and its runs as a 1x3 table. Counts, then rates; a zero is a zero and a
 // missing rate a dash. Exported for the tests.
-const LANES = [["left", "Left"], ["middle", "Middle"], ["right", "Right"]];
-
-function rateText(value) {
-  return isNum(value) ? fmtPct(value, 1) : DASH;
-}
-
 function countOf(value) {
   return isNum(value) && value >= 0 ? Math.round(value) : null;
 }
 
-/** A hand-built grid sized the way statTable sizes itself: large, medium, small by its own box, small kept when nothing fits. */
-function sizeGrid(wrap, table) {
-  applyStatSize(wrap, "large");
-  watchSize(wrap, () => {
-    const size = fitSize(wrap, table, (step) => applyStatSize(wrap, step));
-    if (size === null) return;
-    if (size === DROPPED) wrap.classList.remove("stat-table-wrap--fits");
-    else wrap.classList.add("stat-table-wrap--fits"); // never a scroll box
-  });
-  return wrap;
-}
-
-/** A zone's rates in three forms: one line at large, a short line each at medium, the one that matters most at small. */
-function zoneRates(long, mid, short) {
-  return [
-    el("small", { class: "zone__rates zone__rates--long" }, long),
-    el("span", { class: "zone__rates zone__rates--mid" }, mid.map((line) => el("small", {}, line))),
-    el("small", { class: "zone__rates zone__rates--short" }, short),
-  ];
-}
-
-export function passZonesTable(zones) {
-  const list = records(zones);
-  const find = (depth, lane) => list.find((z) => z.depth === depth && z.direction === lane) || list.find((z) => z.key === `${depth}_${lane}`) || null;
-  const cell = (zone) => {
-    const att = countOf(zone?.attempts);
-    const comp = rateText(zone?.completionPct);
-    const success = rateText(zone?.successRate);
-    return el(
-      "td",
-      { class: `zone${att ? "" : " zone--none"}` },
-      el("b", { class: "zone__count" }, att === null ? DASH : `${att} att`),
-      att ? zoneRates(`${comp} comp · ${success} success`, [`${comp} comp`, `${success} succ.`], `${success} succ.`) : el("small", {}, "no throws"),
-    );
-  };
-  const table = el(
-    "table",
-    { class: "stat-table stat-table--compact zones" },
-    el("caption", { class: "sr-only" }, "Passes by zone: deep over short, left to right"),
-    el("thead", {}, el("tr", {}, el("th", { class: "txt", scope: "col" }, "Passes"), LANES.map(([, label]) => el("th", { scope: "col" }, label)))),
-    el("tbody", {}, [["deep", "Deep"], ["short", "Short"]].map(([depth, label]) => el("tr", {}, el("th", { class: "txt", scope: "row" }, label), LANES.map(([lane]) => cell(find(depth, lane)))))),
-  );
-  return sizeGrid(el("div", { class: "stat-table-wrap zones-wrap" }, table), table);
-}
-
-export function runLanesTable(lanes) {
-  const list = records(lanes);
-  const cell = (lane) => {
-    const carries = countOf(lane?.carries);
-    // the yards are per carry, so they say Y/C (one name per stat)
-    const ypc = isNum(lane?.yardsPerCarry) ? `${fmtNum(lane.yardsPerCarry, 1)} Y/C` : `${DASH} Y/C`;
-    const success = rateText(lane?.successRate);
-    return el(
-      "td",
-      { class: `zone${carries ? "" : " zone--none"}` },
-      el("b", { class: "zone__count" }, carries === null ? DASH : `${carries} car`),
-      carries ? zoneRates(`${ypc} · ${success} success`, [ypc, `${success} succ.`], ypc) : el("small", {}, "no runs"),
-    );
-  };
-  const table = el(
-    "table",
-    { class: "stat-table stat-table--compact zones" },
-    el("caption", { class: "sr-only" }, "Runs by lane, left to right"),
-    el("thead", {}, el("tr", {}, el("th", { class: "txt", scope: "col" }, "Runs"), LANES.map(([, label]) => el("th", { scope: "col" }, label)))),
-    el("tbody", {}, el("tr", {}, el("th", { class: "txt", scope: "row" }, "Lane"), LANES.map(([key]) => cell(list.find((l) => l.key === key) || null)))),
-  );
-  return sizeGrid(el("div", { class: "stat-table-wrap zones-wrap" }, table), table);
+/**
+ * The tendencies' pass zones and run lanes in the shape of the shot chart In Game draws (the mock, owner 2026-10-20: "the shot
+ * chart needs to be like the in game one we just made"): passes by "deep-left" and the rest, runs by lane, the unplaced
+ * counts; no sacks (the season splits leave them out). Exported for the tests and the design system.
+ */
+export function zonesChart(t) {
+  const passes = {};
+  const runs = {};
+  for (const z of records(t?.passZones)) {
+    const key = typeof z.depth === "string" && typeof z.direction === "string" ? `${z.depth}-${z.direction}` : typeof z.key === "string" ? z.key.replace("_", "-") : null;
+    if (!key) continue;
+    const attempts = countOf(z.attempts) ?? 0;
+    const completions = countOf(z.completions) ?? (isNum(z.completionPct) && attempts ? Math.round(z.completionPct * attempts) : 0);
+    passes[key] = { attempts, completions, successRate: isNum(z.successRate) ? z.successRate : null, yardsPerAttempt: isNum(z.yardsPerAttempt) ? z.yardsPerAttempt : null };
+  }
+  for (const l of records(t?.runLanes)) {
+    if (typeof l.key !== "string" || !l.key) continue;
+    runs[l.key] = { attempts: countOf(l.carries) ?? 0, successRate: isNum(l.successRate) ? l.successRate : null, yardsPerAttempt: isNum(l.yardsPerCarry) ? l.yardsPerCarry : null };
+  }
+  return { passes, runs, unzoned: { passes: countOf(t?.unplacedPasses) ?? 0, runs: countOf(t?.unplacedRuns) ?? 0 }, sacks: 0 };
 }
 
 // The yards a run gains are yards per carry; a pass play's (a sack counts as a called pass) are yards per pass play, not
@@ -341,33 +288,31 @@ export function tendenciesBlock(t, abbr = DASH) {
   const splitRow = (r) => ({ label: text(r.label), plays: numOrNull(r.plays), ypp: numOrNull(r.yardsPerPlay), success: madeOf(r.success), successShort: madeShort(r.success) });
   const dirRows = records(t.runDirection).map(splitRow);
   const depthRows = records(t.passDepth).map(splitRow);
-  const zones = records(t.passZones);
-  const lanes = records(t.runLanes);
-  const charted = zones.some((z) => countOf(z.attempts)) || lanes.some((l) => countOf(l.carries));
+  const chart = zonesChart(t);
+  const charted = Object.values(chart.passes).some((c) => c.attempts) || Object.values(chart.runs).some((c) => c.attempts);
   const unplaced = [countOf(t.unplacedPasses) ? `${countOf(t.unplacedPasses)} passes` : null, countOf(t.unplacedRuns) ? `${countOf(t.unplacedRuns)} runs` : null].filter(Boolean).join(" and ");
-  // With the zone tables the old direction and depth splits would repeat them; without zones they stay.
-  const where = zones.length || lanes.length
+  // The mock (owner 2026-10-20): the shot chart In Game draws, the passes by zone over the line of scrimmage and the runs by
+  // lane under it, beside the down-and-distance table; without zones in the answer the old direction and depth splits stay.
+  const where = records(t.passZones).length || records(t.runLanes).length
     ? el(
         "div",
-        {},
+        { class: "tend__chart" },
         programSubhead("Where the throws and runs go"),
-        charted ? null : note("No throws or runs with a charted direction yet."),
-        el("div", { class: "zones-pair" }, passZonesTable(zones), runLanesTable(lanes)),
-        note(`Deep or short, left, middle or right as CFBD charts each throw and run; spikes, kneels and sacks are left out.${unplaced ? ` ${unplaced} had no charted zone.` : ""}`),
+        charted ? shotChart({ chart, view: "both", team: text(abbr) }) : note("No throws or runs with a charted direction yet."),
+        note(`Deep or short, left, middle or right as CFBD charts each throw and run; spikes, kneels and sacks are left out. Success is CFBD's: half the yards needed on first down, 70% on second, all of them on third or fourth.${unplaced ? ` ${unplaced} had no charted zone.` : ""}`),
       )
     : el(
         "div",
-        { class: "twocol" },
+        { class: "tend__chart" },
         el("div", {}, programSubhead("Where the runs go"), dirRows.some((r) => r.plays) ? statTable({ compact: true, sizes: true, sortable: true, columns: splitColumns("Direction", "Carries", YPC), rows: dirRows, caption: "Runs by direction" }) : note("No run directions charted.")),
         el("div", {}, programSubhead("How deep the passes go"), depthRows.length ? statTable({ compact: true, sizes: true, sortable: true, columns: splitColumns("Depth", "Plays", YPP_PASS), rows: depthRows, caption: "Passes by depth" }) : note("No pass depths charted.")),
       );
   return el(
     "div",
-    { class: "d2" },
+    { class: "d2 tend" },
     el("p", { class: "note" }, `${text(abbr)} over ${text(t.games)} games: ${text(t.plays)} snaps, runs ${isNum(t.runRate) ? fmtPct(t.runRate) : DASH} of the time (a sack counts as a called pass; kneels and spikes are left out).`),
-    programSubhead("By down and distance"),
-    statTable({ compact: true, sizes: true, sortable: true, columns: SITUATION_COLUMNS, rows: situationRows(t.bySituation), caption: "By down and distance" }),
     where,
+    el("div", { class: "tend__table" }, programSubhead("By down and distance"), statTable({ compact: true, sizes: true, sortable: true, columns: SITUATION_COLUMNS, rows: situationRows(t.bySituation), caption: "By down and distance" })),
   );
 }
 

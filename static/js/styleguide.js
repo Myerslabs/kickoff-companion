@@ -1023,9 +1023,16 @@ import { edgesSummary as p16EdgesSummary, edgesTable as p16EdgesTable } from "./
 import { coverSkeleton as p16CoverSkeleton } from "./ui/cover.js";
 import { teamStaff as p16TeamStaff } from "./ui/game-staff.js";
 import { venueLine as p16VenueLine } from "./ui/matchup-card.js";
-import { passZonesTable as p16Zones, runLanesTable as p16Lanes } from "./ui/depth2.js";
+import { zonesChart as p16ZonesChart } from "./ui/depth2.js";
+import { shotChart as p16ShotChart } from "./ui/shot-chart.js";
 import { statLine as p16StatLine } from "./ui/leaders.js";
+import { leaderPairs as p16LeaderPairs } from "./ui/leader-lines.js";
 import { lineupBlock as p16Lineup } from "./ui/lineups_combined.js";
+
+/** A program leaders payload side as a leader-row player (views/program.js programLeader does the same). */
+function p16Lead(entry) {
+  return entry && typeof entry === "object" ? { name: entry.player ?? entry.name, playerId: entry.playerId, number: entry.number, position: entry.position, headshotUrl: entry.headshotUrl, value: entry.value } : null;
+}
 
 /** Example lineups in the notes file's shape (2026-10-02): CFBD has no depth chart, so the styleguide's numbers are examples. */
 function p16Lineups() {
@@ -1085,8 +1092,10 @@ function program16Section() {
     el("div", { class: "band" }, p16TwoTeam({ rows: rows.slice(0, 6), usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school, underline: true, ladder: true })),
     label(`Biggest edges (ui/edges.js), shared with the In Game sheet: ${p16EdgesSummary(program.edges, { usAbbr: US.abbr, themAbbr })}`),
     el("div", { class: "band" }, p16EdgesTable(program.edges || [], { usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school, limit: 6 })),
-    label("Leaders grid on the program: a head row, a divider, the key number bold, even heights"),
+    label("Leaders grid (In Game's Leaders panel): a head row, a divider, the key number bold, even heights"),
     el("div", { class: "band" }, leadersGrid({ categories: leaders, usAbbr: US.abbr, themAbbr, className: "leaders--program" })),
+    label("Leaders side by side on the Pre-Game Program since the mock of 2026-10-20: each pair on the pole, the numbers outside the faces, the row in the middle (ui/leader-lines.js); the whole lines with ranks arrive from the server"),
+    el("div", { class: "band" }, p16LeaderPairs((program.leaders || []).map((cat) => ({ label: cat.label, category: cat.category, stat: cat.stat, format: cat.format, us: p16Lead(cat.us), them: p16Lead(cat.them), more: null })), { usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school })),
     label("Cover states: a day out, inside the hour, under way, final with an Archive link, a TBD kickoff, loading"),
     el(
       "div",
@@ -1098,9 +1107,9 @@ function program16Section() {
       cover({ ...base, startTimeTbd: true, now: at(-3 * 24 * 60) }),
       p16CoverSkeleton(),
     ),
-    label("Where the opponent throws and runs (GX-15): example numbers"),
-    el("div", { class: "band" }, el("div", { class: "zones-pair" }, p16Zones(zones), p16Lanes(lanes))),
-    label("Lineups and depth (Phase 19; the one chart of record since freeze wave F3): the starter and the men behind him on one row, our unit beside theirs, the availability report's status on a listed name"),
+    label("Where the opponent throws and runs (GX-15; since the mock of 2026-10-20 the shot chart In Game draws): example numbers"),
+    el("div", { class: "band" }, p16ShotChart({ chart: p16ZonesChart({ passZones: zones, runLanes: lanes }), view: "both", team: opponent?.abbreviation || "OPP" })),
+    label("Lineups (Phase 19; the one chart of record since freeze wave F3; the starters alone since the mock of 2026-10-20): the starter at every slot beside the man he faces, the availability report's status on a listed name"),
     el("div", { class: "band" }, p16Lineup({ lineups: p16Lineups(), us: program.us || { school: US.name }, them: opponent, availability: [{ name: "Kane Clayborn", status: "Questionable", note: "ankle" }] })),
     label("Nothing written yet: the honest empty state the program and the In Game sheet share"),
     el("div", { class: "band" }, p16Lineup({ lineups: null, us: program.us || { school: US.name }, them: opponent })),

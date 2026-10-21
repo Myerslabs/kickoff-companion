@@ -108,17 +108,15 @@ scenarios.programBands = async () => {
   const starters = root.querySelector("#program-lineups");
   assert.ok(starters, "the combined band is on the page");
   assert.equal(root.querySelector("#program-depth"), null, "the depth chart is part of the lineups now (Phase 19)");
-  assert.equal(text(starters.querySelector(".band__title")), "Lineups and depth");
+  assert.equal(text(starters.querySelector(".band__title")), "Lineups");
   assert.ok(text(starters.querySelector(".band__summary")).includes("Published depth charts"));
-  assert.ok(text(starters).includes("Mason Hamilton") && text(starters).includes("917 passing yards") && starters.querySelector('.lu-next[title="Tramell Jones Jr."]'), "starters and the depth behind them together");
-  assert.ok(text(starters.querySelector('.lu-next[title="Tramell Jones Jr."]')).startsWith("T.\u00A0Jones"), "item 6: a man behind the starter as K. Crawford, on one line");
+  assert.ok(text(starters).includes("Mason Hamilton") && text(starters).includes("917 passing yards") && !starters.querySelector(".lu-next") && !text(starters).includes("Tramell Jones"), "the starters with their chips; the depth behind them is not drawn (the mock, owner 2026-10-20)");
   assert.ok(text(starters).includes("Experience of the starters"));
   // 2026-10-10: lineups as matchups, one table per pairing, each starter beside the man he faces; the tables size themselves
   const sized = [...starters.querySelectorAll(".stat-table-wrap[data-size]")];
   assert.ok(sized.length >= 2, "the experience table and every matchup table declare sizes");
   assert.ok(starters.querySelector(".lu-head") && text(starters.querySelector(".lu-head")).includes("offense") && text(starters.querySelector(".lu-head")).includes("defense"), "the matchup's title names both units");
   assert.ok(starters.querySelector("td.st__wrap.st__min-large"), "the season chips wrap in their cell and show at large only");
-  assert.ok(starters.querySelector(".lu-who em") && text(starters.querySelector(".lu-who em")).startsWith("then "), "the next man under the starter");
   assert.ok(starters.querySelector("td .sz-t--short button.lu-name .pn"), "item 6: the starter's name alone at small, still his button");
   assert.ok(starters.querySelector(".avail--questionable"), "the program hands the availability report to the block");
   // the order on the page: notes, availability, lineups and depth, then the rest

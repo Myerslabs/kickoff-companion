@@ -14,8 +14,9 @@
 //       regular-season week with no game between the team's first and last regular-season weeks draws as a Bye
 //       row in its place, with the Saturday it falls on when the games around it have dates. Nothing to tap.
 //   withByes(games)  the games with {bye: true, week, date} rows put in the gaps (exported for the tests).
-//   gameHref(game)  where one of our schedule rows goes: '#archive=<id>' for a finished game the app archived,
-//       else '#program=<id>'; null without a game id.
+//   gameHref(game)  where one of our schedule rows goes: '#program=<id>', the game's program (a finished game's carries the
+//       result, its box scores and the way to the Archive; the mock of 2026-10-20 sent the prior weeks' programs here);
+//       null without a game id.
 //   ratingsHref(key, team)  '#ratings=<key>?team=<school>': the Ratings page sorted on key, the team marked.
 
 import { confName } from "../identity.js";
@@ -62,11 +63,11 @@ export function recordLine({ overall, conference, home, away, apRank, coachesRan
   );
 }
 
-/** '#archive=<id>' for a finished game the app archived, else '#program=<id>'; null without an id. */
+/** '#program=<id>', the game's program, played or not; null without an id. */
 export function gameHref(game) {
   const id = game?.gameId;
   if (!(isNum(id) || (typeof id === "string" && /^\d+$/.test(id)))) return null;
-  return game.completed === true && game.archived === true ? `#archive=${id}` : `#program=${id}`;
+  return `#program=${id}`;
 }
 
 function pct(value) {
@@ -182,7 +183,7 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
         ? el("span", { class: `sched__res res--${game.result.toLowerCase()}`, "data-k": `res:${text(game.gameId)}` }, `${game.result} ${text(game.usPoints)}-${text(game.themPoints)}`)
         : el("span", { class: "sched__res" }, fmtDate(game.date, "short"), el("small", {}, game.startTimeTbd ? "time TBD" : fmtTime(game.date)));
       const href = tappable ? gameHref(game) : null;
-      const where = game.completed && game.archived === true ? "Open the archived game" : "Open the Pre-Game Program";
+      const where = game.completed ? "Open the game's program" : "Open the Pre-Game Program";
       const li = el(
         "li",
         {
@@ -228,7 +229,7 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
   );
 }
 
-/** Open one of our games from a schedule row: its archive when the app watched it, else its program. */
+/** Open one of our games from a schedule row: its program. */
 export function openGame(game) {
   const href = gameHref(game);
   if (href && typeof window !== "undefined" && window.location) window.location.hash = href.slice(1);

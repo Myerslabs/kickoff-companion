@@ -344,7 +344,7 @@ scenarios.matchups = async () => {
   const three4 = [slot("DE", "defense", ["A"]), slot("NT", "defense", ["B"]), slot("DT", "defense", ["C"]), slot("JACK", "defense", ["D"]), slot("CB", "defense", ["E"])];
   assert.deepEqual(pairSlots([slot("LT", "offense", ["t"]), slot("C", "offense", ["c"]), slot("RT", "offense", ["r"]), slot("WR-Z", "offense", ["z"]), slot("WR-X", "offense", ["x"])], three4).map((p) => `${p.off ? p.off.slot : "–"}:${p.def ? p.def.slot : "–"}`), ["LT:JACK", "C:NT", "RT:DE", "WR-Z:CB", "WR-X:–", "–:DT"]);
   assert.deepEqual(pairSlots(null, "x"), []);
-  // the block: one table per pairing, our side first, the starter's cell with his class and the next man, the surname at small
+  // the block: one table per pairing, our side first, the starter's cell with his class (the men behind him are not drawn since the mock of 2026-10-20), the surname at small
   let opened = null;
   const block = lineupBlock({
     lineups: { us: { team: "Swampwater Tech", slots: [...offense, ...defense, slot("PK", "special teams", ["Kicker One"])] }, them: { team: "Diner Tech", slots: [...defense, slot("QB", "offense", ["Their QB"]), slot("PK", "special teams", ["Kicker Two"]), slot("P", "special teams", ["Punter"])] } },
@@ -365,7 +365,7 @@ scenarios.matchups = async () => {
   assert.equal(text(cells[0]), "LT");
   assert.ok(cls(cells[1]).includes("st__min-large") && text(cells[1]) === "10", "the number at large only");
   assert.ok(cells[2].querySelector(".sz-t--long .lu-who button.lu-name") && pnText(cells[2].querySelector(".lu-name")) === "Bryce Lovett");
-  assert.ok(text(cells[2]).includes("SR") && text(cells[2]).includes("Questionable") && text(cells[2]).includes("then E.\u00A0Stock (FR)"), "the man behind him as K. Crawford (item 6)");
+  assert.ok(text(cells[2]).includes("SR") && text(cells[2]).includes("Questionable") && !text(cells[2]).includes("then "), "his class and status; the man behind him is not drawn (the mock, owner 2026-10-20)");
   assert.ok(cells[2].querySelector(".sz-t--short button.lu-name"), "item 6: the starter keeps his tap at small");
   assert.deepEqual(["full", "initial", "last"].map((f) => pnText(cells[2].querySelector(".sz-t--short"), f)), ["Bryce Lovett", "B. Lovett", "Lovett"], "his name steps down with the table");
   assert.ok(cls(cells[3]).includes("st__min-large") && cls(cells[3]).includes("st__wrap"));
@@ -653,7 +653,8 @@ scenarios.tendencies = async () => {
   document.body.append(block);
   assert.ok(!RAW.test(text(block)), text(block));
   const wraps = [...block.querySelectorAll(".stat-table-wrap")];
-  assert.equal(wraps.length, 3, "the situations, the pass zones, the run lanes");
+  assert.equal(wraps.length, 1, "the situations; the zones and lanes are the shot chart now (the mock, 2026-10-20)");
+  assert.ok(block.querySelector(".tend__chart .shot-field--both") && block.querySelectorAll(".shot-row").length === 3, "deep, short, then the runs");
   assert.ok(wraps.every((w) => w.dataset.size === "large" && typeof w.measure === "function"), "every table sizes itself by its own box");
   const sit = wraps[0];
   const heads = [...sit.querySelectorAll("thead th")];
@@ -674,7 +675,7 @@ scenarios.tendencies = async () => {
   assert.equal(sit.dataset.size, "small");
   // the fallback when the answer has no zones: a sized table each, with its own words
   const old = tendenciesBlock({ plays: 20, games: 2, runRate: 0.5, bySituation: [], runDirection: [{ label: "Left", plays: 8, yardsPerPlay: 3.25, success: { made: 4, of: 8 } }, null], passDepth: [{ label: "Behind the line", plays: 5, yardsPerPlay: 2, success: { made: 1, of: 5 } }] }, "DT");
-  const splits = [...old.querySelectorAll(".twocol .stat-table-wrap")];
+  const splits = [...old.querySelectorAll(".tend__chart .stat-table-wrap")];
   assert.equal(splits.length, 2);
   assert.ok(splits.every((w) => w.dataset.size === "large"));
   assert.deepEqual([...splits[0].querySelectorAll("thead th")].map((th) => form2(th, "long")), ["Direction", "Carries", "Yards per carry", "Success"]);
