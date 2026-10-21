@@ -170,7 +170,9 @@ def test_the_packaged_program_gets_the_tray_when_its_script_is_bundled(tmp_path)
     (bundle / "tools" / "tray.ps1").write_text("# tray", encoding="utf-8")
     install = tmp_path / "install"
     scripts: list[str] = []
-    launcher = Launcher(tmp_path / "appdata", runner=lambda args: scripts.append(args[0]) or (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path, program=program, static_dir=bundle / "static", install_root=install)
+    desktop = tmp_path / "Desktop"  # a Desktop of the test's own: the real one exists only on a Windows host (the public CI on Linux and macOS, 0.20.0)
+    desktop.mkdir()
+    launcher = Launcher(tmp_path / "appdata", runner=lambda args: scripts.append(args[0]) or (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path, program=program, static_dir=bundle / "static", install_root=install, desktop=desktop)
     assert launcher.tray_supported is True and launcher.status()["tray"] is True
     assert launcher.set_enabled(True, tray=True).get("error") is None
     assert "$s.TargetPath = 'powershell.exe'" in scripts[0] and f'-Program "{program}"' in scripts[0] and f'-Root "{install}"' in scripts[0] and "-Login" in scripts[0]

@@ -116,7 +116,9 @@ class TestLauncherRunsTheProgram:
     def test_windows_shortcuts_target_the_program_with_login(self, tmp_path):
         program, _ = frozen_layout(tmp_path)
         scripts: list[str] = []
-        launcher = Launcher(tmp_path / "appdata", runner=lambda args: scripts.append(args[0]) or (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path, program=program)
+        desktop = tmp_path / "Desktop"  # a Desktop of the test's own: the real one exists only on a Windows host (the public CI on Linux and macOS, 0.20.0)
+        desktop.mkdir()
+        launcher = Launcher(tmp_path / "appdata", runner=lambda args: scripts.append(args[0]) or (0, ""), platform="win32", appdata=str(tmp_path / "Roaming"), home=tmp_path, program=program, desktop=desktop)
         status = launcher.status()
         assert status["packaged"] is True and status["program"] == str(program) and status["tray"] is False
         assert status["script"] == str(program) and status["scriptExists"] is True
