@@ -92,7 +92,7 @@ function conferenceRows(kind, rows, onChange) {
   const ul = el("ul", { class: "prompts__conferences", hidden: "" }, items.map((c) => el(
     "li",
     { class: "prompts__conference" },
-    el("div", { class: "prompts__conference-head" }, el("b", {}, text(c.conference)), el("small", {}, str(c.savedAt) ? `saved ${fmtDate(c.savedAt, "short")}, ${isNum(c.saved) ? c.saved : 0} of ${isNum(c.schools) ? c.schools : DASH} teams` : "not loaded")),
+    el("div", { class: "prompts__conference-head" }, el("b", {}, text(c.conference)), el("small", {}, str(c.savedAt) ? `saved ${fmtDate(c.savedAt, "short")}, ${isNum(c.saved) ? c.saved : 0} of ${isNum(c.schools) ? c.schools : DASH} teams` : isNum(c.shipped) && c.shipped > 0 ? `shipped with the app${str(c.checkedAt) ? `, checked ${fmtDate(c.checkedAt, "short")}` : ""}, ${c.shipped} of ${isNum(c.schools) ? c.schools : DASH} teams${c.stale ? "; a year old, the schedule asks again" : ""}` : "not loaded")),
     promptPaste({
       label: `${text(c.conference)} ${kind}`,
       getPrompt: async () => {

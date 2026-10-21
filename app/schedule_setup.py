@@ -76,6 +76,10 @@ def build_prompt_runs(app: FastAPI) -> PromptRuns:
             saved, of = s.get(f"{kind}Saved"), s.get("coachesOf")
             if isinstance(of, int) and of and saved != of:
                 return f"{saved or 0} of {of} teams"
+            if kind == "facts":  # the preloaded facts (2026-10-21): a conference a year old is asked for again, once a year
+                stale = [str(b.get("conference")) for b in s.get("facts", []) if isinstance(b, dict) and b.get("stale")]
+                if stale:
+                    return f"facts a year old for the {', '.join(stale[:3])}{'…' if len(stale) > 3 else ''}"
             return None
 
         return missing

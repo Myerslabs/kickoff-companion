@@ -6,9 +6,10 @@
                                      ages), offseason moves, the outlook, injuries and suspensions, program facts
   data/season/<year>/costs.json      Part 3b: rumored roster costs (NIL and revenue sharing), a total for every team
                                      and, for the primary teams, position groups and players; one conference a batch
-  data/season/<year>/facts.json      Prompts phase (owner 2026-10-13): each school's history and facts (founded, the
+  data/facts.json                    Prompts phase (owner 2026-10-13): each school's history and facts (founded, the
                                      stadium, titles, Heismans, rivalries and trophies, the fight song, alumni in the
-                                     NFL) and its dated events, for every FBS team, one conference a batch
+                                     NFL) and its dated events, for every FBS team, one conference a batch; outside the
+                                     season folder since the preloaded facts (2026-10-21), laid over app/facts/schools.json
 
 Both files are written by the app from a checked answer (pasted, or Claude Code's), never by hand-off: a new batch
 replaces only the teams it holds. Reading is lenient: a damaged file is reported and treated as empty, one bad
@@ -104,11 +105,11 @@ def _year_or_none(value: Any) -> int | None:
     if isinstance(value, bool):
         return None
     if isinstance(value, int):
-        return value if 1800 <= value <= 2100 else None
+        return value if 1600 <= value <= 2100 else None  # the oldest FBS schools were founded in the 1700s (the preloaded facts, 2026-10-21)
     if isinstance(value, float) and value.is_integer():
         return _year_or_none(int(value))
     if isinstance(value, str):
-        found = re.search(r"\b(1[89]\d{2}|20\d{2})\b", value)
+        found = re.search(r"\b(1[6-9]\d{2}|20\d{2})\b", value)
         return int(found.group(1)) if found else None
     return None
 
@@ -133,6 +134,7 @@ class TeamFacts(NotesModel):
     school: str
     founded: int | None = None
     stadium: str | None = None
+    stadiumNickname: str | None = None  # the preloaded facts (2026-10-21): what the trivia asks
     stadiumOpened: int | None = None
     capacity: int | None = None
     conferenceSince: int | None = None
@@ -143,6 +145,14 @@ class TeamFacts(NotesModel):
     bowlRecord: str | None = None
     rivalries: Annotated[list[Rivalry], DropBad] = []
     headCoachRecord: str | None = None
+    firstSeason: int | None = None
+    conferenceTitleYears: Annotated[list[int], DropBad] = []
+    winningestCoach: str | None = None
+    longestWinStreak: str | None = None
+    recordCrowd: str | None = None
+    retiredNumbers: Annotated[list[str], DropBad] = []
+    mascotName: str | None = None
+    traditions: Annotated[list[str], DropBad] = []
     mascotOrigin: str | None = None
     colorsOrigin: str | None = None
     fightSong: str | None = None
@@ -303,10 +313,38 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+SHIPPED_FACTS = Path(__file__).resolve().parent.parent / "facts" / "schools.json"  # every FBS school, researched once (2026-10-21)
+FACTS_FRESH_DAYS = 365  # a school's facts older than this are asked for again by the schedule, once a year
+_SHIPPED: tuple[tuple[Path, int, int], dict[str, Any]] | None = None
+
+
+def shipped_facts(path: Path = SHIPPED_FACTS) -> dict[str, Any]:
+    """The facts shipped with the app: {"checkedAt", "author", "teams": {school: facts}}, decoded once per change of the
+    file; {} when the file is missing or damaged (the install's own facts still work)."""
+    global _SHIPPED
+    try:
+        stat = path.stat()
+    except OSError:
+        return {}
+    stamp = (path, stat.st_mtime_ns, stat.st_size)
+    if _SHIPPED is not None and _SHIPPED[0] == stamp:
+        return _SHIPPED[1]
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        log.warning("The shipped facts file %s is unreadable (%s); the install's own facts only", path, exc)
+        return {}
+    teams = raw.get("teams") if isinstance(raw, dict) and isinstance(raw.get("teams"), dict) else {}
+    data = {"checkedAt": raw.get("checkedAt") if isinstance(raw, dict) else None, "author": raw.get("author") if isinstance(raw, dict) else None, "teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}}
+    _SHIPPED = (stamp, data)
+    return data
+
+
 class SeasonNotes:
     def __init__(self, data_dir: Path, season: int) -> None:
         self.dir = Path(data_dir) / "season" / str(season)
         self.season = season
+        self.facts_file = Path(data_dir) / "facts.json"  # the install's own facts, outside the season folder: they outlive a season (2026-10-21)
         self._files: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}  # freeze wave F7: each file decoded once per change (by mtime and size)
 
     @property
@@ -382,16 +420,37 @@ class SeasonNotes:
 
     @property
     def facts_path(self) -> Path:
-        return self.dir / "facts.json"
+        """The install's own facts (2026-10-21: outside the season folder, since a school's history outlives a season; a file
+        left in this season's folder by the earlier layout is read once and copied over)."""
+        return self.facts_file
 
-    def facts(self) -> dict[str, Any]:
-        raw = self._read(self.facts_path)
+    def _own_facts(self) -> dict[str, Any]:
+        raw = self._read(self.facts_file)
+        if not raw:
+            old = self.dir / "facts.json"
+            if old.is_file() and not self.facts_file.exists():
+                raw = self._read(old)
+                if raw:
+                    try:
+                        atomic_write(self.facts_file, json.dumps(raw, indent=1, ensure_ascii=False) + "\n")
+                        log.info("The season's facts file moved to %s", self.facts_file)
+                    except OSError as exc:
+                        log.warning("The season's facts could not be copied to %s: %s", self.facts_file, exc)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
         return {"teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}, "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)}}
 
+    def facts(self) -> dict[str, Any]:
+        """Every school's facts: the shipped file under the install's own (a school the install loaded itself wins).
+        `shipped` names the schools that come from the shipped file."""
+        own = self._own_facts()
+        shipped = shipped_facts(SHIPPED_FACTS)  # the module's path at call time, so a test can point it elsewhere
+        teams = {school: {**row, "shipped": True, "checkedAt": row.get("checkedAt") or shipped.get("checkedAt")} for school, row in shipped.get("teams", {}).items()}
+        teams.update({school: {**row, "shipped": False, "checkedAt": row.get("checkedAt") or row.get("savedAt")} for school, row in own["teams"].items()})
+        return {"teams": teams, "batches": own["batches"], "shipped": sorted(s for s, row in teams.items() if row.get("shipped"))}
+
     def facts_for(self, school: Any) -> dict[str, Any] | None:
-        """One school's saved facts (a plain dict, every key present with None or [] where the answer had nothing)."""
+        """One school's facts (a plain dict, every key present with None or [] where the answer had nothing)."""
         if not isinstance(school, str):
             return None
         row = self.facts().get("teams", {}).get(school)
@@ -402,12 +461,13 @@ class SeasonNotes:
         except ValidationError:
             log.warning("The saved facts for %s could not be read; shown as not loaded.", school)
             return None
-        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt")}
+        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt"), "checkedAt": row.get("checkedAt"), "shipped": bool(row.get("shipped"))}
 
     def save_facts(self, batch: FactsBatch, conference: str, schools: list[str]) -> dict[str, Any]:
-        """Keep the teams of this conference the answer names (spelled as CFBD spells them); returns what was kept."""
+        """Keep the teams of this conference the answer names (spelled as CFBD spells them) in the install's own file,
+        over the shipped facts; returns what was kept."""
         by_lower = {s.lower(): s for s in schools}
-        data = self.facts()
+        data = self._own_facts()
         kept: list[str] = []
         unknown: list[str] = []
         when = _now()
@@ -418,12 +478,23 @@ class SeasonNotes:
                 continue
             dump = row.model_dump(exclude_none=True)
             dump.pop("school", None)
-            data["teams"][school] = {**dump, "conference": conference, "savedAt": when, "sources": [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)][:8]}
+            data["teams"][school] = {**dump, "conference": conference, "savedAt": when, "checkedAt": when, "sources": [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)][:8]}
             kept.append(school)
         data["batches"][conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
-        atomic_write(self.facts_path, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        atomic_write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
         log.info("School facts saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
+
+    @staticmethod
+    def facts_stale(checked_at: Any, today: date) -> bool:
+        """True when a school's facts were checked more than FACTS_FRESH_DAYS before today, or never."""
+        if not isinstance(checked_at, str) or not checked_at:
+            return True
+        try:
+            checked = datetime.fromisoformat(checked_at.replace("Z", "+00:00")).date() if "T" in checked_at else date.fromisoformat(checked_at[:10])
+        except ValueError:
+            return True
+        return (today - checked).days > FACTS_FRESH_DAYS
 
     # --- roster costs (Part 3b) ---------------------------------------------------------------------------
 
@@ -568,7 +639,17 @@ class SeasonNotes:
         fact_batches = []
         for conference, schools in sorted(conferences.items()):
             saved = facts["batches"].get(conference) or {}
-            fact_batches.append({"conference": conference, "schools": len(schools), "saved": sum(1 for s in schools if s in facts["teams"]), "savedAt": saved.get("savedAt")})
+            fact_rows = [facts["teams"][s] for s in schools if s in facts["teams"]]
+            checked = max((r.get("checkedAt") for r in fact_rows if isinstance(r.get("checkedAt"), str)), default=None)
+            fact_batches.append({
+                "conference": conference,
+                "schools": len(schools),
+                "saved": len(fact_rows),
+                "savedAt": saved.get("savedAt"),
+                "shipped": sum(1 for r in fact_rows if r.get("shipped")),  # from the file shipped with the app (2026-10-21)
+                "checkedAt": checked,
+                "stale": bool(fact_rows) and len(fact_rows) == len(schools) and all(self.facts_stale(r.get("checkedAt"), today) for r in fact_rows),  # a year old: the schedule asks again
+            })
         missing = [r["school"] for r in rows if not r["savedAt"]]
         return {
             "costs": cost_batches,

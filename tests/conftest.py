@@ -197,6 +197,7 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TEAM_FEED_URL", TEAM_FEED_URL)
     monkeypatch.setenv("MDNS_NAME", "off")  # tests never announce on the network
     monkeypatch.setattr("app.main.WARM_DELAY_SECONDS", 3600)  # freeze wave F7: the warm-up comes 2 s after the start; a test that counts calls never wants it
+    monkeypatch.setattr("app.services.season_notes.SHIPPED_FACTS", Path("tests") / "no-shipped-facts.json")  # the preloaded facts (2026-10-21) stay out of every test but the one that reads the shipped file on purpose
 
 
 @pytest.fixture

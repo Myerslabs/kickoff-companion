@@ -31,6 +31,7 @@ SKIPPED_FILES = {
     "tests/test_team_neutral.py",  # this file names the words it looks for
     "tests/test_demo_league.py",  # checks the league against the real FBS list
     "app/radio_stations.json",  # station data names real teams and stations by design; it ships the initial station (owner 2026-10-16)
+    "app/facts/schools.json",  # the preloaded facts name every FBS school by design (owner 2026-10-21)
 }
 SUFFIXES = {".py", ".js", ".css", ".html", ".ps1", ".json", ".webmanifest", ".md", ".example", ".txt"}
 

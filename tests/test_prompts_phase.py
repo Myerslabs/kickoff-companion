@@ -71,12 +71,14 @@ def test_the_facts_file_merges_by_batch_and_survives_damage(tmp_path: Path):
     assert row and row["founded"] == 1853 and row["conference"] == CONFERENCE and row["savedAt"] and row["rivalries"][0]["trophy"] == "The Cup"
     assert notes.facts_for("Nowhere U") is None and notes.facts_for(None) is None
     status = notes.status([TEAM], {CONFERENCE: SCHOOLS}, datetime(2026, 9, 1).date())
-    assert status["factsSaved"] == 3 and status["facts"][0] == {"conference": CONFERENCE, "schools": len(SCHOOLS), "saved": 3, "savedAt": row["savedAt"]}
+    batch_status = status["facts"][0]
+    assert status["factsSaved"] == 3 and {k: batch_status[k] for k in ("conference", "schools", "saved", "savedAt")} == {"conference": CONFERENCE, "schools": len(SCHOOLS), "saved": 3, "savedAt": row["savedAt"]}
+    assert batch_status["shipped"] == 0 and batch_status["checkedAt"] == row["savedAt"] and batch_status["stale"] is False, "the preloaded facts (2026-10-21): a batch says where its facts come from and whether they are a year old"
     # a second batch replaces only its own teams
     notes.save_facts(season_prompts.read_facts(facts_answer(schools=SCHOOLS[2:4], founded=1999), CONFERENCE, SCHOOLS).value, CONFERENCE, SCHOOLS)
     assert notes.facts_for(SCHOOLS[0])["founded"] == 1853 and notes.facts_for(SCHOOLS[2])["founded"] == 1999 and notes.facts_for(SCHOOLS[3])
     notes.facts_path.write_text("{ broken", encoding="utf-8")
-    assert notes.facts() == {"teams": {}, "batches": {}} and notes.facts_for(SCHOOLS[0]) is None
+    assert notes.facts() == {"teams": {}, "batches": {}, "shipped": []} and notes.facts_for(SCHOOLS[0]) is None
     assert season_prompts.template("facts", tmp_path).fill({"season": 2026, "conference": "C", "schools": "- A", "shape": "{}"}).startswith("You are loading school history")
 
 

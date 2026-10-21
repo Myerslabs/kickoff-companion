@@ -22,7 +22,10 @@ function rivalry(r) {
 
 export function factRows(facts) {
   const f = facts && typeof facts === "object" ? facts : {};
-  const stadium = [str(f.stadium) ? f.stadium.trim() : null, isNum(f.stadiumOpened) ? `opened ${f.stadiumOpened}` : null, isNum(f.capacity) ? `${fmtNum(f.capacity)} seats` : null].filter(Boolean);
+  const stadium = [str(f.stadium) ? f.stadium.trim() : null, str(f.stadiumNickname) ? `"${f.stadiumNickname.trim()}"` : null, isNum(f.stadiumOpened) ? `opened ${f.stadiumOpened}` : null, isNum(f.capacity) ? `${fmtNum(f.capacity)} seats` : null].filter(Boolean); // the preloaded facts (2026-10-21): the nickname too
+  const titleYears = list(f.conferenceTitleYears).filter(isNum);
+  const retired = list(f.retiredNumbers).filter((x) => str(x));
+  const traditions = list(f.traditions).filter((x) => str(x));
   const titles = list(f.nationalTitles).filter(isNum);
   const heismans = list(f.heismans).filter((x) => str(x));
   const rivals = list(f.rivalries).map(rivalry).filter(Boolean);
@@ -41,14 +44,20 @@ export function factRows(facts) {
     { label: "In the conference since", value: isNum(f.conferenceSince) ? String(f.conferenceSince) : DASH },
     { label: "All-time record", value: str(f.allTimeRecord) ? f.allTimeRecord.trim() : DASH },
     { label: "National titles", value: titles.length ? `${titles.length}: ${titles.join(", ")}` : DASH },
-    { label: "Conference titles", value: isNum(f.conferenceTitles) ? String(f.conferenceTitles) : DASH },
+    { label: "Conference titles", value: isNum(f.conferenceTitles) ? `${f.conferenceTitles}${titleYears.length ? `: ${titleYears.join(", ")}` : ""}` : titleYears.length ? `${titleYears.length}: ${titleYears.join(", ")}` : DASH },
+    { label: "First season", value: isNum(f.firstSeason) ? String(f.firstSeason) : DASH },
     { label: "Heisman winners", value: heismans.length ? heismans.join("; ") : DASH },
     { label: "Bowl record", value: str(f.bowlRecord) ? f.bowlRecord.trim() : DASH },
     { label: "Rivalries", value: rivals.length ? rivals.join("; ") : DASH },
     { label: "Head coach's record here", value: str(f.headCoachRecord) ? f.headCoachRecord.trim() : DASH },
-    { label: "Mascot", value: str(f.mascotOrigin) ? f.mascotOrigin.trim() : DASH },
+    { label: "Winningest coach", value: str(f.winningestCoach) ? f.winningestCoach.trim() : DASH },
+    { label: "Longest win streak", value: str(f.longestWinStreak) ? f.longestWinStreak.trim() : DASH },
+    { label: "Record crowd", value: str(f.recordCrowd) ? f.recordCrowd.trim() : DASH },
+    { label: "Retired numbers", value: retired.length ? retired.join("; ") : DASH },
+    { label: "Mascot", value: [str(f.mascotName) ? f.mascotName.trim() : null, str(f.mascotOrigin) ? f.mascotOrigin.trim() : null].filter(Boolean).join(": ") || DASH },
     { label: "Colors", value: str(f.colorsOrigin) ? f.colorsOrigin.trim() : DASH },
     { label: "Fight song", value: str(f.fightSong) ? f.fightSong.trim() : DASH },
+    { label: "Traditions", value: traditions.length ? traditions.join("; ") : DASH },
     { label: "In the NFL now", value: alumni.length ? alumni.join(", ") : DASH },
     { label: "Dates", value: dates.length ? dates.join("; ") : DASH },
   ];

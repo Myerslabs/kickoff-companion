@@ -20,6 +20,7 @@ datas = [
     (str(ROOT / ".env.example"), "."),  # the template the setup page writes .env from
     (str(ROOT / "app" / "radio_stations.json"), "app"),  # read beside app/services/stations.py's parent
     (str(ROOT / "app" / "penalties.json"), "app"),  # Phase 17 #21: read beside app/live/penalties.py's parent
+    (str(ROOT / "app" / "facts" / "schools.json"), "app/facts"),  # the preloaded facts for every FBS school (2026-10-21), read by app/services/season_notes.py
     (str(ROOT / "tools" / "tray.ps1"), "tools"),  # Phase 16 wave 3: the tray icon for the packaged program on Windows
     (str(OUT / "demo-sources.sha1"), "app/demo"),  # the league cache's key, since no .py file ships
 ]
