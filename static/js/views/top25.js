@@ -22,6 +22,7 @@ import { el, isNum, obj, records, teamLink, text } from "../ui/dom.js";
 import { crewText, teamStaff } from "../ui/game-staff.js";
 import { openMatchupSheet } from "../ui/matchup-sheet.js";
 import { fitNames } from "../ui/paper-fit.js";
+import { helpsChip } from "../ui/race.js";
 import { band, note } from "../ui/states.js";
 import { getPrefs } from "../prefs.js";
 import { errorPanel, poller } from "./common.js";
@@ -93,6 +94,8 @@ function card(g) {
   if (typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
     section.append(el("p", { class: "top25-card__tools" }, el("button", { class: "btn btn--quiet top25-card__matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
   }
+  const chip = g.helps && typeof g.helps === "object" ? helpsChip(g.helps) : null; // What we need (F8 feature 1): the game helps our path
+  if (chip) section.append(el("p", { class: "top25-card__helps" }, chip));
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");
   section.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");

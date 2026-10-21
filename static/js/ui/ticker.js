@@ -19,7 +19,9 @@ function gameEl(game) {
   const status = game.status === "final" ? "F" : game.status === "live" ? text(game.detail) : text(game.detail || "");
   // Phase 16 wave 3 (owner pick 6A): a star on one of my teams when the ticker shows every game, never on our own game
   const star = game.star === true && !game.isUs ? el("span", { class: "ticker__star" }, icon("star", { label: "One of your teams" })) : null;
-  return el("span", { class: `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}${star ? " ticker__game--fav" : ""}` }, star, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status));
+  // What we need (F8 feature 1, owner 2026-10-21): a dot and two words on a game that changes our path to the title game
+  const helps = game.helps && typeof game.helps === "object" && game.helps.ours !== true && !game.isUs ? el("span", { class: "ticker__helps", title: text(game.helps.why) }, el("i", { class: "ticker__helps-dot", "aria-hidden": "true" }), "helps us") : null;
+  return el("span", { class: `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}${star ? " ticker__game--fav" : ""}` }, star, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status), helps);
 }
 
 /**

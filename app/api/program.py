@@ -58,8 +58,10 @@ async def _mark_program(result: Assembled, request: Request) -> None:
     # wave B: the facts for both schools (the two-schools band) and whether the program was locked at kickoff
     notes = getattr(request.app.state, "season_notes", None)
     lock = getattr(request.app.state, "program_lock", None)
+    post = getattr(request.app.state, "postgame_lock", None)
     if isinstance(game, dict):
         game["locked"] = bool(lock is not None and lock.has(game.get("gameId")))
+        game["postLocked"] = bool(post is not None and post.has(game.get("gameId")))  # F8 feature 1: the Post-Game Program is kept
     facts: dict[str, Any] = {}
     for side in ("us", "them"):
         school = (result.data.get(side) or {}).get("school")
@@ -96,6 +98,19 @@ async def program_game(game_id: str, request: Request) -> Any:
         return error_response(404, "not_found", "That game is not on our schedule.")
     await _mark_program(result, request)
     return respond(result)
+
+
+@router.get("/api/program/{game_id}/postgame")
+async def program_postgame(game_id: str, request: Request) -> Any:
+    """The Post-Game Program locked once the poll after the game was out (F8 feature 1): both teams as that poll had
+    them, the final, the race and the picture as they stood, the news, and the program's answer as it stood then."""
+    if not game_id.isdigit() or len(game_id) > 12:
+        return error_response(404, "not_found", "No game with that id.")
+    lock = getattr(request.app.state, "postgame_lock", None)
+    locked = lock.load(int(game_id)) if lock is not None else None
+    if locked is None:
+        return error_response(404, "not_locked", "This game's Post-Game Program is not kept yet: it is written once the poll after the game is out.")
+    return envelope(locked, source="cache", fetched_at=locked.get("lockedAt"))
 
 
 @router.get("/api/program/{game_id}/locked")

@@ -45,6 +45,7 @@ from app.services.parts import Part, PartFetcher, assemble
 from app.services.parts import iso as _iso
 from app.services.playoff import playoff_block
 from app.services.profiles import PROFILE_ROWS, advanced_rows, profiles_for
+from app.services.race import race, stamp_of
 from app.services.ratings import fbs_set
 from app.services.stats_extra import elo_table, fpi_tables, sp_tables
 
@@ -215,6 +216,14 @@ class SeasonService:
         schedule, next_game = self._schedule(parts["schedule"].records, parts["media"].records, teams, poll_ranks)
         profile, opponent_profile = self._profile(parts["stats"].records, parts["games"].records, parts["schedule"].records, next_game)
         last_profiles = profiles_for(parts["lastStats"].records, parts["lastGames"].records, [], self.settings.conference, team) if parts["lastStats"].records else None
+        # What we need (F8 feature 1, owner 2026-10-21): the conference race from the games already here; the standings
+        # table wears each team's standing in it (clinched, out)
+        the_race = race(parts["games"].records, team, self.settings.conference, week=next_game.week if next_game is not None else None, stamp=stamp_of(parts["games"]))
+        standings = self._standings(parts["records"].records, teams, poll_ranks)
+        if the_race is not None:
+            status_by_team = {row["team"]: row["status"] for row in the_race["standings"]}
+            for row in standings:
+                row["raceStatus"] = status_by_team.get(row["team"])
         return {
             "season": self.settings.season,
             "team": {**teams.get(team, {"school": team}), "school": team},
@@ -222,7 +231,8 @@ class SeasonService:
             "schedule": schedule,
             "nextGameId": next_game.id if next_game else None,
             "opponent": opponent_profile,
-            "standings": self._standings(parts["records"].records, teams, poll_ranks),
+            "standings": standings,
+            "race": the_race,
             "polls": polls,
             "profile": profile,
             "advanced": self._advanced(parts["advanced"].records),

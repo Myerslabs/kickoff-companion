@@ -4,7 +4,8 @@
 // in their own headed columns, medium with the FBS chips, small with values and bars; nothing wraps, nothing scrolls).
 // Rows come from the program's edges (app/services/profiles.py edges(): two rows per stat, one per side), through
 // ui/edges.js edgeRows, so the Live sheet's Edges panel and this table never disagree. The three biggest edges on each
-// side carry a "top 3" tag under their bar (spec P3).
+// side carry a tag under their bar with the size of the gap, "by 39 ranks" (spec P3; the tag read "top 3" until
+// 2026-10-21, which the owner read as a top-three rank: it says what it is now).
 //
 //   tapeTable(edges, { usAbbr, themAbbr, usTeam, themTeam })  -> .tt-pair holding the two tables
 //   tapePairs(edges, { usAbbr, themAbbr })                      the rows paired by stat (exported for the tests)
@@ -41,7 +42,7 @@ function sideTable(rows, side, opts) {
   const ours = side === "offense" ? "offense" : "defense";
   const theirs = side === "offense" ? "defense" : "offense";
   return twoTeamTable({
-    rows: rows.map((r) => ({ ...r, sub: null, tag: top.has(r) ? "top 3" : null })),
+    rows: rows.map((r) => ({ ...r, sub: null, tag: top.has(r) ? `by ${Math.abs(r.edge)} ranks` : null })),
     usAbbr: opts.usAbbr,
     themAbbr: opts.themAbbr,
     usTeam: opts.usTeam,

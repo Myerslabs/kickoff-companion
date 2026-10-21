@@ -2999,6 +2999,45 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
   .cover__logo.cover__logo--hero, .cover--skeleton .cover__side .skel--logo { --logo-size: 72px; width: 72px; height: 72px; }
 }
 
+/* What we need and the Post-Game Program (F8 feature 1, owner 2026-10-21): the race band, the two tabs of a finished game,
+   the ranks of the day, the doubled bands, the helps chip, the ticker's dot and the standings badges ------------------- */
+.program-tabs { display: flex; gap: var(--sp-2); align-items: flex-end; border-bottom: 1px solid var(--rule); padding: 0 var(--sp-2); }
+.program-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-height: var(--tap); padding: var(--sp-2) var(--sp-4); border: 1px solid var(--rule); border-bottom: 0; border-radius: 4px 4px 0 0; background: transparent; color: var(--fog); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 600; cursor: pointer; }
+.program-tab.is-current { background: var(--panel); color: var(--chalk); margin-bottom: -1px; border-bottom: 1px solid var(--panel); }
+.program-tab__detail { font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--fog); }
+.program-ranks { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); padding: var(--sp-2) var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; font-size: 14px; }
+.program-ranks__who { color: var(--fog); }
+.program-ranks__foot { flex-basis: 100%; color: var(--fog); font-size: 13px; } /* its own line under the two sides: a right-aligned foot left a gap the layout rule reads as a stretched row */
+.program-doubled { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: start; }
+.program-doubled__label { margin: 0 0 var(--sp-1); font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); }
+.program-doubled__side--after .program-doubled__label { color: var(--chalk); }
+.program-doubled .program-pair { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 899px) { .program-doubled { grid-template-columns: minmax(0, 1fr); } }
+.race { display: grid; gap: var(--sp-4); }
+.race__top { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-5); }
+@media (max-width: 899px) { .race__top { grid-template-columns: minmax(0, 1fr); } }
+.race__head { margin: 0 0 var(--sp-2); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 600; }
+.race__head small { font-family: var(--font-body); font-weight: 400; font-size: 13px; color: var(--fog); }
+.race__team { display: inline-flex; align-items: center; gap: 6px; }
+.race__lines { margin: var(--sp-2) 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 14px; line-height: 1.45; }
+.race__status, .race__picture-line { margin: var(--sp-2) 0 0; font-size: 14px; line-height: 1.45; }
+.race__others, .race__picture-foot { margin: var(--sp-2) 0 0; color: var(--fog); font-size: 13px; line-height: 1.45; }
+.race__seeds { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: var(--sp-2); }
+@media (max-width: 599px) { .race__seeds { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.race__seed { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: var(--tap); padding: 6px 4px; border-radius: 4px; background: var(--panel); border: 1px solid var(--rule); font-family: var(--font-cond); font-size: 14px; font-weight: 600; text-align: center; }
+.race__seed small { font-size: 13px; color: var(--fog); font-weight: 400; }
+.race__seed--us { border-color: var(--team-accent); box-shadow: inset 0 0 0 1px var(--team-accent); }
+.race-badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 13px; font-weight: 600; line-height: 1.4; white-space: nowrap; }
+.race-badge--clinched { background: var(--team-accent); color: var(--chalk); }
+.race-badge--tiebreaker { border: 1px solid var(--rule-strong); color: var(--chalk); }
+.race-badge--out { border: 1px solid var(--rule-strong); color: var(--fog); }
+.helps-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 10px; background: var(--team-accent); color: var(--chalk); font-size: 13px; font-weight: 600; }
+.helps-chip__dot, .ticker__helps-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.top25-card__helps { margin: var(--sp-1) var(--sp-3) var(--sp-2); }
+.ticker__helps { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-family: var(--font-body); font-size: 13px; color: var(--fog); }
+.ticker__helps-dot { background: var(--team-accent); }
+.st__team-badged { display: inline-flex; align-items: center; gap: 6px; }
+
 /* === PEOPLE: Leaders, Roster, Recruiting, player card === */
 
 /* --- Leaders (LRP-01, LRP-10): a scope switch that stays under the top bar, headers that stick under it --- */

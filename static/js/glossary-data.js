@@ -1244,4 +1244,13 @@ export const GLOSSARY = [
     read: "Last four in and first four out are the edge of the field; a leader far down the order still gets in as a conference champion.",
     source: "App",
   },
+  {
+    id: "what-we-need",
+    term: "What we need",
+    group: "Reading the app",
+    aliases: ["Best", "Best record", "Pull for", "Clinched", "Clinch number", "Tiebreaker", "Out", "Helps us", "Games that help us", "Win out", "Win all but one", "Conference race", "The title game"],
+    text: "The conference race from the season's games, at the bottom of the Pre-Game Program: every team's conference record, the games it has left and the best record it can still reach (Best); whether it has clinched one of the title game's two spots, is out, or is in unless a tie goes against it (Tiebreaker: the tiebreakers themselves are not worked out). For us, the lines in words: win out, win all but one, what beating the next opponent does, and the clinch number, which counts our wins and the second-best threat's losses alike. Games that help us: the week's games with a team level with us, one win behind or above, and whom to pull for.",
+    read: "The same games wear a chip on the Top 25 page and a dot on the ticker; a team's standing shows as a badge in the standings tables. A finished game's program keeps the race as it stood at kickoff and the Sunday after.",
+    source: "App",
+  },
 ];

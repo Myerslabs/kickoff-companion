@@ -25,7 +25,7 @@ from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.lock")
 
-FORMAT = 1
+FORMAT = 2  # 2 (F8 feature 1, 2026-10-21): the ranks and records of the day, the race, the picture, the headlines and the whole program
 LOCK_WINDOW = timedelta(hours=6)  # a server down at kickoff still locks on its next start; a day later is the result, not the expectation
 PROFILE_KEYS = ("ppg", "ypg", "ypp", "pass_ypg", "rush_ypg", "third", "to_lost_pg", "opp_ppg", "ypg_d", "ypp_d")  # what the results band pairs with the box
 
@@ -64,14 +64,18 @@ def _rows(rows: Any) -> list[dict[str, Any]]:
     return out
 
 
-def snapshot(data: Any, now: datetime) -> dict[str, Any]:
-    """What the results band needs later, and nothing that changes with the game (the box, the live score)."""
+def snapshot(data: Any, now: datetime, headlines: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """What the results band needs later, and nothing that changes with the game (the box, the live score). Since F8
+    feature 1 (2026-10-21) also the ranks and records of the day, the race, the playoff picture, the headlines and the
+    program's whole answer as it stood, so the Pre-Game tab of a finished game reads exactly as it did at kickoff."""
     d = data if isinstance(data, dict) else {}
     game = d.get("game") if isinstance(d.get("game"), dict) else {}
     profile = d.get("profile") if isinstance(d.get("profile"), dict) else {}
     notes = d.get("notes") if isinstance(d.get("notes"), dict) else {}
     leaders = [row for row in (d.get("leaders") if isinstance(d.get("leaders"), list) else []) if isinstance(row, dict)]
     edges = [row for row in (d.get("edges") if isinstance(d.get("edges"), list) else []) if isinstance(row, dict)][:6]
+    us = d.get("us") if isinstance(d.get("us"), dict) else {}
+    them = d.get("them") if isinstance(d.get("them"), dict) else {}
     return {
         "format": FORMAT,
         "lockedAt": _iso(now),
@@ -86,6 +90,12 @@ def snapshot(data: Any, now: datetime) -> dict[str, Any]:
         "leaders": leaders,
         "edges": edges,
         "notes": {"present": bool(notes.get("present")), "author": notes.get("author")},
+        "ranks": {"us": {"ap": us.get("apRank"), "cfp": us.get("cfpRank")}, "them": {"ap": them.get("apRank"), "cfp": them.get("cfpRank")}},
+        "records": {"us": {"total": us.get("record"), "conference": us.get("conferenceRecord")}, "them": {"total": them.get("record"), "conference": them.get("conferenceRecord")}},
+        "race": d.get("race") if isinstance(d.get("race"), dict) else None,
+        "picture": d.get("picture") if isinstance(d.get("picture"), dict) else None,
+        "headlines": [h for h in (headlines or []) if isinstance(h, dict) and isinstance(h.get("title"), str)][:8],
+        "program": {k: v for k, v in d.items() if k not in ("parts", "picker", "final", "advancedBox")},
     }
 
 

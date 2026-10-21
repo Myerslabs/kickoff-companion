@@ -53,6 +53,7 @@ LAST_OPP = LAST["awayTeam"] if HOME_IS_US else LAST["homeTeam"]
 KICKOFF = datetime.fromisoformat(LAST["startDate"].replace("Z", "+00:00"))
 SAVED = KICKOFF + timedelta(hours=4)  # when the archive was written
 NEXT = facts.next_game_row()
+NEXT_PROGRAM = f"/api/program/{NEXT['id']}"  # the next game by id: on a Sunday the front page is the finished game's Post-Game Program (F8 feature 1)
 NEXT_GAME = NEXT["id"]
 NEXT_KICKOFF = datetime.fromisoformat(NEXT["startDate"].replace("Z", "+00:00"))
 PLAYED = sorted((g for g in fixture_payload("games_team") if g["completed"]), key=lambda g: g["week"])
@@ -543,7 +544,7 @@ def write_archive(data_dir: Path) -> None:
     (folder / f"{LAST_GAME}.json").write_text(json.dumps(archive_body()), encoding="utf-8")
 
 
-PAGES = ["/api/season/overview", "/api/program/next", f"/api/program/{LAST_GAME}", "/api/team/Diner%20Tech", "/api/recruiting", f"/api/games/{LAST_GAME}/analytics", f"/api/archive/{LAST_GAME}", "/api/newspaper"]
+PAGES = ["/api/season/overview", NEXT_PROGRAM, f"/api/program/{LAST_GAME}", "/api/team/Diner%20Tech", "/api/recruiting", f"/api/games/{LAST_GAME}/analytics", f"/api/archive/{LAST_GAME}", "/api/newspaper"]
 
 
 def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch) -> tuple[list[tuple[str, str]], dict[str, Any]]:
@@ -600,13 +601,13 @@ def test_the_new_fields_cost_no_cfbd_call(tmp_path: Path, settings, monkeypatch:
     assert "form" not in without["/api/season/overview"]["data"]["standings"][0]
     ours = next(r for r in season["standings"] if r["team"] == US)
     assert [f["result"] for f in ours["form"]] == [result(g) for g in PLAYED]
-    program = answers["/api/program/next"]["data"]
+    program = answers[NEXT_PROGRAM]["data"]
     assert program["us"]["eloPath"]["current"] == side(LAST)["post"] and program["them"]["eloPath"]["current"] == side(NEXT, "Diner Tech")["pre"]
     stadium = next(v for v in fixture_payload("venues") if v["name"] == "Swampwater Tech Memorial Stadium")
     assert program["game"]["venueDetail"]["yearBuilt"] == stadium["constructionYear"] and program["game"]["venueDetail"]["recordAtVenue"]["games"] == at_venue(stadium["name"])["games"]
     assert program["weather"]["radarUrl"].startswith(f"https://forecast.weather.gov/MapClick.php?lat={stadium['latitude']:.4f}")
     assert len(program["tendencies"]["passZones"]) == 6 and len(program["tendencies"]["runLanes"]) == 3
-    assert "radarUrl" not in without["/api/program/next"]["data"]["weather"]
+    assert "radarUrl" not in without[NEXT_PROGRAM]["data"]["weather"]
     their_games = sorted((g for g in fixture_payload("games_opponent") if g["completed"]), key=lambda g: g["week"])
     assert [f["opponent"] for f in answers["/api/team/Diner%20Tech"]["data"]["team"]["form"]] == [side(g, "Diner Tech")["opponent"] for g in their_games]
     classes = answers["/api/recruiting"]["data"]["classes"]
@@ -635,7 +636,7 @@ def test_the_matchup_sheet_costs_nothing_once_the_season_page_has_loaded(app, cl
     route_all(fake_cfbd)
     app.state.cfbd._clock = lambda: NEXT_KICKOFF - timedelta(days=3)
     assert client.get("/api/season/overview").status_code == 200
-    client.get("/api/program/next")  # the talent table comes with the program
+    client.get(NEXT_PROGRAM)  # the talent table comes with the program
     before = fake_cfbd.count()
     body = client.get("/api/matchup", params={"away": "diner tech", "home": US}).json()
     assert fake_cfbd.count() == before  # every part is a cache hit

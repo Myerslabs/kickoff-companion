@@ -24,6 +24,7 @@
 //       newest on the right; null when there is no finished game.
 
 import { icon } from "./icons.js";
+import { raceBadge } from "./race.js";
 import { DASH, el, fmtNum, fmtStat, isNum, personName, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { metricLink, nationalHref, pollHref } from "./national-link.js";
 import { pollBadge, rankChip, sizedText, statTable } from "./stat-table.js";
@@ -225,12 +226,18 @@ export function formWins(form) {
  * (large). At small the team is its abbreviation (still its link). Teams sort; place first.
  * rows: the server's standings rows ({ place, team, abbreviation, logo, conference: record, overall: record, apRank, form }).
  */
+/** The team's standing in the race beside its name (F8 feature 1): Clinched, Out or Tiebreaker; nothing while alive. */
+function badged(node, row) {
+  const badge = raceBadge(row.raceStatus);
+  return badge ? el("span", { class: "st__team-badged" }, node, badge) : node;
+}
+
 export function standingsTable(rows, { conference = "Conf", rowClass, caption, sort, onSort } = {}) {
   const list = rowsOf(rows).map((row) => ({ ...row, place: isNum(row.place) ? row.place : null, confText: recordText(row.conference) || DASH, overallText: recordText(row.overall) || DASH, formWins: formWins(row.form) }));
   const school = (row) => (typeof row.team === "string" && row.team.trim() ? row.team.trim() : null);
   const columns = [
     { key: "place", label: "#", dim: true },
-    { key: "team", label: "Team", kind: "text", render: (row) => logoLink(row.team, row), renderShort: (row) => teamAbbrLink(row.team, row.abbreviation) },
+    { key: "team", label: "Team", kind: "text", render: (row) => badged(logoLink(row.team, row), row), renderShort: (row) => badged(teamAbbrLink(row.team, row.abbreviation), row) },
     { key: "confText", label: confWord(conference) },
     { key: "overallText", label: "Overall", labelShort: "Ovr" },
     { key: "apRank", label: "AP rank", labelMid: "AP", size: "medium", render: (row) => (isNum(row.apRank) ? pollBadge(row.apRank, "AP", { href: pollHref("AP", { team: school(row) }), label: school(row), showPoll: false }) : el("span", { class: "nr" }, "NR")) },

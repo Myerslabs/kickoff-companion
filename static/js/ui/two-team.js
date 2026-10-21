@@ -40,7 +40,7 @@
 //                   or { label, href } shown where a side has none, the way to go get it (never a blank).
 //       usName/themName: the school and mascot for the large head; usTeam/themTeam the school; usAbbr/themAbbr short.
 //       usHead/themHead: { long, mid, short } for a head that names a unit instead (the tape's "Swampwater Tech offense").
-//       row.tag: a word under the row's bar (the tape's "top 3").
+//       row.tag: a word under the row's bar (the tape's "by 39 ranks").
 //       usConf/themConf: each side's conference short name for its rank head (ours from the identity by default).
 //       better: a symmetric "Better" column (the leader's abbreviation in bold chalk, "Even" in fog).
 //       ladder: a 0-100 national percentile track per row (GX-05): our dot and an opponent ring (large and medium).
@@ -359,7 +359,7 @@ function tugCell(row, lead, opts) {
     track.setAttribute("title", says);
   }
   td.append(track);
-  if (typeof row.tag === "string" && row.tag.trim()) td.append(el("small", { class: "tt__tag" }, row.tag.trim())); // the tape's "top 3"
+  if (typeof row.tag === "string" && row.tag.trim()) td.append(el("small", { class: "tt__tag" }, row.tag.trim())); // the tape's "by 39 ranks"
   return td;
 }
 

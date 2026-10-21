@@ -318,7 +318,8 @@ scenarios.tape = async () => {
   assert.equal(rows0.length, 4);
   assert.deepEqual(rows0.map((r) => form(r.querySelector("td.tt__label"), "long")), ["Passing", "Rushing", "Third down", "Scoring"]);
   assert.ok(!rows0[0].querySelector("td.tt__label small"), "no matchup words under the label: the heads say it");
-  assert.deepEqual(rows0.map((r) => (r.querySelector(".tt__tag") ? text(r.querySelector(".tt__tag")) : "")), ["top 3", "top 3", "top 3", ""], "the three biggest edges tagged under their bars");
+  const tags = rows0.map((r) => (r.querySelector(".tt__tag") ? text(r.querySelector(".tt__tag")) : ""));
+  assert.ok(tags.slice(0, 3).every((t) => /^by \d+ ranks$/.test(t)) && tags[3] === "", "the three biggest edges tagged under their bars with the size of the gap (owner 2026-10-21: 'top 3' read as a rank): " + tags.join(" | "));
   assert.ok(rows0[0].querySelector(".tug__bar--us") && rows0[1].querySelector(".tug__bar--them"));
   assert.equal(rows0[0].querySelector("td.tt__rank--natl a.rank-chip--link").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
   assert.equal(tables[1].querySelectorAll("tbody tr").length, 1);

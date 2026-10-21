@@ -123,7 +123,7 @@ def test_menu_pages_in_a_fake_browser(tmp_path: Path, name: str) -> None:
 
 def test_the_programs_bands_in_the_owners_order() -> None:
     src = (JS / "views" / "program.js").read_text(encoding="utf-8")
-    body = src.split("function sections(data) {", 1)[1].split("\n}\n", 1)[0]
+    body = src.split("function sections(data", 1)[1].split("\n}\n", 1)[0]
     listed = re.findall(r"(\w+Band)\(", body.split("const listed = [", 1)[1].split("];", 1)[0])
     # the mock (owner 2026-10-20): the notes beside the headlines, the recruits beside the availability report, common
     # opponents over the radio beside last season, the two schools and the series last

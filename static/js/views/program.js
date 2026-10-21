@@ -7,7 +7,7 @@
 import { confLabel, usLabel, usName, usSchool } from "../identity.js";
 import { weekCell, weekLong } from "../ui/weeks.js";
 import { cover, coverSkeleton } from "../ui/cover.js";
-import { DASH, el, flashChanges, fmtDate, fmtNum, fmtPct, fmtStat, fmtTime, isNum, replaceWith, snapshotKeys, text } from "../ui/dom.js";
+import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtNum, fmtPct, fmtStat, fmtTime, isNum, replaceWith, snapshotKeys, text } from "../ui/dom.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
 import { hasLineups, lineupSummary } from "../ui/lineups.js";
 import { lineupBlock } from "../ui/lineups_combined.js";
@@ -42,6 +42,7 @@ import { openPlayer } from "./player.js";
 import { adjustedMatchup, advancedBoxBlock, matchupGroups, tendenciesBlock } from "../ui/depth2.js";
 import { commonOpponentsBlock, lastSeasonTwoTeam } from "../ui/offday.js";
 import { resultsBand } from "../ui/results.js";
+import { raceBand } from "../ui/race.js";
 import { trophyLine, twoSchoolsBand } from "../ui/two-schools.js";
 import { visitorRows, visitorsTable } from "../ui/in-game-tables.js";
 
@@ -846,13 +847,19 @@ export function fitHeadlines(body) {
 
 /** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
  *  from the Newspaper's feeds, loaded on their own so the program itself stays fast; beside the notes and as deep (2026-10-20). */
-function headlinesBand() {
-  const host = el("div", {}, newsSkeleton(4));
-  const section = band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: "from the news feeds, as deep as the notes", body: () => host });
+function headlinesBand(items) {
+  // F8 feature 1: a finished game's Pre-Game tab shows the headlines kept with the kickoff lock, not today's feeds
+  const kept = Array.isArray(items) ? items.filter((h) => h && typeof h === "object" && typeof h.title === "string" && h.title.trim()) : null;
+  const host = el("div", {}, kept ? (kept.length ? newsDigest({ items: kept }) : note("No headlines were kept at kickoff.", { kind: "empty" })) : newsSkeleton(4));
+  const section = band({ id: "program-headlines", title: `${usName()} headlines`, collapsible: true, foldable: true, summary: kept ? "as they stood at kickoff" : "from the news feeds, as deep as the notes", body: () => host });
   section.classList.add("band--fill");
   const body = section.querySelector(".band__body");
   const fit = () => fitHeadlines(body);
   if (body && typeof ResizeObserver === "function") new ResizeObserver(fit).observe(body);
+  if (kept) {
+    fit();
+    return section;
+  }
   fetchPatient("/api/newspaper")
     .then((envelope) => {
       const items = Array.isArray(envelope?.data?.news) ? envelope.data.news.slice(0, 20) : [];
@@ -877,10 +884,10 @@ function stack(...bands) {
     marks on the drawn mock. The page flows in two columns; a pair of bands is one row of it. Players to watch and Prior weeks'
     programs are gone (the Season page's schedule opens any week's program). The matchup card and a finished game's box scores
     were not on his canvas, so they follow the order until he places them (new or unplaced bands go to the bottom, 2026-10-13). */
-function sections(data) {
+function sections(data, { headlines, boxes = true } = {}) {
   const done = Boolean(data.game?.completed);
   const listed = [
-    pairRow("program-pair-notes", notesBand(data), headlinesBand()), // 1 Program notes | the team's headlines, as deep as the notes
+    pairRow("program-pair-notes", notesBand(data), headlinesBand(headlines)), // 1 Program notes | the team's headlines, as deep as the notes
     tapeBand(data), // 2 Tale of the tape
     pairRow("program-pair-report", visitorsBand(data), availabilityBand(data)), // 3 Recruits on hand | Availability report
     leadersBand(data), // 4 Leaders side by side, each pair on the pole
@@ -894,8 +901,134 @@ function sections(data) {
     seriesBand(data), // 12 Series, the whole width
   ];
   const unplaced = [matchup(data)];
-  if (done) unplaced.push(finalBand(data), advancedBoxBand(data));
+  if (done && boxes) unplaced.push(finalBand(data), advancedBoxBand(data));
+  unplaced.push(raceBand(data.race, data.picture)); // What we need (F8 feature 1, owner 2026-10-21): at the bottom until he places it
   return [...listed, ...unplaced].filter(Boolean);
+}
+
+// --- a finished game: the Pre-Game as it stood and the Post-Game, every band doubled (F8 feature 1, owner 2026-10-21) ----
+// "Pregame, here's what everybody was saying before the game; postgame, here's what everybody said after, so when you look
+// back you have a history." The kickoff lock (/api/program/<id>/locked) holds the program as it stood; the Post-Game lock
+// (/api/program/<id>/postgame) holds the program as it stood the Sunday after, with both teams' ranks of that poll, the news
+// about the game, the race and the picture. The Post-Game tab: the final cover, the ranks of the day, the news, the box, then
+// every band with its kickoff side on the left and its after side on the right, shown once where nothing changed. The Pre-Game
+// tab: the cover and the bands exactly as locked. Both locks are read once per game.
+
+function ensureLocks(id, state, container) {
+  if (state.locks && state.locks.gameId === id) return state.locks;
+  const locks = { gameId: id, pre: undefined, post: undefined };
+  state.locks = locks;
+  const load = (key, url) =>
+    fetchJson(url)
+      .then((envelope) => {
+        locks[key] = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+      })
+      .catch((error) => {
+        locks[key] = null;
+        if (!(isNum(error?.status) && error.status === 404)) console.warn(`The ${key === "pre" ? "kickoff" : "Post-Game"} lock could not be read.`, error);
+      });
+  Promise.allSettled([load("pre", `/api/program/${encodeURIComponent(text(id))}/locked`), load("post", `/api/program/${encodeURIComponent(text(id))}/postgame`)]).then(() => {
+    if (state.locks === locks && state.last && container.isConnected) render(state.last, container, state);
+  });
+  return locks;
+}
+
+function programTabs(state, container) {
+  const current = state.tab === "pre" ? "pre" : "post";
+  const locks = state.locks || {};
+  const button = (key, label, detail) =>
+    el(
+      "button",
+      {
+        type: "button",
+        class: `program-tab${current === key ? " is-current" : ""}`,
+        "aria-pressed": current === key ? "true" : "false",
+        onclick: () => {
+          if (state.tab === key || !state.last) return;
+          state.tab = key;
+          render(state.last, container, state);
+        },
+      },
+      el("span", { class: "program-tab__label" }, label),
+      el("small", { class: "program-tab__detail" }, detail),
+    );
+  const preDetail = locks.pre && typeof locks.pre === "object" && locks.pre.lockedAt ? `as it stood at kickoff, ${fmtDateTime(locks.pre.lockedAt)}` : "as it stood at kickoff";
+  const postDetail = locks.post && typeof locks.post === "object" && locks.post.lockedAt ? `locked ${fmtDateTime(locks.post.lockedAt)}${locks.post.backfilled ? ", filled in later" : ", with the new poll"}` : "written once the new poll is out";
+  return el("div", { class: "program-tabs flow-full", role: "group", "aria-label": "The program before and after the game" }, button("pre", "Pre-Game", preDetail), button("post", "Post-Game", postDetail));
+}
+
+/** Both teams' AP ranks at kickoff and the Sunday after: the ranks of their day, kept whatever happens to either later. */
+function ranksStrip(locks, data) {
+  const pre = locks.pre && typeof locks.pre === "object" ? locks.pre : null;
+  const post = locks.post && typeof locks.post === "object" ? locks.post : null;
+  if (locks.pre === undefined && locks.post === undefined) return null;
+  const word = (n) => (isNum(n) ? `No. ${n}` : "unranked");
+  const before = (side) => (pre ? word(pre.ranks?.[side]?.ap ?? pre[side]?.apRank) : DASH);
+  const after = (side) => (post ? word(post[side]?.apRank) : DASH);
+  const line = (who, side) => el("span", { class: "program-ranks__side" }, el("span", { class: "program-ranks__who" }, `${who}: `), `${before(side)} at kickoff · ${after(side)} after`);
+  const foot = post ? "Both tabs keep the ranks of their day." : "The after side is written once the new poll is out.";
+  return el("div", { class: "program-ranks flow-full" }, line(text(data.them?.school) || "Them", "them"), line(usName(), "us"), el("span", { class: "program-ranks__foot" }, foot));
+}
+
+/** The articles about the game from the feeds after the final, kept with the Post-Game lock. */
+function newsBand(locks) {
+  const post = locks.post;
+  const items = post && typeof post === "object" && Array.isArray(post.news) ? post.news.filter((h) => h && typeof h === "object" && typeof h.title === "string") : null;
+  return band({
+    id: "program-news",
+    title: "The game in the news",
+    collapsible: false,
+    foldable: true,
+    summary: "articles about this game from the feeds, after the final",
+    state: { status: post === undefined ? "loading" : "ready" },
+    body: () => {
+      if (post === undefined) return newsSkeleton(3);
+      if (items && items.length) return newsDigest({ items });
+      return note(post ? "No article about this game reached the feeds in the days after it." : "The news is kept with the Post-Game Program, written once the new poll is out.", { kind: "empty" });
+    },
+  });
+}
+
+/** Every after band beside its kickoff twin where the two differ, the after band alone where nothing changed. */
+export function doubledRows(before, after, afterLabel = "After the game") {
+  const idOf = (node) => (node && typeof node.getAttribute === "function" && node.getAttribute("id")) || (node && typeof node.id === "string" ? node.id : "") || "";
+  const byId = new Map((Array.isArray(before) ? before : []).filter((node) => idOf(node)).map((node) => [idOf(node), node]));
+  return (Array.isArray(after) ? after : []).map((node) => {
+    const twin = idOf(node) ? byId.get(idOf(node)) : null;
+    if (!twin || (twin.textContent || "").trim() === (node.textContent || "").trim()) return node;
+    for (const inner of [twin, ...twin.querySelectorAll("[id]")]) inner.removeAttribute("id"); // the chips row and the flow name the after side only
+    return el(
+      "div",
+      { class: "program-doubled flow-wide" },
+      el("div", { class: "program-doubled__side" }, el("p", { class: "program-doubled__label" }, "At kickoff"), twin),
+      el("div", { class: "program-doubled__side program-doubled__side--after" }, el("p", { class: "program-doubled__label" }, afterLabel), node),
+    );
+  });
+}
+
+function flowNote(message, kind = "empty") {
+  return el("div", { class: "flow-full" }, note(message, { kind }));
+}
+
+/** The finished game's page body after the tabs: the active tab's cover and bands. */
+function finishedContent(data, state, container, coverEl) {
+  const id = data.game?.gameId;
+  const locks = ensureLocks(id, state, container);
+  const pre = locks.pre && typeof locks.pre === "object" && locks.pre.program && typeof locks.pre.program === "object" ? locks.pre : null;
+  if (state.tab === "pre") {
+    if (locks.pre === undefined) return [coverEl, flowNote("Loading the program as it stood at kickoff.")];
+    if (!pre) return [coverEl, flowNote("The program was not locked at kickoff, so the Pre-Game as it stood is not kept. This is the program as it reads today."), ...sections(data, { boxes: false })];
+    const lockedCover = cover({ ...coverProps(pre.program, { reveal: false }) });
+    state.cover = lockedCover;
+    return [lockedCover, flowNote(`The program as it stood at kickoff, locked ${fmtDateTime(pre.lockedAt)}.`), ...sections(pre.program, { headlines: pre.headlines })];
+  }
+  const post = locks.post && typeof locks.post === "object" && locks.post.program && typeof locks.post.program === "object" ? locks.post : null;
+  const after = post ? post.program : data;
+  const results = locks.pre === undefined ? band({ id: "program-results", title: "Expectations and results", collapsible: false, state: { status: "loading" } }) : resultsBand({ locked: locks.pre, data });
+  const head = [coverEl, ranksStrip(locks, data), newsBand(locks), finalBand(data), advancedBoxBand(data), results];
+  const afterSections = sections(after, { boxes: false });
+  if (!pre) return [...head, locks.pre === undefined ? null : flowNote("The program was not locked at kickoff, so nothing stands beside the after side."), ...afterSections];
+  return [...head, ...doubledRows(sections(pre.program, { headlines: pre.headlines }), afterSections, post ? "After the game" : "Now")];
 }
 
 const OPP_VARS = ["--opp", "--opp-alt", "--opp-text"];
@@ -945,8 +1078,9 @@ function render(envelope, container, state) {
   // wave B (owner 2026-10-13): the expectations locked at kickoff beside the result on a finished game's program, at the
   // bottom until the owner orders it ("for every screen in the future, the new stuff goes to the bottom, until I reorder
   // them", 2026-10-13); the two schools' history is in the order now (the mock, 2026-10-20)
-  const results = data.game?.completed ? resultsSlot(data, state) : null;
-  page.append(...[back, tools, coverEl, ...sections(data), results].filter(Boolean));
+  state.last = envelope;
+  if (data.game?.completed) page.append(...[back, tools, programTabs(state, container), ...finishedContent(data, state, container, coverEl)].filter(Boolean));
+  else page.append(...[back, tools, coverEl, ...sections(data)].filter(Boolean));
   if (back) back.classList.add("flow-full");
   coverEl.classList.add("flow-full");
   if (state.flow) state.flow.stop();
@@ -1019,7 +1153,7 @@ function loadingPage(state) {
 const TICK_MS = 30000;
 
 export function createProgramView({ onStatus, gameId = null, focus = null } = {}) {
-  const state = { gameId, focus, revealed: false, cover: null, flow: null, chips: null };
+  const state = { gameId, focus, revealed: false, cover: null, flow: null, chips: null, tab: "post", locks: null, last: null };
   let view = null;
   let ticker = null;
   const stopTicking = () => {

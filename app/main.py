@@ -53,7 +53,7 @@ from app.maintenance import Maintenance
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
 from app.origin_guard import HostGuard, OriginGuard
 from app.paths import ROOTS
-from app.schedule_setup import build_program_lock, build_prompt_runs, build_schedule
+from app.schedule_setup import build_postgame_lock, build_program_lock, build_prompt_runs, build_schedule
 from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
 from app.services.connect import print_qr
@@ -71,6 +71,7 @@ from app.services.myteams import MyTeamsService
 from app.services.national import NationalService
 from app.services.notes_task import NotesRunner, scratch_dir
 from app.services.players import PlayerService
+from app.services.postgame_lock import PostgameLock
 from app.services.prefs import PrefsStore
 from app.services.program import ProgramService
 from app.services.program_lock import ProgramLock
@@ -500,8 +501,10 @@ def create_app(
     app.state.headshots = HeadshotStore(settings.data_dir, transport=media_transport, user_agent=f"{APP_NAME.replace(' ', '')}/{__version__} (personal second screen)")
     app.state.logos = LogoStore(settings.data_dir, transport=logo_transport or media_transport, user_agent=agent)  # Phase 16: logos served from our own route
     app.state.program_lock = ProgramLock(settings.data_dir, settings.season)  # wave B: the Pre-Game Program locked at kickoff
+    app.state.postgame_lock = PostgameLock(settings.data_dir, settings.season)  # F8 feature 1: the Post-Game Program locked with the poll after
     app.state.maintenance = Maintenance(  # Phase 18.2: keep-awake, nightly backup, packed recordings, the archive's second look
         lock_program=build_program_lock(app),
+        lock_postgame=build_postgame_lock(app),
         data_dir=settings.data_dir,
         backup_dir=settings.backup_dir or settings.data_dir.parent / "backups",
         keep=settings.backup_keep,

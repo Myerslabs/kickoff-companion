@@ -29,6 +29,7 @@ from app.config import Settings
 from app.live.engine import LiveEngine
 from app.services import gamekeys, plan, teamset
 from app.services.parts import Assembled, Part, PartFetcher, assemble, calendar_slot, statuses
+from app.services.race import race, stamp_of
 
 ACTIVE_BEFORE = timedelta(hours=1)  # a game counts as active from an hour before kickoff
 ACTIVE_AFTER = timedelta(hours=5)  # until five hours after, unless it is marked complete
@@ -145,6 +146,15 @@ class TickerService:
                 games = [await self._from_game(g, teams, ap, delay, now) for g in records]
         kept = [g for g in games if g is not None]
         kept.sort(key=lambda g: (STATUS_ORDER.get(g["status"], 3), g.get("kickoff") or ""))
+        if kept and week is not None and season_type != gamekeys.POSTSEASON:
+            # What we need (F8 feature 1): a game that changes our path to the title game wears a dot; the season's games
+            # are the Season page's cached answer, so this costs no call once that page has loaded
+            season_games = await self.fetcher.fetch("games", "/games", {"year": self.year}, Game, DataKind.SCHEDULE)
+            parts["games"] = season_games
+            the_race = race(season_games.records, self.team, self.settings.conference, week=week, stamp=stamp_of(season_games)) if season_games.ok else None
+            helps = the_race["helps"] if the_race else {}
+            for g in kept:
+                g["helps"] = helps.get(g.get("gameId"))
         return slot, source, parts, kept
 
     # --- which week, which games -------------------------------------------------------------------

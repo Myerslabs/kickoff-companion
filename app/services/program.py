@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from app.cache import DataKind
@@ -69,7 +69,9 @@ from app.services.offday import common_opponents
 from app.services.paper import paper_weeks
 from app.services.parts import Assembled, Part, PartFetcher, assemble, calendar_slot, statuses
 from app.services.players import BOARDS, CATEGORIES, board_entries, cost_players_of, fbs_lines, lines_from
+from app.services.playoff import picture
 from app.services.profiles import PROFILE_ROWS, advanced_rows, profiles_for
+from app.services.race import compact, race, stamp_of
 from app.services.ratings import fbs_set
 from app.services.season import standings_rows
 from app.services.season_notes import SeasonNotes
@@ -79,6 +81,7 @@ from app.weather import NwsClient
 log = logging.getLogger("kickoff.program")
 
 POLL_NAMES = {"AP Top 25": "AP", "Coaches Poll": "Coaches", "Playoff Committee Rankings": "CFP"}
+FRONT_UNTIL_HOUR = 6  # the Post-Game Program leaves the front page at 6 on the Monday after the game (owner 2026-10-21)
 SATURDAY = 5
 SIDE_BY_SIDE = [("passing", "YDS", "Passing yards"), ("rushing", "YDS", "Rushing yards"), ("receiving", "YDS", "Receiving yards"), ("defensive", "TOT", "Tackles"), ("defensive", "SACKS", "Sacks")]
 
@@ -303,7 +306,21 @@ class ProgramService:
         if game_id is not None:
             return next((g for g in ordered if g.id == game_id), None)
         upcoming = [g for g in ordered if not g.completed]
+        played = [g for g in ordered if g.completed]
+        if upcoming and played and self.postgame_front(played[-1]):
+            return played[-1]  # the Post-Game Program keeps the front until Monday morning (owner 2026-10-21)
         return upcoming[0] if upcoming else (ordered[-1] if ordered else None)
+
+    def postgame_front(self, game: Game, now: datetime | None = None) -> bool:
+        """True from the game's kickoff until FRONT_UNTIL_HOUR on the Monday after it: the front page shows that game's
+        program (the Post-Game once it is final) and the next game's Pre-Game from Monday; the Season schedule opens any."""
+        kickoff = self._local(game.start_date)
+        if kickoff is None:
+            return False
+        now_local = (now or self.client._clock()).astimezone(self.settings.tzinfo)
+        days = (7 - kickoff.weekday()) % 7 or 7
+        monday = (kickoff + timedelta(days=days)).replace(hour=FRONT_UNTIL_HOUR, minute=0, second=0, microsecond=0)
+        return kickoff <= now_local < monday
 
     # --- the program (P1 to P10) ------------------------------------------------------------------
 
@@ -435,10 +452,30 @@ class ProgramService:
             "lastSeason": self._last_season(parts, opponent),  # Phase 15
             "recruiting": {"us": self._team_recruiting(parts, self.team, "us"), "them": self._team_recruiting(parts, opponent, "them") if opponent else None},
             "picker": picker,
+            "race": compact(race(parts["games"].records, self.team, self.settings.conference, week=game.week if isinstance(game.week, int) else None, stamp=stamp_of(parts["games"]))),  # What we need (F8 feature 1)
+            "picture": self._picture_line(parts, teams),  # and the playoff picture's line for us
             "parts": statuses(parts, now),
         }
         context16.program_extras(data, parts, team=self.team, opponent=opponent, venue=venue)  # Phase 16 BX: form, Elo paths, venue facts, radar, throw and run tables
         return assemble(data, parts)
+
+    def _picture_line(self, parts: dict[str, Part], teams: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+        """The playoff picture as the program keeps it (F8 feature 1): our seed and status, the twelve seeds, the source."""
+        try:
+            full = picture(parts["rankings"].records, parts["records"].records, parts["sp"].records if "sp" in parts else [], self.team, teams)
+        except Exception:  # noqa: BLE001 - the picture is a courtesy on the program; the Season page has the whole bracket
+            log.exception("The playoff picture could not be drawn for the program")
+            return None
+        if not full:
+            return None
+        return {
+            "source": full.get("source"),
+            "sourceLabel": full.get("sourceLabel"),
+            "week": full.get("week"),
+            "us": full.get("us"),
+            "seeds": [{"seed": e.get("seed"), "school": e.get("school"), "abbreviation": e.get("abbreviation"), "isUs": e.get("isUs"), "autoBid": e.get("autoBid")} for e in (full.get("field") or []) if isinstance(e, dict)],
+            "firstFourOut": [{"school": e.get("school"), "abbreviation": e.get("abbreviation"), "isUs": e.get("isUs")} for e in (full.get("firstFourOut") or []) if isinstance(e, dict)],
+        }
 
     def _conference_of(self, stats: list[TeamStat], teams: dict[str, dict[str, Any]], school: str) -> str:
         """The conference a team's stat profile ranks in: its /stats/season conference (the one

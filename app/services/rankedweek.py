@@ -41,6 +41,7 @@ from app.services.lines import line_block
 from app.services.notes import load_notes
 from app.services.parts import Assembled, Part, assemble, calendar_slot, statuses
 from app.services.program import POLL_NAMES, ProgramService, compass
+from app.services.race import race, stamp_of
 from app.services.ticker import TickerService
 
 log = logging.getLogger("kickoff.rankedweek")
@@ -236,6 +237,8 @@ class RankedWeekService:
         table = form_table(pool)
         notes_coaches = self._our_notes_coaches(ranked)  # freeze wave F3: our game's notes name its coaches first
         notes_broadcast = self._our_notes_broadcast(ranked)  # freeze wave F4: and its TV crew
+        the_race = race(core["games"].records, self.team, program.settings.conference, week=week if season_type != gamekeys.POSTSEASON else None, stamp=stamp_of(core["games"]))  # What we need (F8 feature 1): the chip on a game that helps us
+        helps = the_race["helps"] if the_race else {}
 
         def side(school: str, points: int | None, line_scores: Any, final: bool) -> dict[str, Any]:
             block = program._team_block(school, teams, records, ranks)
@@ -276,6 +279,7 @@ class RankedWeekService:
                 "line": line_block(book.lines[0] if book and book.lines else None, abbreviations),
                 "homeWinProbability": _num(wp.home_win_probability) if wp is not None else None,
                 "weather": self._weather(weather.get(g.id)),
+                "helps": helps.get(g.id),  # {pullFor, why, ours} when the game changes our path to the title game
             })
         games = ranked_order(out)
         data["games"] = games

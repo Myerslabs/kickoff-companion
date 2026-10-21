@@ -13,6 +13,9 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 
+from app.cache import DataKind
+from app.feeds import merge_headlines
+from app.services import gamekeys
 from app.services.claude_schedule import NOTES_BEFORE_KICKOFF, ClaudeSchedule, Ledger, Slot
 from app.services.notes import load_notes, notes_path
 from app.services.notes_task import NotesRunner
@@ -149,9 +152,86 @@ def build_program_lock(app: FastAPI):
         assembled = await state.program.program(game.id)
         if assembled is None:
             return False
-        return lock.save(game.id, snapshot(assembled.data, now))
+        headlines: list[dict[str, Any]] = []
+        try:
+            headlines = merge_headlines(await state.feeds.all())[:8]  # the day's headlines, kept with the lock (F8 feature 1)
+        except Exception:  # noqa: BLE001 - no headlines is no reason not to lock; logged
+            log.warning("The headlines could not be read for the kickoff lock", exc_info=True)
+        return lock.save(game.id, snapshot(assembled.data, now, headlines=headlines))
 
     return lock_program
+
+
+def build_postgame_lock(app: FastAPI):
+    """lock_postgame(now): once the AP poll after one of our finished games is out, write that game's Post-Game Program once
+    (F8 feature 1, owner 2026-10-21). One game per tick, oldest first, so this season's played games back-fill over the
+    first minutes after a start. Cheap when nothing is due: the cached schedule and polls only."""
+    state = app.state
+    tried: dict[int, datetime] = {}
+
+    async def lock_postgame(now: datetime) -> bool:
+        from app.cfbd.models import Game, TeamSP
+        from app.feeds import team_matcher
+        from app.services.playoff import picture
+        from app.services.postgame_lock import BACKFILL_AFTER, as_of, news_for, poll_after, records_after, snapshot_after
+        from app.services.race import race
+
+        lock = state.postgame_lock
+        program = state.program
+        try:
+            schedule = await program.fetcher.fetch("schedule", "/games", {"year": program.year, "team": program.team}, Game, DataKind.SCHEDULE)
+        except Exception:  # noqa: BLE001 - no schedule now: nothing to lock; the loop tries again next tick
+            return False
+        if not schedule.ok:
+            return False
+        done = sorted((g for g in schedule.records if g.completed and isinstance(g.week, int)), key=gamekeys.order)
+        pending = [g for g in done if not lock.has(g.id)]
+        if not pending:
+            return False
+        core = await program._core()
+        weeks = core["rankings"].records
+        for game in pending:
+            poll_week, ranks = poll_after(weeks, game)
+            if not ranks.get("AP"):
+                continue  # the poll after this game is not out yet
+            last = tried.get(game.id)
+            if last is not None and now - last < timedelta(minutes=5):
+                continue
+            tried[game.id] = now
+            assembled = await program.program(game.id)
+            if assembled is None:
+                return False
+            games = core["games"].records
+            kickoff = _parse(game.start_date)
+            backfilled = kickoff is not None and now - kickoff > BACKFILL_AFTER
+            upto = as_of(games, game.week)
+            the_race = race(upto, program.team, state.settings.conference, week=game.week + 1)
+            sp = await program._f("sp", "/ratings/sp", {"year": program.year}, TeamSP, DataKind.SEASON_STATS)
+            teams = program._teams(core["teams"])
+            poll_cut = next((gamekeys.poll_order(w) for w in weeks if getattr(w, "week", None) == poll_week and (getattr(w, "season_type", None) or "regular") == (game.season_type or "regular")), None)
+            weeks_upto = [w for w in weeks if poll_cut is None or gamekeys.poll_order(w) <= poll_cut]
+            try:
+                full = picture(weeks_upto, core["records"].records, sp.records, program.team, teams)
+            except Exception:  # noqa: BLE001 - the picture is a courtesy; the lock goes on without it
+                log.exception("The playoff picture could not be drawn for the Post-Game lock")
+                full = None
+            pic = None
+            if full:
+                pic = {"source": full.get("source"), "sourceLabel": full.get("sourceLabel"), "week": full.get("week"), "us": full.get("us"), "seeds": [{"seed": e.get("seed"), "school": e.get("school"), "abbreviation": e.get("abbreviation"), "isUs": e.get("isUs"), "autoBid": e.get("autoBid")} for e in (full.get("field") or []) if isinstance(e, dict)], "firstFourOut": [{"school": e.get("school"), "abbreviation": e.get("abbreviation"), "isUs": e.get("isUs")} for e in (full.get("firstFourOut") or []) if isinstance(e, dict)]}
+            who = state.identity.current
+            opponent = game.away_team if game.home_team == program.team else game.home_team
+            them_meta = teams.get(opponent or "", {})
+            items: list[dict[str, Any]] = list(program.archive.load(program.year))
+            try:
+                items += merge_headlines(await state.feeds.all())
+            except Exception:  # noqa: BLE001 - the archive alone then; logged
+                log.warning("The feeds could not be read for the Post-Game lock", exc_info=True)
+            news = news_for(items, team_matcher(who.school, who.mascot), team_matcher(opponent, them_meta.get("mascot")) if opponent else None, kickoff)
+            snap = snapshot_after(assembled.data, now, poll_week=poll_week, ranks=ranks, records=records_after(games, game.week), race=the_race, picture=pic, news=news, backfilled=backfilled)
+            return lock.save(game.id, snap)
+        return False
+
+    return lock_postgame
 
 
 def build_schedule(app: FastAPI) -> ClaudeSchedule:

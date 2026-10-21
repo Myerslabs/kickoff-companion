@@ -238,6 +238,7 @@ class Maintenance:
         clock: Callable[[], datetime] | None = None,
         awake: KeepAwake | None = None,
         lock_program: Callable[[datetime], Any] | None = None,
+        lock_postgame: Callable[[datetime], Any] | None = None,
     ) -> None:
         self.data_dir = Path(data_dir)
         self.backup_dir = Path(backup_dir)
@@ -246,6 +247,7 @@ class Maintenance:
         self.backups_enabled = backups_enabled
         self.refresh_archive = refresh_archive
         self.lock_program = lock_program  # wave B: the Pre-Game Program locked at kickoff, checked every tick
+        self.lock_postgame = lock_postgame  # F8 feature 1: the Post-Game Program locked once the poll after the game is out
         self._clock = clock or (lambda: datetime.now().astimezone())
         self.awake = awake or KeepAwake()
         self.backup_error: str | None = None
@@ -292,6 +294,11 @@ class Maintenance:
                 await self.lock_program(self._clock())
             except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
                 log.exception("Locking the program at kickoff failed")
+        if self.lock_postgame is not None:
+            try:
+                await self.lock_postgame(self._clock())
+            except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
+                log.exception("Locking the Post-Game Program failed")
         loop_now = asyncio.get_running_loop().time()
         if self._last_slow is not None and loop_now - self._last_slow < SLOW_JOB_SECONDS:
             return
