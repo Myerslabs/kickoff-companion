@@ -133,7 +133,7 @@ def test_an_archived_games_drives_are_no_stretched_rows():
     """With a game in the archive the route reaches the drives and the play log: a drive's bar on the field is a drawing
     (content, not a gap), and a drive's head over its plays is a band head's pattern (split on purpose)."""
     assert "const DRAWN = '.tug, .ladder, .tt__pct, .wp__bar, .field';" in pc.STRETCH_JS
-    assert "|play-drive)/;" in pc.STRETCH_JS
+    assert "|play-drive|^strip$|^strip |strip__)/;" in pc.STRETCH_JS  # In Game's pregame strip: the kickoff at one end, the win probability at the other, by design
     css = (ROOT / "static" / "css" / "components.css").read_text(encoding="utf-8")
     assert ".drive { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto;" in css, "the bar takes the middle of the row"
     assert ".play-drive { display: flex; justify-content: space-between;" in css
@@ -294,8 +294,8 @@ def test_the_board_check_names_the_way_that_failed():
 
 
 def test_the_failed_file_check_rules():
-    assert pc.BOOT_LIMIT_S == 12.0 and pc.BOOT_FILE == "static/js/ui/dom.js"
-    assert (ROOT / pc.BOOT_FILE).is_file(), "a file every page imports"
+    assert pc.BOOT_LIMIT_S == 12.0 and pc.BOOT_FILE == "js/ui/dom.js", "named under /static/ or the build's /static/v/<build>/ folder (freeze wave F7)"
+    assert (ROOT / "static" / pc.BOOT_FILE).is_file(), "a file every page imports"
     boot = pc.BOOT_JS
     assert "document.getElementById('boot-failed')" in boot and "document.getElementById('boot-pill')" in boot
     assert r"/\breload\b/i" in boot and "document.elementFromPoint(" in boot and "r.height >= 43.5" in boot
@@ -311,11 +311,11 @@ def test_the_failed_file_check_turns_the_failure_off_again():
     ])
     edge.errors.append("earlier error")
     problems, seen = pc.check_boot(edge, "http://h:1", 15000)
-    assert problems == [] and seen.startswith("static/js/ui/dom.js failed: 'Could not load' and Reload (82x44, in the top bar) at ")
+    assert problems == [] and seen.startswith("js/ui/dom.js failed: 'Could not load' and Reload (82x44, in the top bar) at ")
     methods = [m for m, _p in edge.calls]
     assert methods[:3] == ["Network.enable", "Network.setCacheDisabled", "Fetch.enable"]
     assert methods[-3:] == ["Fetch.disable", "Network.setCacheDisabled", "Network.disable"]
-    assert dict(edge.calls[2][1]) == {"patterns": [{"urlPattern": "*/static/js/ui/dom.js*", "requestStage": "Request"}]}
+    assert dict(edge.calls[2][1]) == {"patterns": [{"urlPattern": "*/js/ui/dom.js*", "requestStage": "Request"}]}
     assert edge.calls[-2][1] == {"cacheDisabled": False} and edge.failing == ()
     assert edge.loaded == ["http://h:1/#program"], "then the file arrives again and the app must start"
     assert edge.errors == ["earlier error"], "the failed file's own errors are the point, not a failure"
@@ -329,21 +329,21 @@ def test_the_failed_file_check_says_what_went_wrong(monkeypatch):
         ("Boolean(document.querySelector('.topbar .menu-button'))", False),
     ])
     problems, _seen = pc.check_boot(edge, "http://h:1", 15000)
-    assert problems[0] == "no Reload within 0 s of static/js/ui/dom.js failing: no Reload on screen with nothing over it (the pill reads 'Could not load')"
-    assert problems[1] == "once static/js/ui/dom.js arrived again the app did not start"
+    assert problems[0] == "no Reload within 0 s of js/ui/dom.js failing: no Reload on screen with nothing over it (the pill reads 'Could not load')"
+    assert problems[1] == "once js/ui/dom.js arrived again the app did not start"
     short = FakeEdge([
         ("reload.tall", {"drawn": False, "said": True, "pill": "Could not load", "reload": {"size": "82x30", "tall": False, "where": "the page"}, "ok": False}),
         ("Boolean(document.querySelector('.topbar .menu-button'))", True),
     ])
-    assert pc.check_boot(short, "http://h:1", 15000)[0] == ["no Reload within 0 s of static/js/ui/dom.js failing: its Reload is 82x30, under 44 px (the pill reads 'Could not load')"]
+    assert pc.check_boot(short, "http://h:1", 15000)[0] == ["no Reload within 0 s of js/ui/dom.js failing: its Reload is 82x30, under 44 px (the pill reads 'Could not load')"]
     started = FakeEdge([
         ("reload.tall", {"drawn": True, "said": False, "pill": "", "reload": None, "ok": False}),
         ("Boolean(document.querySelector('.topbar .menu-button'))", True),
     ])
-    assert pc.check_boot(started, "http://h:1", 15000)[0] == ["the app started although static/js/ui/dom.js failed"]
+    assert pc.check_boot(started, "http://h:1", 15000)[0] == ["the app started although js/ui/dom.js failed"]
     never = FakeEdge([("reload.tall", {"drawn": True, "ok": False}), ("Boolean(document.querySelector('.topbar .menu-button'))", True)])
     never.call = lambda method, **params: {}  # the page never asked for the file
-    assert pc.check_boot(never, "http://h:1", 15000)[0] == ["static/js/ui/dom.js was never asked for, so it could not be failed (the check needs the cache off)"]
+    assert pc.check_boot(never, "http://h:1", 15000)[0] == ["js/ui/dom.js was never asked for, so it could not be failed (the check needs the cache off)"]
 
 
 class FakeSocket:
@@ -362,11 +362,11 @@ def test_edge_fails_the_paused_file_and_lets_the_rest_through():
     edge = object.__new__(pc.Edge)
     edge.next_id = 0
     edge.errors = []
-    edge.failing = ("/static/js/ui/dom.js",)
+    edge.failing = ("/js/ui/dom.js",)
     edge.failed = []
     paused = lambda rid, url: {"method": "Fetch.requestPaused", "params": {"requestId": rid, "request": {"url": url}}}  # noqa: E731
     edge.ws = FakeSocket([
-        paused("r1", "http://h:1/static/js/ui/dom.js"),
+        paused("r1", "http://h:1/js/ui/dom.js"),
         paused("r2", "http://h:1/static/js/app.js"),
         {"method": "Fetch.requestPaused", "params": {"requestId": None}},
         {"id": 2, "result": {}},  # the answer to failRequest, passed over
@@ -378,7 +378,7 @@ def test_edge_fails_the_paused_file_and_lets_the_rest_through():
     assert sent[1] == {"id": 2, "method": "Fetch.failRequest", "params": {"requestId": "r1", "errorReason": "ConnectionReset"}}
     assert sent[2] == {"id": 3, "method": "Fetch.continueRequest", "params": {"requestId": "r2"}}
     assert len(sent) == 3, "a paused request with no id is left alone"
-    assert edge.failed == ["http://h:1/static/js/ui/dom.js"]
+    assert edge.failed == ["http://h:1/js/ui/dom.js"]
 
 
 def test_edge_presses_with_real_mouse_events():
@@ -495,9 +495,9 @@ def test_the_anchors_hold_the_phone_to_the_names(monkeypatch, capsys):
     real = pc.main
     calls = []
     monkeypatch.setattr(pc, "main", lambda argv, names=None: calls.append((argv, names)) or 0)
-    # the tablet lock (owner 2026-10-13): the iPad both ways, the phone, then the board alone on the big screen
+    # the iPad upright first (the anchor, Design rules 2026-10-21), then sideways, the phone, then the board alone on the big screen
     assert real(["--anchors", "--rules", "--scroll", "--interact"]) == 0
-    assert [a[-1] for a, _n in calls] == ["1180x820", "820x1180", "390x844", "1920x1080"]
+    assert [a[-1] for a, _n in calls] == ["820x1180", "1180x820", "390x844", "1920x1080"]
     assert all("--rules" in a and "--interact" in a and n is None for a, n in calls[:2])
     phone, names = calls[2]
     assert "--rules" not in phone and "--interact" not in phone and "--scroll" in phone and names is True

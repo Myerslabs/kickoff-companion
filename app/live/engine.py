@@ -388,15 +388,32 @@ class LiveEngine:
         """Where a game's events live in the store: a replayed game under its negated id."""
         return -game_id if game_id == self._replay_key_for else game_id
 
+    _state_memo: dict[tuple[Any, ...], dict[str, Any]] | None = None
+    _state_lock = threading.Lock()
+    STATE_MEMO_LIMIT = 16
+
     def state(self, delay_seconds: float, game_id: int | None = None) -> dict[str, Any] | None:
+        """The state at a delay. Freeze wave F7: the fold of the released events is kept per (game, delay, last event),
+        so five guests on one delay share one build per play instead of five; each caller gets its own top level."""
         gid = game_id or self.current_game_id
         if gid is None:
             return None
         key = self.store_key(gid)
         events = self.store.released(key, self.cutoff(delay_seconds))
-        state = derive_state(events, game_id=gid, home=self.home, away=self.away, mode=self.mode, rosters=self._rosters if self._rosters_for == gid else None, ep_tables=self._ep_tables)
-        state["delaySeconds"] = delay_seconds
-        state["team"] = self.settings.team  # the side the sheet follows (TEAM in .env), so it never assumes a team
+        memo_key = (key, delay_seconds, int(events[-1].seq or 0) if events else 0, len(events), self._rosters_for == gid, self.mode)
+        with self._state_lock:
+            if self._state_memo is None:
+                self._state_memo = {}
+            built = self._state_memo.get(memo_key)
+        if built is None:
+            built = derive_state(events, game_id=gid, home=self.home, away=self.away, mode=self.mode, rosters=self._rosters if self._rosters_for == gid else None, ep_tables=self._ep_tables)
+            built["delaySeconds"] = delay_seconds
+            built["team"] = self.settings.team  # the side the sheet follows (TEAM in .env), so it never assumes a team
+            with self._state_lock:
+                if len(self._state_memo) >= self.STATE_MEMO_LIMIT:
+                    self._state_memo.pop(next(iter(self._state_memo)))
+                self._state_memo[memo_key] = built
+        state = dict(built)
         state["pending"] = self.store.pending_after(key, self.cutoff(delay_seconds), state["lastSeq"])
         held = self.held_final()
         if held is not None and held["gameId"] == gid and key == gid:

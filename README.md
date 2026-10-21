@@ -37,10 +37,18 @@ Anything a plan does not include stays on its page with a note saying which plan
 | System | Archive | Then |
 |---|---|---|
 | Windows | `KickoffCompanion-<version>-windows-x64.zip` | Unzip it anywhere and double-click `KickoffCompanion.exe`. The first time, Windows says it protected your PC, because the program is not signed: **More info**, then **Run anyway**. |
-| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). Not yet tried on a Mac; say how it went. |
+| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). On macOS 15 Sequoia and later that right-click way is gone: double-click it once, let macOS say it cannot verify it, then open **System Settings**, **Privacy & Security**, scroll down to the line about `KickoffCompanion` and choose **Open Anyway**, then **Open**. Or take the uv line below, which needs none of that. Not yet tried on a Mac; say how it went. |
 | Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
 
 The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The program is the server. Your key, settings, notes and archive live in your app-data folder, which Settings, About, shows with an **Open the folder** button, so a new version simply replaces the old program folder. A file named `portable` beside the program keeps them beside it instead.
+
+**The one line (uv):** with [uv](https://docs.astral.sh/uv/) installed (one command, below under "From the code"), this starts the server with nothing cloned and nothing else installed:
+
+```
+uvx kickoff-companion
+```
+
+It downloads the package from PyPI the first time and keeps it; `uvx kickoff-companion@latest` takes the newest version. Your files live in the app-data folder, as for the download. Start at login is not offered this way; the download and the code have it.
 
 **From the code** (for developers, or any system with [uv](https://docs.astral.sh/uv/)):
 
@@ -84,8 +92,17 @@ FastAPI and plain JavaScript modules, no front-end build step. Every external an
 | Tests (no network) | `uv run python -m pytest` |
 | Lint | `uv run python -m ruff check app tools tests` |
 | Every page for undefined, null or NaN (headless Edge or Chrome) | `uv run python tools/page_check.py` |
+| Build the package (the wheel `uvx` runs) | `uv build` |
 
 The tests and the demo use the made-up league, generated from the shape of CFBD's answers with every name and number invented; no CFBD data is in this repository.
+
+## Code signing policy
+
+Free code signing on Windows is provided by [SignPath.io](https://signpath.io), certificate by [SignPath Foundation](https://signpath.org). The release workflow builds the program on GitHub's machines from this repository and submits that build for signing; nothing built anywhere else is signed. Until the first signed release ships, Windows still shows its "protected your PC" note on the first start.
+
+- Committers and reviewers: the maintainer, [Myerslabs](https://github.com/Myerslabs).
+- Approvers: the maintainer.
+- Privacy: this program does not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. From your own computer it fetches only what its documentation names: the data your own CFBD key allows, the public news feeds and weather sources, and the newest release's number from GitHub. Nothing about you leaves the computer.
 
 ## Credits
 

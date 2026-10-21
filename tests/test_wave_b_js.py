@@ -38,7 +38,7 @@ scenarios.results = async () => {
   const { measures, players } = resultRows(LOCKED, DATA);
   assert.deepEqual(measures.map((m) => m.label), ["Points", "Yards", "Pass yards", "Rush yards", "Third down", "Turnovers"]);
   assert.equal(measures[0].us.expected, "35.8"); assert.equal(measures[0].us.result, "31"); assert.equal(measures[0].them.result, "17");
-  assert.equal(measures[4].us.expected, "45.0%"); assert.equal(measures[4].us.result, "50.0%"); assert.equal(measures[4].them.expected, "–");
+  assert.equal(measures[4].us.expected, "45%"); assert.equal(measures[4].us.result, "50%"); assert.equal(measures[4].them.expected, "–");
   assert.equal(measures[2].them.result, "–", "no number in the box: a dash");
   assert.deepEqual(players.map((p) => [p.player, p.season, p.game]), [["A. Arm", "1,800", "212"], ["B. Back", "900", "–"], ["C. Hit", "55", "7"]]);
   const band = resultsBand({ locked: LOCKED, data: DATA });

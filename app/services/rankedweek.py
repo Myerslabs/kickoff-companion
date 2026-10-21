@@ -523,6 +523,10 @@ class RankedWeekService:
         ended: bowl season once the title game is played): each matchup still short of its final takes the final score
         from the season's games (already cached, no call) and its final headline, a game the season never finished
         (postponed, cancelled) reads "Not played", and the edition is frozen and never written again."""
+        stamp = (current, (now or datetime.now(timezone.utc)).date().isoformat())
+        if getattr(self, "_settled", None) == stamp:
+            return  # freeze wave F7: once a day is enough for a week to end (it was every poll of every device: 151 file stats a minute)
+        self._settled = stamp
         games = {g.id: g for g in season_games if isinstance(g, Game)}
         tz = self.program.settings.tzinfo
         for entry in self.editions.keys():

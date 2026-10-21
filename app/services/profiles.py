@@ -5,7 +5,7 @@ finished games, ranked nationally and inside the conference with ties sharing a 
 from __future__ import annotations
 
 import math
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from typing import Any
 
 from app.cfbd.models import AdvancedSeasonStat, Game, TeamStat
@@ -335,11 +335,26 @@ class Profiles:
         return out
 
 
+_PROFILES_MEMO: OrderedDict[tuple[Any, ...], tuple[tuple[Any, ...], Profiles]] = OrderedDict()
+PROFILES_MEMO_LIMIT = 16
+
+
 def profiles_for(stats: list[TeamStat], league_games: list[Game], team_games: list[Game], conference: str, team: str | None) -> Profiles:
     """The one way to build profiles (Phase 16), so the Season page, the program, the team page and
     the national lists rank the same games: the league-wide finished games plus the team's own
-    schedule (deduplicated by game id), points ranked only when the league-wide answer loaded."""
-    return Profiles(stats, list(league_games) + list(team_games), conference, points_ranked=bool(league_games), team=team)
+    schedule (deduplicated by game id), points ranked only when the league-wide answer loaded.
+    Freeze wave F7: built once per set of lists (17 ms over 8,160 rows, twice per season overview): the memo
+    keys on the lists themselves and keeps them, so a key is never reused by a later list."""
+    key = (id(stats), id(league_games), id(team_games), conference, team)
+    kept = _PROFILES_MEMO.get(key)
+    if kept is not None and kept[0] == (stats, league_games, team_games) and kept[0][0] is stats and kept[0][1] is league_games and kept[0][2] is team_games:
+        _PROFILES_MEMO.move_to_end(key)
+        return kept[1]
+    built = Profiles(stats, list(league_games) + list(team_games), conference, points_ranked=bool(league_games), team=team)
+    _PROFILES_MEMO[key] = ((stats, league_games, team_games), built)
+    while len(_PROFILES_MEMO) > PROFILES_MEMO_LIMIT:
+        _PROFILES_MEMO.popitem(last=False)
+    return built
 
 
 def advanced_values(records: list[AdvancedSeasonStat], side: str, attr: str) -> dict[str, float]:

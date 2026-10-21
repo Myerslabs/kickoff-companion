@@ -576,7 +576,7 @@ scenarios.pageNotes = async () => {
   goRoute("program");
   assert.ok(!note.hasAttribute("hidden"));
   assert.equal(shown, 1, "onShow runs once");
-  note.querySelector(".page-note__close").click();
+  slot.querySelector(".page-note__close").click(); // one close button for the whole note (Design rules, owner 2026-10-21)
   assert.equal(dismissed, 1);
   assert.equal(slot.querySelector(".page-note"), null);
   assert.ok(slot.hasAttribute("hidden"));

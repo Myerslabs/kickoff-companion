@@ -1,12 +1,31 @@
 # Kickoff Companion. Public release Phase 4: the dependencies live here, locked in uv.lock, so one
 # command sets up any OS: `uv sync` (or just run start.ps1 / start.sh, which does it). requirements.txt
 # and requirements-dev.txt carry the same pins for plain pip; tests/test_packaging.py keeps them in step.
+# Freeze wave F6 (2026-10-21): the same file builds the package on PyPI, so `uvx kickoff-companion` runs the app
+# with nothing cloned: hatchling puts `app`, `static` and `.env.example` inside one `kickoff_companion` package
+# (packaging/pypi/, the entry point), so nothing lands at the top level of an environment, and the version is read
+# from app/__init__.py. `uv build` makes the wheel; the release workflow publishes it (trusted publishing).
 [project]
 name = "kickoff-companion"
-version = "0.1.0"
+dynamic = ["version"]
 description = "A second-screen companion for watching your college football team, served from your own computer."
+readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Myers Labs" }]
+keywords = ["college football", "second screen", "game day", "CFBD", "home network"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Web Environment",
+  "Framework :: FastAPI",
+  "Intended Audience :: End Users/Desktop",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Games/Entertainment",
+]
 dependencies = [
   "fastapi==0.141.1",
   "uvicorn[standard]==0.53.0",
@@ -18,6 +37,41 @@ dependencies = [
   "zeroconf==0.151.5",
   "segno==1.6.6",
 ]
+
+[project.urls]
+Homepage = "https://github.com/Myerslabs/kickoff-companion"
+Repository = "https://github.com/Myerslabs/kickoff-companion"
+Issues = "https://github.com/Myerslabs/kickoff-companion/issues"
+Releases = "https://github.com/Myerslabs/kickoff-companion/releases"
+
+[project.scripts]
+kickoff-companion = "kickoff_companion:main"
+
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "app/__init__.py"
+
+# The wheel: one package, kickoff_companion/, holding the entry point (packaging/pypi/kickoff_companion/), the app
+# package, the static files and the .env template, laid out as a checkout is, so app/paths.py finds the bundle
+# the usual way and the `installed` marker sends .env, data/ and logs/ to the app-data folder.
+[tool.hatch.build.targets.wheel]
+include = ["/packaging/pypi/kickoff_companion", "/app", "/static"]  # anchored: a folder named app or static anywhere else stays out
+exclude = ["**/__pycache__", "**/*.pyc"]
+
+[tool.hatch.build.targets.wheel.sources]
+"packaging/pypi" = ""
+"app" = "kickoff_companion/app"
+"static" = "kickoff_companion/static"
+
+[tool.hatch.build.targets.wheel.force-include]
+".env.example" = "kickoff_companion/.env.example"
+
+[tool.hatch.build.targets.sdist]
+include = ["/packaging/pypi", "/app", "/static", "/.env.example", "/README.md", "/LICENSE", "/pyproject.toml"]
+exclude = ["**/__pycache__", "**/*.pyc"]
 
 [dependency-groups]
 dev = [

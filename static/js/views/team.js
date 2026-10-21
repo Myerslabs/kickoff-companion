@@ -26,7 +26,7 @@ import { openGame, ratingsHref, scheduleList } from "../ui/schedule.js";
 import { eloLine } from "../ui/sparkline.js";
 import { backRow, band, note, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
-import { pollBadge, statTable, statTableSkeleton } from "../ui/stat-table.js";
+import { pollBadge, statTable, statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { profileTable, profileTiles, standingsTable, teamHeader } from "../ui/team-page.js";
 import { errorPanel, fetchJson, partState, poller } from "./common.js";
 import { jumpToBand } from "./season.js";
@@ -292,7 +292,7 @@ function playValueBand(data, state) {
     title: "Play value and usage",
     collapsible: false,
     state: players.length || usage.length ? { status: "ready" } : { status: "empty", message: "Play value appears once CFBD grades the first game." },
-    body: () => el("div", { class: "twocol" }, el("div", {}, subhead("PPA per play, at least 10 plays"), table("playValue", columns, players, { key: "all", dir: "descending" }, "PPA per play")), el("div", {}, subhead("Usage"), table("usage", usageColumns, usage, { key: "overall", dir: "descending" }, "Usage"))),
+    body: () => twoCol(el("div", {}, subhead("PPA per play, at least 10 plays"), table("playValue", columns, players, { key: "all", dir: "descending" }, "PPA per play")), el("div", {}, subhead("Usage"), table("usage", usageColumns, usage, { key: "overall", dir: "descending" }, "Usage"))),
   });
 }
 

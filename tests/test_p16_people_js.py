@@ -524,7 +524,7 @@ scenarios.gameLog = async () => {
   assert.ok(rows[0].querySelector(".gl-result--l"));
   assert.ok(rows[2].querySelector(".gl-result--w"));
   // box-score PCT (100.0) reads 100%, not 10000%
-  assert.ok(text(log).includes("100.0%") && !text(log).includes("10000"));
+  assert.ok(text(log).includes("100%") && !text(log).includes("10000"));
   // Play value: numbers as numbers, the by-game row with the right at/vs and the game log's abbreviation
   const pv = card.querySelector('[aria-label="Play value"]');
   assert.ok(pv.querySelectorAll("tbody td:not(.txt)").length > 0, "numeric cells");
@@ -652,7 +652,7 @@ scenarios.cardSizes = async () => {
   assert.ok(heads(byGame).every((th) => th.querySelector("button")) && heads(byGame)[0].getAttribute("aria-sort") === "descending");
   assert.deepEqual(heads(byGame).map((th) => sized(th, "short")), ["Wk", "Opp", "PPA", "Pass", "Rush"]);
   assert.equal(usage.dataset.size, "large");
-  assert.ok(text(usage).includes("20.0%"), "a rate shows one decimal");
+  assert.ok(text(usage).includes("20%"), "a rate shows whole numbers (Design rules, 2026-10-21)");
 
   // History: newest first and sortable, the team's abbreviation (still its link) and "#" at small
   const hist = playerData();

@@ -3,6 +3,9 @@
     python tools/package/build.py              build, smoke-test and archive into dist/
     python tools/package/build.py --no-smoke   skip the smoke test
     python tools/package/build.py --dist DIR   build and archive into DIR instead of dist/
+    python tools/package/build.py --archive-only   the program is already in <dist>/KickoffCompanion (signed, say):
+                                                   smoke-test and archive it, no build (freeze wave F6, the release
+                                                   workflow after SignPath)
 
 Needs the build group: `uv sync --group build` (or pip install -r requirements-build.txt). The steps:
 
@@ -236,18 +239,24 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dist", type=Path, default=ROOT / "dist", help="where the build and the archive go (default: dist/)")
     parser.add_argument("--no-smoke", action="store_true", help="skip the smoke test")
     parser.add_argument("--no-archive", action="store_true", help="leave the folder as it is, no archive")
+    parser.add_argument("--archive-only", action="store_true", help="smoke-test and archive the program already in <dist>/KickoffCompanion (signed, say); no build")
     args = parser.parse_args(argv)
     dist = args.dist.resolve()
-    shutil.rmtree(dist / NAME, ignore_errors=True)
-    staged = write_staging()
-    print(f"Staged {', '.join(sorted(p.name for p in staged.values()))} in {OUT}")
-    if run_pyinstaller(dist, OUT / "build") != 0:
-        print("PyInstaller failed.")
-        return 1
     program = program_path(dist)
-    if not program.is_file():
-        print(f"PyInstaller finished but {program} is missing.")
-        return 1
+    if args.archive_only:
+        if not program.is_file():
+            print(f"--archive-only needs the built program at {program}.")
+            return 1
+    else:
+        shutil.rmtree(dist / NAME, ignore_errors=True)
+        staged = write_staging()
+        print(f"Staged {', '.join(sorted(p.name for p in staged.values()))} in {OUT}")
+        if run_pyinstaller(dist, OUT / "build") != 0:
+            print("PyInstaller failed.")
+            return 1
+        if not program.is_file():
+            print(f"PyInstaller finished but {program} is missing.")
+            return 1
     if not args.no_smoke:
         problems = smoke_test(program)
         if problems:

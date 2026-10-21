@@ -26,7 +26,8 @@ script error the page throws while it does. Since item 6 (owner 2026-10-11) --in
     a file that does not arrive: one of the app's script files fails (DevTools' Fetch), and the check fails unless the loading
         screen says so beside a Reload within 12 s, and unless the app starts once the file arrives again.
 --layout (Phase 19) fails on a row whose content is split apart by a large empty gap.
---rules (Phase 19) reports text under 13 px and, at tablet widths, press targets under 44 px; since item 6 it also fails on a
+--rules (Phase 19) reports text under 13 px and, at tablet widths, press targets under 44 px (never on the board, a display
+nobody touches, whose one control is checked by --interact); since item 6 it also fails on a
 player's name on two lines (a name never wraps: it shortens), and with --anchors the phone is held to the names too.
 --scroll (owner 2026-10-10) fails on anything on a page that scrolls up and down inside itself.
 --anchors (the tablet lock, owner 2026-10-13) runs the whole check at the screens the app is made for and no other: an iPad both
@@ -97,14 +98,14 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     "MYTEAMS": ["myteams", "injuries", "national=rating:sp?scope=opponents", "national=profile:ypp?scope=mine", "national=board:passing:YDS?scope=opponents"],
 }
 ROUTES = list(dict.fromkeys(route for group in ROUTE_GROUPS.values() for route in group))
-DEFAULT_SIZE = (1180, 820)
+DEFAULT_SIZE = (820, 1180)  # the iPad held upright: the anchor (Design rules, owner 2026-10-21); sideways must not break
 # Phase 19 (owner 2026-10-08): the app is arranged and tested around two screens, a tablet and a full-screen monitor.
 # The screens (owner 2026-10-13, the tablet lock): an iPad both ways and a phone for every page; the big screen for the board
 # only, since any other page in a wider browser is the iPad's layout with wider columns (ui/flow.js).
-ANCHOR_SIZES = [(1180, 820), (820, 1180)]  # an iPad (Air or plain) both ways
+ANCHOR_SIZES = [(820, 1180), (1180, 820)]  # an iPad (Air or plain): upright first, the anchor, then sideways
 PHONE_SIZE = (390, 844)  # an iPhone held upright
 BIG_SCREEN = (1920, 1080)  # a 1080p screen: the board's own layout
-ANCHOR_NAMES = {(1180, 820): "iPad, landscape", (820, 1180): "iPad, portrait", BIG_SCREEN: "1080p screen, the board", PHONE_SIZE: "phone"}
+ANCHOR_NAMES = {(820, 1180): "iPad, portrait", (1180, 820): "iPad, landscape", BIG_SCREEN: "1080p screen, the board", PHONE_SIZE: "phone"}
 BAD = re.compile(r"\b(undefined|null|NaN|Infinity)\b|\[object \w+\]")  # any object printed as text ([object HTMLElement] too, 2026-10-10)
 BROKEN = re.compile(r"The page could not be drawn \(([^)]{0,200})\)")  # the app's own error band: a render that threw (wave F4, 2026-10-20: a missing import got past the sweep)
 # The old names (owner 2026-10-10: Pre-Game Program, In Game, Preseason Magazine, First time setup), never on a page again.
@@ -200,7 +201,7 @@ STRETCH_JS = r"""
   const name = (el) => (el.tagName || '').toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
   const where = (el) => { const band = el.closest('[id]'); return band ? '#' + band.id : 'page'; };
   if (document.body.classList.contains('board-mode')) return []; // the board is drawn at a zoom: its gaps are the zoom's
-  const BY_DESIGN = /(__head|faceoff|__ends|kicker-row|team-head|mast__line|wp__caption|game-card|leaders__head|rgrid|tt__group|^setting$|play-drive)/; // tt__group: each team's scheme under its own columns, the bar's column empty between them on purpose; play-drive: a drive's head over its plays (the team and drive left, its plays and yards right), a band head's pattern
+  const BY_DESIGN = /(__head|faceoff|__ends|kicker-row|team-head|mast__line|wp__caption|game-card|leaders__head|rgrid|tt__group|^setting$|play-drive|^strip$|^strip |strip__)/; // strip: In Game's score strip before kickoff holds the kickoff at its left end and the win probability at its right, by design (wave F5); tt__group: each team's scheme under its own columns, the bar's column empty between them on purpose; play-drive: a drive's head over its plays (the team and drive left, its plays and yards right), a band head's pattern
   for (const el of document.querySelectorAll('main *')) {
     if (BY_DESIGN.test(typeof el.className === 'string' ? el.className : '') || el.closest('.band__head, thead, .rgrid, .lineups__experience')) continue; // .lineups__experience: the starters' experience runs edge to edge by the owner's mark (2026-10-20)
     const display = getComputedStyle(el).display;
@@ -248,8 +249,13 @@ RULES_JS = r"""
     }
   }
   if (window.innerWidth <= 1300) {
+    // the board (body.board-mode, views/board.js) is a display nobody touches: its dense tables have 31 px rows by design, and
+    // its one control, the Leave big screen chip, is checked by --interact at 44 px (freeze wave F7: 23 player rows flagged
+    // at the landscape iPad once the simulated game had them)
+    const board = document.body.classList.contains('board-mode');
     for (const el of document.querySelectorAll('main button, main a[href], main select, main input, main [role="button"], .topbar button, .topbar a, .tabs a, .page-notes button, .page-notes a[href]')) {
       if (!visible(el)) continue;
+      if (board && el.closest('.shell__main')) continue;
       const box = el.getBoundingClientRect();
       if (box.width < 1 || box.height < 1 || el.closest('.hint, .glossary-tip, .tt__cell--link')) continue; // a two-team table's linked cell is the whole cell
       const slop = getComputedStyle(el, '::after');
@@ -403,10 +409,11 @@ class Edge:
     budget runs out), and its visible text read with document.body.innerText. Unlike --dump-dom this
     also works on the Live sheet, whose event stream never goes quiet."""
 
-    def __init__(self, path: str, profile: str, size: tuple[int, int] = DEFAULT_SIZE) -> None:
+    def __init__(self, path: str, profile: str, size: tuple[int, int] = DEFAULT_SIZE, extra: tuple[str, ...] = ()) -> None:
         self.port = free_port()
         self.size = size
-        self.proc = subprocess.Popen([path, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", f"--user-data-dir={profile}", f"--remote-debugging-port={self.port}", f"--window-size={size[0]},{size[1]}", "about:blank"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        command = [path, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", f"--user-data-dir={profile}", f"--remote-debugging-port={self.port}", f"--window-size={size[0]},{size[1]}", *extra, "about:blank"]
+        self.proc = subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         self.ws = None
         self.next_id = 0
         self.errors: list[str] = []
@@ -477,13 +484,13 @@ class Edge:
         self.call("Page.navigate", url="about:blank")
         self.call("Page.navigate", url=url)
         deadline = time.monotonic() + budget_ms / 1000
-        time.sleep(1.5)
+        time.sleep(1.0)  # freeze wave F7: 1.5 and 1.0 s a page were 3.3 s a page, 12 to 15 minutes a four-screen run
         while time.monotonic() < deadline:
             busy = self.call("Runtime.evaluate", expression="document.readyState !== 'complete' || !!document.querySelector('.skel')", returnByValue=True)
             if not busy.get("result", {}).get("value"):
                 break
             time.sleep(0.5)
-        time.sleep(1.0)  # one more beat for the last redraw
+        time.sleep(0.5)  # one more beat for the last redraw
         result = self.call("Runtime.evaluate", expression="document.body ? document.body.innerText : ''", returnByValue=True)
         return str(result.get("result", {}).get("value") or "")
 
@@ -800,7 +807,7 @@ def check_board(edge: Edge, base: str, budget_ms: int) -> tuple[list[str], str]:
 # app has not drawn its Menu in 10 s, says it could not load. One of the app's script files is failed as a dropped connection
 # (every page imports it), the cache is off so the browser asks for it, and within BOOT_LIMIT_S the page must say so beside a
 # Reload that is 44 px tall with nothing over it. Then the file arrives again and the app must start.
-BOOT_FILE = "static/js/ui/dom.js"
+BOOT_FILE = "js/ui/dom.js"  # under /static/ or the build's /static/v/<build>/ folder (freeze wave F7)
 BOOT_LIMIT_S = 12.0
 BOOT_JS = r"""(() => {
   const visible = (el) => { if (!el) return false; const s = getComputedStyle(el); const b = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
@@ -1002,14 +1009,15 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
     parser.add_argument("--budget", type=int, default=15000, help="milliseconds Edge lets each page run (default 15000)")
     parser.add_argument("--routes", nargs="*", default=None, help="routes to check (default: every group)")
     parser.add_argument("--group", nargs="*", default=None, help=f"only these streams' routes ({', '.join(ROUTE_GROUPS)})")
-    parser.add_argument("--size", type=parse_size, default=DEFAULT_SIZE, help="viewport as WIDTHxHEIGHT (default 1180x820; the portrait tablet is 820x1180)")
-    parser.add_argument("--anchors", action="store_true", help="run everything at the screens: an iPad at 1180x820 and 820x1180, a phone at 390x844 (the words, the scroll rule and the names), and the board alone on a 1080p screen at 1920x1080 (the tablet lock, 2026-10-13)")
+    parser.add_argument("--size", type=parse_size, default=DEFAULT_SIZE, help="viewport as WIDTHxHEIGHT (default 820x1180; the portrait tablet is 820x1180)")
+    parser.add_argument("--anchors", action="store_true", help="run everything at the screens: an iPad at 820x1180 (the anchor, owner 2026-10-21) and 1180x820, a phone at 390x844 (the words, the scroll rule and the names), and the board alone on a 1080p screen at 1920x1080")
     parser.add_argument("--board", action="store_true", help="the board only (#board), as --anchors runs it on the big screen; with --interact its way out is the one interaction")
     parser.add_argument("--layout", action="store_true", help="also fail on any row whose content is split apart by a large empty gap: a label far from its value (Phase 19)")
     parser.add_argument("--rules", action="store_true", help="also report text under 13 px and (at tablet widths) press targets under 44 px (Phase 19), and fail on a player's name on two lines (item 6; with --anchors the phone too)")
     parser.add_argument("--interact", action="store_true", help="also click through the menu, search, the tabs and a rank-chip sheet (Phase 18.5); and (item 6) open a sheet on every page and check the Menu over it, the board's way out, and a file that does not arrive")
     parser.add_argument("--labels", action="store_true", help="also list every label with no glossary entry, and fail on any (Phase 17 #20)")
     parser.add_argument("--scroll", action="store_true", help="also fail on anything on a page that scrolls up and down inside itself; with --anchors the phone runs too (owner 2026-10-10)")
+    parser.add_argument("--no-sandbox", action="store_true", help="start the browser without its sandbox (a Linux CI machine that forbids user namespaces; freeze wave F6)")
     args = parser.parse_args(argv)
     if args.anchors:
         rest = [a for a in (argv if argv is not None else sys.argv[1:]) if a != "--anchors"]
@@ -1054,7 +1062,7 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
             args.routes = [fill(route, {"ARCHIVED": archived}) for route in args.routes]
         failures = 0
         with tempfile.TemporaryDirectory(prefix="kickoff-page-check-", ignore_cleanup_errors=True) as profile:
-            browser = Edge(edge, profile, args.size)
+            browser = Edge(edge, profile, args.size, extra=("--no-sandbox",) if args.no_sandbox else ())
             print(f"Viewport {args.size[0]}x{args.size[1]}, {len(args.routes)} route(s).")
             unexplained: dict[str, list[str]] = {}
             stretches: list[tuple[str, dict]] = []

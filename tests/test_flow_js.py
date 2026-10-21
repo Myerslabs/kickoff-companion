@@ -13,11 +13,12 @@ SCENARIOS = r"""
 scenarios.flow = async () => {
   const { flow, columnsFor } = await import(moduleUrl("ui/flow.js"));
   // the tablet lock (owner 2026-10-13): a browser wider than the iPad keeps its two columns, never a third or a fourth
-  assert.deepEqual([0, 375, 699, 700, 1099, 1100, 1180, 1599, 1600, 3440, NaN].map(columnsFor), [1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1]);
+  assert.deepEqual([0, 375, 699, 700, 1099, 1100, 1180, 1599, 1600, 3440, NaN].map(columnsFor), [1, 1, 1, 2, 2, 2, 2, 2, 2, 4, 1]);
+  assert.deepEqual([1699, 1700, 1920, 2499, 2500].map(columnsFor), [2, 3, 3, 3, 4], "a 1080p screen gets three columns, an ultrawide four (Design rules, owner 2026-10-21)");
   const box = (w, h) => () => ({ width: w, height: h, top: 0, left: 0, right: w, bottom: h });
   const page = document.createElement("div");
   page.classList.add("page");
-  page.getBoundingClientRect = box(1920, 0);
+  page.getBoundingClientRect = box(1180, 0); // the iPad sideways: two columns (a 1920 px screen gets three since the Design rules of 2026-10-21, tested above)
   const make = (id, h, cls) => { const d = document.createElement("section"); d.id = id; if (cls) d.classList.add(cls); d.getBoundingClientRect = box(400, h); page.append(d); return d; };
   const cover = make("cover", 500, "flow-full");
   const weather = make("weather", 120);
@@ -26,7 +27,7 @@ scenarios.flow = async () => {
   document.body.append(page);
   const f = flow(page, { full: ["weather"], wide: ["tape"] });
   assert.ok(page.className.includes("flow"));
-  assert.equal(page.dataset.cols, "2", "a 1920 px browser: the iPad's two columns, wider");
+  assert.equal(page.dataset.cols, "2", "the iPad sideways: two columns");
   assert.equal(page.style["--flow-cols"], "2");
   // the order rule (owner 2026-10-13): each band placed below everything listed before it, no holes
   assert.equal(cover.style.gridColumn, "1 / span 2"); assert.equal(cover.style.gridRowStart, "1");

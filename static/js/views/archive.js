@@ -21,7 +21,7 @@ import { boxTables } from "../ui/box-columns.js";
 import { playLog, playLogSkeleton } from "../ui/play-log.js";
 import { backRow, band, note, sectionChips, subhead } from "../ui/states.js";
 import { flow } from "../ui/flow.js";
-import { statTable, statTableSkeleton } from "../ui/stat-table.js";
+import { statTable, statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { feedEfficiencyTable, quarterLine, teamStatsSkeleton, teamStatsTable } from "../ui/team-stats.js";
 import { winProbabilityChart, winProbabilitySkeleton } from "../ui/wp-chart.js";
 import { advancedBoxBlock } from "../ui/depth2.js";
@@ -190,11 +190,11 @@ function gameView(data) {
       foldable: true,
       state: stateOr(parts.ppaUs, Boolean(ppa.available), null, ppa.note || "No play value for this game."),
       // wave 3: each team's play value is In Game's table, the two-team kit with the tug bar (the defense's rows say allowed)
-      body: () => el("div", {}, hasTeamValues ? teamValueTable(teamValues, { us: usHeads, them: themHeads }) : null, el("div", { class: "twocol" }, players(text(US), records(ppa.players?.us), false), players(text(themName), records(ppa.players?.them), true))),
+      body: () => el("div", {}, hasTeamValues ? teamValueTable(teamValues, { us: usHeads, them: themHeads }) : null, twoCol(players(text(US), records(ppa.players?.us), false), players(text(themName), records(ppa.players?.them), true))),
     }),
       band({ id: "archive-drives", title: "Drives", collapsible: false, foldable: true, summary: `${text(s.counts?.drives)} drives`, body: () => (drives.length ? driveList({ drives, us: usSide, them: themSide, currentId: null }) : note("No drives were captured.")) }),
       band({ id: "archive-plays", title: "Play by play", collapsible: false, foldable: true, summary: `${text(s.counts?.plays)} plays, key plays under the filter`, body: () => (plays.length ? playLog({ plays: [...plays], us: usSide, them: themSide }) : note("No plays were captured.")) }),
-    band({ id: "archive-box", title: "Box score", collapsible: false, foldable: true, summary: final?.available ? "CFBD's final box" : "from the live box polls", body: () => el("div", { class: "twocol" }, el("div", {}, h3(text(US), US, "us"), boxTables({ categories: boxFor("us"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: true }) })), el("div", {}, h3(text(themName), typeof themName === "string" ? themName : null, "them"), boxTables({ categories: boxFor("them"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: false }) }))) }),
+    band({ id: "archive-box", title: "Box score", collapsible: false, foldable: true, summary: final?.available ? "CFBD's final box" : "from the live box polls", body: () => twoCol(el("div", {}, h3(text(US), US, "us"), boxTables({ categories: boxFor("us"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: true }) })), el("div", {}, h3(text(themName), typeof themName === "string" ? themName : null, "them"), boxTables({ categories: boxFor("them"), onTap: (row) => openPlayer(row.playerId, { ...row, isUs: false }) }))) }),
       isNum(data.gameId) ? band({ id: "archive-mynotes", title: "My notes", collapsible: false, foldable: true, state: { status: "ready" }, body: () => gameNotesPanel({ gameId: data.gameId }) }) : null,
       band({ id: "archive-notes", title: "Program notes of the week", collapsible: false, foldable: true, collapsed: true, state: notes.present ? { status: "ready" } : { status: "empty", message: "No notes file for this game." }, body: () => editorial({ byline: { author: notes.author, writtenAt: notes.writtenAt }, sources: Array.isArray(notes.sources) ? notes.sources : [], sections: Array.isArray(notes.sections) ? notes.sections : [] }) }),
       band({ id: "archive-availability", title: "Availability report", collapsible: false, foldable: true, collapsed: true, state: availability.length ? { status: "ready" } : { status: "empty", message: "No availability report was filed." }, body: () => availabilityTable({ rows: availability, source: notes.availabilitySource, updatedAt: notes.availabilityUpdatedAt, teams: [{ school: US, abbreviation: usAbbr }, { school: themName, abbreviation: themAbbr }] }) }),

@@ -8,7 +8,8 @@
 //       as its width or any band's height changes. Children whose id is in `full`, or that carry .flow-full, span
 //       every column (the cover, the back row); ids in `wide`, or .flow-wide, span two columns once there are two
 //       or more (a big two-team table is cramped in one tablet column). Returns { relayout, stop }.
-//   columnsFor(width)  1 under 700 px, else 2 (the tablet lock, 2026-10-13; 3 from 1100 and 4 from 1600 until then).
+//   columnsFor(width)  1 under 700 px, 2 from 700 (the iPad both ways and any desktop browser), 3 from 1700 (a 1080p screen) and 4 from 2500
+//       (Design rules, owner 2026-10-21: "Wide screens may use more than two columns"; the tablet lock of 2026-10-13 held every wide screen to two).
 //   mountFlow(ui, container, page, { wide, full, chips = true })  (final pass) the one way a view mounts a flowing
 //       page: stops the layout kept in `ui` from the last draw, pins the section chips above the page (chips: false
 //       for a page with one band), replaces the container's children and starts the flow. `ui` keeps { flow, chips }.
@@ -21,7 +22,7 @@
 import { sectionChips } from "./states.js";
 
 const ROW = 4;
-const BREAKS = [[700, 2]];
+const BREAKS = [[2500, 4], [1700, 3], [700, 2]];
 
 export function columnsFor(width) {
   const w = Number.isFinite(width) ? width : 0;

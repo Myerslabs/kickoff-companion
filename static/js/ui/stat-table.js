@@ -415,11 +415,39 @@ export function ownColumns(columns) {
   return out;
 }
 
+/**
+ * Two tables side by side end on one line (Design rules, owner 2026-10-21: "Tables, if side by side, should attempt to match
+ * headers and length so as to avoid long spaces of empty screen"): the shorter one's body gets blank rows up to the longer
+ * one's count. A sort redraws a table's own rows, so the pad goes with it until the pair is drawn again.
+ */
+export function matchRows(pair) {
+  if (!pair || typeof pair.querySelectorAll !== "function") return pair;
+  const tables = [...pair.children].map((child) => (child && typeof child.querySelector === "function" ? child.querySelector("table.stat-table") : null));
+  if (tables.length < 2 || tables.some((table) => !table)) return pair;
+  const bodies = tables.map((table) => table.querySelector("tbody"));
+  if (bodies.some((body) => !body)) return pair;
+  const counts = bodies.map((body) => [...body.querySelectorAll("tr")].filter((tr) => !(tr.className || "").split(/\s+/).includes("is-pad")).length);
+  const most = Math.max(...counts);
+  bodies.forEach((body, i) => {
+    for (const old of [...body.querySelectorAll("tr.is-pad")]) old.remove();
+    const cols = tables[i].querySelectorAll("thead th").length || 1;
+    for (let n = counts[i]; n < most; n += 1) body.append(el("tr", { class: "is-pad", "aria-hidden": "true" }, Array.from({ length: cols }, () => el("td", {}, DASH))));
+  });
+  return pair;
+}
+
+/** Two parts side by side (.twocol), their first tables matched in length. */
+export function twoCol(...parts) {
+  return matchRows(el("div", { class: "twocol" }, parts.filter((part) => part !== null && part !== undefined && part !== false)));
+}
+
 /** A person column's cell (item 6): the name in its four forms, from the row's string or CFBD's split, any words after it. */
 export function personCell(row, col) {
   const p = col && col.person && typeof col.person === "object" ? col.person : {};
   const split = typeof p.first === "string" || typeof p.last === "string";
-  const input = split ? { name: row[col.key], firstName: row[p.first], lastName: row[p.last] } : row[col.key];
+  const numberKey = typeof p.number === "string" ? p.number : "number";
+  const number = isNum(row[numberKey]) ? row[numberKey] : null; // the last name step (Design rules, 2026-10-21)
+  const input = split ? { name: row[col.key], firstName: row[p.first], lastName: row[p.last], number } : number !== null ? { name: row[col.key], number } : row[col.key];
   let after = "";
   if (typeof p.after === "function") {
     try {
@@ -568,7 +596,13 @@ export function statTable({ columns = [], rows = [], sort, onSort, onRowTap, can
           if (col.kind === "rank") {
             if (!ordered) td.append(ownChip() || "–"); // an ordered column drew its chip above, in its sizes' span
           } else if (col.rank) {
-            const chip = rankChip(row[col.rank.key], typeof col.rank.of === "string" ? row[col.rank.of] : col.rank.of, { href: hookHref(col.rank.link, row), label: chipLabel(row, col), tie: typeof col.rank.tie === "string" ? row[col.rank.tie] === true : false });
+            const href = hookHref(col.rank.link, row);
+            const chip = rankChip(row[col.rank.key], typeof col.rank.of === "string" ? row[col.rank.of] : col.rank.of, { href, label: chipLabel(row, col), tie: typeof col.rank.tie === "string" ? row[col.rank.tie] === true : false });
+            if (href && td.childNodes.length && String(td.textContent || "").trim() !== DASH) {
+              // the number links to its list too (Design rules, owner 2026-10-21), the same offer the chip makes
+              const link = el("a", { class: "st__val-link", href, onclick: (event) => offerLink(event, { href, rank: isNum(row[col.rank.key]) ? row[col.rank.key] : null, of: null, label: chipLabel(row, col) }), onkeydown: stopRowKeys }, [...td.childNodes]);
+              td.replaceChildren(link);
+            }
             if (chip) td.append(chip); // no rank known: the value stands alone, never the word null
             else if (col.rank.placeholder) td.append(rankChipPlaceholder());
           }

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -89,16 +90,19 @@ class Part:
 
 class PartFetcher:
     """Fetches parts through one client with a small concurrency limit. Parsed records are
-    remembered per (endpoint, params, fetched_at) so a cached 30,000-row payload is validated
-    once, not on every page view."""
+    remembered per (endpoint, params), replaced when the payload's fetched_at changes, so a cached
+    30,000-row payload is validated once, not on every page view. Freeze wave F7: the memo was 40
+    entries first in, first out, and the program's 43 parts pushed each other out on every warm request
+    (22,918 model_validate calls, 0.30 s of a 0.42 s answer); now it holds one entry per key, the least
+    recently used leaving at the limit (about 150 keys app-wide)."""
 
-    MEMO_LIMIT = 40
+    MEMO_LIMIT = 300
     PARSE_IN_THREAD_ROWS = 2000  # a list this long is validated in a worker thread
 
     def __init__(self, client: CfbdClient, concurrency: int = 4) -> None:
         self.client = client
         self._gate = asyncio.Semaphore(concurrency)
-        self._memo: dict[tuple[str, tuple[tuple[str, str], ...], str], tuple[list[Any], int, list[str]]] = {}
+        self._memo: OrderedDict[tuple[str, tuple[tuple[str, str], ...]], tuple[str, tuple[list[Any], int, list[str]]]] = OrderedDict()
 
     async def fetch(self, name: str, endpoint: str, params: dict[str, Any], model: type[CfbdModel] | None, kind: DataKind, max_age: timedelta | None = None) -> Part:
         async with self._gate:
@@ -112,8 +116,10 @@ class PartFetcher:
                 return Part(name, error=f"unexpected error: {exc.__class__.__name__}")
         if model is None:  # a payload kept as JSON (the advanced box score): the caller normalizes it with guards
             return Part(name, [], fetched, None, 0, [])
-        key = (endpoint, tuple(sorted(fetched.params.items())), iso(fetched.fetched_at) or "")
-        hit = self._memo.get(key)
+        key = (endpoint, tuple(sorted(fetched.params.items())))
+        stamp = iso(fetched.fetched_at) or ""
+        kept = self._memo.get(key)
+        hit = kept[1] if kept is not None and kept[0] == stamp else None
         if hit is None:
             payload = fetched.payload
             if isinstance(payload, list) and len(payload) >= self.PARSE_IN_THREAD_ROWS:
@@ -123,9 +129,10 @@ class PartFetcher:
             else:
                 parsed = parse_records(model, payload, context=name)
             hit = (parsed.records, parsed.skipped, parsed.problems)
-            if len(self._memo) >= self.MEMO_LIMIT:
-                self._memo.pop(next(iter(self._memo)))
-            self._memo[key] = hit
+            self._memo[key] = (stamp, hit)
+        self._memo.move_to_end(key)
+        while len(self._memo) > self.MEMO_LIMIT:
+            self._memo.popitem(last=False)
         records, skipped, problems = hit
         return Part(name, records, fetched, None, skipped, problems)
 

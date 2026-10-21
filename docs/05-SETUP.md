@@ -13,7 +13,7 @@ There are two ways to get it: **the download**, a packaged program with nothing 
 | System | Archive | Then |
 |---|---|---|
 | Windows | `KickoffCompanion-<version>-windows-x64.zip` | Unzip it anywhere and double-click `KickoffCompanion.exe`. The first time, Windows says it protected your PC, because the program is not signed: **More info**, then **Run anyway**. |
-| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). Not yet tried on a Mac; say how it went. |
+| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). On macOS 15 Sequoia and later that right-click way is gone: double-click it once, let macOS say it cannot verify it, then open **System Settings**, **Privacy & Security**, scroll down to the line about `KickoffCompanion` and choose **Open Anyway**, then **Open**. Or take the uv line below, which needs none of that. Not yet tried on a Mac; say how it went. |
 | Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
 
 The program is the server: the window that opens stays open during the game, and closing it stops the server. The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, so a new version of the program replaces the old folder and loses nothing:
@@ -25,6 +25,14 @@ The program is the server: the window that opens stays open during the game, and
 | Linux, Steam Deck | `$XDG_DATA_HOME/kickoff-companion`, else `~/.local/share/kickoff-companion` |
 
 Settings, About, shows the folder with an **Open the folder** button (on the server computer itself). To keep everything beside the program instead, on a USB stick say, put an empty file named `portable` next to it before the first start. `DATA_DIR` and `LOG_DIR` in `.env` still move those two folders wherever they say.
+
+**The one line (uv).** With uv installed (section 2, one command), the package on PyPI starts the server with nothing cloned and nothing else installed:
+
+```
+uvx kickoff-companion
+```
+
+The first start downloads the package and keeps it; `uvx kickoff-companion@latest` takes the newest version. Your files live in the app-data folder of the table above, as for the download, and the first start opens the demo the same way. Start at login (section 8) is not offered this way; the download and the code have it.
 
 **The code.** Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
 
@@ -146,13 +154,15 @@ With the download, the login item and the icon start the program itself; with th
 2. `git clone` the repository into your home folder, then install uv with the curl command in section 2. It installs into `~/.local/bin`, so the read-only system is not touched.
 3. Configure (section 3) and run `./start.sh`.
 4. To browse on the Deck itself, open the setup page in Firefox and follow the Linux steps.
-5. Start at login (section 8) installs a user service, which also runs in Game Mode once the Deck is logged in. The Deck still sleeps when idle: for game day keep it plugged in and set sleep to Never in Settings, Power.
+5. Start at login (section 8) installs a user service, which also runs in Game Mode once the Deck is logged in. While a game is on, the server holds the Deck awake through `systemd-inhibit` (any Linux with systemd does the same; the status page's housekeeping line says whether it is held). Game Mode has its own sleep timer: for game day keep the Deck plugged in and set sleep to Never in Settings, Power, to be sure.
 
 ## 11. Updating
 
 **The download:** take the new archive from the Releases page, delete the old program folder, unpack the new one, start it. Your files are in the app-data folder (section 1) and stay. With a `portable` file beside the program, move `portable`, `.env`, `data` and `logs` into the new folder first.
 
 **The code:** `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
+
+**The uv line:** `uvx kickoff-companion@latest`. Your files are in the app-data folder and stay.
 
 ## 12. If something is wrong
 

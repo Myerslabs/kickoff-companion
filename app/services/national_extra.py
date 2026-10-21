@@ -26,7 +26,7 @@ import it), so the key helpers below can be used by any payload builder without 
 from __future__ import annotations
 
 import asyncio
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
 
@@ -236,24 +236,45 @@ def page_fetches(fetcher: PartFetcher, season: int, *, returning: bool = True) -
     return out
 
 
+def _stamp(part: Part | None) -> str | None:
+    """A part's fetch time as the memo's key, or None for a part that failed or is missing (ranked again next time)."""
+    if part is None or not part.ok or part.fetched is None:
+        return None
+    return part.fetched.fetched_at.isoformat() if part.fetched.fetched_at else None
+
+
 class PageRanks:
     """The national rank of a team's blue-chip ratio and returning-production figures, from the parts a page
     fetched with page_fetches. A part that failed (or was refused by the quota guard) leaves its ranks None:
     the value still shows, without a chip, and the envelope reports the part."""
 
+    _memo: OrderedDict[tuple[Any, ...], tuple[dict[str, Any], dict[str, Any]]] = OrderedDict()
+    MEMO_LIMIT = 8
+
     def __init__(self, parts: dict[str, Part], season: int, fbs: set[str] | None) -> None:
+        # freeze wave F7: the tables cost 44 ms per program and 22 ms per roster or team page; they change only when a
+        # part is refetched, so they are kept by the parts' fetch times (and the FBS set they rank over)
         years = bluechip_years(season)
         class_parts = [parts.get(f"recruitsNational_{y}") for y in years]
+        part = parts.get("returningNational")
+        stamp = (season, tuple(_stamp(p) for p in class_parts), _stamp(part), tuple(sorted(fbs)) if fbs else None)
+        kept = PageRanks._memo.get(stamp)
+        if kept is not None:
+            PageRanks._memo.move_to_end(stamp)
+            self.bluechip, self.returning = kept
+            return
         self.bluechip: dict[str, dict[str, Any]] = {}
         if all(p is not None for p in class_parts):
             _blocks, values, _population, _complete = bluechip_table(class_parts, years, fbs)
             self.bluechip = national_ranks(values)
         self.returning: dict[str, dict[str, dict[str, Any]]] = {}
-        part = parts.get("returningNational")
         if part is not None and part.ok:
             for key, _label, attr, _fmt in RETURNING:
                 values, _own, _population = returning_table(part, attr, fbs)
                 self.returning[key] = national_ranks(values)
+        PageRanks._memo[stamp] = (self.bluechip, self.returning)
+        while len(PageRanks._memo) > PageRanks.MEMO_LIMIT:
+            PageRanks._memo.popitem(last=False)
 
     @staticmethod
     def _rank(table: dict[str, dict[str, Any]], team: str | None) -> dict[str, Any]:

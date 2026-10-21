@@ -69,14 +69,25 @@ class Editions:
     def __init__(self, data_dir: Path, season: int) -> None:
         self.season = season
         self.dir = Path(data_dir) / "season" / str(season) / "paper"
+        self._read: dict[str, tuple[tuple[int, int], dict[str, Any]]] = {}  # freeze wave F7: each file decoded once per change (by mtime and size)
+        self._written: dict[str, tuple[str, dict[str, Any]]] = {}  # what was last saved, by its content, so an unchanged edition is never read back and compared
 
     def _path(self, key: str) -> Path | None:
         return self.dir / f"{key}.json" if isinstance(key, str) and KEY.match(key) else None
 
     def load(self, key: Any) -> dict[str, Any] | None:
         path = self._path(key) if isinstance(key, str) else None
-        if path is None or not path.is_file():
+        if path is None:
             return None
+        try:
+            stat = path.stat()
+        except OSError:
+            self._read.pop(key, None)
+            return None
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        kept = self._read.get(key)
+        if kept is not None and kept[0] == stamp:
+            return kept[1]
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
@@ -85,6 +96,7 @@ class Editions:
         if not isinstance(data, dict) or data.get("key") != key:
             log.warning("The paper's edition %s is not an edition; it is ignored", key)
             return None
+        self._read[key] = (stamp, data)
         return data
 
     def save(self, edition: dict[str, Any], *, force: bool = False) -> dict[str, Any]:
@@ -94,10 +106,15 @@ class Editions:
         path = self._path(key) if isinstance(key, str) else None
         if path is None:
             return edition
+        content = _content({**edition, "format": FORMAT, "season": self.season})
+        written = self._written.get(key)
+        if written is not None and written[0] == content and not force:
+            return written[1]  # the same edition this process saved last: nothing to read back or compare
         old = self.load(key)
         if old is not None and old.get("frozen") is True and not force:
             return old
-        if old is not None and _content(old) == _content({**edition, "format": FORMAT, "season": self.season}):
+        if old is not None and _content(old) == content:
+            self._written[key] = (content, old)
             return old
         out = {**edition, "format": FORMAT, "season": self.season, "savedAt": datetime.now(timezone.utc).isoformat(timespec="seconds")}
         try:
@@ -105,6 +122,7 @@ class Editions:
         except OSError as exc:
             log.error("The paper's edition %s could not be saved: %s", key, exc)
             return edition
+        self._written[key] = (content, out)
         return out
 
     def frozen_headlines(self, key: Any) -> dict[int, dict[str, Any]]:

@@ -589,7 +589,11 @@ async function start() {
   // change, so the Live sheet stays mounted); the sheet's 'Full page' link is the #national route.
   installNationalLinks(document);
   // Every team name on any page is a link: ours to the full team page, others to a flyout.
-  document.addEventListener("kickoff:team", (event) => openTeam(event.detail));
+  document.addEventListener("kickoff:team", (event) => {
+    // Design rules (owner 2026-10-21): "Every team name links out: ours to the Season page, others to a flyout"
+    if (typeof event.detail === "string" && event.detail === usSchool()) window.location.hash = "season";
+    else openTeam(event.detail);
+  });
   const pull = installPullToRefresh({ root: page.main, host: page.root, onRefresh: refreshCurrent });
   // Phase 15: "/" opens search; Phase 16: "r" refreshes the page (the pull-down of a keyboard). Not while typing.
   document.addEventListener("keydown", (event) => {

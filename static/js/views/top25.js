@@ -91,7 +91,7 @@ function card(g) {
   });
   // freeze wave F5 (owner 2026-10-20): the two teams side by side in a sheet (ui/matchup-sheet.js), from the card's foot
   if (typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
-    section.append(el("p", { class: "top25-card__tools" }, el("button", { class: "btn btn--quiet", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
+    section.append(el("p", { class: "top25-card__tools" }, el("button", { class: "btn btn--quiet top25-card__matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
   }
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");

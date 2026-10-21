@@ -48,7 +48,7 @@ scenarios.columns = async () => {
   const adv = main.querySelector("#season-advanced");
   assert.equal(adv.querySelectorAll("table").length, 1);
   const row = adv.querySelectorAll("tbody tr").find((tr) => text(tr).startsWith("Success rate"));
-  assert.ok(text(row).includes("48.6%") && text(row).includes("39.1%"), text(row));
+  assert.ok(text(row).includes("49%") && text(row).includes("39%"), text(row));
   assert.equal(row.querySelectorAll("a.rank-chip--link").length, 2);
   assert.ok(adv.querySelectorAll("tr.is-parent").map((tr) => text(tr.querySelector("td"))).includes("Tempo"), "areas are group rows");
   const oneSided = adv.querySelectorAll("tbody tr").find((tr) => text(tr).startsWith("Run rate"));

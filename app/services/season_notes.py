@@ -307,6 +307,7 @@ class SeasonNotes:
     def __init__(self, data_dir: Path, season: int) -> None:
         self.dir = Path(data_dir) / "season" / str(season)
         self.season = season
+        self._files: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}  # freeze wave F7: each file decoded once per change (by mtime and size)
 
     @property
     def coaches_path(self) -> Path:
@@ -317,14 +318,25 @@ class SeasonNotes:
         return self.dir / "preseason.json"
 
     def _read(self, path: Path) -> dict[str, Any]:
-        if not path.is_file():
+        """A season file, decoded once per change (freeze wave F7, B8: coaches.json was read about 130 times per Top 25 request).
+        The change is seen in the mtime or the size (Windows stamps two writes within its clock tick, about 15 ms, alike)."""
+        try:
+            stat = path.stat()
+        except OSError:
             return {}
+        stamp = (stat.st_mtime_ns, stat.st_size)
+        files = self._files
+        kept = files.get(path)
+        if kept is not None and kept[0] == stamp:
+            return kept[1]
         try:
             raw = json.loads(path.read_text(encoding="utf-8-sig"))
         except (OSError, ValueError) as exc:
             log.warning("Season file %s is unreadable (%s); treated as empty", path, exc)
             return {}
-        return raw if isinstance(raw, dict) else {}
+        data = raw if isinstance(raw, dict) else {}
+        files[path] = (stamp, data)
+        return data
 
     # --- coaches ----------------------------------------------------------------------------------------
 

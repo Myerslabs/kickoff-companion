@@ -27,7 +27,7 @@ import { nationalHref } from "../ui/national-link.js";
 import { band, note, revealBand, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
 import { visitorRows } from "../ui/in-game-tables.js";
-import { rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
+import { rankChip, statTable, statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { starStrip } from "../ui/team-page.js";
 import { pieChart } from "../ui/pie.js";
 import { stateName } from "../us-states.js";
@@ -124,7 +124,7 @@ function visitorsBlock(visitors, team) {
     {},
     visitors.error ? note(`${text(visitors.error)}. Fix the notes file and reload.`, { kind: "error", lead: "Notes file problem." }) : null,
     visitors.note && !visitors.error ? note(text(visitors.note)) : null,
-    el("div", { class: "twocol" }, side(`Visiting ${text(team)}`, team, "us", visitors.home), side(`Visiting ${text(opponent)}`, opponent, "them", visitors.away)),
+    twoCol(side(`Visiting ${text(team)}`, team, "us", visitors.home), side(`Visiting ${text(opponent)}`, opponent, "them", visitors.away)),
     source,
   );
 }

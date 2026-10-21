@@ -116,7 +116,7 @@ scenarios.drawing = async () => {
   assert.ok(node.className === "pn" && node.getAttribute("title") === "Thaddeus Quillfeather-Brannock");
   assert.equal(text(node.querySelector(".sr-only")), "Thaddeus Quillfeather-Brannock", "the full name for a screen reader");
   const spans = node.querySelectorAll(".pn__f");
-  assert.deepEqual(spans.map((s) => s.className.replace("pn__f pn__f--", "")), ["full", "initial", "last", "reduced"]);
+  assert.deepEqual(spans.map((s) => s.className.replace("pn__f pn__f--", "")), ["full", "initial", "last", "reduced", "number"]);
   assert.ok(spans.every((s) => s.getAttribute("aria-hidden") === "true"), "the shown forms stay out of a screen reader's way");
   assert.deepEqual(["full", "initial", "last", "reduced"].map((f) => pnText(node, f)), ["Thaddeus Quillfeather-Brannock", "T. Quillfeather-Brannock", "Quillfeather-Brannock", "Quillfeather-B."]);
   assert.equal(node.dataset.fit, undefined);
@@ -140,11 +140,11 @@ scenarios.drawing = async () => {
   assert.equal(text(cells[0].querySelector(".sr-only")), "Case Tumbleweed", "the full name never changes");
   const host = document.createElement("div");
   host.append(...cells.slice(0, 3));
-  assert.deepEqual(nameSteps(host), { any: true, initial: true, last: true, reduced: false });
+  assert.deepEqual(nameSteps(host), { any: true, initial: true, last: true, reduced: false, number: true });
   const words = document.createElement("div");
   words.append(personName("Cher"), personName("Featherstonehaughton"));
-  assert.deepEqual(nameSteps(words), { any: true, initial: false, last: false, reduced: false });
-  assert.deepEqual(nameSteps(null), { any: false, initial: false, last: false, reduced: false });
+  assert.deepEqual(nameSteps(words), { any: true, initial: false, last: false, reduced: false, number: false });
+  assert.deepEqual(nameSteps(null), { any: false, initial: false, last: false, reduced: false, number: false });
 };
 
 // A scripted layout: the table's width follows the wrap's size and name form, the clip's cut (--pn-max) included.
@@ -278,6 +278,17 @@ scenarios.cards = async () => {
   boxes.forEach((b) => { b.clientWidth = 500; });
   fitNames(root);
   assert.ok(boxes.every((b) => b.querySelector(".pn").dataset.pn === "full"), "wider again: full names");
+  // the player's number as the last step (Design rules, owner 2026-10-21), where the row knows it
+  const numbered = document.createElement("div");
+  const pnNum = personName({ name: "Thaddeus Quillfeather-Brannock", number: 7 }, { fit: true });
+  numbered.append(pnNum);
+  numbered.clientWidth = 40;
+  Object.defineProperty(numbered, "scrollWidth", { get: () => ({ ...widths, number: 30 })[pnNum.dataset.pn || "full"] });
+  document.body.append(numbered);
+  fitNames(numbered);
+  assert.equal(pnNum.dataset.pn, "number", "the narrowest box ends at the number when the row has one");
+  assert.equal(pnNum.querySelector(".pn__f--number").textContent, "#7");
+  assert.equal(personName("No Number", { fit: true }).querySelector(".pn__f--number").textContent, "Number", "no number: the reduced surname again");
   // no layout engine: nothing is set, nothing scheduled
   const loose = document.createElement("div");
   loose.append(personName("Case Tumbleweed", { fit: true }));
@@ -342,9 +353,9 @@ def test_names_never_wrap_and_one_form_shows() -> None:
     css = (STATIC / "css" / "components.css").read_text(encoding="utf-8")
     assert ".pn { white-space: nowrap; }" in css
     assert ".pn__f { display: none; }" in css and ".pn__f--full { display: inline; }" in css
-    for form in ("full", "initial", "last", "reduced"):
+    for form in ("full", "initial", "last", "reduced", "number"):
         assert f'[data-pn="{form}"] .pn__f--{form}' in css and f'.pn[data-pn="{form}"] > .pn__f--{form}' in css
-    assert '[data-pn="clip"] .pn__f--reduced' in css
+    assert '[data-pn="clip"] .pn__f--number' in css  # the clip cuts the last form: the number, or the reduced surname when none is known
     assert re.search(r'\[data-pn="clip"\] \.pn \{[^}]*max-width: var\(--pn-max, none\);[^}]*text-overflow: ellipsis;', css)
     assert ".lineups { display: grid; grid-template-columns: minmax(0, 1fr);" in css
     assert ".lu-who .lu-next { white-space: nowrap; }" in css

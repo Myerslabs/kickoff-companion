@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import shutil
 import tempfile
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ from app.services import notes_paste
 log = logging.getLogger("kickoff.notes")
 
 LOG_TAIL_LINES = 40
+PROMPT_LEAD = "The task follows."  # the words on the command line; the prompt itself arrives on stdin, which the tool appends (freeze wave F6, B7)
+SHIM_SCRIPT = re.compile(r'"%dp0%\\([^"]+?\.js)"')  # npm's claude.cmd: "%dp0%\node_modules\@anthropic-ai\claude-code\cli.js" %*
 MAX_RUN_SECONDS = 20 * 60
 ALLOWED_TOOLS = "WebSearch,WebFetch"  # the tool researches and answers; the app writes the file
 
@@ -88,6 +91,30 @@ class NotesRunner:
         if candidate.is_file():
             return str(candidate)
         return shutil.which(command)
+
+    @staticmethod
+    def command_args(executable: str) -> list[str]:
+        """What to run for the resolved command. Freeze wave F6 (B7): on Windows, npm installs `claude` as a claude.cmd
+        shim that runs node on cli.js through cmd.exe, whose 8,191-character line cannot carry a prompt and whose
+        process is not the tool's own; the shim is read, and node and the script run directly. Anything else runs as found."""
+        path = Path(executable)
+        if path.suffix.lower() not in (".cmd", ".bat"):
+            return [executable]
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return [executable]
+        match = SHIM_SCRIPT.search(text)
+        if match is None:
+            return [executable]
+        script = path.parent.joinpath(*match.group(1).replace("\\", "/").split("/"))
+        if not script.is_file():
+            return [executable]
+        beside = path.parent / "node.exe"
+        node = str(beside) if beside.is_file() else shutil.which("node")
+        if not node:
+            return [executable]
+        return [node, str(script)]
 
     @property
     def running(self) -> bool:
@@ -155,7 +182,9 @@ class NotesRunner:
         return self.status(command)
 
     async def _run(self, executable: str, prompt: str, game_id: int) -> None:
-        args = [executable, "-p", prompt, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]
+        # the prompt goes on stdin (freeze wave F6, B7): a command line holds 32,767 characters on Windows, 8,191 through
+        # a .cmd shim, and a notes prompt with the depth charts and the notes is longer than the latter
+        args = [*self.command_args(executable), "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]
         if self.model:
             args += ["--model", self.model]
         log.info("Notes task started for game %s with %s", game_id, executable)
@@ -165,9 +194,10 @@ class NotesRunner:
             with path.open("w", encoding="utf-8") as handle:
                 handle.write(header)
                 handle.flush()
-                self.process = await asyncio.create_subprocess_exec(*args, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(scratch_dir(self.data_dir)))
+                self.process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(scratch_dir(self.data_dir)))
                 try:
-                    self.exit_code = await asyncio.wait_for(self.process.wait(), timeout=MAX_RUN_SECONDS)
+                    await asyncio.wait_for(self.process.communicate(prompt.encode("utf-8")), timeout=MAX_RUN_SECONDS)
+                    self.exit_code = self.process.returncode
                 except TimeoutError:
                     self.process.kill()
                     self.error = f"stopped after {MAX_RUN_SECONDS // 60} minutes without finishing"

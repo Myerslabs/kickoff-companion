@@ -52,7 +52,7 @@ for (const bad of BAD) {
 assert.equal(dom.fmtNum(59, 0), "59");
 assert.equal(dom.fmtNum(8.04, 1), "8.0");
 assert.equal(dom.fmtPct(0.74), "74%");
-assert.equal(dom.fmtStat(0.46, "pct"), "46.0%");
+assert.equal(dom.fmtStat(0.46, "pct"), "46%"); // whole numbers in tables (Design rules, owner 2026-10-21)
 assert.equal(dom.fmtStat(0.241, "+2f"), "+0.24");
 assert.equal(dom.fmtStat(-6, "+0f"), "−6"); // a true minus sign, by design
 assert.equal(dom.text(0), "0");

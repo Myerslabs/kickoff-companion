@@ -13,6 +13,8 @@ Rules from docs/02-ARCHITECTURE.md, "Cache policy":
 from __future__ import annotations
 
 import json
+import threading
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -151,11 +153,50 @@ def _parse(value: str | None) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
+MEMORY_BUDGET = 96 * 1024 * 1024  # freeze wave F7: the payloads read lately stay decoded (every page read decoded multi-MB JSON from SQLite: the program 90 decodes, 46 ms)
+
+
 class Cache:
+    """The SQLite cache with the entries read lately kept decoded in memory (this process is the only writer, so a put,
+    delete or clear is the only way an entry changes; the least recently used leave when the budget is spent)."""
+
     def __init__(self, db: Database) -> None:
         self.db = db
+        self._mem: OrderedDict[str, CacheEntry] = OrderedDict()
+        self._mem_bytes = 0
+        self._lock = threading.Lock()
+
+    def _remember(self, entry: CacheEntry) -> None:
+        with self._lock:
+            old = self._mem.pop(entry.key, None)
+            if old is not None:
+                self._mem_bytes -= old.size_bytes
+            self._mem[entry.key] = entry
+            self._mem_bytes += entry.size_bytes
+            while self._mem_bytes > MEMORY_BUDGET and self._mem:
+                _key, gone = self._mem.popitem(last=False)
+                self._mem_bytes -= gone.size_bytes
+
+    def _forget(self, key: str | None = None) -> None:
+        with self._lock:
+            if key is None:
+                self._mem.clear()
+                self._mem_bytes = 0
+                return
+            gone = self._mem.pop(key, None)
+            if gone is not None:
+                self._mem_bytes -= gone.size_bytes
+
+    def memory_stats(self) -> dict[str, int]:
+        with self._lock:
+            return {"entries": len(self._mem), "bytes": self._mem_bytes}
 
     def get(self, key: str) -> CacheEntry | None:
+        with self._lock:
+            kept = self._mem.get(key)
+            if kept is not None:
+                self._mem.move_to_end(key)
+                return kept
         with self.db.read() as conn:
             row = conn.execute("SELECT * FROM cache WHERE key = ?", (key,)).fetchone()
         if row is None:
@@ -168,7 +209,7 @@ class Cache:
             return None
         if fetched_at is None:
             return None
-        return CacheEntry(
+        entry = CacheEntry(
             key=row["key"],
             endpoint=row["endpoint"],
             params=params if isinstance(params, dict) else {},
@@ -177,6 +218,8 @@ class Cache:
             expires_at=_parse(row["expires_at"]),
             size_bytes=int(row["size_bytes"] or 0),
         )
+        self._remember(entry)
+        return entry
 
     def put(
         self,
@@ -217,13 +260,16 @@ class Cache:
                     entry.size_bytes,
                 ),
             )
+        self._remember(entry)
         return entry
 
     def delete(self, key: str) -> None:
+        self._forget(key)
         with self.db.transaction() as conn:
             conn.execute("DELETE FROM cache WHERE key = ?", (key,))
 
     def clear(self) -> int:
+        self._forget()
         with self.db.transaction() as conn:
             return conn.execute("DELETE FROM cache").rowcount
 

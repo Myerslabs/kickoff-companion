@@ -1,19 +1,24 @@
-// Notes at the top of a page (item 6, step C, owner 2026-10-11). What once opened by itself as a sheet over whatever the
-// reader was doing ("Not loaded yet" after a server start, a guest's welcome) is a note above the page instead, in the
-// shell's .page-notes slot between the top bar and the page: never over the Menu, never a layer, never on the board. A note
-// shows on the routes it names, closes with its ×, and can leave with the page it was first shown on.
+// The one note at the top of a page (item 6, step C, owner 2026-10-11; Design rules, owner 2026-10-21: "Reminders are one
+// format only: a single note at the top of the page that lists ALL open issues and how to correct each, with one close
+// button. Never a side sheet, never a bottom banner, never on the board"). What once opened by itself as a sheet over
+// whatever the reader was doing ("Not loaded yet" after a server start, a guest's welcome, a new build on the server) is
+// one item of one note above the page, in the shell's .page-notes slot between the top bar and the page: never over the
+// Menu, never a layer, never on the board, never on In Game (one screen since wave F5). Each item shows on the routes it
+// names; the note shows while any item does; its one close button dismisses every item on screen.
 //
 //   addNote({ id, title, body, when, onShow, onDismiss, leaveWithPage })
-//       place a note (one with the same id is replaced). when(routeId) says where it shows (the board never); onShow runs
-//       the first time it is on screen; onDismiss when the reader closes it; leaveWithPage takes it away at the next
-//       page change once it has been seen. Returns the note, or null when the page has no slot for it.
-//   removeNote(id)        take it away (onDismiss does not run)
-//   noteShowing(id)       true while it is on screen
+//       place an item (one with the same id is replaced). when(routeId) says where it shows (the board never); onShow runs
+//       the first time it is on screen; onDismiss when the reader closes the note; leaveWithPage takes it away at the next
+//       page change once it has been seen. Returns the item's element, or null when the page has no slot for it.
+//   removeNote(id)        take an item away (onDismiss does not run)
+//   noteShowing(id)       true while the item is on screen
 //   routeIdOf(hash)       "#program=123" -> "program"; no hash -> "program" (the app's home)
 
 import { el, text } from "./dom.js";
 
-const notes = new Map(); // id -> { node, when, onShow, leaveWithPage, shownOn }
+const TITLE = "To do";
+const notes = new Map(); // id -> { node, when, onShow, onDismiss, leaveWithPage, shownOn }
+let host = null; // the one aside, while any item exists
 let listening = false;
 
 export function routeIdOf(hash) {
@@ -37,11 +42,46 @@ function slot() {
   }
 }
 
-/** The slot shows only while one of its notes does (an empty slot would leave a gap above every page). */
+/** The one close button: every item on screen goes, each telling its owner. */
+function dismissShown() {
+  for (const [id, note] of [...notes]) {
+    if (note.node.hasAttribute("hidden")) continue;
+    removeNote(id);
+    if (typeof note.onDismiss === "function") {
+      try {
+        note.onDismiss();
+      } catch (error) {
+        console.error(`The note ${id} did not take its dismissal.`, error);
+      }
+    }
+  }
+}
+
+/** The aside that holds the items: made with the first item, gone with the last. */
+function ensureHost(box) {
+  if (host && host.isConnected) return host;
+  host = el(
+    "aside",
+    { class: "page-note", role: "note", "aria-label": TITLE, hidden: true },
+    el("div", { class: "page-note__head" }, el("h2", { class: "page-note__title" }, TITLE), el("button", { class: "btn btn--quiet icon-btn page-note__close", type: "button", "aria-label": `Dismiss ${TITLE}`, onclick: dismissShown }, "×")),
+    el("ol", { class: "page-note__list" }),
+  );
+  box.append(host);
+  return host;
+}
+
+/** The slot and the note show only while one item does (an empty slot would leave a gap above every page). */
 function syncSlot() {
   const box = slot();
   if (!box) return;
-  const any = [...notes.values()].some((note) => !note.node.hasAttribute("hidden") && note.node.parentNode === box);
+  const any = [...notes.values()].some((note) => !note.node.hasAttribute("hidden") && note.node.isConnected);
+  if (host) {
+    if (any) host.removeAttribute("hidden");
+    else host.setAttribute("hidden", "");
+    const count = [...notes.values()].filter((note) => !note.node.hasAttribute("hidden")).length;
+    const title = host.querySelector(".page-note__title");
+    if (title) title.textContent = count > 1 ? `${TITLE} (${count})` : TITLE;
+  }
   if (any) box.removeAttribute("hidden");
   else box.setAttribute("hidden", "");
 }
@@ -92,26 +132,6 @@ export function addNote({ id, title, body, when = () => true, onShow, onDismiss,
   const box = slot();
   if (!box || typeof id !== "string" || !id) return null;
   removeNote(id);
-  const label = text(title);
-  const close = el(
-    "button",
-    {
-      class: "btn btn--quiet icon-btn page-note__close",
-      type: "button",
-      "aria-label": `Dismiss ${label}`,
-      onclick: () => {
-        removeNote(id);
-        if (typeof onDismiss === "function") {
-          try {
-            onDismiss();
-          } catch (error) {
-            console.error(`The note ${id} did not take its dismissal.`, error);
-          }
-        }
-      },
-    },
-    "×",
-  );
   let content = null;
   try {
     content = typeof body === "function" ? body() : body;
@@ -119,15 +139,16 @@ export function addNote({ id, title, body, when = () => true, onShow, onDismiss,
     console.error(`The note ${id} could not be drawn.`, error);
     return null;
   }
+  const label = text(title);
   const node = el(
-    "aside",
-    { class: "page-note", role: "note", "aria-label": label, dataset: { note: id }, hidden: true },
-    el("div", { class: "page-note__head" }, el("h2", { class: "page-note__title" }, label), close),
+    "li",
+    { class: "page-note__item", dataset: { note: id }, "aria-label": label, hidden: true },
+    el("b", { class: "page-note__item-title" }, label),
     el("div", { class: "page-note__body" }, content),
   );
-  const note = { node, when: typeof when === "function" ? when : () => true, onShow, leaveWithPage: leaveWithPage === true, shownOn: null };
+  const note = { node, when: typeof when === "function" ? when : () => true, onShow, onDismiss, leaveWithPage: leaveWithPage === true, shownOn: null };
   notes.set(id, note);
-  box.append(node);
+  ensureHost(box).querySelector(".page-note__list").append(node);
   listen();
   apply(id, note, currentRoute());
   syncSlot();
@@ -139,11 +160,15 @@ export function removeNote(id) {
   if (!note) return false;
   notes.delete(id);
   note.node.remove();
+  if (!notes.size && host) {
+    host.remove();
+    host = null;
+  }
   syncSlot();
   return true;
 }
 
 export function noteShowing(id) {
   const note = notes.get(id);
-  return Boolean(note && note.node.isConnected && !note.node.hasAttribute("hidden"));
+  return Boolean(note && note.node.isConnected && !note.node.hasAttribute("hidden") && host && !host.hasAttribute("hidden"));
 }

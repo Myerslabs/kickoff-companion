@@ -3,6 +3,8 @@ errors use the envelope."""
 
 from __future__ import annotations
 
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -26,7 +28,7 @@ def test_index_page(client: TestClient):
     assert response.headers["content-type"].startswith("text/html")
     assert response.headers["cache-control"] == "no-cache"
     assert "Kickoff Companion" in response.text
-    assert "/static/js/app.js" in response.text
+    assert re.search(r'src="/static/v/[0-9a-f]{6,40}/js/app.js"', response.text), "the scripts under this build's folder (freeze wave F7)"
     assert 'href="/setup"' in response.text
     assert 'id="app"' in response.text
 

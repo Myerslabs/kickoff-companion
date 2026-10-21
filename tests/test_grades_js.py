@@ -43,7 +43,7 @@ scenarios.ui = async () => {
   });
   const t = clean("block", good);
   assert.ok(t.includes("76") && t.includes("Very good") && t.includes("#20 of 144 FBS quarterbacks"), t.slice(0, 200));
-  assert.ok(t.includes("9.1") && t.includes("66.7%") && t.includes("no number"));
+  assert.ok(t.includes("9.1") && t.includes("67%") && t.includes("no number"));
   assert.ok(t.includes("31.4 passes a game (14.0 needed"));
   assert.equal(good.querySelectorAll("tbody tr").length, 4, "junk parts are skipped, the rest drawn");
   // tables wave 3: the parts are a sized stat table, the weight in its own column (gone at small), the names shortening
@@ -59,7 +59,7 @@ scenarios.ui = async () => {
   assert.deepEqual(parts.map((tds) => [form(tds[0], "long"), form(tds[0], "short")]), [["Yards per attempt", "Y/A"], ["Completion rate", "Comp %"], ["Opponent-adjusted passing value", "Adj pass"], ["Longest field goal", "Long FG"]]);
   assert.equal(parts[0][0].dataset.term, "Yards per attempt", "the hint keeps the whole name");
   assert.deepEqual(parts.map((tds) => text(tds[1])), ["20%", "10%", "10%", "–"], "a whole percent, a dash for a weight that is not one");
-  assert.deepEqual(parts.map((tds) => text(tds[2])), ["9.1", "66.7%", "–", "–"]);
+  assert.deepEqual(parts.map((tds) => text(tds[2])), ["9.1", "67%", "–", "–"]);
   assert.ok(parts[0][3].querySelector(".grade-bar .grade-bar__fill--mid") && text(parts[0][3]) === "73");
   assert.equal(text(parts[2][3]), "no number");
   assert.equal(gradeParts([], "quarterbacks"), null, "no parts, no table");

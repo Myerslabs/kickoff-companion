@@ -17,7 +17,7 @@ import { flow } from "../ui/flow.js";
 import { starStrip } from "../ui/team-page.js";
 import { backRow, band, note, revealBand, sectionChips, settleOn, stateBlock, subhead } from "../ui/states.js";
 import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one sized box score on every page
-import { statTable, statTableSkeleton } from "../ui/stat-table.js";
+import { statTable, statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { trendRow } from "../ui/sparkline.js";
 import { seriesTable } from "../ui/series.js";
 import { applyOpponentColors } from "../ui/colors.js";
@@ -364,7 +364,7 @@ function visitorsBand(data) {
     summary: total ? `${total} expected${source ? `, ${source}` : ""}` : "",
     state: { status: "ready" },
     body: () => (total
-      ? el("div", {}, el("div", { class: "twocol" }, el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.us?.school : data.them?.school) || "Home"} visitors`), visitorsTable(home, { caption: "Home side's visitors" })), el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.them?.school : data.us?.school) || "Away"} visitors`), visitorsTable(away, { caption: "Away side's visitors" }))), source ? el("p", { class: "note" }, `From ${source}${typeof v.updatedAt === "string" && v.updatedAt ? `, ${fmtDate(v.updatedAt, "short")}` : ""}. No list is published for every game.`) : null)
+      ? el("div", {}, twoCol(el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.us?.school : data.them?.school) || "Home"} visitors`), visitorsTable(home, { caption: "Home side's visitors" })), el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.them?.school : data.us?.school) || "Away"} visitors`), visitorsTable(away, { caption: "Away side's visitors" }))), source ? el("p", { class: "note" }, `From ${source}${typeof v.updatedAt === "string" && v.updatedAt ? `, ${fmtDate(v.updatedAt, "short")}` : ""}. No list is published for every game.`) : null)
       : notesNeeded("No visitor list for this game yet.", "It comes with the game's notes, from the recruiting sites' visitor lists.")),
   });
 }
@@ -537,10 +537,10 @@ function ppaBand(data) {
         ppaTrends(p, data),
         h3("Season, per play: each offense against the defense it faces"),
         twoTeamTable({ groups: seasonGroups, usAbbr, themAbbr, usTeam: data.us?.school, themTeam: data.them?.school, tug: true, labelHead: "PPA per play", caption: "Season PPA per play, each offense against the defense it faces" }),
-        el("div", { class: "twocol" }, players(`${text(data.us?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.us), false, true), players(`${text(data.them?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.them), true, true)),
+        twoCol(players(`${text(data.us?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.us), false, true), players(`${text(data.them?.school)} season leaders, PPA per play`, listOf(p.seasonLeaders?.them), true, true)),
         games(`${text(data.us?.school)} by game`, ppaGameRows(p.games?.us)),
         games(`${text(data.them?.school)} by game`, ppaGameRows(p.games?.them), true),
-        el("div", { class: "twocol" }, players(`${text(data.us?.school)}, ${isNum(p.players?.usWeek) ? `week ${p.players.usWeek}` : "latest game"}`, listOf(p.players?.us), false, false), players(`${text(data.them?.school)}, ${isNum(p.players?.themWeek) ? `week ${p.players.themWeek}` : "latest game"}`, listOf(p.players?.them), true, false)),
+        twoCol(players(`${text(data.us?.school)}, ${isNum(p.players?.usWeek) ? `week ${p.players.usWeek}` : "latest game"}`, listOf(p.players?.us), false, false), players(`${text(data.them?.school)}, ${isNum(p.players?.themWeek) ? `week ${p.players.themWeek}` : "latest game"}`, listOf(p.players?.them), true, false)),
       ),
   });
 }
@@ -817,7 +817,7 @@ function finalBand(data) {
         {},
         quarterLine({ us: { abbr: usAbbr, scores: data.game.usLineScores, total: data.game.usPoints }, them: { abbr: themAbbr, scores: data.game.themLineScores, total: data.game.themPoints } }),
         teamStatsTable({ us: { abbr: usAbbr, school: data.us?.school, name: fullName(data.us) }, them: { abbr: themAbbr, school: data.them?.school, name: fullName(data.them) }, rows: teamStatRows(f?.us || {}, f?.them || {}).filter((row) => row.us !== DASH || row.them !== DASH), caption: `Team stats, ${usAbbr} and ${themAbbr}` }), // final pass: rows CFBD's box never has (plays, drives, success) go, as on the Box page; wave 2: the schools and mascots head it at large
-        el("div", { class: "twocol" }, el("div", {}, subhead(data.us?.school || usSchool(), { team: data.us?.school || usSchool(), side: "us" }), tables("us", false)), el("div", {}, subhead(data.them?.school, { team: data.them?.school, side: "them" }), tables("them", true))),
+        twoCol(el("div", {}, subhead(data.us?.school || usSchool(), { team: data.us?.school || usSchool(), side: "us" }), tables("us", false)), el("div", {}, subhead(data.them?.school, { team: data.them?.school, side: "them" }), tables("them", true))),
       ),
   });
 }

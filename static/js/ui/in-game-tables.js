@@ -166,11 +166,11 @@ export function fourthDownRows(f) {
   const d = obj(f);
   if (!isNum(d.breakEven)) return [];
   const go = obj(d.go);
-  const rows = [{ option: "Go for it", optionShort: "Go", ep: signed(go.success), epFail: signed(go.fail), chance: `${fmtPct(d.breakEven, 1)} needed` }];
+  const rows = [{ option: "Go for it", optionShort: "Go", ep: signed(go.success), epFail: signed(go.fail), chance: `${fmtPct(d.breakEven)} needed` }];
   const fg = d.fieldGoal && typeof d.fieldGoal === "object" && !Array.isArray(d.fieldGoal) ? d.fieldGoal : null;
   if (fg) {
     const yards = isNum(fg.distance) ? `${Math.round(fg.distance)} yd` : null;
-    rows.push({ option: yards ? `Field goal, ${yards}` : "Field goal", optionShort: yards ? `FG ${yards}` : "FG", ep: signed(fg.ep), epFail: DASH, chance: isNum(fg.makeChance) ? `${fmtPct(fg.makeChance, 1)} to make` : DASH });
+    rows.push({ option: yards ? `Field goal, ${yards}` : "Field goal", optionShort: yards ? `FG ${yards}` : "FG", ep: signed(fg.ep), epFail: DASH, chance: isNum(fg.makeChance) ? `${fmtPct(fg.makeChance)} to make` : DASH });
   }
   if (d.punt && typeof d.punt === "object" && !Array.isArray(d.punt)) rows.push({ option: "Punt (40 net)", optionShort: "Punt", ep: signed(d.punt.ep), epFail: DASH, chance: DASH });
   return rows;

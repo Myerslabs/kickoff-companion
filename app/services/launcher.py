@@ -153,8 +153,10 @@ class Launcher:
         static_dir: str | Path | None = None,
         install_root: str | Path | None = None,
         desktop: str | Path | None = None,
+        installed: bool = False,
     ) -> None:
         self.project_root = Path(project_root)
+        self.installed = installed  # the package from PyPI (freeze wave F6): no start script to point a shortcut at
         self.install_root = Path(install_root) if install_root else self.project_root  # .env, data and logs (the tray's -Root)
         self.program = Path(program) if program else None  # the packaged program, which starts itself
         self.static_dir = Path(static_dir) if static_dir else self.project_root / "static"  # the icon for the Linux launcher
@@ -168,6 +170,8 @@ class Launcher:
     # -- where things go ---------------------------------------------------------------------------------
     @property
     def supported(self) -> bool:
+        if self.installed:
+            return False
         if self.system == "windows":
             return bool(self.appdata)
         return self.system in ("linux", "mac")
@@ -264,12 +268,15 @@ class Launcher:
             "script": str(self.launch_path),
             "scriptExists": self.launch_path.is_file(),
             "packaged": self.program is not None,  # public release Phase 10: the program starts itself
+            "installed": self.installed,
             "program": str(self.program) if self.program else None,
         }
 
     # -- start at login ----------------------------------------------------------------------------------
     def set_enabled(self, enabled: bool, *, tray: bool = False) -> dict[str, Any]:
         """Switch start at login on or off. Returns the status plus an `error` when it failed."""
+        if self.installed:
+            return {**self.status(), "error": "start at login is not offered for the package install (uvx); the download or the code has it"}
         if not self.supported:
             return {**self.status(), "error": "start at login is not available on this system"}
         if enabled and not self.launch_path.is_file():

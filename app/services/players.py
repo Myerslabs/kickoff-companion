@@ -243,8 +243,25 @@ class Line:
     stats: dict[str, float | str]
 
 
+_LINES_MEMO: dict[int, tuple[list[PlayerStat], dict[tuple[str, str], Line]]] = {}
+LINES_MEMO_LIMIT = 8
+
+
 def lines_from(records: list[PlayerStat]) -> dict[tuple[str, str], Line]:
-    """(playerId, category) -> one line with every stat type, from the flat CFBD rows."""
+    """(playerId, category) -> one line with every stat type, from the flat CFBD rows. Freeze wave F7: the lines of a
+    part's own list are kept (45 ms a request over the national list); the memo keeps the list, so its id is its own."""
+    kept = _LINES_MEMO.get(id(records))
+    if kept is not None and kept[0] is records:
+        return kept[1]
+    lines = _lines_of(records)
+    if len(records) >= 200:
+        while len(_LINES_MEMO) >= LINES_MEMO_LIMIT:
+            _LINES_MEMO.pop(next(iter(_LINES_MEMO)))
+        _LINES_MEMO[id(records)] = (records, lines)
+    return lines
+
+
+def _lines_of(records: list[PlayerStat]) -> dict[tuple[str, str], Line]:
     lines: dict[tuple[str, str], Line] = {}
     for row in records:
         if not row.category or not row.stat_type:
@@ -317,7 +334,7 @@ def rank_map(entries: list[Line], board: Board) -> dict[str, int]:
 
 def fbs_lines(records: list[PlayerStat], fbs: set[str] | None) -> dict[tuple[str, str], Line]:
     """One national category pull as lines, FBS players only (every player when /teams/fbs failed)."""
-    return lines_from([r for r in records if fbs is None or r.team in fbs])
+    return {k: line for k, line in lines_from(records).items() if fbs is None or line.team in fbs}  # F7: the memo holds the part's own list
 
 
 def national_board(board: Board, national: dict[tuple[str, str], Line], conference: dict[tuple[str, str], Line]) -> tuple[list[Line], dict[str, int], list[Line], dict[str, int]]:

@@ -15,6 +15,10 @@ app-data folder, so a new version of the program can replace the old folder and 
 A file named `portable` beside the program keeps everything beside it instead (a USB stick, a game
 folder). `DATA_DIR` and `LOG_DIR` in `.env` still move those two wherever they say.
 
+Installed as the package (freeze wave F6, `uvx kickoff-companion` or pip; packaging/pypi/), the bundle is the
+package's own folder, laid out like a checkout and only read, and a file named `installed` beside `app/` marks
+it, so the install is the app-data folder again, as for the packaged program.
+
 `ROOTS` is resolved once at import from the running interpreter; `Roots.resolve()` takes every
 input as an argument so tests can stand anywhere."""
 
@@ -29,6 +33,7 @@ from typing import Any
 
 PROJECT_FOLDER = Path(__file__).resolve().parent.parent  # the checkout this module lives in
 PORTABLE_MARKER = "portable"  # a file by this name beside the program: files stay beside the program
+INSTALL_MARKER = "installed"  # a file by this name beside app/: the folder is the installed package's, only read (freeze wave F6)
 APP_FOLDER_TITLE = "Kickoff Companion"  # the app-data folder on Windows and macOS
 APP_FOLDER_SLUG = "kickoff-companion"  # and on Linux
 
@@ -56,6 +61,7 @@ class Roots:
     install: Path  # written: .env, data/, logs/
     program: Path | None  # the packaged program itself, None from a checkout
     portable: bool  # the packaged program keeps its files beside itself
+    installed: bool = False  # the package from PyPI (freeze wave F6): the bundle is the package's folder, the files go to app-data
 
     @property
     def packaged(self) -> bool:
@@ -71,12 +77,16 @@ class Roots:
         system: str = sys.platform,
         environ: Mapping[str, str] = os.environ,
         home: Path | None = None,
+        project_folder: Path | None = None,
     ) -> Roots:
         """The roots for this run. Every argument defaults to the running interpreter's facts."""
         if frozen is None:
             frozen = is_frozen()
         if not frozen:
-            return cls(bundle=PROJECT_FOLDER, install=PROJECT_FOLDER, program=None, portable=False)
+            folder = Path(project_folder) if project_folder is not None else PROJECT_FOLDER
+            if (folder / INSTALL_MARKER).is_file():
+                return cls(bundle=folder, install=app_data_dir(system, environ, home), program=None, portable=False, installed=True)
+            return cls(bundle=folder, install=folder, program=None, portable=False)
         bundle_dir = Path(bundle if bundle is not None else getattr(sys, "_MEIPASS", PROJECT_FOLDER)).resolve()
         program = Path(executable if executable is not None else sys.executable).resolve()
         if (program.parent / PORTABLE_MARKER).exists():
@@ -87,6 +97,7 @@ class Roots:
         """For /api/health and /api/settings: where this install keeps its files."""
         return {
             "packaged": self.packaged,
+            "installed": self.installed,
             "portable": self.portable,
             "program": str(self.program) if self.program else None,
             "install": str(self.install),

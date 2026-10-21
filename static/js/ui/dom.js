@@ -131,7 +131,7 @@ export function fmtStat(value, format) {
       const n = starCount(value);
       return n === null ? DASH : `${n}-star`;
     }
-    case "pct": return fmtPct(value, 1); // final pass: a rate in a table shows one decimal, so ranked neighbours never look equal
+    case "pct": return fmtPct(value, 0); // Design rules (owner 2026-10-21): a rate in a table shows whole numbers (the one-decimal rule of 2026-10-09 is superseded)
     case "usd": return fmtUsd(value);
     case "1f": return fmtNum(value, 1);
     case "2f": return fmtNum(value, 2);
@@ -174,7 +174,7 @@ const SUFFIX = /^(?:jr|sr)\.?$|^(?:ii|iii|iv|v|vi)$|^ll$/i;
 const PARTICLES = new Set(["van", "von", "vander", "vanden", "de", "del", "della", "dela", "der", "den", "du", "da", "di", "dos", "das", "la", "le", "st.", "st", "saint", "ter", "ten"]);
 const INITIALS = /^(?:\p{Lu}\.?){2,3}$|^\p{Lu}\.$/u; // AJ, A.J., A.J, TJ, A.C., J.: a first name written as initials stays
 const CLEAN_WORD = /^\p{L}[\p{L}\p{M}'’.-]*$/u; // a notes name's word: letters, an apostrophe, a hyphen, a dot
-const NAME_FORMS = ["full", "initial", "last", "reduced"];
+const NAME_FORMS = ["full", "initial", "last", "reduced", "number"]; // number: "#19" where the row knows it, else the reduced surname (Design rules, owner 2026-10-21)
 
 function nameWords(value) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
@@ -227,14 +227,16 @@ export function playerNames(input, { notes = false } = {}) {
   const given = nameWords(row.firstName);
   const family = nameWords(row.lastName);
   const full = nameWords(row.name) || [given, family].filter(Boolean).join(" ");
-  if (!full || /\[object \w+\]/.test(full)) return { full: DASH, initial: DASH, last: DASH, reduced: DASH, first: "" };
-  if (given && family && !notes) return formsOf(full, given, withoutSuffix(family.split(" ")).join(" "));
+  // the last step down (Design rules, owner 2026-10-21): the player's number, where the row carries one
+  const numbered = (f) => ({ ...f, number: isNum(row.number) && row.number >= 0 ? `#${Math.round(row.number)}` : f.reduced });
+  if (!full || /\[object \w+\]/.test(full)) return { full: DASH, initial: DASH, last: DASH, reduced: DASH, number: DASH, first: "" };
+  if (given && family && !notes) return numbered(formsOf(full, given, withoutSuffix(family.split(" ")).join(" ")));
   const words = withoutSuffix(full.split(" "));
-  if (words.length === 1) return { full, initial: words[0], last: words[0], reduced: reducedOf(words[0]), first: "" };
-  if (notes && !cleanNotesName(words)) return { full, initial: full, last: full, reduced: full, first: "" };
+  if (words.length === 1) return numbered({ full, initial: words[0], last: words[0], reduced: reducedOf(words[0]), first: "" });
+  if (notes && !cleanNotesName(words)) return numbered({ full, initial: full, last: full, reduced: full, first: "" });
   let start = words.length - 1;
   while (start > 1 && PARTICLES.has(words[start - 1].toLowerCase())) start -= 1; // never the first word
-  return formsOf(full, words[0], words.slice(start).join(" "));
+  return numbered(formsOf(full, words[0], words.slice(start).join(" ")));
 }
 
 const sameKey = (value) => String(value).replace(/\u00A0/g, " ").toLocaleLowerCase();
@@ -322,7 +324,7 @@ export function settleNames(cells) {
     if (!forms) return;
     for (const node of item.nodes) {
       node.__shown = forms;
-      for (const k of ["initial", "last", "reduced"]) {
+      for (const k of ["initial", "last", "reduced", "number"]) {
         const span = node.querySelector(`.pn__f--${k}`);
         if (span) span.textContent = `${forms[k]}${node.__after || ""}`;
       }
@@ -331,9 +333,9 @@ export function settleNames(cells) {
   return settled;
 }
 
-/** Which name steps change anything among a root's names: { any, initial, last, reduced }. */
+/** Which name steps change anything among a root's names: { any, initial, last, reduced, number }. */
 export function nameSteps(root) {
-  const out = { any: false, initial: false, last: false, reduced: false };
+  const out = { any: false, initial: false, last: false, reduced: false, number: false };
   if (!root || typeof root.querySelectorAll !== "function") return out;
   for (const node of root.querySelectorAll(".pn")) {
     const f = node.__shown || node.__names;
@@ -342,17 +344,19 @@ export function nameSteps(root) {
     if (f.initial !== f.full) out.initial = true;
     if (f.last !== f.initial) out.last = true;
     if (f.reduced !== f.last) out.reduced = true;
+    if (f.number !== f.reduced) out.number = true;
   }
   return out;
 }
 
-/** A card's names, each in its own box: full, then the initial, the surname, the reduced surname; the box's ellipsis after
- *  that. Batched (every name tries a form, then all are measured), so a whole depth chart lays out four times at most. */
+/** A card's names, each in its own box: full, then the initial, the surname, the reduced surname, then the player's number
+ *  (Design rules, owner 2026-10-21) where the row knows it; the box's ellipsis after that. Batched (every name tries a form, then all are measured), so a whole depth chart lays out four times at most. */
 export function fitNames(root) {
   if (!root || typeof root.querySelectorAll !== "function") return;
   const items = [...root.querySelectorAll(".pn[data-fit]")].map((pn) => ({ pn, box: pn.parentNode })).filter((it) => it.box && isNum(it.box.clientWidth));
   let left = items;
   for (const form of NAME_FORMS) {
+    if (form === "number" && !left.some((it) => { const f = it.pn.__shown || it.pn.__names; return f && f.number !== f.reduced; })) continue; // no number known: nothing to step to
     for (const it of left) it.pn.dataset.pn = form;
     left = left.filter((it) => it.box.clientWidth > 0 && overflows(it.box));
     if (!left.length) break;

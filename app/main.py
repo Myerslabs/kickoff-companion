@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import mimetypes
+import re
 import sys
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
@@ -15,10 +16,11 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import URL, MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import APP_NAME, BUILD_PHASE, __version__, restart
@@ -37,6 +39,7 @@ from app.api import settings as settings_api
 from app.api import wiki as wiki_api  # Phase 17 #4
 from app.api.envelope import error_response
 from app.api.health import format_duration
+from app.build import build_id
 from app.cfbd.client import CfbdClient
 from app.config import PROJECT_ROOT, STATIC_DIR, Settings, SettingsError, load_settings
 from app.db import Database, database_path
@@ -88,6 +91,7 @@ CERT_RECHECK_SECONDS = 6 * 3600
 QUOTA_CHECK_SECONDS = 5 * 60
 PREWARM_SECONDS = 10 * 60  # Phase 14: how often the server looks for published data to refresh
 STARTUP_QUOTA_TIMEOUT = 60
+STARTUP_INLINE_SECONDS = 1.5  # freeze wave F7: how long the start waits for the key check and the identity before it listens anyway
 log = logging.getLogger("kickoff.main")
 
 _HTTP_CODES = {400: "bad_request", 404: "not_found", 405: "method_not_allowed", 422: "invalid_request"}
@@ -160,6 +164,40 @@ class SetupGate:
         await self.app(scope, receive, send)
 
 
+class StartupGate:
+    """Freeze wave F7: the server listens before its key check and identity load (lifespan: startup_checks), so the page
+    and its files arrive at once; a data request waits for those checks to finish, as every request did before, so no
+    page is built on an unchecked key or the fallback identity. Health answers meanwhile (the boot screen polls it)."""
+
+    OPEN = ("/api/health",)
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            if path.startswith("/api/") and not path.startswith(self.OPEN):
+                checks = getattr(scope["app"].state, "startup_checks", None)
+                if checks is not None and not checks.done():
+                    await asyncio.wait({checks}, timeout=STARTUP_QUOTA_TIMEOUT * 2 + 5)
+        await self.app(scope, receive, send)
+
+
+VERSIONED = re.compile(r"^/static/v/([0-9a-f]{6,40})/(.+)$")
+
+
+class Compression(GZipMiddleware):
+    """Freeze wave F7: gzip for every answer over 1,500 bytes (the leaders 135 KB, the program 82 KB, five to eight times
+    smaller over Wi-Fi), never the event stream, whose chunks must leave as they are written."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and str(scope.get("path", "")).startswith("/api/live/stream"):
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 class StaticCacheHeaders:
     """Static files revalidate on every load (cheap with ETags) so a device never runs a stale
     script after an update. Fonts never change and cache for a year."""
@@ -172,7 +210,15 @@ class StaticCacheHeaders:
         if not path.startswith("/static/"):
             await self.app(scope, receive, send)
             return
-        value = "public, max-age=31536000, immutable" if path.startswith("/static/fonts/") else "no-cache"
+        versioned = VERSIONED.match(path)
+        if versioned:
+            # freeze wave F7: the page names its scripts and styles under /static/v/<build>/..., so a browser keeps them for a
+            # year and asks for nothing on the next open (a reload was 124 conditional requests); a new build names a new
+            # folder (app/build.py build_id), and the page itself is never cached
+            scope = dict(scope)
+            scope["path"] = "/static/" + versioned.group(2)
+            scope["raw_path"] = scope["path"].encode()
+        value = "public, max-age=31536000, immutable" if versioned or path.startswith("/static/fonts/") else "no-cache"
 
         async def send_with_cache_header(message):
             if message["type"] == "http.response.start":
@@ -213,7 +259,7 @@ async def _prewarm_published(app: FastAPI) -> None:
             log.exception("Prewarm of published data failed. Will try again in %d minutes.", PREWARM_SECONDS // 60)
 
 
-WARM_DELAY_SECONDS = 20
+WARM_DELAY_SECONDS = 2  # freeze wave F7: the program and the overview warm right after the server listens, not 20 s later
 WARM_PATHS = ("/api/season/overview", "/api/program/next", "/api/ticker", "/api/newspaper")
 
 
@@ -305,20 +351,27 @@ async def lifespan(app: FastAPI):
         print_qr(f"{tablet_url(settings, ip, secure=False)}/")  # the address anyone can scan; a trusted device types https
     log.info("Log file: %s (%s)", settings.log_dir / LOG_FILE_NAME, settings.log_level)
 
-    try:
-        await asyncio.wait_for(cfbd.reconcile(), timeout=STARTUP_QUOTA_TIMEOUT)
-    except Exception:  # noqa: BLE001 - startup must not die on a quota check; health will show it
-        log.exception("CFBD quota check at startup failed")
-    log.info("%s", _describe_key(cfbd))
-    try:
-        found = await asyncio.wait_for(app.state.identity.load(), timeout=STARTUP_QUOTA_TIMEOUT)
-        log.info("Following %s%s (%s)", found.school, f" {found.mascot}" if found.mascot else "", found.conference or "conference unknown")
-    except Exception:  # noqa: BLE001 - the fallback identity keeps every page working; health shows the rest
-        log.exception("Team identity at startup failed; using TEAM as written")
-
     mdns: Announcer = app.state.mdns
-    mdns.title = app.state.identity.current.title  # "Mudpuppies Kickoff Companion" in a network browser
-    mdns.start()
+
+    async def startup_checks() -> None:
+        """Freeze wave F7: the key check and the identity load run once the server listens (each could hold the first page
+        up to a minute on a slow CFBD); health says "key not checked yet" meanwhile, and the network name follows them."""
+        try:
+            await asyncio.wait_for(cfbd.reconcile(), timeout=STARTUP_QUOTA_TIMEOUT)
+        except Exception:  # noqa: BLE001 - startup must not die on a quota check; health will show it
+            log.exception("CFBD quota check at startup failed")
+        log.info("%s", _describe_key(cfbd))
+        try:
+            found = await asyncio.wait_for(app.state.identity.load(), timeout=STARTUP_QUOTA_TIMEOUT)
+            log.info("Following %s%s (%s)", found.school, f" {found.mascot}" if found.mascot else "", found.conference or "conference unknown")
+        except Exception:  # noqa: BLE001 - the fallback identity keeps every page working; health shows the rest
+            log.exception("Team identity at startup failed; using TEAM as written")
+        mdns.title = app.state.identity.current.title  # "Mudpuppies Kickoff Companion" in a network browser
+        mdns.start()
+
+    checks = asyncio.create_task(startup_checks())
+    app.state.startup_checks = checks
+    await asyncio.wait({checks}, timeout=STARTUP_INLINE_SECONDS)  # on a good day the checks are done before the server listens; on a bad one it listens anyway and StartupGate holds the data requests
     recheck = asyncio.create_task(_recheck_certificates(app)) if tls is not None else None
     quota_watch = asyncio.create_task(_watch_quota(app))
     prewarm = asyncio.create_task(_prewarm_published(app))
@@ -341,7 +394,7 @@ async def lifespan(app: FastAPI):
         await app.state.prompt_runs.stop()
         await app.state.mdns.stop()
         await app.state.myteams.close()
-        for task in (recheck, quota_watch, prewarm):
+        for task in (checks, recheck, quota_watch, prewarm):
             if task is None:
                 continue
             task.cancel()
@@ -439,7 +492,7 @@ def create_app(
     app.state.myteams = MyTeamsService(cfbd, settings, app.state.prefs, app.state.program, app.state.ratings.fetcher)  # public release Phase 5b
     app.state.matchup = MatchupService(cfbd, settings)  # Phase 16 BX: UX-12
     app.state.archive = ArchiveService(settings.data_dir, app.state.analytics, app.state.program, settings.team)
-    app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR, install_root=ROOTS.install)  # the packaged program starts itself at login
+    app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR, install_root=ROOTS.install, installed=ROOTS.installed)  # the packaged program starts itself at login; the package install has no login start
     app.state.mdns = Announcer(settings.mdns_host, settings.port)  # public release Phase 4: kickoff.local
     app.state.season_notes = SeasonNotes(settings.data_dir, settings.season)  # Phase 17 Part 3a
     app.state.season_runner = SeasonRunner(settings.log_dir, cwd=scratch_dir(settings.data_dir))
@@ -467,12 +520,14 @@ def create_app(
     app.state.home_configured = not settings.setup_needed
 
     app.add_middleware(SetupGate, active=settings.setup_needed)
+    app.add_middleware(StartupGate)  # freeze wave F7: data requests wait for the startup checks; the page does not
     app.add_middleware(GuestGuard)  # Phase 18.6: a device that is not the host can look and not change
     app.add_middleware(RateLimit)  # Phase 18.1: costly requests (S6, S7)
     app.add_middleware(BodyLimit)  # Phase 18.1: no body large enough to fill memory (S8)
     app.add_middleware(SecurityHeaders)  # final pass: never framed by another site, no type sniffing
     app.add_middleware(OriginGuard)  # Phase 16 wave 3: no change request from another site's page
     app.add_middleware(PlainHttpRedirect, https=settings.https, legacy_tls=tls is not None and not settings.https)
+    app.add_middleware(Compression, minimum_size=1500)  # freeze wave F7
     app.add_middleware(StaticCacheHeaders)
     app.add_middleware(HostGuard, names=lambda: {n for n in (settings.lan_hostname, settings.mdns_host) if n})  # Phase 18.1: DNS rebinding (S2); added last, so it runs first
     app.include_router(health.router)
@@ -506,9 +561,20 @@ def create_app(
     app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen
     app.include_router(client_log.router)
 
+    index_cache: dict[str, str] = {}
+
     @app.get("/", include_in_schema=False)
-    async def index() -> FileResponse:
-        return FileResponse(STATIC_DIR / "index.html", media_type="text/html", headers={"Cache-Control": "no-cache"})
+    async def index() -> HTMLResponse:
+        """The page itself is never cached; its scripts and styles are named under this build's folder (/static/v/<build>/),
+        which a browser keeps for a year (freeze wave F7; StaticCacheHeaders serves the folder)."""
+        bid = build_id()
+        html = index_cache.get(bid)
+        if html is None:
+            text = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+            html = text.replace('src="/static/', f'src="/static/v/{bid}/').replace('href="/static/', f'href="/static/v/{bid}/')
+            index_cache.clear()
+            index_cache[bid] = html
+        return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
     @app.get("/portal", include_in_schema=False)
     async def portal_page() -> FileResponse:

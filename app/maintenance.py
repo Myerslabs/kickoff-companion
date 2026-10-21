@@ -16,6 +16,7 @@ import contextlib
 import logging
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -35,13 +36,23 @@ ES_SYSTEM_REQUIRED = 0x00000001
 
 class KeepAwake:
     """Holds the computer awake while `active` is true. On Windows the request belongs to the calling thread, so
-    every call comes from the server's event-loop thread; on macOS a `caffeinate` child holds it. Elsewhere it
-    says once that it cannot and does nothing."""
+    every call comes from the server's event-loop thread; on macOS a `caffeinate` child holds it; on Linux with
+    systemd (the Steam Deck's desktop included; freeze wave F6) a `systemd-inhibit` child holds the idle and sleep
+    locks. Elsewhere it says once that it cannot and does nothing."""
 
-    def __init__(self, platform: str | None = None, state_call: Callable[[int], Any] | None = None, spawn: Callable[[], Any] | None = None) -> None:
+    def __init__(
+        self,
+        platform: str | None = None,
+        state_call: Callable[[int], Any] | None = None,
+        spawn: Callable[[], Any] | None = None,
+        has_inhibit: Callable[[], bool] | None = None,
+        end: Callable[[Any], None] | None = None,
+    ) -> None:
         self.platform = platform or sys.platform
         self._state_call = state_call
-        self._spawn = spawn or self._spawn_caffeinate
+        self._has_inhibit = has_inhibit or (lambda: shutil.which("systemd-inhibit") is not None)
+        self._spawn = spawn or (self._spawn_inhibit if self.platform.startswith("linux") else self._spawn_caffeinate)
+        self._end = end or self._end_child
         self.held = False
         self._child: Any = None
         self._said = False
@@ -49,6 +60,24 @@ class KeepAwake:
     @staticmethod
     def _spawn_caffeinate() -> Any:
         return subprocess.Popen(["caffeinate", "-i"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # noqa: S603, S607 - a fixed system tool, no input
+
+    @staticmethod
+    def _spawn_inhibit() -> Any:
+        """systemd-inhibit holds the locks while its command runs; in its own session, so ending it ends the sleep too."""
+        command = ["systemd-inhibit", "--what=idle:sleep", "--who=Kickoff Companion", "--why=A game is on", "--mode=block", "sleep", "infinity"]
+        return subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)  # noqa: S603, S607 - a fixed system tool, no input
+
+    def _end_child(self, child: Any) -> None:
+        """End the child: its whole session on Linux (systemd-inhibit and the sleep it holds), the one process elsewhere."""
+        killpg = getattr(os, "killpg", None)
+        pid = getattr(child, "pid", None)
+        if self.platform.startswith("linux") and callable(killpg) and isinstance(pid, int):
+            try:
+                killpg(pid, signal.SIGTERM)
+                return
+            except (ProcessLookupError, PermissionError, OSError):
+                pass
+        child.terminate()
 
     def _windows_call(self, flags: int) -> Any:
         if self._state_call is not None:
@@ -59,7 +88,9 @@ class KeepAwake:
 
     @property
     def supported(self) -> bool:
-        return self.platform.startswith("win") or self.platform == "darwin"
+        if self.platform.startswith("win") or self.platform == "darwin":
+            return True
+        return self.platform.startswith("linux") and bool(self._has_inhibit())
 
     def set(self, active: bool) -> None:
         if active == self.held:
@@ -67,7 +98,8 @@ class KeepAwake:
         if not self.supported:
             if active and not self._said:
                 self._said = True
-                log.info("Keeping the computer awake during a game is not supported on %s; turn off its sleep timer on game days.", self.platform)
+                why = "without systemd-inhibit" if self.platform.startswith("linux") else ""
+                log.info("Keeping the computer awake during a game is not supported on %s%s; turn off its sleep timer on game days.", self.platform, f" {why}" if why else "")
             return
         try:
             if self.platform.startswith("win"):
@@ -76,7 +108,7 @@ class KeepAwake:
                 self._child = self._spawn()
             elif self._child is not None:
                 child, self._child = self._child, None
-                child.terminate()
+                self._end(child)
                 wait = getattr(child, "wait", None)
                 if callable(wait):
                     try:

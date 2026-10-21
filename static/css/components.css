@@ -1091,6 +1091,7 @@
 .tt-wrap[data-size="medium"][data-names="short"] th.us .tt__t--short, .tt-wrap[data-size="medium"][data-names="short"] th.them .tt__t--short { display: inline; }
 .tt-wrap[data-size="small"] .tt__min-medium, .tt-wrap[data-size="small"] .tt__min-large, .tt-wrap[data-size="medium"] .tt__min-large { display: none; }
 .tt-wrap[data-size="small"] .hint__q { display: none; } /* the question mark only where there is room */
+.tt-wrap[data-size="small"] [data-hint], .stat-table-wrap[data-size="small"] [data-hint] { text-decoration: underline dotted; text-decoration-color: var(--mist); text-underline-offset: 3px; } /* Design rules (owner 2026-10-21): a dotted underline where the mark has no room; the tap opens the card */
 .tt-wrap:not([data-size="large"]) tr.tt__head--a, .tt-wrap:not([data-size="large"]) tr.tt__head--b { display: none; }
 .tt-wrap[data-size="large"] tr.tt__head--one { display: none; }
 .tt thead th { position: static; } /* 2026-10-10: a two-row head cannot stick cleanly in a scrolled band (its rows drifted apart on the iPad); these tables are short, so no row sticks */
@@ -1136,9 +1137,9 @@
 .pn__f { display: none; }
 .pn__f--full { display: inline; }
 [data-pn] .pn__f--full { display: none; }
-[data-pn="full"] .pn__f--full, [data-pn="initial"] .pn__f--initial, [data-pn="last"] .pn__f--last, [data-pn="reduced"] .pn__f--reduced, [data-pn="clip"] .pn__f--reduced { display: inline; }
+[data-pn="full"] .pn__f--full, [data-pn="initial"] .pn__f--initial, [data-pn="last"] .pn__f--last, [data-pn="reduced"] .pn__f--reduced, [data-pn="number"] .pn__f--number, [data-pn="clip"] .pn__f--number { display: inline; } /* the number before the clip (Design rules, owner 2026-10-21) */
 .pn[data-pn] > .pn__f { display: none; }
-.pn[data-pn="full"] > .pn__f--full, .pn[data-pn="initial"] > .pn__f--initial, .pn[data-pn="last"] > .pn__f--last, .pn[data-pn="reduced"] > .pn__f--reduced { display: inline; }
+.pn[data-pn="full"] > .pn__f--full, .pn[data-pn="initial"] > .pn__f--initial, .pn[data-pn="last"] > .pn__f--last, .pn[data-pn="reduced"] > .pn__f--reduced, .pn[data-pn="number"] > .pn__f--number { display: inline; }
 [data-pn="clip"] .pn { display: inline-block; max-width: var(--pn-max, none); overflow: hidden; text-overflow: ellipsis; vertical-align: bottom; }
 
 /* --- Phase 8: the radio dock, the ticker on the live sheet, play value ------------------------- */
@@ -2073,6 +2074,10 @@ body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer
 .page-note__title { flex: 1; min-width: 0; margin: 0; font-family: var(--font-cond); font-size: calc(20px * var(--ui-scale)); font-weight: 700; }
 .page-note__close { flex: none; }
 .page-note__body { display: grid; gap: var(--sp-2); padding-right: var(--sp-2); color: var(--chalk); }
+.page-note__list { display: grid; gap: var(--sp-3); margin: 0; padding: 0 0 0 20px; } /* one note, every open issue an item with its fix (Design rules, owner 2026-10-21) */
+.page-note__item { display: grid; gap: 4px; }
+.page-note__item[hidden] { display: none; }
+.page-note__item-title { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; }
 .page-note__body > p { margin: 0; max-width: 75ch; }
 .page-note__body > p.note { padding: 0; }
 /* --- the pie (ui/pie.js) and where a recruiting class is from (owner 2026-10-16) --------------------------------------- */
@@ -2323,7 +2328,7 @@ body.board-mode .run-bar { display: none !important; }
 .notes-sheet__scheme { margin: 0; }
 .notes-sheet .game-info { border: 1px solid var(--rule); border-radius: var(--radius); }
 .paper-tools { margin: 4px 0 0; }
-.paper-matchup, .top25-card__tools .btn { min-height: 36px; font-size: var(--text-caption); }
+.paper-matchup, .top25-card__tools .btn { min-height: var(--tap); font-size: var(--text-caption); } /* a press target of 44 px, as every button (the rules wave, 2026-10-21) */
 .top25-card__tools { margin: 0; padding: 0 var(--sp-3) var(--sp-2); display: flex; justify-content: flex-end; }
 .setup-dev { margin-top: var(--sp-3); }
 
@@ -2556,6 +2561,10 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 @media (max-width: 699px) {
   .tl .team-logo, .sched__opp .tl__logo { width: 16px; height: 16px; }
 }
+
+/* a row padding the shorter of two tables side by side, so the pair ends on one line (Design rules, owner 2026-10-21; stat-table.js matchRows) */
+.stat-table tr.is-pad td { color: transparent; }
+.stat-table tr.is-pad td::after { content: "\00a0"; }
 
 /* === The Pre-Game Program from the mock (owner 2026-10-20) ======================================================= */
 /* two bands side by side in one row of the flow, the same height; one column on a phone */

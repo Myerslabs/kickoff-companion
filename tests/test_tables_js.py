@@ -469,7 +469,7 @@ scenarios.teamstats = async () => {
   assert.ok(cls(cells("Interceptions thrown")[1]).includes("lead"), "1 thrown to 2: fewer is better");
   assert.ok(!cells("Plays")[2].querySelector(".tug__bar") && !cls(cells("Plays")[1]).includes("lead"), "plays: nobody leads");
   assert.deepEqual([text(cells("Penalties")[1]), text(cells("Penalties")[3])], ["6-45", "4"], "the count alone before the yards post");
-  assert.deepEqual([text(cells("Third down")[1]), text(cells("Success rate")[1]), text(cells("Comp-Att")[1]), text(cells("Comp-Att")[3])], ["5-12", "48.1%", "20/30", "–"]);
+  assert.deepEqual([text(cells("Third down")[1]), text(cells("Success rate")[1]), text(cells("Comp-Att")[1]), text(cells("Comp-Att")[3])], ["5-12", "48%", "20/30", "–"]);
   // the stat names in three forms; the hint keeps the long one
   assert.equal(form(cells("Interceptions thrown")[0], "short"), "Ints");
   assert.equal(form(cells("Time of possession")[0], "short"), "Possession");
@@ -497,7 +497,7 @@ scenarios.teamstats = async () => {
   const feedRows = [...ft.querySelectorAll("tbody tr")];
   assert.deepEqual(feedRows.map((tr) => form(tr.querySelector("td.tt__label"), "long")), ["Standard downs", "PPA per play", "Average start, yards to goal", "Deserve to win"], "rows neither side has are dropped");
   assert.deepEqual(feedRows.map((tr) => form(tr.querySelector("td.tt__label"), "short")), ["Std downs", "PPA", "Avg start", "Deserve win"]);
-  assert.deepEqual(feedRows.map((tr) => text(tr.querySelectorAll("td.num")[0])), ["52.0%", "+0.21", "30", "80.0%"], "a rate shows one decimal, PPA its sign");
+  assert.deepEqual(feedRows.map((tr) => text(tr.querySelectorAll("td.num")[0])), ["52%", "+0.21", "30", "80%"], "a rate shows whole numbers (Design rules, 2026-10-21), PPA its sign");
   assert.ok([0, 1, 3].every((i) => cls(feedRows[i].querySelectorAll("td.num")[0]).includes("lead")), "higher is better on the feed's rates and values");
   // wave 2 review: the feed's start is yards to the goal (CFBD's drives' mean startYardsToGoal), so the side with fewer leads
   assert.ok(cls(feedRows[2].querySelectorAll("td.num")[1]).includes("lead") && !cls(feedRows[2].querySelectorAll("td.num")[0]).includes("lead"), "25 yards to go beats 30");
@@ -667,7 +667,7 @@ scenarios.tendencies = async () => {
   const cells = body[0].querySelectorAll("td");
   assert.deepEqual([form2(cells[0], "long"), form2(cells[0], "short")], ["1st down", "1st"], "the situation names shorten through ui/sizes.js");
   assert.equal(cells[0].dataset.term, "1st down");
-  assert.equal(text(cells[2]), "57.5%", "a rate in a table shows one decimal");
+  assert.equal(text(cells[2]), "57%", "a rate in a table shows whole numbers (Design rules, owner 2026-10-21)");
   assert.deepEqual([text(cells[3]), form2(cells[4], "long"), form2(cells[4], "short")], ["4.4", "11 of 23", "11-23"]);
   assert.equal(form2(body[1].querySelector("td"), "short"), "3rd 7+");
   assert.equal(text(body[1].querySelectorAll("td")[3]), "–", "no carries to average: a dash");
@@ -811,7 +811,7 @@ scenarios.advbox = async () => {
   // the quarter rows: one name per stat (the Season tables' names), every quarter and the game
   const qr = quarterRows(box.teams["Swampwater Tech"]);
   assert.deepEqual(qr.map((r) => r.label), ["Success rate", "Success on standard downs", "Success on passing downs", "PPA per play", "PPA per pass", "PPA per rush", "Explosiveness"]);
-  assert.deepEqual([qr[0].Q1, qr[0].Q3, qr[0].Game], ["40.0%", "–", "48.0%"]);
+  assert.deepEqual([qr[0].Q1, qr[0].Q3, qr[0].Game], ["40%", "–", "48%"]);
   assert.equal(quarterRows(null).length, 7);
   let opened = null;
   const block = advancedBoxBlock(box, { us: "Swampwater Tech", them: "Diner Tech", usAbbr: "SWT", themAbbr: "DT", usName: "Swampwater Tech Mudcats", themName: "Diner Tech Waffles", onPlayer: (row) => { opened = row; } });
@@ -934,7 +934,7 @@ scenarios.ingame = async () => {
   assert.ok(!tw.querySelector("thead button"), "the situations keep their order");
   const tr0 = [...tw.querySelectorAll("tbody tr")[0].querySelectorAll("td")];
   assert.deepEqual([form2(tr0[0], "long"), form2(tr0[0], "short"), tr0[0].dataset.term], ["Standard downs", "Std downs", "Standard downs"]);
-  assert.deepEqual([text(tr0[2]), form2(tr0[3], "long"), form2(tr0[3], "short"), form2(tr0[4], "short")], ["55.0%", "6 of 11", "6-11", "4-9"], "a rate in a table shows one decimal");
+  assert.deepEqual([text(tr0[2]), form2(tr0[3], "long"), form2(tr0[3], "short"), form2(tr0[4], "short")], ["55%", "6 of 11", "6-11", "4-9"], "a rate in a table shows whole numbers");
   const tr1 = [...tw.querySelectorAll("tbody tr")[1].querySelectorAll("td")];
   assert.deepEqual([form2(tr1[0], "short"), text(tr1[2]), text(tr1[4])], ["3rd 7+", "–", "–"], "a situation with no snaps yet still has its row");
   assert.equal(tw.querySelectorAll("tbody tr").length, 2);
@@ -954,7 +954,7 @@ scenarios.ingame = async () => {
   assert.ok(fh.every((th) => text(th).trim()), "every column has a head");
   const fr = [...fw.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")]);
   assert.deepEqual(fr.map((r) => [form2(r[0], "long"), form2(r[0], "short")]), [["Go for it", "Go"], ["Field goal, 45 yd", "FG 45 yd"], ["Punt (40 net)", "Punt"]]);
-  assert.deepEqual(fr.map((r) => r.slice(1).map(text)), [["+2.1", "−1.3", "45.2% needed"], ["+0.9", "–", "62.0% to make"], ["−0.5", "–", "–"]]);
+  assert.deepEqual(fr.map((r) => r.slice(1).map(text)), [["+2.1", "−1.3", "45% needed"], ["+0.9", "–", "62% to make"], ["−0.5", "–", "–"]]);
   assert.equal(t.fourthDownRows({ breakEven: 0.5, go: {}, fieldGoal: { makeChance: "x" } })[1].optionShort, "FG");
   for (const junk of [null, "x", { breakEven: "x" }, {}]) assert.equal(t.fourthDownTable(junk), null);
 
@@ -1354,7 +1354,7 @@ scenarios.season3 = async () => {
   assert.ok(cls(group[0].parentNode).includes("is-parent") && text(group[0]) === "Overall");
   assert.deepEqual(group.slice(1).map(text), ["", "", "", "", "", ""], "a group row carries no value or rank");
   const success = cellsOf(paired, 1);
-  assert.deepEqual([text(success[1]), text(success[4])], ["48.6%", "39.1%"]);
+  assert.deepEqual([text(success[1]), text(success[4])], ["49%", "39%"]);
   assert.equal(success[3].querySelector("a").getAttribute("href"), "#national=advanced%3Aoffense_success_rate?team=Swampwater%20Tech&scope=conference");
   const downs = cellsOf(paired, 3);
   assert.equal(downs[0].querySelector(".sz-t--short").textContent, "PPA pass dn");

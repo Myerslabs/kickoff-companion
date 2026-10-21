@@ -137,7 +137,7 @@ function sideHref(row, side, opts) {
 
 /** A list link that is not a chip: the page's side sheet may take the tap (same event as the chips). */
 export function listLink(href, label, { rank, of, name, className } = {}) {
-  const body = text(label);
+  const body = typeof Node !== "undefined" && label instanceof Node ? label : text(label); // a drawn value, or words
   if (!isHash(href)) return el("span", { class: className || null }, body);
   return el(
     "a",
@@ -283,7 +283,9 @@ function whoSubCell(row, side) {
   return el("td", { class: `txt tt__pos tt__pos--${side} tt__min-medium` }, whoSubOf(row[side]) || DASH);
 }
 
-/** One team's value cell: bold chalk for the leader, fog for the other; the row's flash key when it has one. */
+/** One team's value cell: bold chalk for the leader, fog for the other; the row's flash key when it has one. The number
+ *  itself is a link to its national list where the row has one (Design rules, owner 2026-10-21: "Every stat number that
+ *  has a national list or a chart behind it links to it"), the same offer the chip makes. */
 function valueCell(row, side, lead, opts) {
   const s = obj(row[side]);
   const cls = ["num", "tt__cell", `tt__${side}`];
@@ -292,7 +294,10 @@ function valueCell(row, side, lead, opts) {
   const key = typeof row.key === "string" && row.key.trim() ? `${row.key.trim()}:${side}` : null;
   const short = words(s.textShort);
   const shown = short ? [el("span", { class: "tt__t tt__t--long tt__t--mid" }, valueText(row, side)), el("span", { class: "tt__t tt__t--short" }, short)] : valueText(row, side);
-  return el("td", { class: cls.join(" "), dataset: key ? { k: key } : null }, el("span", { class: "tt__val" }, shown), opts.underline && !opts.tug ? underlineBar(percentile(s.rank, s.of), side) : null);
+  const href = valueText(row, side) === DASH ? null : sideHref(row, side, opts);
+  const val = el("span", { class: "tt__val" }, shown);
+  if (href) cls.push("tt__cell--link");
+  return el("td", { class: cls.join(" "), dataset: key ? { k: key } : null }, href ? listLink(href, val, { rank: s.rank, of: s.of, name: text(row.label), className: "tt__val-link" }) : val, opts.underline && !opts.tug ? underlineBar(percentile(s.rank, s.of), side) : null);
 }
 
 const LEAST_LEAN = 0.12; // a leader always shows: the shortest bar that still reads as a lean

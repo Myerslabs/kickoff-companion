@@ -34,7 +34,7 @@ import { gameNotesPanel } from "../ui/game-notes.js";
 import { inviteBody, loadInvite } from "./invite.js";
 import { situationGrid } from "../ui/situation.js";
 import { band, note, subhead } from "../ui/states.js";
-import { statTableSkeleton } from "../ui/stat-table.js";
+import { statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { driveSummaryTable, fourthDownTable, madeOf, splitsTable, teamValueTable, tendencyTable, visitorsTable } from "../ui/in-game-tables.js";
 import { playValueTable } from "../ui/play-value.js";
 import { strip } from "../ui/strip.js";
@@ -587,7 +587,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     if (s.status !== "final") body = note("Per-play PPA shows in the play log when the feed carries it. Player values post after the final.");
     else if (!a) body = note(state.analyticsError ? `${state.analyticsError}. Retrying ${retryWords(s)}.` : "Loading play value.");
     else if (!p?.available) body = note(p?.note || `CFBD has not posted play value for this game yet; the sheet checks again ${retryWords(s)}.`);
-    else body = el("div", {}, teamValueTable(p.teams, bothHeads()), el("div", { class: "twocol" }, side(usWords(), records(p.players?.us), false), side(themSide().name, records(p.players?.them), true)));
+    else body = el("div", {}, teamValueTable(p.teams, bothHeads()), twoCol(side(usWords(), records(p.players?.us), false), side(themSide().name, records(p.players?.them), true)));
     const value = band({ title: "Play value", collapsible: false, summary: "PPA per play", body: () => body });
     if (s.status !== "final" || !a?.advancedBox) return value;
     // Phase 13: after the final, CFBD's advanced box score under the play value; wave 2: the schools and mascots head its
@@ -757,7 +757,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
       { class: "fourth-down" },
       subhead(`${offense} ${downText(f.down, f.distance) || "4th down"}, ${text(f.yardsToGoal)} to goal: go or kick?`),
       table,
-      note(`Going for it beats the ${f.best === "fieldGoal" ? "field goal" : "punt"} when the chance to convert is above ${fmtPct(f.breakEven, 1)}. Going for it: expected points if it converts and if it fails. From CFBD's expected points; a conversion counts as gaining exactly the line to gain.`),
+      note(`Going for it beats the ${f.best === "fieldGoal" ? "field goal" : "punt"} when the chance to convert is above ${fmtPct(f.breakEven)}. Going for it: expected points if it converts and if it fails. From CFBD's expected points; a conversion counts as gaining exactly the line to gain.`),
     );
   }
 
@@ -1024,14 +1024,14 @@ export function createLiveView({ onStatus, board = false } = {}) {
   function visitorsContent(v) {
     // wave 2: each side's recruits a sized table (ui/in-game-tables.js): the high school, hometown and class at large
     const side = (title, team, which, rows) => el("div", {}, subhead(title, { team, side: which }), visitorsTable(rows, { caption: title }));
-    return band({ title: "Recruits on hand", collapsible: false, body: () => el("div", {}, v.note ? note(text(v.note)) : null, el("div", { class: "twocol" }, side(`Visiting ${usTeam()}`, usTeam(), "us", records(v.home)), side(`Visiting ${text(v.opponent)}`, typeof v.opponent === "string" ? v.opponent : null, "them", records(v.away)))) });
+    return band({ title: "Recruits on hand", collapsible: false, body: () => el("div", {}, v.note ? note(text(v.note)) : null, twoCol(side(`Visiting ${usTeam()}`, usTeam(), "us", records(v.home)), side(`Visiting ${text(v.opponent)}`, typeof v.opponent === "string" ? v.opponent : null, "them", records(v.away)))) });
   }
 
   /** Recruits on hand: fetched when the sheet opens, kept ten minutes, never refetched per play. */
   function visitorsBand() {
     const cached = state.visitors;
     if (cached && Date.now() - cached.at < VISITORS_TTL_MS) return visitorsContent(cached.data);
-    const host = band({ title: "Recruits on hand", collapsible: false, state: { status: "loading" }, skeleton: () => el("div", { class: "twocol" }, statTableSkeleton(4), statTableSkeleton(4)) });
+    const host = band({ title: "Recruits on hand", collapsible: false, state: { status: "loading" }, skeleton: () => twoCol(statTableSkeleton(4), statTableSkeleton(4)) });
     fetchJson("/api/recruiting")
       .then((envelope) => {
         const v = obj(envelope?.data?.visitors);

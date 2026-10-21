@@ -256,7 +256,9 @@ def build(stats: dict[str, list[PlayerStat]], games: list[Game], fbs: set[str] |
     played = team_games(games)
     players: dict[str, Player] = {}
     for category, records in stats.items():
-        for line in lines_from([r for r in records if fbs is None or r.team in fbs]).values():
+        for line in lines_from(records).values():  # F7: the memo holds the part's own list; the FBS filter follows
+            if fbs is not None and line.team not in fbs:
+                continue
             p = players.get(line.player_id)
             if p is None:
                 p = players[line.player_id] = Player(line.player_id, line.player, line.team, line.conference, line.position, max(1, played.get(line.team or "", 0)))

@@ -301,10 +301,10 @@ export function fitSize(wrap, table, apply, steps = SIZES) {
 // with the surname, small with the reduced surname ("Brackwater-M."), and last the clip, the reduced form cut with an
 // ellipsis at a measured width. A step is "<size>/<form>"; a name step that changes no name in the table is skipped.
 const NAME_FLOOR = 48; // the narrowest a clipped name gets: a few letters and the ellipsis
-const NAME_STEPS = ["full", "initial", "last", "reduced", "clip"];
+const NAME_STEPS = ["full", "initial", "last", "reduced", "number", "clip"]; // number (Design rules, owner 2026-10-21): the player's number before the clip
 
 /** The steps of a table with player names, from its sizes (a kit's own list: the two-team "medium:abbr") and the name
- *  steps that change anything (dom.js nameSteps: { any, initial, last, reduced }). */
+ *  steps that change anything (dom.js nameSteps: { any, initial, last, reduced, number }). */
 export function personSteps(steps = SIZES, flags = {}) {
   const f = flags && typeof flags === "object" ? flags : {};
   const sizes = Array.isArray(steps) && steps.length ? steps : SIZES;
@@ -314,6 +314,7 @@ export function personSteps(steps = SIZES, flags = {}) {
   const small = sizes[sizes.length - 1];
   if (f.last) out.push(`${small}/last`);
   if (f.reduced) out.push(`${small}/reduced`);
+  if (f.number) out.push(`${small}/number`);
   if (f.any) out.push(`${small}/clip`);
   return out;
 }

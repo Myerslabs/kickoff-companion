@@ -114,7 +114,7 @@ export function teamStatRows(u = {}, t = {}) {
 }
 
 function formatValue(value, format) {
-  if (format === "pct") return fmtPct(value, 1); // final pass: one decimal in tables
+  if (format === "pct") return fmtPct(value, 0); // Design rules (owner 2026-10-21): whole numbers in tables
   if (format === "1f") return fmtNum(value, 1);
   return fmtNum(value, 0);
 }

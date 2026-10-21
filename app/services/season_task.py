@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.services.notes_task import ALLOWED_TOOLS, MAX_RUN_SECONDS, NotesRunner
+from app.services.notes_task import ALLOWED_TOOLS, MAX_RUN_SECONDS, PROMPT_LEAD, NotesRunner
 
 log = logging.getLogger("kickoff.season")
 
@@ -124,14 +124,15 @@ class SeasonRunner:
         """The tool's answer, or None with batch.error set."""
         path = self.log_path(kind, batch.key)
         header = f"# season {kind} batch {batch.key}, started {_iso(batch.started_at)}\n"
-        args = [executable, "-p", batch.prompt, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]
+        args = [*NotesRunner.command_args(executable), "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]  # the prompt on stdin (freeze wave F6, B7)
         try:
             with path.open("w", encoding="utf-8") as handle:
                 handle.write(header)
                 handle.flush()
-                self.process = await asyncio.create_subprocess_exec(*args, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(self.cwd) if self.cwd else None)
+                self.process = await asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE, stdout=handle, stderr=asyncio.subprocess.STDOUT, cwd=str(self.cwd) if self.cwd else None)
                 try:
-                    code = await asyncio.wait_for(self.process.wait(), timeout=MAX_RUN_SECONDS)
+                    await asyncio.wait_for(self.process.communicate(batch.prompt.encode("utf-8")), timeout=MAX_RUN_SECONDS)
+                    code = self.process.returncode
                 except TimeoutError:
                     self.process.kill()
                     await self.process.wait()

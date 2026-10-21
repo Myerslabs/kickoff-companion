@@ -43,7 +43,7 @@ def test_keep_awake_on_a_mac_holds_a_child_and_ends_it():
 
 
 def test_keep_awake_elsewhere_does_nothing_and_says_so_once(caplog):
-    awake = KeepAwake(platform="linux")
+    awake = KeepAwake(platform="linux", has_inhibit=lambda: False)  # a Linux without systemd (freeze wave F6 holds the rest awake)
     with caplog.at_level("INFO", logger="kickoff.maintenance"):
         awake.set(True)
         awake.set(True)
@@ -98,7 +98,7 @@ def test_backup_keeps_only_the_newest_and_replaces_today(tmp_path):
 
 
 def maintenance(tmp_path: Path, *, window=False, enabled=True, clock=None, refresh=None) -> Maintenance:
-    return Maintenance(data_dir=make_data(tmp_path), backup_dir=tmp_path / "b", keep=7, window_open=lambda: window, backups_enabled=lambda: enabled, clock=clock or (lambda: NOW.astimezone()), refresh_archive=refresh, awake=KeepAwake(platform="linux"))
+    return Maintenance(data_dir=make_data(tmp_path), backup_dir=tmp_path / "b", keep=7, window_open=lambda: window, backups_enabled=lambda: enabled, clock=clock or (lambda: NOW.astimezone()), refresh_archive=refresh, awake=KeepAwake(platform="linux", has_inhibit=lambda: False))
 
 
 def test_backup_is_due_at_once_when_there_is_none_then_after_four_in_the_morning(tmp_path):

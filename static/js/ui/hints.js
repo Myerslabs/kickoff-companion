@@ -2,7 +2,9 @@
 // One observer marks every label cell whose text matches a glossary alias, and one click handler on the
 // document opens a small card beside it. Final pass (owner 2026-10-09): the mark is a small question mark after
 // the term (the dotted underline is gone); the question mark opens the card, and the term itself goes to the
-// term's national list when the glossary knows one (a tap on "Yards per play" opens every team's number). No view builds hints
+// term's national list when the glossary knows one (a tap on "Yards per play" opens every team's number). Design rules
+// (owner 2026-10-21): where a small table has no room for the mark, the term wears a dotted underline and its tap opens the
+// card. No view builds hints
 // itself, so every table, sheet and flyout gets them, including ones added later. Sortable
 // column headers keep their tap for sorting; on a desktop they show the definition on hover.
 // The Settings switch "Stat hints" adds .hints-off to <html>, which hides the marks and the card.
@@ -199,7 +201,9 @@ function onClick(event) {
   }
   event.preventDefault();
   event.stopPropagation(); // a hint tap must not also open a player card or fold a band
-  const href = listFor(byId.get(target.dataset.hint));
+  const mark = target.querySelector(".hint__q");
+  const markHidden = !mark || typeof mark.getClientRects !== "function" || mark.getClientRects().length === 0; // a small table hides the mark and underlines the term instead (Design rules, 2026-10-21): the tap opens the card
+  const href = markHidden ? null : listFor(byId.get(target.dataset.hint));
   if (href) {
     close();
     window.location.hash = href; // the term's data: every team's number, ranked

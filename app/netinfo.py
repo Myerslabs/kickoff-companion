@@ -3,14 +3,30 @@
 from __future__ import annotations
 
 import socket
+import time
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.config import Settings
 
 
+_LAN: tuple[float, str | None] | None = None
+LAN_IP_SECONDS = 60.0
+
+
 def lan_ip() -> str | None:
-    """The IPv4 address of the interface that carries the default route, or None."""
+    """The IPv4 address of the interface that carries the default route, or None; kept a minute (freeze wave F7: the
+    health route the boot screen polls opened a socket for it on every call)."""
+    global _LAN
+    now = time.monotonic()
+    if _LAN is not None and now - _LAN[0] < LAN_IP_SECONDS:
+        return _LAN[1]
+    found = _lan_ip()
+    _LAN = (now, found)
+    return found
+
+
+def _lan_ip() -> str | None:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
             # A UDP "connect" sends no packets. It only picks the outbound interface.

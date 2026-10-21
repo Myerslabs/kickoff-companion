@@ -1,5 +1,7 @@
-# The test suite on Windows, Linux and macOS (public release Phase 4). The suite never touches the network
-# beyond installing packages: every CFBD answer comes from the made-up league.
+# The test suite on Windows, Linux and macOS (public release Phase 4), and every page in a headless browser on the
+# three systems (freeze wave F6, 2026-10-21: tools/page_check.py against the simulator and its made-up league, at the
+# tablet held upright, with the interactions, the layout, the rules and the scroll checks). The suite never touches the
+# network beyond installing packages: every CFBD answer comes from the made-up league.
 #
 # Runs only in the public repo (kickoff-companion), so a private copy spends no Actions minutes.
 name: tests
@@ -34,3 +36,21 @@ jobs:
         run: uv run --frozen ruff check app tools tests
       - name: Tests
         run: uv run --frozen pytest
+
+  pages:
+    if: github.event.repository.name == 'kickoff-companion'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Install from the lock file
+        run: uv sync --frozen
+      - name: Every page in a headless browser, with the checks
+        shell: bash
+        run: |
+          uv run --frozen python tools/page_check.py --interact --layout --rules --scroll ${{ runner.os == 'Linux' && '--no-sandbox' || '' }}
