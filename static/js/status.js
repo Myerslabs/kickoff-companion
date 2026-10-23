@@ -439,6 +439,47 @@ if (restartButton) {
     restartButton.disabled = false;
   });
 }
+// owner 2026-10-23: the logs from here too, to download or to copy (the host's; a guest is told so by the server)
+const logsCopy = document.getElementById("logs-copy");
+const logsSaid = document.getElementById("logs-said");
+const logsBox = document.getElementById("logs-box");
+if (logsCopy) {
+  logsCopy.addEventListener("click", async () => {
+    logsCopy.disabled = true;
+    const say = (words) => { if (logsSaid) logsSaid.textContent = ` ${words}`; };
+    say("Reading the log…");
+    try {
+      const response = await fetch("/api/logs/tail?lines=200");
+      const answer = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((answer && answer.errors && answer.errors[0] && answer.errors[0].message) || `The server answered ${response.status}.`);
+      const lines = answer && answer.data && typeof answer.data.text === "string" ? answer.data.text : "";
+      let copied = false;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(lines);
+          copied = true;
+        }
+      } catch {
+        copied = false;
+      }
+      if (!copied && logsBox) {
+        logsBox.value = lines;
+        logsBox.hidden = false;
+        logsBox.select();
+        try {
+          copied = document.execCommand("copy"); // plain HTTP on the home network has no clipboard API
+        } catch {
+          copied = false;
+        }
+      }
+      say(copied ? "Copied the last 200 lines." : "Select the lines below and copy them.");
+    } catch (err) {
+      say(err && err.message ? err.message : String(err));
+    } finally {
+      logsCopy.disabled = false;
+    }
+  });
+}
 document.addEventListener("visibilitychange", () => { if (!document.hidden) void tick(); });
 setInterval(() => { void tick(); }, REFRESH_MS);
 setInterval(updateStatusLine, 1000);

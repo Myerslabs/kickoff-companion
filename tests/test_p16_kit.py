@@ -301,7 +301,7 @@ scenarios.errorPanel = async () => {
   retry.click();
   assert.equal(retried, 1);
   for (const bad of [null, undefined, NaN, {}]) clean(`errorPanel(${String(bad)})`, errorPanel(bad, bad, bad));
-  assert.equal(errorPanel("X", "y").querySelector("button"), null, "no retry given, no button");
+  assert.deepEqual(errorPanel("X", "y").querySelectorAll("button").map(text), ["Send a report"], "no retry given: only the report (like a crash reporter, owner 2026-10-23)");
 };
 
 scenarios.poller = async () => {

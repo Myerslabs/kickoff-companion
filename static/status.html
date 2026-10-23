@@ -6,7 +6,8 @@
   <meta name="color-scheme" content="dark">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <title>Kickoff Companion status</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" type="image/svg+xml" href="/static/icons/sun.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/sun-32.png">
   <link rel="stylesheet" href="/static/css/tokens.css">
   <link rel="stylesheet" href="/static/css/components.css">
   <link rel="stylesheet" href="/static/css/app.css">
@@ -135,7 +136,11 @@
     <button id="refresh" type="button" class="btn">Refresh</button>
     <button id="restart" type="button" class="btn">Restart the server</button>
     <span id="restart-said" class="note" role="status"></span>
+    <a id="logs-download" class="btn" href="/api/logs/download" download="kickoff-logs.zip">Download the logs</a>
+    <button id="logs-copy" type="button" class="btn">Copy the last 200 lines</button>
+    <span id="logs-said" class="note" role="status"></span>
   </footer>
+  <textarea id="logs-box" class="logs__box" readonly rows="8" hidden aria-label="The log's last 200 lines"></textarea>
   <p class="foot-credit">Kickoff Companion is free from Myers Labs: <a href="https://github.com/Myerslabs/kickoff-companion" target="_blank" rel="noopener">github.com/Myerslabs/kickoff-companion</a>. <a href="https://collegefootballdata.com" target="_blank" rel="noopener">Data provided by CollegeFootballData.com</a>.</p>
 
   <script type="module" src="/static/js/status.js"></script>

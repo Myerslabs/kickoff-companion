@@ -100,6 +100,7 @@ class Rule:
 DEFAULT_RULES: tuple[Rule, ...] = (
     Rule("wide-search", "GET", "/api/search", 20, 60, query=lambda q: wide_search(q)),  # one CFBD call per new name
     Rule("myteams-warm", "POST", "/api/myteams/warm", 10, 60),
+    Rule("feedback", "POST", "/api/feedback", 6, 600),  # feedback (2026-10-23): six reports in ten minutes a device, each a folder on disk
     Rule("demo-switch", "POST", "/api/demo/enter", 3, 60),
     Rule("demo-leave", "POST", "/api/demo/leave", 3, 60),
     Rule("replay", "POST", "/api/live/replay", 10, 60),

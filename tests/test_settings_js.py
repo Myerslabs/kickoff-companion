@@ -59,9 +59,9 @@ scenarios.settings = async () => {
   page.querySelectorAll(".profile-seg").find((g) => g.getAttribute("aria-label") === "Theme").querySelectorAll("button")[1].click();
   await flush();
   assert.ok(text(main.querySelector(".setting__saved")).includes("Theme saved"), "a tap on Light saves the theme: " + text(main.querySelector(".setting__saved")));
-  // the ten tiles, in the board's order, each saying what is set now
+  // the ten tiles, in the board's order, each saying what is set now, and Feedback after them (owner 2026-10-23, new at the end)
   const tiles = main.querySelectorAll(".profile-tile");
-  assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["Game day", "Trivia", "Display", "Your teams", "Friends and the big screen", "Radio stations", "Claude and loading data", "Server Settings", "About and help", "Setup"]);
+  assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["Game day", "Trivia", "Display", "Your teams", "Friends and the big screen", "Radio stations", "Claude and loading data", "Server Settings", "About and help", "Setup", "Feedback"]);
   const line = (id) => text(main.querySelector(`.profile-tile[data-section="${id}"] small`));
   assert.ok(line("gameday").includes("Station 101.5") && line("gameday").includes("every FBS game"), line("gameday"));
   assert.ok(line("about").includes("Tier 2 key") && line("about").includes("412 of 30,000"), "the key and the plan in About and help: " + line("about"));

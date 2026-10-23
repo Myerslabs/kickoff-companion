@@ -21,6 +21,7 @@ from app.config import RadioSource
 log = logging.getLogger("kickoff.prefs")
 
 SETTINGS_FILE = "settings.json"
+TrayMode = Literal["auto", "on", "off"]
 MAX_EXTRA_PRIMARIES = 4  # primary teams #2 to #5
 MAX_STATIONS = 12
 
@@ -48,6 +49,11 @@ class SavedStation(RadioSource):
         return value
 
 
+def tray_wanted(mode: Any, system: str) -> bool:
+    """Whether a start goes behind the tray icon: on Windows unless the switch says off (the tray is Windows only)."""
+    return system == "windows" and mode != "off"
+
+
 class Prefs(BaseModel):
     """Every field has a safe default, so an empty or missing file is a complete answer."""
 
@@ -56,7 +62,9 @@ class Prefs(BaseModel):
     theme: Literal["dark", "light"] = "dark"
     refreshMinutes: int = Field(default=15, ge=1, le=120)
     autoStart: bool = False
-    trayMode: bool = False
+    # The tray on by default (owner 2026-10-23, the testers' Friday): "auto" is each system's default, the tray on Windows
+    # (the only system with one); "on" and "off" are a choice made in Settings. tray_wanted() says what a start does.
+    trayMode: TrayMode = "auto"
     hints: bool = True  # stat names show a dotted underline and explain themselves when tapped (2026-09-26)
     scheduledRuns: bool | None = None  # Phase 18.7: Claude Code runs the prompts by itself; None (the Prompts phase, owner 2026-10-13: "if they are using the CLI, the scheduled commands run; if not, they do not") means on whenever its command is found
     backups: bool = True  # Phase 18.2: the nightly backup of the archive, notes and settings
@@ -133,6 +141,10 @@ class PrefsStore:
             self.error = f"{self.path.name} is not an object; defaults apply"
             log.warning("Settings file problem: %s", self.error)
             return Prefs()
+        if raw.get("trayMode") is False:
+            raw["trayMode"] = "auto"  # the old switch's default (2026-10-23): nobody chose it, so the new default applies
+        elif raw.get("trayMode") is True:
+            raw["trayMode"] = "on"
         try:
             prefs = Prefs(**raw)
         except ValidationError as exc:
@@ -166,6 +178,8 @@ class PrefsStore:
         unknown = sorted(set(patch) - set(Prefs.model_fields))
         if unknown:
             raise PrefsError(f"unknown setting(s): {', '.join(unknown)}")
+        if isinstance(patch.get("trayMode"), bool):  # a page opened before 2026-10-23 sends the old switch's true or false
+            patch = {**patch, "trayMode": "on" if patch["trayMode"] else "off"}
         try:
             merged = Prefs(**{**self.prefs.model_dump(), **patch})
         except ValidationError as exc:

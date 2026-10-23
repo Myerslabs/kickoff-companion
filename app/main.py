@@ -27,6 +27,7 @@ from app import APP_NAME, BUILD_PHASE, __version__, restart
 from app import shutdown as shutdown_signal
 from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, players, program, radio, ratings, season, setup, ticker, welcome
 from app.api import demo as demo_api
+from app.api import feedback as feedback_api  # feedback with the logs (owner 2026-10-23)
 from app.api import gamenotes as gamenotes_api
 from app.api import host as host_api
 from app.api import matchup as matchup_api  # Phase 16 BX
@@ -59,6 +60,7 @@ from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
 from app.services.connect import print_qr
 from app.services.editions import Editions
+from app.services.feedback import FeedbackStore
 from app.services.gamenotes import GameNotes
 from app.services.grades import GradeService
 from app.services.host import HostAccess
@@ -516,6 +518,7 @@ def create_app(
         refresh_archive=lambda now: app.state.archive.refresh_finished(now),
     )
     app.state.gamenotes = GameNotes(settings.data_dir)  # Phase 19: your own notes during a game
+    app.state.feedback = FeedbackStore(settings.data_dir, settings.log_dir)  # feedback with the logs (owner 2026-10-23); the wall clock, like the log's
     app.state.host_access = HostAccess(settings.data_dir)  # Phase 18.6: guests are view-only once a PIN is set
     app.state.board = BoardLauncher(settings.data_dir)  # Phase 18.6: the game-day board on a chosen monitor
     app.state.prompt_runs = build_prompt_runs(app)  # the Prompts phase: every prompt in one run (the page, the command line, the schedule's catch-up)
@@ -563,6 +566,7 @@ def create_app(
     app.include_router(season_notes_api.router)  # Phase 17 Part 3a: the preseason and coaches prompts
     app.include_router(prompts_api.router)  # the Prompts phase (2026-10-13): the Prompts page and the one run
     app.include_router(trivia_api.router)  # the trivia (2026-10-21): the popups, the Trivia page, the joins and answers
+    app.include_router(feedback_api.router)  # feedback with the logs (2026-10-23): any device sends, the host reads
     app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app
     app.include_router(gamenotes_api.router)  # Phase 19
     app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen

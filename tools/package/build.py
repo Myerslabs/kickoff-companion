@@ -130,6 +130,11 @@ def write_staging(out: Path = OUT, static: Path = ROOT / "static") -> dict[str, 
     files = {"hash": out / SOURCE_HASH_FILE, "version": out / "version_info.txt"}
     files["hash"].write_text(source_hash() + "\n", encoding="utf-8")
     files["version"].write_text(version_info_text(), encoding="utf-8")
+    drawn = static / "icons" / "kickoff.ico"  # the sun at 16 to 256 px (tools/make_icons.py, owner 2026-10-23)
+    if drawn.is_file():
+        files["icon"] = out / "kickoff.ico"
+        files["icon"].write_bytes(drawn.read_bytes())
+        return files
     for name in ICON_CANDIDATES:
         png = static / "icons" / name
         if png.is_file():

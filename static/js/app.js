@@ -61,6 +61,8 @@ import { installSpoiler } from "./ui/spoiler.js";
 import { startReadiness } from "./ui/readiness.js";
 import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): the join and the question popups
 import { openTodo } from "./ui/todo.js"; // the To do flyout (the layout pass, 2026-10-22): the notes off the page
+import { openFeedback } from "./ui/feedback.js"; // Send feedback with the logs (owner 2026-10-23)
+import { startTrail } from "./ui/trail.js"; // what this tablet did lately, sent with a report
 import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";
 import { createBoardView, seedBoardHistory } from "./views/board.js";
 import { createInviteView } from "./views/invite.js";
@@ -427,6 +429,7 @@ function isTyping(target) {
 
 async function start() {
   installClientLog(); // tablet errors reach logs/app.log (kickoff.client) from here on
+  startTrail(); // the pages, taps, sheets and errors of the last 15 minutes, for Send feedback (owner 2026-10-23)
   applyTextScale(); // this device's text size, before anything is drawn (UX-09)
   const root = document.getElementById("app");
   await Promise.all([loadPrefs(), loadIdentity()]); // the theme, the delay and who "we" are come from the server before anything renders
@@ -462,6 +465,7 @@ async function start() {
     menu: MENU, // the layout pass (owner 2026-10-22): one level at a time, ui/menu-tree.js
     onOpen: (entry, ctx) => openFromMenu(entry, ctx), // a table in the menu opens wide by itself (views/panels.js)
     onTodo: () => openTodo(), // the To do row at the top of the menu (owner 2026-10-22: "its own flyout")
+    onFeedback: () => openFeedback(), // Send feedback at the foot of the menu (owner 2026-10-23)
     subOf: (key) => (key === "game" ? loadProgram().then(() => gameLine()).catch(() => "") : ""), // the game the matchup's tables are about
   });
   root.replaceChildren(page.root); // the loading bar (and its Reload, item 6) gives way to the real one with its Menu

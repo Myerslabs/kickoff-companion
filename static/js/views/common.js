@@ -17,6 +17,7 @@ import { pollMs } from "../prefs.js";
 import { DASH, el, isNum, restoreScroll, scrollState, text } from "../ui/dom.js";
 import { band, loadingSun, stateBlock } from "../ui/states.js";
 import { dataRunActive } from "../ui/run-bar.js";
+import { openFeedback } from "../ui/feedback.js"; // an error panel's Send a report (owner 2026-10-23)
 
 export const FETCH_TIMEOUT_MS = 20000;
 // A page the server is still gathering (a cold cache after a restart: the Game program alone makes a few dozen
@@ -347,12 +348,18 @@ export function errorPanel(title, message, retry) {
       collapsible: false,
       state: { status: "ready" },
       body: () =>
-        stateBlock({
-          kind: "error",
-          lead: `Could not load ${name === DASH ? "this page" : name}.`,
-          detail: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The app tries again every ${minutes} min.`,
-          action: typeof retry === "function" ? { label: "Try now", onClick: () => retry() } : null,
-        }),
+        el(
+          "div",
+          {},
+          stateBlock({
+            kind: "error",
+            lead: `Could not load ${name === DASH ? "this page" : name}.`,
+            detail: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The app tries again every ${minutes} min.`,
+            action: typeof retry === "function" ? { label: "Try now", onClick: () => retry() } : null,
+          }),
+          // like a crash reporter (owner 2026-10-23): the report form, the error already in it
+          el("p", { class: "error-report" }, el("button", { type: "button", class: "btn btn--quiet", onclick: () => openFeedback({ kind: "bug", text: `The ${name === DASH ? "page" : name} page could not load: ${reason}` }) }, "Send a report")),
+        ),
     }),
   );
 }

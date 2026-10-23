@@ -320,14 +320,23 @@ class Launcher:
             exe = "powershell.exe"
             arguments = f"-NoExit -ExecutionPolicy Bypass -File \"{self.script_path}\"" + (" -Tray" if tray else "") + (" -Login" if login else "")
             workdir = str(self.project_root)
+        icon = self.windows_icon()
         return (
             f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(str(target))}); "
             f"$s.TargetPath = {_ps_quote(exe)}; "
             f"$s.Arguments = {_ps_quote(arguments)}; "
             f"$s.WorkingDirectory = {_ps_quote(workdir)}; "
             f"$s.Description = {_ps_quote(DESCRIPTION)}; "
-            f"$s.Save()"
+            + (f"$s.IconLocation = {_ps_quote(icon + ',0')}; " if icon else "")
+            + "$s.Save()"
         )
+
+    def windows_icon(self) -> str | None:
+        """The shortcut's icon (owner 2026-10-23): the Myers Labs sun, the packaged program's own or static\\icons\\kickoff.ico."""
+        if self.program:
+            return str(self.program)
+        ico = self.static_dir / "icons" / "kickoff.ico"
+        return str(ico) if ico.is_file() else None
 
     def tray_scripts_ok(self) -> bool:
         return self.tray_script.is_file()

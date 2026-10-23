@@ -12,7 +12,8 @@ hand with neither (public release Phase 8, "Kickoff Companion.cmd") installs uv 
 installer, for this user only and without admin rights; uv then brings Python and the packages.
 
   -Tray   hide this window behind a tray icon (Open the app, Status page, Show the log, Quit).
-          Also switched on by "Tray mode" in the app's Settings.
+          The default since 2026-10-23: every start goes behind the tray icon unless "Tray mode" is
+          switched off in the app's Settings (Server Settings).
   -Login  started at login (the Startup shortcut passes it): the browser opens only if Settings say
           "Always". A start by hand opens the app in the browser once the server is up.
 #>
@@ -115,13 +116,16 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 if (-not $Tray) {
+    # The tray on by default (owner 2026-10-23): behind the tray icon unless Settings say off. The setting is "auto", "on" or
+    # "off"; a file from before keeps true or false, and false was the old default nobody chose, so only "off" means a window.
+    $Tray = $true
     $settingsFile = Join-Path $root "data\settings.json"
     if (Test-Path -LiteralPath $settingsFile) {
         try {
             $saved = Get-Content -LiteralPath $settingsFile -Raw | ConvertFrom-Json
-            if ($saved.trayMode -eq $true) { $Tray = $true }
+            if ($saved.trayMode -is [string] -and $saved.trayMode -eq "off") { $Tray = $false }
         } catch {
-            Write-Host "data\settings.json could not be read; starting in a window."
+            Write-Host "data\settings.json could not be read; starting behind the tray icon."
         }
     }
 }

@@ -2,8 +2,14 @@
 with white laces on a dark ground of its primary color's hue, drawn with the standard library
 only and kept on disk under data/icons/ by color, so each icon is drawn once.
 
-tools/make_icons.py uses the same drawing for the neutral icons in static/icons/ (the ones a page
-links to before the team is known, and the fallback when drawing fails).
+The program's icon (owner 2026-10-23, the icon board https://claude.ai/artifact/CAnmauKcs6mpTcndK3PBWQ): the Myers Labs
+sun, the app's own loading sun (static/js/ui/states.js), on the app's charcoal. tools/make_icons.py draws it for the
+neutral icons in static/icons/ (the ones a page links to before the team is known, and the fallback when drawing fails),
+the browser tab, the tray and the program; the team's own home-screen icon stays the football.
+
+    sun_png(size, rounded=True, small=False, scale=1.0)   the sun on its tile: rounded with transparent corners for the
+                                                          tab, the tray and the program; square for a home screen
+    ico_bytes(pngs)                                       a Windows .ico holding PNG images of several sizes
 """
 
 from __future__ import annotations
@@ -101,6 +107,106 @@ def png(size: int, pixels: bytes) -> bytes:
 def icon_bytes(name: str, ground: RGB, ball: RGB, samples: int = 3) -> bytes:
     size, scale = SIZES[name]
     return png(size, render(size, scale, ground, ball, samples))
+
+
+# --- the program's icon: the Myers Labs sun ------------------------------------------------------------------------------
+# The drawing in the units of the loading sun's 56-unit box: the tile (corner radius 12, a 1.5 border), the glow (r 14 at a
+# quarter), eight rays (round-capped strokes from r 15.5 to 22, 3.2 wide) and the core (r 10). Under 48 px the sturdier one:
+# no glow, rays from r 15 to 23 and 5.2 wide, the core r 11.5, so a 16 px tab or tray icon is still a sun.
+
+SUN: RGB = (0xFF, 0xD1, 0x66)  # the loading sun's gold (--stale in static/css/tokens.css)
+TILE: RGB = (0x1C, 0x1F, 0x26)  # the charcoal panel
+TILE_EDGE: RGB = (0x2D, 0x32, 0x3C)
+SUN_FULL = {"glow": 14.0, "ray_in": 15.5, "ray_out": 22.0, "ray_width": 3.2, "core": 10.0}
+SUN_SMALL = {"glow": 0.0, "ray_in": 15.0, "ray_out": 23.0, "ray_width": 5.2, "core": 11.5}
+SMALL_BELOW = 48
+
+
+def _mix(a: RGB, b: RGB, t: float) -> RGB:
+    return (a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t)  # type: ignore[return-value]
+
+
+def _sun_shade(x: float, y: float, rounded: bool, small: bool, scale: float) -> tuple[RGB, float]:
+    """(color, alpha) at a point of the 56-unit box: the tile, then the sun drawn `scale` times its size about the middle."""
+    if rounded:
+        qx, qy = max(abs(x - 28) - 16, 0.0), max(abs(y - 28) - 16, 0.0)  # a rounded square: 56 wide, corners of radius 12
+        edge = 12 - math.hypot(qx, qy)
+        if edge < 0:
+            return TILE, 0.0
+        color: RGB = TILE_EDGE if (edge < 1.5 and not small) else TILE
+    else:
+        color = TILE
+    shape = SUN_SMALL if small else SUN_FULL
+    sx, sy = (x - 28) / scale, (y - 28) / scale
+    r = math.hypot(sx, sy)
+    if shape["glow"] and r <= shape["glow"]:
+        color = _mix(color, SUN, 0.25)
+    half = shape["ray_width"] / 2
+    for k in range(8):
+        a = k * math.pi / 4
+        dx, dy = math.sin(a), -math.cos(a)
+        t = min(max(sx * dx + sy * dy, shape["ray_in"]), shape["ray_out"])
+        if math.hypot(sx - t * dx, sy - t * dy) <= half:
+            return SUN, 1.0
+    if r <= shape["core"]:
+        return SUN, 1.0
+    return color, 1.0
+
+
+def sun_pixels(size: int, rounded: bool = True, small: bool | None = None, scale: float = 1.0, samples: int = 4) -> bytes:
+    """RGBA scanlines of the sun icon at `size` px, `samples` squared samples a pixel."""
+    small = size < SMALL_BELOW if small is None else small
+    rows = []
+    n = samples * samples
+    unit = 56 / size
+    for py in range(size):
+        row = bytearray([0])
+        for px in range(size):
+            r = g = b = a = 0.0
+            for j in range(samples):
+                for i in range(samples):
+                    color, alpha = _sun_shade((px + (i + 0.5) / samples) * unit, (py + (j + 0.5) / samples) * unit, rounded, small, scale)
+                    r, g, b, a = r + color[0] * alpha, g + color[1] * alpha, b + color[2] * alpha, a + alpha
+            if a > 0:
+                row += bytes((round(r / a), round(g / a), round(b / a), round(255 * a / n)))
+            else:
+                row += b"\x00\x00\x00\x00"
+        rows.append(bytes(row))
+    return b"".join(rows)
+
+
+def png_rgba(size: int, pixels: bytes) -> bytes:
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    header = struct.pack(">IIBBBBB", size, size, 8, 6, 0, 0, 0)  # 8-bit RGBA
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header) + chunk(b"IDAT", zlib.compress(pixels, 9)) + chunk(b"IEND", b"")
+
+
+def sun_png(size: int, rounded: bool = True, small: bool | None = None, scale: float = 1.0, samples: int = 4) -> bytes:
+    return png_rgba(size, sun_pixels(size, rounded, small, scale, samples))
+
+
+def ico_bytes(pngs: list[bytes]) -> bytes:
+    """A Windows .ico holding each PNG as an image of its own size (Windows reads PNG images since Vista)."""
+    entries = b""
+    offset = 6 + 16 * len(pngs)
+    for data in pngs:
+        size = struct.unpack(">I", data[16:20])[0]
+        dimension = 0 if size >= 256 else size  # 0 stands for 256
+        entries += struct.pack("<BBBBHHII", dimension, dimension, 0, 0, 1, 32, len(data), offset)
+        offset += len(data)
+    return struct.pack("<HHH", 0, 1, len(pngs)) + entries + b"".join(pngs)
+
+
+SUN_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+<!-- Kickoff Companion's icon (owner 2026-10-23): the Myers Labs sun, the app's loading sun, on the charcoal tile; the sturdy
+     drawing a browser tab needs (no glow, thick rays). Drawn by tools/make_icons.py. -->
+<rect width="56" height="56" rx="12" fill="#1C1F26"/>
+<path d="M28 5v8M28 43v8M5 28h8M43 28h8M11.7 11.7l5.7 5.7M38.6 38.6l5.7 5.7M11.7 44.3l5.7-5.7M38.6 17.4l5.7-5.7" stroke="#FFD166" stroke-width="5.2" stroke-linecap="round" fill="none"/>
+<circle cx="28" cy="28" r="11.5" fill="#FFD166"/>
+</svg>
+"""
 
 
 class IconStore:

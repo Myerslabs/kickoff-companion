@@ -62,7 +62,15 @@ if ($Program) {
 }
 
 $icon = New-Object System.Windows.Forms.NotifyIcon
+# The Myers Labs sun (owner 2026-10-23): the packaged program carries it; a checkout has static\icons\kickoff.ico.
 $icon.Icon = [System.Drawing.SystemIcons]::Application
+try {
+    $sun = Join-Path $Root "static\icons\kickoff.ico"
+    if ($Program) { $icon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($Program) }
+    elseif (Test-Path -LiteralPath $sun) { $icon.Icon = New-Object System.Drawing.Icon($sun, 16, 16) }
+} catch {
+    $icon.Icon = [System.Drawing.SystemIcons]::Application
+}
 $icon.Text = "Kickoff Companion (port $port)"
 $icon.Visible = $true
 

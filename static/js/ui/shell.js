@@ -53,7 +53,7 @@ function countEntries(items) {
  * setNotice({ dot, title, body(), onOpen }) or null: a dot on the status pill while `dot`, and the card lists body()
  * under its title; opening the card calls onOpen (it clears the dot).
  */
-export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, subOf, menu = MENU, inlineDrawer = false } = {}) {
+export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, onFeedback, subOf, menu = MENU, inlineDrawer = false } = {}) {
   let currentView = current;
   let todoCount = 0; // the To do's items listed for this page (ui/page-notes.js counts them)
   let live = false;
@@ -329,7 +329,31 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       el("div", { class: "drawer__label" }, "Game day"),
       el("div", { class: "drawer__tiles" }, (Array.isArray(menu.tiles) ? menu.tiles : []).map(tileView)),
       el("div", { class: "drawer__groups" }, groups.map(groupRow)),
+      feedbackRow(),
     ];
+  }
+
+  /** Send feedback at the foot of the opening level (owner 2026-10-23), for every device, guests too. */
+  function feedbackRow() {
+    if (typeof onFeedback !== "function") return null;
+    return el(
+      "button",
+      {
+        class: "drawer__item drawer__group-row drawer__feedback",
+        type: "button",
+        onclick: () => {
+          closeDrawer();
+          try {
+            onFeedback();
+          } catch (error) {
+            console.error("The feedback sheet could not open.", error);
+          }
+        },
+      },
+      el("span", { class: "drawer__icon", "aria-hidden": "true" }, icon("page")),
+      el("span", { class: "drawer__words" }, el("b", {}, "Send feedback"), el("small", {}, "a bug, an idea, with what this tablet just did")),
+      goIcon("wide"),
+    );
   }
 
   function levelView(level) {

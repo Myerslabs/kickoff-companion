@@ -21,7 +21,7 @@ from app.services import plan, stations, teamset
 from app.services.envfile import set_values
 from app.services.launcher import Launcher, open_folder
 from app.services.notes_task import NotesRunner
-from app.services.prefs import PrefsError, PrefsStore
+from app.services.prefs import PrefsError, PrefsStore, tray_wanted
 
 log = logging.getLogger("kickoff.settings")
 
@@ -121,7 +121,7 @@ async def put_settings(request: Request) -> Any:
     errors: list[dict[str, str]] = []
     after = prefs.as_dict()
     if after["autoStart"] != before["autoStart"] or (after["autoStart"] and after["trayMode"] != before["trayMode"]):
-        result = await asyncio.to_thread(launcher.set_enabled, after["autoStart"], tray=after["trayMode"])  # PowerShell takes seconds: off the loop (freeze wave F1, B5)
+        result = await asyncio.to_thread(launcher.set_enabled, after["autoStart"], tray=tray_wanted(after["trayMode"], launcher.system))  # PowerShell takes seconds: off the loop (freeze wave F1, B5)
         if result.get("error"):
             errors.append({"code": "autostart_failed", "message": result["error"]})
     if after.get("awayFromHome") != before.get("awayFromHome"):
@@ -190,7 +190,7 @@ async def desktop_shortcut(request: Request) -> Any:
         return error_response(403, "not_here", "Make the Desktop icon from the server computer itself.")
     prefs: PrefsStore = request.app.state.prefs
     launcher: Launcher = request.app.state.launcher
-    result = await asyncio.to_thread(launcher.desktop_shortcut, tray=prefs.prefs.trayMode)  # off the loop (freeze wave F1, B5)
+    result = await asyncio.to_thread(launcher.desktop_shortcut, tray=tray_wanted(prefs.prefs.trayMode, launcher.system))  # off the loop (freeze wave F1, B5)
     if result.get("error"):
         return error_response(500, "shortcut_failed", result["error"])
     return envelope(result, source="live")

@@ -6,6 +6,7 @@ import { isTopLayer } from "./player-card.js";
 import { el, layerZ, replaceWith, restoreScroll, retireLayer, scrollState, sheetAnchor, swipeToClose, syncPageLock, text } from "./dom.js";
 import { icon } from "./icons.js";
 import { holdLayer, placeLayers } from "./layers.js";
+import { note as trailNote } from "./trail.js";
 
 /**
  * remoteBar({ items: [{ id, label, hint }], onOpen(id), tools })
@@ -86,6 +87,7 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     "data-modal": inline ? null : true,
     style: inline ? null : { zIndex: layerZ() },
   });
+  if (!inline) trailNote("sheet", text(title)); // the feedback trail (2026-10-23)
   const bodyEl = el("div", { class: "side-sheet__body" }, content);
   const titleEl = el("h2", { class: "side-sheet__title" }, text(title));
   const subtitleEl = wide ? el("p", { class: "side-sheet__subtitle", hidden: subtitle ? null : true }, subtitle ? text(subtitle) : null) : null;

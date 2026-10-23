@@ -2570,6 +2570,46 @@ body.board-mode .run-bar { display: none !important; }
 .paper-matchup, .top25-card__tools .btn { min-height: var(--tap); font-size: var(--text-caption); } /* a press target of 44 px, as every button (the rules wave, 2026-10-21) */
 .setup-dev { margin-top: var(--sp-3); }
 
+/* Feedback with the logs (owner 2026-10-23): Send feedback at the foot of the menu, the host's list in Profile, the logs */
+.drawer__feedback { margin-top: var(--sp-3); border-top: 1px solid var(--rule); }
+.feedback-form { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
+.feedback-form__kinds { align-self: flex-start; }
+.feedback-form__ask { font-family: var(--font-cond); font-size: var(--text-title); font-weight: 600; }
+.feedback-form__text { min-height: 150px; resize: vertical; font: inherit; }
+.feedback-form__name { max-width: 320px; }
+.feedback-form__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); }
+.feedback-form__said { margin: 0; color: var(--fog); }
+.feedback-done { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); padding: var(--sp-4) var(--sp-3); }
+.feedback-done__lead { margin: 0; font-family: var(--font-cond); font-size: var(--text-h1); font-weight: 700; }
+.feedback-list { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
+.feedback-list__rows { display: flex; flex-direction: column; gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.feedback-row { display: flex; align-items: center; gap: var(--sp-3); width: 100%; min-height: var(--tap); padding: var(--sp-2) var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); color: var(--chalk); font: inherit; text-align: left; cursor: pointer; }
+@media (hover: hover) { .feedback-row:hover { background: var(--panel-raised); } }
+.feedback-row__words { display: flex; flex-direction: column; min-width: 0; }
+.feedback-row__words b { font-weight: 600; overflow-wrap: anywhere; }
+.feedback-row__words small { color: var(--fog); font-size: var(--text-caption); }
+.feedback-kind { flex: none; display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--rule-strong); border-radius: 12px; font-family: var(--font-cond); font-size: var(--text-chip); font-weight: 600; }
+.feedback-kind--bug { border-color: var(--bad); color: var(--bad); }
+.feedback-kind--enhancement { border-color: var(--stale); color: var(--stale); }
+.feedback-kind--feature { border-color: var(--good); color: var(--good); }
+.feedback-report { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.feedback-report__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.feedback-report__text { margin: 0; font-size: var(--text-body); white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-report__tools { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin: 0; }
+.feedback-report__h { margin: var(--sp-2) 0 0; font-family: var(--font-cond); font-size: var(--text-title); }
+.feedback-trail { width: 100%; border-collapse: collapse; font-size: var(--text-label); }
+.feedback-trail th { padding: 6px 8px; border-bottom: 1px solid var(--rule); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
+.feedback-trail td { padding: 6px 8px; border-bottom: 1px solid var(--row-rule); vertical-align: top; overflow-wrap: anywhere; }
+.feedback-trail td:first-child { white-space: nowrap; color: var(--fog); }
+.feedback-trail__error td { color: var(--bad); }
+.feedback-report__log { width: 100%; }
+.feedback-report__log summary { min-height: var(--tap); display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.feedback-report__log pre { margin: 0; padding: var(--sp-2); background: var(--ground); border-radius: var(--radius); font-size: var(--text-caption); white-space: pre-wrap; overflow-wrap: anywhere; }
+.feedback-mail { display: flex; flex-direction: column; gap: var(--sp-2); align-self: stretch; }
+.error-report { margin: 0; padding: 0 var(--sp-3) var(--sp-3); } /* an error panel's Send a report (2026-10-23) */
+.logs-line p { margin: 0 0 var(--sp-2); }
+.logs__box { width: 100%; font-family: ui-monospace, monospace; font-size: var(--text-caption); }
+
 /* === NV: national list view, national sheet, search and glossary polish === */
 
 /* --- the national list (G3-01, DS-01, LRP-01): one table in a side sheet or on its own page ------------- */

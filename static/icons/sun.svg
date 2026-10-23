@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+<!-- Kickoff Companion's icon (owner 2026-10-23): the Myers Labs sun, the app's loading sun, on the charcoal tile; the sturdy
+     drawing a browser tab needs (no glow, thick rays). Drawn by tools/make_icons.py. -->
+<rect width="56" height="56" rx="12" fill="#1C1F26"/>
+<path d="M28 5v8M28 43v8M5 28h8M43 28h8M11.7 11.7l5.7 5.7M38.6 38.6l5.7 5.7M11.7 44.3l5.7-5.7M38.6 17.4l5.7-5.7" stroke="#FFD166" stroke-width="5.2" stroke-linecap="round" fill="none"/>
+<circle cx="28" cy="28" r="11.5" fill="#FFD166"/>
+</svg>

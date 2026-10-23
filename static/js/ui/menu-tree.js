@@ -173,6 +173,7 @@ const GROUPS = [
       { id: "profile-server", label: "Server Settings", hint: "start at login, backups, HTTPS, restart", page: "profile=server" },
       { id: "profile-about", label: "About and help", hint: "the CFBD key and plan, the version, the files", page: "profile=about" },
       { id: "profile-setup", label: "Setup", hint: "first time setup, the demo, the Archive", page: "profile=setup" },
+      { id: "profile-feedback", label: "Feedback", hint: "the reports sent, with their logs", page: "profile=feedback" }, // owner 2026-10-23
       { heading: "Elsewhere" },
       { id: "invite", label: "Invite friends", hint: "a QR code for the Wi-Fi", page: "invite" },
       { id: "connect", label: "Connect a device", hint: "the first-time setup for a tablet", href: "/setup", external: true },

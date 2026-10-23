@@ -16,7 +16,7 @@ There are two ways to get it: **the download**, a packaged program with nothing 
 | macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). On macOS 15 Sequoia and later that right-click way is gone: double-click it once, let macOS say it cannot verify it, then open **System Settings**, **Privacy & Security**, scroll down to the line about `KickoffCompanion` and choose **Open Anyway**, then **Open**. Or take the uv line below, which needs none of that. Not yet tried on a Mac; say how it went. |
 | Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
 
-The program is the server: the window that opens stays open during the game, and closing it stops the server. The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, so a new version of the program replaces the old folder and loses nothing:
+The program is the server. On Windows it runs behind a sun icon by the clock since 0.25.0 (double-click the sun to open the app; its menu has the status page, the log and Quit, and Quit stops the server; Tray mode in Settings brings the window back). On macOS and Linux the window that opens stays open during the game, and closing it stops the server. The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, so a new version of the program replaces the old folder and loses nothing:
 
 | System | Your files |
 |---|---|
@@ -140,7 +140,7 @@ In the app, open Settings:
 
 - **Start at login** starts the server when you log in. On Windows that is a shortcut in the Startup folder, on Linux a systemd user service (`~/.config/systemd/user/kickoff-companion.service`), on macOS a LaunchAgent (`~/Library/LaunchAgents/com.kickoff-companion.server.plist`). It takes effect at the next login.
 - **Desktop icon** makes a double-click launcher. On Linux it also goes in the app menu.
-- **Tray mode** (Windows only, the code only) hides the server window behind a tray icon. The download has no tray yet; its window stays, or minimize it.
+- **Tray mode** (Windows only) is on by default since 0.25.0: the server window hides behind a tray icon by the clock (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
 
 With the download, the login item and the icon start the program itself; with the code, the start script.
 

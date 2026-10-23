@@ -30,6 +30,7 @@ import { band, note, subhead } from "../ui/states.js";
 import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
 import { radioHelpBlock, reloadRadioSources, startRadio } from "../radio.js";
 import { copyText } from "../ui/notes-paste.js";
+import { feedbackBand, logsLine } from "../ui/feedback.js";
 
 const REPO_URL = "https://github.com/Myerslabs/kickoff-companion"; // the server's own copy wins (about.repoUrl)
 
@@ -170,7 +171,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       start: [
         row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
         row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
-        auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The server's window hides behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start from the Desktop icon or at login.") : null,
+        auto.tray ? row("Tray mode", toggle(p.trayMode !== "off", (value) => change({ trayMode: value ? "on" : "off" }, "Tray mode"), "Tray mode"), "On by default: the server's window hides behind a tray icon by the clock (double-click it to open the app; its menu has Status, Log and Quit). Off keeps the window on the taskbar. Takes effect on the next start.") : null, // on by default (owner 2026-10-23)
         row("Desktop icon", shortcutButton, iconText(auto)),
         row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
         row("HTTPS for my devices", httpsControl(meta.network), `${meta.network?.https ? "On: this server also answers https://." : "Off: plain HTTP only."} On, your own devices trust the certificate once on First time setup and then get the screen lock without the video, one-tap paste of the answer and the home-screen app; guests keep http:// and need nothing. Switching restarts the server.`),
@@ -643,6 +644,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         el("p", { class: "about__link" }, el("a", { href: repo, target: "_blank", rel: "noopener" }, repo), " ", copy, said),
         box,
         filesLine,
+        logsLine(), // owner 2026-10-23: the logs, to download or copy
         updateLine(),
         el("p", { class: "note" }, el("a", { href: dataUrl, target: "_blank", rel: "noopener" }, text(a.dataCredit || "Data provided by CollegeFootballData.com")), ". Not affiliated with any school, conference, the NCAA or CollegeFootballData.com."),
       ),
@@ -661,9 +663,10 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     { id: "server", title: "Server Settings", icon: "bars" },
     { id: "about", title: "About and help", icon: "book" },
     { id: "setup", title: "Setup", icon: "program" },
+    { id: "feedback", title: "Feedback", icon: "page" }, // owner 2026-10-23: the reports with their logs (new: at the end)
   ];
   // the old section names of #settings=... (saved links, the radio's "Add it in Settings") lead to their new homes
-  const ALIASES = { start: "server", quota: "about", plan: "about", prompts: "claude", folders: "about", teams: "teams" };
+  const ALIASES = { start: "server", quota: "about", plan: "about", prompts: "claude", folders: "about", teams: "teams", logs: "about" };
   const sectionOf = (name) => {
     const key = typeof name === "string" ? name.replace(/^settings-/, "") : "";
     const id = ALIASES[key] || key;
@@ -686,6 +689,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       case "server": return [rows(o.start)];
       case "about": return [quotaBand(), aboutBand(), foldersBand()];
       case "setup": return [rows(o.setup), setupBand()];
+      case "feedback": return [feedbackBand()];
       default: return [note("Nothing here.")];
     }
   }
@@ -744,6 +748,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       case "server": return `Start at login ${onOff(p.autoStart === true && auto.supported !== false)} · backups ${onOff(p.backups !== false)} · ${meta.network?.https ? "HTTPS" : "HTTP"} · restart, updates`;
       case "about": return `${text(plan.tierName || meta.quota?.tierName)} key · ${isNum(plan.used) ? fmtNum(plan.used) : DASH} of ${isNum(plan.monthlyLimit) ? fmtNum(plan.monthlyLimit) : DASH} calls · version ${text(meta.about?.version)}`;
       case "setup": return "First time setup · the demo · the Archive · the Season in review";
+      case "feedback": return typeof document !== "undefined" && document.body?.dataset?.role === "guest" ? "Send it from the menu; it goes to the host" : "The reports sent from the menu, each with its logs";
       default: return "";
     }
   }

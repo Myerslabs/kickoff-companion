@@ -4,6 +4,8 @@
 // gets everything as before. A report that fails to send is dropped quietly (logging it would
 // loop), at most MAX_PER_MINUTE go out a minute, and the same message goes out once a minute.
 
+import { note } from "./ui/trail.js";
+
 const ENDPOINT = "/api/client-log";
 const MAX_PER_MINUTE = 20;
 const REPEAT_MS = 60 * 1000;
@@ -39,6 +41,7 @@ export function report(level, kind, parts, stack) {
   if (sending) return; // a report about a failing report would loop
   const message = parts.map(describe).join(" ").slice(0, 2000);
   if (!message || !admit(`${kind}|${message}`)) return;
+  if (level === "error") note("error", message); // the feedback trail (2026-10-23): what went wrong, in order with the taps
   const body = { level, kind, message, stack: typeof stack === "string" ? stack.slice(0, 4000) : null, page: (typeof location !== "undefined" ? location.hash || "/" : null), agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null };
   sending = true;
   try {
