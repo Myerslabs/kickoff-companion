@@ -36,13 +36,15 @@ function cellEl(cell, { label, passes }) {
   const attempts = count(c.attempts);
   const rate = isNum(c.successRate) ? c.successRate : null;
   const main = attempts ? (passes ? `${count(c.completions)}/${attempts}` : `${attempts} ${attempts === 1 ? "run" : "runs"}`) : DASH;
-  const detail = attempts ? `${rate === null ? DASH : fmtPct(rate)} success${isNum(c.yardsPerAttempt) ? ` · ${c.yardsPerAttempt.toFixed(1)} yds` : ""}` : "none";
+  const yards = attempts && isNum(c.yardsPerAttempt) ? ` · ${c.yardsPerAttempt.toFixed(1)} yds` : "";
+  const detail = attempts ? `${rate === null ? DASH : fmtPct(rate)} success${yards}` : "none";
   return el(
     "div",
     { class: `shot-cell shot-cell--${attempts ? successTone(rate) : "none"}`, role: "cell", "aria-label": `${label}: ${main}, ${detail}` },
     el("span", { class: "shot-cell__label" }, label),
     el("span", { class: "shot-cell__main" }, main),
-    el("span", { class: "shot-cell__detail" }, detail),
+    // the yards are their own span: In Game's chart drops them when its cells are narrow (the layout pass, 2026-10-22)
+    el("span", { class: "shot-cell__detail" }, attempts ? `${rate === null ? DASH : fmtPct(rate)} success` : "none", yards ? el("span", { class: "shot-cell__yds" }, yards) : null),
   );
 }
 

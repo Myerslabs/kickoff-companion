@@ -319,12 +319,13 @@ scenarios.placeLayers = async () => {
   assert.equal(placeLayers(), 0);
 };
 
-/** The shell on the page, with a fake history under it. */
-async function page() {
-  const nav = browser("#season", { depth: 2 });
+/** The shell on the page, with a fake history under it. The Pre-Game Program is a tile of the menu's opening level, so
+ *  the menu opens there (on a page inside a group it opens on that group's list: scenarios.drawerLevels). */
+async function page(hash = "#program", current = "program") {
+  const nav = browser(hash, { depth: 2 });
   const navigated = [];
   const { shell } = await import(moduleUrl("ui/shell.js"));
-  const app = shell({ current: "season", onNavigate: (id) => navigated.push(id), onSearch: () => {} });
+  const app = shell({ current, onNavigate: (id) => navigated.push(id), onSearch: () => {} });
   document.body.append(app.root);
   const menu = app.root.querySelector(".menu-button");
   const drawer = app.root.querySelector(".drawer");
@@ -342,7 +343,7 @@ scenarios.drawerBack = async () => {
   nav.userBack();
   await land();
   assert.ok(!open(), "Back closes the menu");
-  assert.equal(nav.loc.hash, "#season", "and the page stays");
+  assert.equal(nav.loc.hash, "#program", "and the page stays");
   assert.equal(document.activeElement, menu, "focus comes back to the Menu button");
   assert.ok(!document.documentElement.classList.contains("is-locked"), "the page scrolls again");
   // closed by hand: its entry goes back out
@@ -371,19 +372,21 @@ scenarios.drawerItem = async () => {
   const { nav, menu, drawer, open, navigated } = await page();
   menu.click();
   await land();
+  drawer.querySelector('.drawer__item[data-entry="stats"]').click(); // the layout pass: Leaders is in the Stats group
+  await land();
   const item = [...drawer.querySelectorAll(".drawer__item")].find((a) => a.getAttribute("href") === "#leaders");
   item.click();
   assert.ok(!open());
   assert.deepEqual(navigated, ["leaders"], "the app goes to the page (app.js onNavigate takes the menu's entry)");
   await land();
-  assert.deepEqual(nav.steps, [], "the menu's entry is left for the new page");
+  assert.deepEqual(nav.steps, [], "the menu's entries are left for the new page");
   assert.equal(document.activeElement, menu, "focus is not left on a hidden item");
 };
 
 scenarios.drawerTab = async () => {
   const { menu, drawer } = await page();
   menu.click();
-  const stops = [...drawer.querySelector(".drawer__panel").querySelectorAll("a, button")];
+  const stops = [...drawer.querySelector(".drawer__panel").querySelectorAll("a, button")].filter((n) => !n.hasAttribute("hidden")); // "‹" hides on the opening level
   const first = stops[0];
   const last = stops[stops.length - 1];
   assert.equal(first.getAttribute("aria-label"), "Close menu", "the × first");
@@ -419,6 +422,48 @@ scenarios.menuOverSheet = async () => {
   await land();
   assert.ok(!open(), "Back closes the menu");
   assert.equal(nav.at, 0);
+  assert.equal(nav.loc.hash, "#program");
+};
+
+// The layout pass (owner 2026-10-22, boards 2 and 3): one level at a time. On a page inside a group the menu opens on that
+// group's list with the page marked; each level below the opening one takes its own entry, so Back, Escape and "‹" go up
+// one level; × closes the whole menu and gives back every entry.
+scenarios.drawerLevels = async () => {
+  const { nav, menu, drawer, open } = await page("#season", "season");
+  menu.click();
+  await land();
+  assert.ok(open());
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "Season sits in My Teams: the menu opens there");
+  assert.equal(drawer.querySelector(".drawer__item.is-marked").dataset.entry, "season", "with Season marked");
+  assert.equal(nav.entries.length, 3, "the menu's entry and its list's");
+  assert.ok(!drawer.querySelector(".drawer__back").hasAttribute("hidden"), "‹ Menu at the head");
+  nav.userBack();
+  await land();
+  assert.ok(open(), "Back goes up one level ...");
+  assert.ok(drawer.querySelector(".drawer__tiles"), "... to the opening level");
+  assert.ok(drawer.querySelector(".drawer__back").hasAttribute("hidden"));
+  drawer.querySelector('.drawer__item[data-entry="game"]').click();
+  await land();
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "This week's game");
+  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 14, "the matchup's fourteen tables, each opening wide");
+  assert.deepEqual(drawer.querySelectorAll(".drawer__item--level").map((a) => a.dataset.entry), ["ingame", "afterfinal"], "and two lists one level down");
+  assert.equal(drawer.querySelectorAll(".drawer__heading").map((h) => h.textContent).join("|"), "The matchup|More");
+  drawer.querySelector('.drawer__item[data-entry="ingame"]').click();
+  await land();
+  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 12, "In Game's twelve panels");
+  assert.equal(drawer.querySelector(".drawer__back span").textContent, "This week's game", "‹ names the list above");
+  key("Escape");
+  await land();
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "This week's game", "Escape goes up one level");
+  drawer.querySelector(".drawer__back").click();
+  await land();
+  assert.ok(drawer.querySelector(".drawer__tiles"), "‹ goes up one level");
+  drawer.querySelector('.drawer__item[data-entry="advanced"]').click();
+  await land();
+  drawer.querySelector('[aria-label="Close menu"]').click();
+  await land();
+  assert.ok(!open(), "× closes the whole menu");
+  assert.equal(nav.at, 0, "and every entry it took goes back out");
   assert.equal(nav.loc.hash, "#season");
 };
 
@@ -509,11 +554,15 @@ scenarios.readiness = async () => {
   const first = await startReadiness(page);
   assert.equal(first.items.length, 2, "a bad row is skipped");
   const note = slot.querySelector(".page-note");
-  assert.ok(note && !note.hasAttribute("hidden"), "the note on the Pre-Game Program");
+  assert.ok(note && !note.hasAttribute("hidden"), "listed for the To do flyout on the Pre-Game Program");
   assert.equal(note.querySelectorAll("a").length, 1, "only a link inside the app is offered");
   assert.ok(!RAW.test(text(note)));
   const { todayKey } = await import(moduleUrl("ui/readiness.js"));
-  assert.equal(localStorage.getItem("kickoff.readiness.seen"), todayKey(), "seen once it was on screen, for the day (owner 2026-10-13: the check is daily)");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "listed is not seen: the note waits off the page (the layout pass, 2026-10-22)");
+  const { parkNotes, takeNotes } = await import(moduleUrl("ui/page-notes.js"));
+  assert.equal(takeNotes(), note, "the To do flyout takes it");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), todayKey(), "seen once the flyout shows it, for the day (owner 2026-10-13: the check is daily)");
+  parkNotes();
   assert.equal(notice.dot, true);
   assert.equal(notice.title, "Not loaded yet");
   assert.ok(text(notice.body()).includes("The 2026 season load"));
@@ -554,9 +603,45 @@ scenarios.readiness = async () => {
   assert.equal(slot.querySelector(".page-note"), null);
 };
 
+// The layout pass (owner 2026-10-22: the To do note "dont show that unless its in its own flyout"): the Menu button counts
+// the To do, a To do row tops whatever list the menu opens on, and the row opens the flyout (onTodo).
+scenarios.todoMenu = async () => {
+  browser("#season", { depth: 2 });
+  const { shell } = await import(moduleUrl("ui/shell.js"));
+  let todo = 0;
+  const app = shell({ current: "season", onNavigate: () => {}, onSearch: () => {}, onTodo: () => { todo += 1; } });
+  document.body.append(app.root);
+  const menu = app.root.querySelector(".menu-button");
+  const drawer = app.root.querySelector(".drawer");
+  const badge = menu.querySelector(".menu-button__badge");
+  assert.ok(badge.hasAttribute("hidden") && menu.getAttribute("aria-label") === null, "nothing to do: no count, the button's own word names it");
+  document.dispatchEvent(new CustomEvent("kickoff:notes", { detail: { count: 2 } }));
+  assert.ok(!badge.hasAttribute("hidden") && badge.textContent === "2", "the count on the Menu button");
+  assert.equal(menu.getAttribute("aria-label"), "Menu, 2 things to do");
+  menu.click();
+  await land();
+  const row = drawer.querySelector(".drawer__todo");
+  assert.ok(row && row.parentNode.className.includes("drawer__list") && row.parentNode.childNodes[0] === row, "the To do row tops the list the menu opens on");
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "the menu still opens on the page's own list");
+  assert.ok(row.textContent.includes("2 things to look at"));
+  row.click();
+  await land();
+  assert.equal(todo, 1, "the row opens the To do flyout");
+  assert.ok(!drawer.hasAttribute("open"), "the menu closes for it");
+  document.dispatchEvent(new CustomEvent("kickoff:notes", { detail: { count: 0 } }));
+  assert.ok(badge.hasAttribute("hidden") && menu.getAttribute("aria-label") === null, "nothing left: no count");
+  menu.click();
+  await land();
+  assert.equal(drawer.querySelector(".drawer__todo"), null, "and no row");
+  document.dispatchEvent(new CustomEvent("kickoff:notes", { detail: { count: "x" } }));
+  assert.ok(badge.hasAttribute("hidden"), "a count that is no number is nothing");
+};
+
 scenarios.pageNotes = async () => {
   window.location.hash = "#program";
-  const { addNote, removeNote, noteShowing, routeIdOf } = await import(moduleUrl("ui/page-notes.js"));
+  const { addNote, removeNote, noteShowing, noteCount, takeNotes, parkNotes, dismissAll, routeIdOf } = await import(moduleUrl("ui/page-notes.js"));
+  const counts = [];
+  document.addEventListener("kickoff:notes", (event) => counts.push(event.detail.count)); // the Menu's count follows the list
   assert.equal(addNote({ id: "x", title: "Nowhere", body: "text" }), null, "no slot on the page: no note");
   const slot = document.createElement("div");
   slot.className = "page-notes";
@@ -566,11 +651,17 @@ scenarios.pageNotes = async () => {
   let shown = 0;
   let dismissed = 0;
   const note = addNote({ id: "ready", title: "Not loaded yet", body: () => { const p = document.createElement("p"); p.append("Items"); return p; }, when: (r) => r === "program", onShow: () => { shown += 1; }, onDismiss: () => { dismissed += 1; } });
-  assert.ok(note && !note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Pre-Game Program");
-  assert.equal(shown, 1);
-  assert.ok(noteShowing("ready"));
+  assert.ok(note && !note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "listed on the Pre-Game Program (the slot itself never shows: CSS)");
+  assert.equal(shown, 0, "listed is not seen: only the To do flyout shows it (the layout pass, 2026-10-22)");
+  assert.ok(noteShowing("ready") && noteCount() === 1);
+  assert.equal(counts[counts.length - 1], 1);
+  assert.equal(takeNotes(), slot.querySelector(".page-note"), "the flyout takes the note");
+  assert.equal(shown, 1, "seen now");
+  parkNotes();
   goRoute("live");
   assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "elsewhere it waits, and the slot leaves no gap");
+  assert.equal(noteCount(), 0);
+  assert.equal(takeNotes(), null, "nothing listed here: nothing for the flyout");
   goRoute("board");
   assert.ok(note.hasAttribute("hidden"));
   goRoute("program");
@@ -591,9 +682,21 @@ scenarios.pageNotes = async () => {
   const greet = addNote({ id: "hi", title: "Welcome", body: ["one", "two"], leaveWithPage: true });
   assert.ok(!greet.hasAttribute("hidden"));
   goRoute("live");
-  assert.equal(greet.isConnected, false, "it goes with the page it was shown on");
+  assert.ok(greet.isConnected, "unseen, it waits for the flyout");
+  takeNotes();
+  parkNotes();
+  goRoute("season");
+  assert.equal(greet.isConnected, false, "seen, it goes with the page it was shown on");
   assert.ok(removeNote("all"));
   assert.equal(removeNote("all"), false);
+  // the flyout's Clear the list: every item listed goes, each telling its owner; one for another page waits
+  let cleared = 0;
+  addNote({ id: "c1", title: "One", body: "x", onDismiss: () => { cleared += 1; } });
+  addNote({ id: "c2", title: "Two", body: "y", when: (r) => r === "glossary" });
+  dismissAll();
+  assert.equal(cleared, 1);
+  assert.equal(noteCount(), 0);
+  assert.ok(removeNote("c2"));
   // a body that will not draw, or a note that cannot say where it belongs
   assert.equal(addNote({ id: "bad", title: "Bad", body: () => { throw new Error("broken"); } }), null);
   const lost = addNote({ id: "lost", title: "Lost", body: "x", when: () => { throw new Error("broken"); } });
@@ -604,7 +707,7 @@ scenarios.pageNotes = async () => {
 
 SCENARIO_NAMES = [
     "sheetBack", "sheetCloseByHand", "stacked", "routeCloses", "goTo", "deadEntry", "deferredPush", "persistAndInline", "leftover",
-    "placeLayers", "drawerBack", "drawerItem", "drawerTab", "menuOverSheet", "escapeOrder", "inlineDrawer", "notice", "readiness", "pageNotes",
+    "placeLayers", "drawerBack", "drawerItem", "drawerTab", "menuOverSheet", "escapeOrder", "drawerLevels", "inlineDrawer", "notice", "readiness", "pageNotes", "todoMenu",
 ]
 
 
@@ -629,7 +732,8 @@ def test_layers_start_under_the_top_bar_from_700_px():
     dom = (JS / "ui" / "dom.js").read_text(encoding="utf-8")
     top_layer = int(re.search(r"Math\.min\((\d+), 46 \+ open\)", dom).group(1))
     assert bar > top_layer, "the Menu stays above the highest sheet"
-    assert drawer > bar, "the menu drawer still covers everything"
+    assert drawer > bar, "the menu drawer lies above the sheets (it starts under the top bar: the layout pass, board 2)"
+    assert ".drawer { top: var(--layer-top, var(--topbar)); }" in block.group(3)
     body = block.group(3)
     assert ".sheet-layer:not(.sheet-layer--inline), .sheet-layer-closing, .card-layer, .card-layer-closing { top: var(--layer-top, var(--topbar)); }" in body
     assert "body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer-closing) { top: 0; }" in body

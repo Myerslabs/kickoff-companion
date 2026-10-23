@@ -161,6 +161,7 @@ def test_a_window_that_cannot_show_the_code_is_no_problem(caplog):
             value.encode("ascii")
             return super().write(value)
 
+    caplog.set_level("INFO", logger="kickoff.connect")  # its own level: the line is info, and no earlier test may be relied on to set it
     assert print_qr("http://kickoff.local:8642/", Ascii()) is False
     assert "status page has it" in caplog.text
     assert print_qr("http://kickoff.local:8642/") is False  # pytest's captured output is not a terminal: nothing printed

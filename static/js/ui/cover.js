@@ -30,7 +30,11 @@
 //       pregame win probability in both teams' own colors for every state; live: { text } (with usPoints and
 //       themPoints) puts the live score and its quarter and clock in the middle, state "live" holds it there; a final
 //       says "Final" (finalNote adds the overtimes), never one side's Won or Lost. label names the card; href makes
-//       the middle (the score or the countdown) a link to the game.
+//       the middle (the score or the countdown) a link to the game. The layout pass (owner 2026-10-22, board 6): the
+//       score alone in the middle ("54 · 47", the sides say who is who), the logo, name, record, AP rank and last five
+//       on rows level across the two sides (an unranked team keeps its empty AP row), the when line in two (the day and
+//       time, then the stadium and the TV), the win probability across the card and a last row of the conditions and
+//       extra (the card's own tools).
 //   coverState({ state, date, startTimeTbd, now })   "final" | "live" | "soon" | "pre" | "tbd" | "unknown".
 //   coverSkeleton()                                  the loading cover in the cover's real shape.
 //   countdownParts(kickoffIso, now), openingLine(spreadOpen, spread, homeName, awayName)   as before.
@@ -106,31 +110,33 @@ function finalScore(props, usAbbr, themAbbr) {
   );
 }
 
-/** Item 11: a compact card's final, neither side's Won or Lost (the card is nobody's): "Final", with its overtimes. */
+/** Item 11: a compact card's final, neither side's Won or Lost (the card is nobody's): "Final", with its overtimes. The
+ *  layout pass (board 6): the points alone, "54 · 47", the winner bright; the abbreviations stay in the label. */
 function neutralFinal(props, usAbbr, themAbbr) {
   const us = props.usPoints;
   const them = props.themPoints;
-  const tail = typeof props.finalNote === "string" && props.finalNote ? `, ${props.finalNote}` : "";
-  if (!isNum(us) || !isNum(them)) return el("div", { class: "cover__countdown cover__state cover__state--final" }, el("span", { class: "num" }, "Final"));
-  const side = (won, abbr, points, first) => el("span", { class: `cover__score-side ${won ? "is-winner" : "is-loser"}` }, first ? `${abbr} ${points}` : `${points} ${abbr}`);
+  const tail = typeof props.finalNote === "string" && props.finalNote ? ` · ${props.finalNote}` : "";
+  if (!isNum(us) || !isNum(them)) return el("div", { class: "cover__countdown cover__state cover__state--final" }, el("span", { class: "num" }, "Final"), tail ? el("small", {}, `Final${tail}`) : null);
+  const side = (won, points) => el("span", { class: `cover__score-side ${won ? "is-winner" : "is-loser"}` }, String(points));
   return el(
     "div",
     { class: "cover__countdown cover__state cover__state--final" },
-    el("span", { class: "num cover__score", "aria-label": `Final: ${usAbbr} ${us}, ${themAbbr} ${them}` }, side(us >= them, usAbbr, us, true), el("span", { class: "cover__score-dot" }, " · "), side(them >= us, themAbbr, them, false)),
+    el("span", { class: "num cover__score", "aria-label": `Final: ${usAbbr} ${us}, ${themAbbr} ${them}` }, side(us >= them, us), el("span", { class: "cover__score-dot" }, " · "), side(them >= us, them)),
     el("small", {}, `Final${tail}`),
   );
 }
 
-/** Item 11: the live score with its quarter and clock (the full cover only says "Under way"). */
+/** Item 11: the live score with its quarter and clock (the full cover only says "Under way"); the points alone, the
+ *  leader bright (board 6). */
 function liveScore(props, usAbbr, themAbbr) {
   const us = isNum(props.usPoints) ? props.usPoints : "–";
   const them = isNum(props.themPoints) ? props.themPoints : "–";
   const ahead = isNum(props.usPoints) && isNum(props.themPoints) ? Math.sign(props.usPoints - props.themPoints) : 0;
-  const side = (lost, value) => el("span", { class: `cover__score-side ${lost ? "is-loser" : "is-winner"}` }, value);
+  const side = (lost, value) => el("span", { class: `cover__score-side ${lost ? "is-loser" : "is-winner"}` }, String(value));
   return el(
     "div",
     { class: "cover__countdown cover__state cover__state--live cover__state--score" },
-    el("span", { class: "num cover__score", "aria-label": `${usAbbr} ${us}, ${themAbbr} ${them}` }, side(ahead < 0, `${usAbbr} ${us}`), el("span", { class: "cover__score-dot" }, " · "), side(ahead > 0, `${them} ${themAbbr}`)),
+    el("span", { class: "num cover__score", "aria-label": `${usAbbr} ${us}, ${themAbbr} ${them}` }, side(ahead < 0, us), el("span", { class: "cover__score-dot" }, " · "), side(ahead > 0, them)),
     el("small", {}, el("i", { class: "cover__live-dot", "aria-hidden": "true" }), text(props.live?.text || "Under way")),
   );
 }
@@ -261,10 +267,14 @@ function recordParts(team, usTeam, { compact = false } = {}) {
     const label = [record(t.conferenceRecord), el("span", { class: "cover-chip__label" }, " conf")];
     parts.push(href ? el("a", { class: "cover-chip cover-chip--link", href, title: "Conference record. Open the standings", "aria-label": `Conference record ${record(t.conferenceRecord)}. Open the standings` }, label) : chip(label, "Conference record"));
   }
-  if (isNum(t.apRank)) parts.push(pollBadge(t.apRank, "AP", { href: pollHref("AP", { team: t.school }), label: text(t.school) }));
+  if (isNum(t.apRank) && !compact) parts.push(apBadge(t)); // a compact card gives the AP rank its own row (board 6)
   const sp = obj(t.sp);
   if (!compact && isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover-chip cover-chip--link" }));
   return parts; // 2026-10-10: no Team page chip; the team's name is the way to its page
+}
+
+function apBadge(t) {
+  return pollBadge(t.apRank, "AP", { href: pollHref("AP", { team: t.school }), label: text(t.school) });
 }
 
 /** A node prop, or null (a string or junk draws nothing). */
@@ -294,9 +304,11 @@ export function cover(props) {
 
   const crew = typeof p.crew === "string" && p.crew.trim() ? p.crew.trim() : null;
   const venueName = typeof venue === "string" && venue.trim() ? venue.trim() : null;
-  const when = [fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venueName ? el("span", { class: "cover__venue" }, wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null) : text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]
-    .filter(Boolean)
-    .flatMap((part, i) => (i ? [" · ", part] : [part]));
+  const dot = (parts) => parts.filter(Boolean).flatMap((part, i) => (i ? [" · ", part] : [part]));
+  const venuePart = venueName ? el("span", { class: "cover__venue" }, wikiLink("stadium", { venue: venueName }, venueName), neutralSite ? " (neutral site)" : null) : null;
+  const when = compact
+    ? [el("span", { class: "cover__when-day" }, dot([fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date)])), venuePart || crew || tv ? el("span", { class: "cover__when-place" }, dot([venuePart, crew || (tv ? text(tv) : null)])) : null] // board 6: two lines
+    : dot([fmtDate(date, "long"), startTimeTbd ? "time TBD" : fmtTime(date), venuePart || text(null), crew ? `on ${crew}` : tv ? `on ${text(tv)}` : null]);
   const staff = obj(p.staff);
   const usStaff = nodeOrNull(staff.us);
   const themStaff = nodeOrNull(staff.them);
@@ -313,13 +325,16 @@ export function cover(props) {
   };
   const teamBlock = (team, side) => {
     const parts = recordParts(team, us, { compact });
+    const form = formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) });
     return el(
       "div",
       { class: `cover__side cover__side--${side}` },
-      wikiLink("football", { team: team.school }, teamLogo(team, { size: compact ? 64 : 112, lazy: compact, className: "cover__logo cover__logo--hero" })),
+      wikiLink("football", { team: team.school }, teamLogo(team, { size: compact ? 56 : 112, lazy: compact, className: "cover__logo cover__logo--hero" })),
       el("div", { class: "cover__name" }, team.school ? teamLink(team.school, text(team.school)) : text(null)), // 2026-10-10: the name opens the team page (the logo keeps Wikipedia)
       el("div", { class: "cover__rec" }, parts.length ? parts : "No record yet"),
-      formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) }),
+      // board 6: a compact card's AP rank and last five on rows of their own, kept when empty so both sides stay level
+      compact ? el("div", { class: "cover__ap" }, isNum(obj(team).apRank) ? apBadge(team) : null) : null,
+      compact ? form || el("div", { class: "form-guide form-guide--none", "aria-hidden": "true" }) : form,
       factsOf(side),
     );
   };
@@ -331,7 +346,7 @@ export function cover(props) {
   const opened = openingLine(line.spreadOpen, line.spread, homeName, awayName);
   if (line.formatted) lineParts.push(el("span", {}, "Line ", el("b", { dataset: { k: "cover-line" } }, text(line.formatted)), opened ? el("small", { class: "cover__opened" }, ` (opened ${opened})`) : null));
   const totalMoved = isNum(line.overUnderOpen) && isNum(line.overUnder) && line.overUnderOpen !== line.overUnder;
-  if (isNum(line.overUnder)) lineParts.push(el("span", {}, "Over/under ", el("b", { dataset: { k: "cover-total" } }, fmtNum(line.overUnder, 1)), totalMoved ? el("small", { class: "cover__opened" }, ` (opened ${fmtNum(line.overUnderOpen, 1)})`) : null));
+  if (isNum(line.overUnder)) lineParts.push(el("span", {}, compact ? "O/U " : "Over/under ", el("b", { dataset: { k: "cover-total" } }, fmtNum(line.overUnder, 1)), totalMoved ? el("small", { class: "cover__opened" }, ` (opened ${fmtNum(line.overUnderOpen, 1)})`) : null));
   const noLine = kind === "final" ? "No line was recorded." : "No betting line yet.";
 
   // item 11: a compact card's score opens its game (ours In Game, any other its box score)
@@ -368,7 +383,14 @@ export function cover(props) {
       { class: "cover__foot" },
       compact ? null : el("div", { class: "cover__foot-start" }, actionRow, extra),
       wp ? el("div", { class: "cover__foot-mid" }, wp) : null,
-      conditions ? el("div", { class: "cover__conditions" }, conditions) : null,
+      // board 6: a compact card's last row, the conditions at the left and its tools at the right
+      compact
+        ? conditions || extra
+          ? el("div", { class: "cover__foot-row" }, conditions ? el("div", { class: "cover__conditions" }, conditions) : el("span"), extra)
+          : null
+        : conditions
+          ? el("div", { class: "cover__conditions" }, conditions)
+          : null,
     ),
   );
 

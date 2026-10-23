@@ -5,13 +5,58 @@
 // openable rows end in a chevron, 'Former' and 'Not FBS' are tags, and a favorite team carries a star.
 // Phase 17 (#8): before typing, the sheet says what search finds and offers example searches to tap; a near
 // miss offers the server's close spellings ("Did you mean") instead of a dead end.
+// The layout pass (owner 2026-10-22, board 2: "Search finds every entry at any depth"): the menu's tables and pages too,
+// matched here on this device, listed first under Screens; a table opens wide, a page opens.
 
 import { icon } from "../ui/icons.js";
 import { ours, usSchool } from "../identity.js";
 import { DASH, el, frag, isNum, teamLogo, text } from "../ui/dom.js";
 import { openSheet } from "../ui/remote.js";
+import { allEntries, findPath, labelOf, MENU } from "../ui/menu-tree.js";
+import { goTo } from "../ui/layers.js";
 import { fetchJson } from "./common.js";
+import { openFromMenu } from "./panels.js";
 import { openPlayer } from "./player.js";
+
+const SCREENS_MAX = 8;
+
+/** The menu's screens whose name, place or hint holds every word of the query (two letters or more each). Exported for the tests. */
+export function screenMatches(query, menu = MENU) {
+  const words = String(query ?? "").toLowerCase().split(/\s+/).filter((w) => w.length >= 2);
+  if (!words.length) return [];
+  const named = (entry) => words.every((w) => String(labelOf(entry.label) || "").toLowerCase().includes(w));
+  return allEntries(menu)
+    .filter(({ entry, where }) => {
+      const hay = `${labelOf(entry.label)} ${where} ${labelOf(entry.hint) || ""}`.toLowerCase();
+      return words.every((w) => hay.includes(w));
+    })
+    .sort((a, b) => Number(!named(a.entry)) - Number(!named(b.entry))) // a screen called by the words first, then those that mention them
+    .slice(0, SCREENS_MAX);
+}
+
+function openScreen(entry, close) {
+  close();
+  if (entry.flyout || entry.live) {
+    openFromMenu(entry, { path: findPath(MENU, (e) => e === entry) || [entry.id], menu: MENU });
+    if (typeof CustomEvent === "function") document.dispatchEvent(new CustomEvent("kickoff:menu-mark", { detail: { mark: entry.id } }));
+  } else if (entry.href) window.open(entry.href, "_blank", "noopener");
+  else if (typeof entry.page === "string") goTo(entry.page);
+}
+
+function screenItem({ entry, where }, close, query) {
+  return el(
+    "li",
+    {},
+    el(
+      "button",
+      { class: "search__item", type: "button", onclick: () => openScreen(entry, close) },
+      el("span", { class: "search__screen", "aria-hidden": "true" }, icon(entry.flyout || entry.live ? "wide" : entry.icon || "page")),
+      el("span", { class: "search__name" }, el("span", {}, marked(labelOf(entry.label), query)), el("small", {}, text(where) || DASH)),
+      el("span", { class: "search__meta" }, entry.flyout || entry.live ? "opens wide" : ""),
+      CHEVRON(),
+    ),
+  );
+}
 
 const DEBOUNCE_MS = 200;
 
@@ -96,13 +141,14 @@ function helpBlock(pick) {
   return el(
     "div",
     { class: "search__help" },
-    el("p", { class: "search__help-lead" }, "Find a team or a player."),
+    el("p", { class: "search__help-lead" }, "Find a team, a player or a screen."),
     el(
       "ul",
       { class: "search__help-list" },
       el("li", {}, "A school, a mascot or an abbreviation finds any FBS team."),
       el("li", {}, `A name or a jersey number finds players on ${usSchool()} and this week's opponent as you type.`),
       el("li", {}, "Search every player (or Enter) asks CFBD about anyone else, from any school or season."),
+      el("li", {}, "A screen's name (Tale of the tape, SP+, Injury Report) opens it."),
     ),
     el(
       "div",
@@ -115,7 +161,7 @@ function helpBlock(pick) {
 
 /** Opens the search sheet. Returns its close function. */
 export function openSearch() {
-  const input = el("input", { class: "search__input", type: "search", placeholder: "Team or player", "aria-label": "Search teams and players", autocomplete: "off", spellcheck: "false", enterkeyhint: "search" });
+  const input = el("input", { class: "search__input", type: "search", placeholder: "Team, player or screen", "aria-label": "Search teams, players and screens", autocomplete: "off", spellcheck: "false", enterkeyhint: "search" });
   const results = el("div", { class: "search__results", "aria-live": "polite" });
   const wideButton = el("button", { class: "btn", type: "button" }, "Search every player");
   let timer = null;
@@ -138,6 +184,8 @@ export function openSearch() {
     const players = Array.isArray(data.players) ? data.players.filter((p) => p && typeof p === "object") : [];
     const all = Array.isArray(data.wide) ? data.wide.filter((p) => p && typeof p === "object") : null;
     const blocks = [];
+    const screens = screenMatches(query);
+    if (screens.length) blocks.push(section("Screens", screens.map((m) => screenItem(m, close, query))));
     if (teams.length) blocks.push(section("Teams", teams.map((t) => teamItem(t, close, query))));
     if (players.length) blocks.push(section(`Players: ${usSchool()}${data.opponent ? ` and ${text(data.opponent)}` : ""}`, players.map((p) => playerItem(p, close, query))));
     if (wide && all) blocks.push(all.length ? section("Every player (CFBD)", all.map((p) => playerItem(p, close, query))) : el("p", { class: "note" }, "CFBD has no player by that name."));
@@ -146,7 +194,7 @@ export function openSearch() {
     if (!teams.length && !players.length && suggest.length) {
       blocks.push(el("div", { class: "search__try" }, el("span", { class: "search__try-label" }, "Did you mean"), suggest.map((name) => el("button", { class: "btn btn--quiet search__try-btn", type: "button", onclick: () => pick(name) }, name))));
     }
-    if (!blocks.length) blocks.push(el("p", { class: "note" }, `No team, ${usSchool()} player or next-opponent player by that name. Search every player to ask CFBD.`));
+    if (!blocks.length) blocks.push(el("p", { class: "note" }, `No screen, team, ${usSchool()} player or next-opponent player by that name. Search every player to ask CFBD.`));
     results.replaceChildren(...blocks);
   }
 

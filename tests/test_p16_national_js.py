@@ -569,7 +569,7 @@ scenarios.search = async () => {
   assert.ok(!t.includes("Card"), "no jargon");
   const tags = results.querySelectorAll(".tag").map((x) => text(x));
   assert.deepEqual(tags, ["Former", "Not FBS"]);
-  assert.equal(results.querySelectorAll("button.search__item .search__go").length, 3, "a chevron on every openable row");
+  assert.equal(results.querySelectorAll("button.search__item .search__go").length, 3 + results.querySelectorAll(".search__screen").length, "a chevron on every openable row, the menu's screens included");
   assert.equal(results.querySelectorAll(".search__item--quiet .search__go").map((x) => text(x)).join(""), "", "never on a row that opens nothing");
   assert.ok(results.querySelector(".search__star") && results.querySelector(".search__item--fav"));
   assert.ok(results.querySelectorAll("mark").length >= 4);
@@ -586,7 +586,7 @@ scenarios.search = async () => {
   input.dispatchEvent(makeEvent("input"));
   await advance(300);
   const help = clean("search help", results);
-  assert.ok(help.includes("Find a team or a player.") && help.includes("jersey number") && help.includes("Search every player"), help);
+  assert.ok(help.includes("Find a team, a player or a screen.") && help.includes("jersey number") && help.includes("Search every player") && help.includes("opens it"), help);
   assert.ok(results.querySelectorAll(".search__try-btn").length >= 1);
   let asked = null;
   route("/api/search", (url) => {

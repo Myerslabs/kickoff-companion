@@ -44,8 +44,10 @@ scenarios.wired = async () => {
   const view = createSeasonView({});
   view.mount(main);
   await settle();
-  // three weeks and two finished games: the lengths disagree, so no dots (never a guess)
-  assert.equal(main.querySelectorAll("circle.spark__res").length, 0);
+  // board 9: three weeks and two finished games, no game ids: the lengths disagree, so the columns are the trends' own weeks
+  // and opponents, with no result and no filled dot (never a guess)
+  assert.equal(main.querySelectorAll("#season-trends .tgrid__game").length, 3);
+  assert.equal(main.querySelectorAll("#season-trends .tgrid__dot.is-win").length, 0);
   view.unmount();
   const data = clone(FIXTURE.season);
   data.trends.weeks = [1, 2];
@@ -56,10 +58,31 @@ scenarios.wired = async () => {
   clearEnvelopeCache();
   again.mount(main);
   await settle();
-  const dots = main.querySelectorAll(".trend circle.spark__res");
-  assert.deepEqual(dots.map((c) => c.getAttribute("class").split("--")[1]), ["w", "l"], "points allowed: a win, then the loss");
-  assert.ok(text(main).includes("Filled dot a win"));
+  const finished = data.schedule.filter((g) => g.completed === true);
+  const heads = main.querySelectorAll("#season-trends .tgrid__game");
+  assert.equal(heads.length, 2, "one column a finished game");
+  assert.deepEqual(heads.map((h) => text(h.querySelector(".tgrid__chip"))), finished.map((g) => g.opponent.abbreviation || g.opponent.school.slice(0, 4).toUpperCase()), "headed by the opponent");
+  assert.ok(heads.every((h) => h.querySelector(".tgrid__chip").style.background), "in the opponent's colors");
+  const row = [...main.querySelectorAll("#season-trends .tgrid__row")].find((r) => text(r).startsWith("Points allowed"));
+  const dots = row.querySelectorAll(".tgrid__dot");
+  assert.deepEqual(dots.map((d) => d.className.includes("is-win")), finished.map((g) => g.result === "W"), "points allowed: a filled dot for a win, a hollow one for a loss");
+  assert.deepEqual(row.querySelectorAll(".tgrid__val").map(text), ["21", "20"], "the value under each game");
+  assert.ok(text(main).includes("a filled dot is a win"));
   again.unmount();
+  // with the game ids the columns follow them, whatever the lengths
+  const ids = clone(FIXTURE.season);
+  ids.trends.gameIds = [finished[1].gameId];
+  ids.trends.weeks = [2];
+  ids.trends.points = [10];
+  route("/api/season/overview", () => envelope(ids));
+  clearEnvelopeCache();
+  const third = createSeasonView({});
+  third.mount(main);
+  await settle();
+  const only = main.querySelectorAll("#season-trends .tgrid__game");
+  assert.equal(only.length, 1);
+  assert.ok(text(only[0]).includes(`${finished[1].usPoints}-${finished[1].themPoints}`), "the game's score under its opponent");
+  third.unmount();
 };
 """
 

@@ -114,6 +114,8 @@ def test_joining_is_case_sensitive_starts_the_day_and_welcomes_a_team_back(tmp_p
     assert q and q["open"] and "answer" not in q and "fact" not in q, "the popup never carries the answer"
     assert svc.now_for("couch coordinators", now[0])["question"]["id"] == q["id"], "every tablet gets the same question"
     assert svc.now_for(None, now[0])["question"] is None, "a tablet that did not join sees no question"
+    shown = svc.now_for(None, now[0], board=True)["question"]
+    assert shown and shown["id"] == q["id"] and "answer" not in shown and shown["yourPick"] is None, "the big screen shows the open question, never its answer"
     day = svc.data["days"]["2026-10-24"]
     right = day["questions"][0]["answer"]
     svc.answer("Couch Coordinators", q["id"], right, now[0] + timedelta(seconds=5))
@@ -131,7 +133,7 @@ def test_joining_is_case_sensitive_starts_the_day_and_welcomes_a_team_back(tmp_p
     assert svc2.now_for("Couch Coordinators", next_week[0])["team"]["season"] == [1, 1]
 
 
-def test_the_pace_outside_our_game_and_one_a_quarter_inside_it(tmp_path, rows):
+def test_the_pace_outside_our_game_and_one_at_each_break_inside_it(tmp_path, rows):
     now = [KICKOFF - timedelta(hours=2)]
     state = {"status": "pre"}
     svc = service(tmp_path, rows, now, state=lambda d: state)
@@ -144,30 +146,62 @@ def test_the_pace_outside_our_game_and_one_a_quarter_inside_it(tmp_path, rows):
     tick(svc, now[0] + timedelta(minutes=15), answer_as="A")
     assert len(day["questions"]) == 2
     assert svc.now_for("A", now[0] + timedelta(minutes=16))["day"]["next"].startswith("Next at ")
-    # the game: nothing until the quarter's eight-minute mark, then once a quarter, never in a half's last two minutes
-    state.update({"status": "in_progress", "period": 1, "clock": {"minutes": 9, "seconds": 0}})
+    # the game (owner 2026-10-22: "They should fire at the end of the quarters, and halftime"): nothing while the clock runs
+    state.update({"status": "in_progress", "period": 1, "clock": {"minutes": 7, "seconds": 59}})
     t = KICKOFF + timedelta(minutes=20)
     tick(svc, t)
-    assert len(day["questions"]) == 2 and "eight-minute" in svc.now_for("A", t)["day"]["next"]
-    state["clock"] = {"minutes": 7, "seconds": 59}
-    tick(svc, t + timedelta(minutes=1), answer_as="A")
+    assert len(day["questions"]) == 2, "no fifteen-minute pace and no question while the quarter is on"
+    assert svc.now_for("A", t)["day"]["next"] == "Next at the end of the 1st quarter"
+    state["clock"] = {"minutes": 0, "seconds": 0}
+    tick(svc, t + timedelta(minutes=10), answer_as="A")
     assert len(day["questions"]) == 3 and day["questions"][-1]["context"] == "game" and day["questions"][-1]["period"] == 1 and day["periods"] == [1]
     assert day["questions"][-1]["school"] in (TEAM, "Diner Tech"), "during the game, the two schools playing"
-    state["clock"] = {"minutes": 3, "seconds": 0}
-    tick(svc, t + timedelta(minutes=16))
-    assert len(day["questions"]) == 3, "one a quarter, and no fifteen-minute pace inside the game"
-    state.update({"period": 2, "clock": {"minutes": 1, "seconds": 59}})
-    tick(svc, t + timedelta(minutes=40))
-    assert len(day["questions"]) == 3, "not in the last two minutes of the half"
-    state.update({"period": 3, "clock": {"minutes": 7, "seconds": 0}})
-    tick(svc, t + timedelta(minutes=70), answer_as="A")
-    assert day["periods"] == [1, 3]
+    state.update({"period": 2, "clock": {"minutes": 14, "seconds": 30}})
+    tick(svc, t + timedelta(minutes=13))
+    assert len(day["questions"]) == 3, "one a break: the start of the 2nd does not ask the 1st again"
+    assert svc.now_for("A", t + timedelta(minutes=13))["day"]["next"] == "Next at halftime"
+    # halftime seen only after the feed moved on: the first three minutes of the 3rd still ask it
+    state.update({"period": 3, "clock": {"minutes": 13, "seconds": 10}})
+    tick(svc, t + timedelta(minutes=60), answer_as="A")
+    assert len(day["questions"]) == 4 and day["periods"] == [1, 2], "halftime's question"
+    # the end of the 3rd missed entirely: never asked late
+    state.update({"period": 4, "clock": {"minutes": 9, "seconds": 0}})
+    tick(svc, t + timedelta(minutes=95))
+    assert len(day["questions"]) == 4 and day["periods"] == [1, 2], "a missed break is not asked late"
+    assert svc.now_for("A", t + timedelta(minutes=95))["day"]["next"] == "Next at the end of the game"
+    # tied after four: the 4th's 0:00 is the end of regulation's question; overtime asks nothing more
+    state["clock"] = {"minutes": 0, "seconds": 0}
+    tick(svc, t + timedelta(minutes=110), answer_as="A")
+    assert len(day["questions"]) == 5 and day["periods"] == [1, 2, 4]
     state.update({"period": 5, "clock": {"minutes": 0, "seconds": 0}})
     tick(svc, t + timedelta(minutes=120))
-    assert len(day["questions"]) == 4, "no question in overtime"
+    assert len(day["questions"]) == 5, "no question in overtime"
     state.update({"status": "final"})
+    tick(svc, t + timedelta(minutes=122))
+    assert len(day["questions"]) == 5, "the end of the game was asked already: the pace takes over, fifteen minutes after"
     tick(svc, t + timedelta(minutes=140), answer_as="A")
-    assert len(day["questions"]) == 5 and day["questions"][-1]["context"] == "post", "after the final the pace is back"
+    assert len(day["questions"]) == 6 and day["questions"][-1]["context"] == "post", "after the final the pace is back"
+
+
+def test_the_final_asks_the_end_of_the_game_once(tmp_path, rows):
+    now = [KICKOFF + timedelta(hours=3)]
+    state = {"status": "in_progress", "period": 4, "clock": {"minutes": 1, "seconds": 0}}
+    svc = service(tmp_path, rows, now, state=lambda d: state)
+    svc.join("A", now[0])
+    tick(svc, now[0])
+    day = svc.data["days"]["2026-10-24"]
+    assert day["questions"] == []
+    state.update({"status": "final", "clock": {"minutes": 0, "seconds": 0}})
+    tick(svc, now[0] + timedelta(minutes=2), answer_as="A")
+    assert len(day["questions"]) == 1 and day["questions"][0]["period"] == 4 and day["questions"][0]["context"] == "game", "the end of the game, about the two schools"
+    tick(svc, now[0] + timedelta(minutes=3))
+    assert len(day["questions"]) == 1, "once"
+    # junk clocks and periods ask nothing
+    for bad in ({"status": "in_progress", "period": None, "clock": None}, {"status": "in_progress", "period": "2", "clock": {"minutes": 0}}, {"status": "in_progress", "period": 0, "clock": {"minutes": 0, "seconds": 0}}):
+        fresh = service(tmp_path / str(len(str(bad))), rows, now, state=lambda d, b=bad: b)
+        fresh.join("B", now[0])
+        tick(fresh, now[0])
+        assert fresh.data["days"]["2026-10-24"]["questions"] == [], bad
 
 
 def test_the_game_only_pace_and_the_switches(tmp_path, rows):

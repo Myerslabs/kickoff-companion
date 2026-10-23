@@ -135,41 +135,101 @@
 .drawer { position: fixed; inset: 0; z-index: 40; display: none; }
 .drawer[open] { display: block; }
 .drawer__scrim { position: absolute; inset: 0; background: rgba(4, 8, 24, 0.65); }
+/* The menu (the layout pass, owner 2026-10-22, boards 2 and 3): one level at a time. The opening level: Search, the six
+   game-day tiles, the groups; a group's list slides in with "‹" back at its head. Rows a thumb can hit: 62 px groups,
+   52 px entries, a hint under each; the table open or opened last and the page on screen are marked in gold. */
 .drawer__panel {
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
-  width: min(320px, 88vw);
+  width: min(420px, 100vw);
   display: flex;
   flex-direction: column;
   background: var(--panel);
   border-left: 1px solid var(--rule-strong);
-  overflow: auto;
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
 }
-.drawer__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: var(--topbar);
-  padding: 0 var(--sp-2) 0 var(--sp-4);
-  border-bottom: 1px solid var(--rule);
+.drawer__head { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); min-height: var(--topbar); padding: 0 var(--sp-2) 0 var(--sp-4); border-bottom: 1px solid var(--rule); }
+.drawer__head h2 { margin: 0; font-family: var(--font-cond); font-size: calc(22px * var(--ui-scale)); }
+.drawer__head h2[hidden], .drawer__back[hidden] { display: none; }
+.drawer__back { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); margin-left: calc(-1 * var(--sp-3)); padding: 0 var(--sp-2); color: var(--team-accent); font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); font-weight: 600; }
+.drawer__back .icon { width: 22px; height: 22px; }
+.drawer__levels { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.drawer__list { display: flex; flex-direction: column; gap: 0; padding: 0 0 var(--sp-4); }
+.drawer__list--down { animation: drawer-down 200ms ease-out; }
+.drawer__list--up { animation: drawer-up 200ms ease-out; }
+@keyframes drawer-down { from { transform: translateX(36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes drawer-up { from { transform: translateX(-36px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+.drawer__search { display: flex; align-items: center; gap: 10px; min-height: 46px; margin: var(--sp-3) var(--sp-3) 0; padding: 0 var(--sp-3); background: var(--ground); border: 1px solid var(--rule-strong); border-radius: 6px; color: var(--fog); font: inherit; font-size: var(--text-label); text-align: left; cursor: pointer; }
+.drawer__search .icon { width: 18px; height: 18px; flex: none; }
+.drawer__label { padding: var(--sp-3) var(--sp-4) 6px; font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fog); }
+.drawer__tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-2); padding: 0 var(--sp-3); }
+.drawer__item { display: flex; align-items: center; gap: var(--sp-3); color: var(--chalk); text-decoration: none; cursor: pointer; }
+.drawer__tile { position: relative; flex-direction: column; justify-content: center; gap: 4px; min-height: 72px; padding: 6px 4px; background: var(--panel-raised); border: 1px solid var(--rule-strong); border-radius: 6px; font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; text-align: center; }
+.drawer__tile .icon { width: 22px; height: 22px; color: var(--team-accent); }
+.drawer__tile .live-dot { position: absolute; top: 8px; right: 10px; margin: 0; }
+.drawer__tile.is-marked { border-color: var(--team-accent); box-shadow: inset 0 -3px 0 var(--team-accent); }
+.drawer__groups { display: flex; flex-direction: column; margin-top: var(--sp-3); border-top: 1px solid var(--rule); }
+.drawer__group-row { min-height: 62px; padding: 6px var(--sp-2) 6px var(--sp-3); border-bottom: 1px solid var(--rule); }
+.drawer__icon { flex: none; display: grid; place-items: center; width: 32px; }
+.drawer__icon .icon { width: 24px; height: 24px; color: var(--team-accent); }
+.drawer__words { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.drawer__words b { font-family: var(--font-cond); font-size: calc(19px * var(--ui-scale)); font-weight: 600; line-height: 1.15; }
+.drawer__words small { color: var(--fog); font-size: var(--text-caption); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drawer__beta { margin-left: 8px; padding: 0 4px; border: 1px solid var(--team-accent); border-radius: 4px; color: var(--team-accent); font-style: normal; font-size: var(--text-caption); letter-spacing: 0.06em; text-transform: uppercase; vertical-align: 2px; }
+.drawer__badge { flex: none; padding: 1px 8px; border-radius: 999px; background: var(--team-accent); color: var(--ground); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 700; }
+.drawer__go { flex: none; display: grid; place-items: center; width: 24px; color: var(--fog); }
+.drawer__go .icon { width: 20px; height: 20px; }
+.drawer__level { display: flex; flex-direction: column; padding: 10px var(--sp-4) 8px; border-bottom: 1px solid var(--rule); }
+.drawer__level b { font-family: var(--font-cond); font-size: calc(24px * var(--ui-scale)); line-height: 1.1; }
+.drawer__level small { color: var(--fog); font-size: var(--text-label); }
+.drawer__level small:empty { display: none; }
+.drawer__heading { padding: 10px var(--sp-4) 4px; font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fog); }
+.drawer__item--page, .drawer__item--wide { min-height: 52px; padding: 4px var(--sp-2) 4px var(--sp-4); border-bottom: 1px solid var(--rule); }
+.drawer__item--level { min-height: 60px; padding: 6px var(--sp-2) 6px var(--sp-4); border-bottom: 1px solid var(--rule); }
+.drawer__item--page .drawer__words b, .drawer__item--wide .drawer__words b { font-size: calc(18px * var(--ui-scale)); }
+.drawer__count { flex: none; color: var(--fog); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; }
+@media (hover: hover) { .drawer__item:not(.drawer__tile):hover { background: var(--panel-raised); } .drawer__tile:hover { border-color: var(--fog); } }
+.drawer__item.is-marked:not(.drawer__tile) { background: color-mix(in srgb, var(--team-accent) 9%, var(--panel)); box-shadow: inset 4px 0 0 var(--team-accent); }
+.drawer__item.is-marked:not(.drawer__tile) .drawer__words b { color: var(--team-accent); }
+@media (prefers-reduced-motion: reduce) { .drawer__list--down, .drawer__list--up { animation: none; } }
+
+/* The wide flyout (the layout pass, owner 2026-10-22, board 4): a table by itself, about 83% of the screen (a phone's whole
+   width), its head "‹ the list", the table's name over the game it is about, ×; its summary under the head; previous and
+   next pinned at its foot while it is on screen. */
+.side-sheet--wide { min-width: 0; }
+@media (min-width: 700px) {
+  .sheet-layer:not(.sheet-layer--inline) > .side-sheet.side-sheet--wide, .sheet-layer-closing > .side-sheet.side-sheet--wide { width: 83vw; min-width: min(360px, 100vw); max-width: none; } /* over item 8's fit-content width, later in the file */
 }
-.drawer__group { padding: var(--sp-4) var(--sp-4) var(--sp-1); color: var(--mist); font-size: var(--text-caption); }
-.drawer__list { list-style: none; margin: 0; padding: 0; }
-.drawer__item {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  min-height: 48px;
-  padding: 0 var(--sp-4);
-  color: var(--chalk);
-  text-decoration: none;
-  cursor: pointer;
-}
-@media (hover: hover) { .drawer__item:hover { background: var(--panel-raised); } }
-.drawer__item[aria-current="page"] { background: var(--panel-raised); box-shadow: inset 3px 0 0 var(--team-accent); }
-.drawer__item small { margin-left: auto; color: var(--fog); font-size: var(--text-caption); }
+.side-sheet--wide > .side-sheet__head { gap: var(--sp-2); padding: 6px var(--sp-2) 6px 6px; }
+.side-sheet__lead { flex: none; }
+.side-sheet__titles { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.side-sheet__titles .side-sheet__title { line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-sheet__subtitle { margin: 0; color: var(--fog); font-size: var(--text-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-sheet__subtitle[hidden] { display: none; }
+.side-sheet--wide > .side-sheet__head > .side-sheet__close { flex: none; border: 1px solid var(--rule); }
+.flyout-back { display: inline-flex; align-items: center; gap: 4px; min-height: var(--tap); padding: 0 12px 0 6px; color: var(--team-accent); font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
+.flyout-back .icon { width: 20px; height: 20px; }
+.side-sheet__foot { position: sticky; bottom: 0; z-index: 3; background: var(--panel); border-top: 1px solid var(--rule-strong); }
+.side-sheet__foot[hidden] { display: none; }
+.flyout-pager { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--sp-2); padding: 8px var(--sp-3); }
+.flyout-pager__prev, .flyout-pager__next { min-height: var(--tap); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; }
+.flyout-pager__prev { justify-self: start; }
+.flyout-pager__next { justify-self: end; }
+.flyout-pager button:disabled { opacity: 0.45; }
+.flyout-pager__count { color: var(--fog); font-size: var(--text-caption); white-space: nowrap; }
+.flyout { display: grid; gap: var(--gap); min-width: 0; }
+.flyout__summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+.flyout__summary p { flex: 1 1 260px; margin: 0; color: var(--fog); font-size: var(--text-label); }
+.flyout__summary p::first-line { color: var(--chalk); }
+.search__screen { flex: none; display: grid; place-items: center; width: 28px; color: var(--team-accent); }
+.search__screen .icon { width: 20px; height: 20px; }
+.band--lifted > .band__head { display: none; }
+.band--lifted[data-collapsed="true"] > .band__body { display: block; }
+.flyout > div > .band > .band__head { display: none; } /* a table that arrives later inside its holder (the results, the news) */
+@media (max-width: 599px) { .flyout-pager__count { display: none; } .flyout-pager { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 
 .radio-bar {
   position: sticky;
@@ -1059,10 +1119,10 @@
 .form-field input:disabled { color: var(--mist); }
 .form-field__help { color: var(--fog); font-size: var(--text-caption); }
 
-/* --- wide-only tab (four views do not fit under 900 px) ------------------------------------------------ */
+/* --- the top bar's three tabs (the layout pass, owner 2026-10-22): Newspaper, Pre-Game Program and In Game fit every tablet,
+   so none hides; under 900 px the wordmark is the school's name alone, never cut ----------------------------------- */
 
-.tab--wide { display: none; }
-@media (min-width: 900px) { .tab--wide { display: inline-flex; } }
+@media (max-width: 899px) { .wordmark em { display: none; } }
 
 /* --- team links and the thin matchup card (owner direction 2026-09-23) ------------------------------ */
 
@@ -1211,16 +1271,63 @@
 .switch:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 2px; }
 .setting__saved { position: sticky; top: calc(var(--topbar) + 4px); z-index: 4; min-height: 20px; margin: 0; padding: 2px 0; background: var(--ground); overflow-wrap: anywhere; } /* a long message covers what it sits on, never shows through it (bug 2026-10-13) */
 .setting__saved--ok { color: var(--good); }
-.page.settings-page { max-width: 1000px; grid-template-columns: minmax(0, 1fr); align-items: start; }
-.page.myteams-page { max-width: 1600px; } /* tables wave 3: My Teams' one band is a 13-column table whose large needs about 1,420 px: a 1080p screen gives it that much, and no more, so its columns stay close */
-.settings-main { display: grid; gap: var(--gap); min-width: 0; }
-.settings-nav { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-.settings-nav__item { flex: none; padding: 6px 12px; border-radius: 4px; border-left: 3px solid transparent; color: var(--fog); text-decoration: none; white-space: nowrap; }
-@media (hover: hover) { .settings-nav__item:hover { color: var(--chalk); background: var(--panel); } }
-.settings-nav__item.is-current { color: var(--chalk); background: var(--panel-raised); border-left-color: var(--team-us); }
-@media (min-width: 900px) {
-  .page.settings-page { grid-template-columns: 200px minmax(0, 1fr); }
-  .settings-nav { position: sticky; top: calc(var(--topbar) + var(--gap)); flex-direction: column; overflow: visible; }
+/* The Profile (the layout pass, board 7, owner 2026-10-22): who and what, the four game-day settings, the tiles; each
+   section opens in the wide flyout (.profile-sheet) */
+.page.profile-page { max-width: 1100px; display: flex; flex-direction: column; gap: var(--sp-4); }
+.profile-hello { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 4px var(--sp-4); align-items: center; padding: var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--team-us); border-radius: var(--radius); }
+.profile-hello__logo { grid-row: span 2; }
+.profile-hello__logo > * { width: 64px; height: 64px; }
+.profile-hello__words { min-width: 0; }
+.profile-hello__words h1 { margin: 0; font-family: var(--font-cond); font-size: calc(28px * var(--ui-scale)); font-weight: 700; line-height: 1.1; text-wrap: balance; }
+.profile-hello__words p { margin: 2px 0 0; color: var(--fog); font-size: var(--text-label); }
+.profile-hello__chips { grid-column: 3; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.profile-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 10px; border: 1px solid var(--rule-strong); border-radius: 14px; font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
+.profile-chip--role { border-color: var(--team-accent); color: var(--team-accent); }
+.profile-chip--good::before, .profile-chip--bad::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--good); }
+.profile-chip--bad::before { background: var(--bad); }
+.profile-facts { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--sp-2); border-top: 1px solid var(--row-rule); }
+.profile-fact { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; min-height: var(--tap); padding: 10px 12px 2px 0; background: none; border: 0; color: var(--chalk); font: inherit; text-align: left; cursor: pointer; }
+.profile-fact + .profile-fact { padding-left: 12px; border-left: 1px solid var(--row-rule); }
+.profile-fact small { color: var(--fog); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.profile-fact b { font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); font-weight: 600; overflow-wrap: anywhere; }
+.profile-fact span { color: var(--fog); font-size: var(--text-caption); }
+@media (hover: hover) { .profile-fact:hover b { color: var(--team-accent); } }
+.profile-label { margin: 0 0 calc(-1 * var(--sp-2)); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.profile-quick { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--sp-5); padding: 4px var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); }
+.profile-quick__row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3); min-height: 60px; padding: 6px 0; border-bottom: 1px solid var(--row-rule); }
+.profile-quick__row:nth-last-child(-n + 2) { border-bottom: 0; }
+.profile-quick__label { display: flex; flex-direction: column; min-width: 0; }
+.profile-quick__label b { font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); font-weight: 600; }
+.profile-quick__label small { color: var(--fog); font-size: var(--text-caption); }
+.profile-quick__slider { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.profile-quick__slider input { width: 130px; min-height: var(--tap); }
+.profile-quick__value { min-width: 40px; text-align: right; font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); }
+.profile-seg button { min-height: var(--tap); padding: 0 12px; }
+.profile-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
+.profile-tile { display: grid; grid-template-columns: 34px minmax(0, 1fr) 20px; gap: var(--sp-3); align-items: start; min-height: 92px; padding: var(--sp-3) var(--sp-3) var(--sp-3) 14px; background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); color: var(--chalk); font: inherit; text-align: left; cursor: pointer; }
+.profile-tile--warn { border-color: color-mix(in srgb, var(--team-accent) 55%, var(--rule)); }
+.profile-tile__icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 6px; background: color-mix(in srgb, var(--team-accent) 12%, transparent); color: var(--team-accent); }
+.profile-tile__icon .icon { width: 20px; height: 20px; }
+.profile-tile__words { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.profile-tile__words b { font-family: var(--font-cond); font-size: calc(19px * var(--ui-scale)); font-weight: 700; line-height: 1.2; }
+.profile-tile__words small { color: var(--fog); font-size: var(--text-label); line-height: 1.4; }
+.profile-tile--warn .profile-tile__words small { color: var(--team-accent); }
+.profile-tile__go { color: var(--fog); }
+.profile-tile__go .icon { width: 18px; height: 18px; }
+@media (hover: hover) { .profile-tile:hover { background: var(--panel-raised); } }
+.profile-foot { margin: 0; text-align: center; }
+.profile-flyout { display: grid; gap: var(--gap); padding-bottom: var(--sp-4); }
+.profile-sheet .profile-flyout > .band:only-of-type > .band__head { display: none; } /* one band in a section: the flyout's title names it */
+@media (min-width: 1180px) { .profile-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 699px) {
+  .profile-hello { grid-template-columns: 48px minmax(0, 1fr); }
+  .profile-hello__logo > * { width: 48px; height: 48px; }
+  .profile-hello__chips { grid-column: 1 / -1; grid-row: auto; flex-direction: row; align-items: center; }
+  .profile-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-fact:nth-child(3) { padding-left: 0; border-left: 0; }
+  .profile-quick { grid-template-columns: minmax(0, 1fr); }
+  .profile-quick__row:nth-last-child(2) { border-bottom: 1px solid var(--row-rule); }
+  .profile-tiles { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 699px) { .setting { grid-template-columns: minmax(0, 1fr); } .setting__control { justify-content: flex-start; } }
 .notes-task { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
@@ -1586,12 +1693,14 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .page { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--gap); align-content: start; width: 100%; max-width: 1320px; margin-inline: auto; padding: var(--gap); }
 /* Phase 17 #7, #10, #28: pages and bands are containers, so a band's own two-up split (offense beside defense)
    follows the band's width, not the screen's: a band in a narrow column stays one column inside. */
-.page, .band, .season__col, .season__guide { container-type: inline-size; }
+.page, .band { container-type: inline-size; }
 /* The flowing page (ui/flow.js): 1 to 4 columns by width, 4 px rows that each band spans by its height, so the
    bands are placed by ui/flow.js in the list's order, each below everything before it (the order rule, 2026-10-13), with no holes. One column is a plain stack. */
 .page.flow { max-width: none; grid-template-columns: repeat(var(--flow-cols, 1), minmax(0, 1fr)); grid-auto-rows: 4px; grid-auto-flow: row; row-gap: 0; column-gap: var(--gap); align-items: start; }
 .page.flow[data-cols="1"] { grid-auto-rows: auto; row-gap: var(--gap); }
 .page.flow > * { min-width: 0; }
+.page.flow > .flow-hold { display: flex; flex-direction: column; } /* flush rows (2026-10-22): a wrapper stretched to its row's bottom passes the room to its band */
+.page.flow > .flow-hold > .band { flex: 1 1 auto; }
 /* #10a: a table never stretches past a readable width, so a stat's name and its numbers stay close */
 .page.flow .stat-table-wrap { width: 100%; max-width: 100%; } /* width: a grid item with auto margins would shrink to its content */
 .page--wide { max-width: none; }
@@ -1990,7 +2099,6 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
 .tt:not(.tt--tug) td.tt__label, .tt:not(.tt--tug) th.tt__label, .tt:not(.tt--tug) td.tt__cell, .tt:not(.tt--tug) td.tt__rank, .tt:not(.tt--tug) th.tt__rank { width: auto; } /* no percentage widths here: a shrink-to-fit table with a 1% column fills its box instead of shrinking */
 .rgrid { max-width: 1000px; }
 .shot-field { max-width: 560px; margin-inline: auto; }
-.settings-main { max-width: 860px; }
 
 /* Phase 19: press targets reach 44 px (docs/03-DESIGN.md, touch and accessibility) without growing the small things themselves: an
    invisible area around each one makes up the difference, as the rank chips already do. And no text under 13 px. */
@@ -1998,7 +2106,7 @@ body.cvd-safe .shot-cell--cold { background: rgba(230, 159, 0, 0.8); }
 :where(button.team-link, .chips-row__chip, a.cover-chip, a.list-link, a.tag, .poll-badge--link, a.form-guide__game, .record-box__link, .team-head__link, a.wiki-link, button.pill, .leader-who--btn, button.tt__who-btn, input.switch, .notes-paste__path, a.wordmark, .rank-chip--link, button.tt__get, a.tt__get, a.live-flag)::after { content: ""; position: absolute; inset: var(--slop-44); }
 :root { --slop-44: min(0px, calc((100% - 44px) / 2)); } /* the invisible margin that brings a small thing to a 44 px press target */
 .stat-table tr[role="button"] > td, .stat-table tr[role="button"] > th { height: 44px; }
-.settings-nav__item, .depth-card__pick, .rgrid__chip { min-height: 44px; }
+.depth-card__pick, .rgrid__chip { min-height: 44px; }
 .rank-chip__hash, .poll-badge__poll { font-size: calc(13px * var(--ui-scale)); }
 small, .cover__opened { font-size: max(13px, 0.85em); }
 
@@ -2036,6 +2144,7 @@ input[type="range"] { min-height: 44px; }
 @media (min-width: 700px) {
   .topbar { z-index: 60; }
   .drawer { z-index: 62; }
+  .drawer { top: var(--layer-top, var(--topbar)); } /* the layout pass (board 2): the menu starts under the top bar, so Menu closes it again */
   .sheet-layer:not(.sheet-layer--inline), .sheet-layer-closing, .card-layer, .card-layer-closing { top: var(--layer-top, var(--topbar)); }
   body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer-closing) { top: 0; }
 }
@@ -2064,10 +2173,19 @@ body.board-mode :is(.sheet-layer, .sheet-layer-closing, .card-layer, .card-layer
 @media (max-width: 699px) { /* a phone: the whole width the page has (100vw would count a scrollbar and run past it) */
   .sheet-layer:not(.sheet-layer--inline) > .side-sheet, .sheet-layer-closing > .side-sheet, .card-layer > .player-card, .card-layer-closing > .player-card { left: 0; right: 0; width: auto; min-width: 0; max-width: none; border-bottom-left-radius: 0; }
 }
-/* C. Nothing opens by itself over the page: notes above it instead (ui/page-notes.js), in a slot between the top bar and
-   the page that shows only while a note does. "Not loaded yet" on the Pre-Game Program (ui/readiness.js), a guest's
-   welcome on the page it lands on (ui/guest.js). Never on the board (the hide list above), never printed. */
-.page-notes { display: grid; gap: var(--gap); width: 100%; max-width: 1320px; margin-inline: auto; padding: var(--gap) var(--gap) 0; box-sizing: border-box; }
+/* C. Nothing opens by itself over the page: the To do note instead (ui/page-notes.js). The layout pass (owner 2026-10-22:
+   "dont show that unless its in its own flyout"): its slot between the top bar and the page never shows; the To do
+   flyout (ui/todo.js), opened from the menu's To do row, carries the note while open, and the Menu counts its items.
+   Never on the board (the hide list above), never printed. */
+.page-notes { display: none; }
+.todo-sheet .page-note { padding: 0; background: none; border: 0; border-radius: 0; }
+.todo-sheet .page-note__head { display: none; } /* the flyout's own title and its Clear the list stand for the note's head */
+.todo-sheet .page-note__list { gap: var(--sp-4); }
+.todo-flyout { padding: var(--sp-2) 0 var(--sp-3); }
+.todo-flyout__foot { display: flex; justify-content: flex-end; }
+.menu-button { position: relative; }
+.menu-button__badge { position: absolute; top: -7px; right: -7px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--team-accent); color: var(--ground); box-shadow: 0 0 0 2px var(--panel); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 700; line-height: 1; box-sizing: border-box; pointer-events: none; }
+.drawer__todo { width: 100%; margin: var(--sp-3) 0 0; background: color-mix(in srgb, var(--team-accent) 9%, var(--panel)); border: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); box-shadow: inset 4px 0 0 var(--team-accent); font: inherit; text-align: left; }
 .page-notes[hidden], .page-note[hidden] { display: none; }
 .page-note { display: grid; gap: var(--sp-2); min-width: 0; padding: var(--sp-2) var(--sp-2) var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule-strong); border-left: 3px solid var(--team-accent); border-radius: var(--radius); }
 .page-note__head { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--tap); }
@@ -2121,8 +2239,44 @@ body.board-mode .run-bar { display: none !important; }
 .prompts__state { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
 .prompts__missing { color: var(--fog); font-size: var(--text-caption); }
 .pill--loaded { color: var(--good); border-color: var(--good); }
-.pill--partial { color: var(--chalk); border-color: var(--rule-strong); }
+.pill--partial { color: var(--team-accent); border-color: var(--team-accent); } /* gold: partly loaded, or preloaded with the program until the install loads its own (owner 2026-10-22) */
 .pill--missing { color: var(--bad); border-color: var(--bad); }
+/* Load data, board 8 (the layout pass, owner 2026-10-22): at a glance and the one run, this week first and largest, the
+   season loads in even cards, the schedule as a short table */
+.page.load-page { display: flex; flex-direction: column; gap: var(--sp-4); max-width: 1320px; }
+.load-label { margin: 0 0 calc(-1 * var(--sp-2)); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.load-head { display: grid; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+.load-head > p { margin: 0; }
+.load-tally { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.load-tile { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--sp-2) 10px; background: var(--panel-raised); border-top: 3px solid var(--bad); border-radius: 4px; }
+.load-tile--loaded { border-top-color: var(--good); }
+.load-tile--partial, .load-tile--preloaded { border-top-color: var(--team-accent); }
+.load-tile--none { border-top-color: var(--rule-strong); }
+.load-tile b { font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; line-height: 1.2; }
+.load-tile span { color: var(--fog); font-size: var(--text-caption); }
+.load-head .prompts__run { border-top: 1px solid var(--row-rule); padding-top: var(--sp-3); }
+.load-week { border-left: 3px solid var(--team-accent); }
+.load-checks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--sp-2); margin: 0; padding: 0; list-style: none; }
+.load-check { display: flex; align-items: center; gap: var(--sp-2); min-height: 40px; padding: 4px 10px; background: var(--panel-raised); border-radius: 4px; font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; }
+.load-check::before { content: "¹5"; color: var(--bad); font-weight: 700; }
+.load-check--ok::before { content: "¹3"; color: var(--good); }
+.load-season { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); align-items: stretch; }
+.load-season > .band { min-width: 0; }
+.load-season > .band > .band__body, .load-season .prompts__card { display: flex; flex-direction: column; flex: 1 1 auto; }
+.prompts__card .prompts__missing { margin: 0; color: var(--chalk); font-size: var(--text-label); }
+.prompts__foot { display: grid; gap: var(--sp-2); margin-top: auto; padding-top: var(--sp-2); border-top: 1px solid var(--row-rule); }
+.load-sched { width: auto; min-width: min(100%, 440px); max-width: 100%; align-self: flex-start; justify-self: start; border-collapse: collapse; font-size: var(--text-label); } /* sized to what it holds: a wide page never splits a row apart (page check) */
+.load-sched th { padding: 6px 8px; border-bottom: 1px solid var(--rule); color: var(--fog); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-align: left; text-transform: uppercase; }
+.load-sched td { padding: 8px; border-bottom: 1px solid var(--row-rule); color: var(--chalk); }
+.load-sched th:last-child, .load-sched td:last-child { text-align: right; }
+.load-sched td:last-child { color: var(--fog); }
+.load-sched + .load-sched { margin-top: var(--sp-3); }
+@media (min-width: 1180px) { .load-season { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 699px) {
+  .load-tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .load-checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .load-season { grid-template-columns: minmax(0, 1fr); }
+}
 .pill--none { color: var(--fog); }
 .prompts__tools { display: grid; gap: var(--sp-2); }
 .prompts__said:empty { display: none; }
@@ -2219,27 +2373,79 @@ body.board-mode .run-bar { display: none !important; }
    (score, clock, down and distance, the win probability as a percentage, the last play), the box score with both teams
    side by side, then the last five plays, Score by quarter with the drive lines, and the shot chart with the passes over
    the line of scrimmage and the runs under it; the ticker; one row of buttons (the twelve panels and the five tools).
-   Each box-score half steps through its rows on its own when it is longer than its column (views/live.js stepTv).
-   Narrower or shorter than a stage (a phone, an iPad held upright): the strip, the essentials (the last play and the
-   percentage, large), the ticker, the buttons, then the same cells stacked under them and the page scrolls. The board
-   (#board) is the same frame without the top bar and the buttons, scaled to fill the screen (views/board.js fitZoom). */
+   The layout pass (owner 2026-10-22, https://claude.ai/artifact/Mrt8VH6khBN5GNZ1Mrzbdt): no title bars and no wasted space;
+   the box score keeps the leaders and holds still (no stepping, no stuck heads); the dock at the bottom holds the score line
+   (one line, dropping parts by its width), the ticker and the buttons with the five tools pinned right. Narrower or shorter
+   than a stage (a phone, an iPad held upright): the cells stack and the page scrolls under the pinned dock. The board
+   (#board) is the same frame without the top bar, its foot in place of the buttons, scaled to fill the screen. */
 .live-frame { display: flex; flex-direction: column; min-width: 0; }
-.live-frame .strip { position: sticky; }
+.live-dock { position: sticky; bottom: var(--dock-h, 0px); z-index: 21; container: dock / inline-size; background: var(--panel); }
+.live-dock .strip { position: static; flex-wrap: nowrap; gap: var(--sp-2) var(--sp-4); padding: 6px var(--sp-4); border-bottom: 0; border-top: 3px solid var(--team-accent); background: var(--panel-raised); white-space: nowrap; overflow: hidden; }
+.live-dock .strip__situation, .live-dock .strip__right { flex-basis: auto; }
+.live-dock .strip__right { margin-left: 0; min-width: 0; flex: 0 1 auto; justify-content: flex-start; }
+.live-dock .strip__extras { gap: var(--sp-4); }
+.live-dock .strip__wp, .live-dock .strip__last { padding-left: var(--sp-4); border-left: 1px solid var(--rule-strong); }
+.live-dock .strip__last { flex: 0 1 auto; min-width: 0; }
+.live-dock .strip__last-words { font-family: var(--font-cond); font-size: var(--text-strip); }
+.live-dock .live-ticker { margin: 0; }
+.live-dock .ticker { border-radius: 0; border-left: 0; border-right: 0; }
+.live-dock .remote { position: static; }
+.live-dock__line:empty { display: none; }
+.live-dock__play { display: none; align-items: baseline; gap: 8px; min-height: var(--tap); padding: 0 var(--sp-3); background: var(--panel); border-top: 1px solid var(--rule); white-space: nowrap; overflow: hidden; }
+.live-dock__play-label { flex: none; font-size: var(--text-caption); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--team-accent); }
+.live-dock__play-words { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); font-weight: 600; }
+/* one line always (owner 2026-10-22): the line drops its least-needed parts as the dock narrows, never wraps */
+@container dock (max-width: 1299px) { .strip__last-ppa, .strip__last-when { display: none; } }
+@container dock (max-width: 999px) {
+  .strip__ball-words, .strip__wp-kick, .strip__last-who { display: none; }
+  .live-dock .strip { gap: var(--sp-2) var(--sp-3); padding: 6px var(--sp-3); }
+  .live-dock .strip__extras { gap: var(--sp-3); }
+  .live-dock .strip__wp, .live-dock .strip__last { padding-left: var(--sp-3); }
+  .live-dock .strip__team, .live-dock .strip__clock, .live-dock .strip__situation, .live-dock .strip__last-words { font-size: calc(19px * var(--ui-scale)); }
+  .live-dock .strip__pts, .live-dock .strip__wp-pct { font-size: calc(25px * var(--ui-scale)); }
+}
+@container dock (max-width: 699px) {
+  .live-dock .strip__last { display: none; }
+  .live-dock--play .live-dock__play { display: flex; }
+  .live-dock--play .live-ticker { display: none; }
+}
+@container dock (max-width: 519px) {
+  .strip__spot, .live-dock .strip__wp-who { display: none; }
+  .live-dock .strip { gap: var(--sp-2); padding: 4px var(--sp-2); }
+  .live-dock .strip__wp { padding-left: var(--sp-2); }
+  .live-dock .strip__team, .live-dock .strip__clock, .live-dock .strip__situation { font-size: calc(17px * var(--ui-scale)); }
+  .live-dock .strip__pts, .live-dock .strip__wp-pct { font-size: calc(22px * var(--ui-scale)); }
+}
+/* the panel row with the five tools pinned at its right end (owner 2026-10-22); a phone scrolls the whole row as before */
+.remote--split { padding: 0; gap: 0; overflow: hidden; }
+.remote__panels { display: flex; gap: var(--sp-2); flex: 1 1 auto; min-width: 0; padding: var(--sp-2) var(--sp-3); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.remote__panels::-webkit-scrollbar { display: none; }
+.remote__tools { display: flex; gap: var(--sp-2); flex: none; padding: var(--sp-2) var(--sp-3); border-left: 1px solid var(--rule-strong); background: var(--panel); }
+.remote__tools .remote__btn { min-width: 0; padding: 4px 12px; }
+@media (max-width: 599px) {
+  .remote--split { overflow-x: auto; overflow-y: hidden; }
+  .remote__panels { flex: none; overflow: visible; padding-right: 0; }
+  .remote__tools { border-left: 0; background: none; padding-left: var(--sp-2); }
+}
 .live-frame > .final-note { flex: none; margin: 0; padding: 4px var(--sp-3); border-bottom: 1px solid var(--rule); font-size: var(--text-caption); }
 .stage { display: grid; gap: 8px; padding: 8px; min-width: 0; }
 .stage .band { margin: 0; min-height: 0; display: flex; flex-direction: column; }
 .stage .band > .band__body { min-height: 0; }
 .stage__row { display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; }
-.stage-box { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 0; height: 100%; }
-.stage-box__half { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.stage-box__half--us { border-right: 2px solid var(--rule-strong); }
-.stage-box__team { display: flex; align-items: baseline; gap: 8px; padding: 4px 12px; font-size: var(--text-caption); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); border-bottom: 1px solid var(--rule); }
-.stage-box__team b { color: var(--team-us); }
-.stage-box__team--them b { color: var(--team-them, var(--fog)); }
-.stage-box__team span { font-size: var(--text-caption); letter-spacing: 0; text-transform: none; }
-.stage-box__scroll { min-height: 0; overflow: hidden; }
-.stage-box .note { display: none; } /* the band's summary says where the lines come from */
+.stage-box { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-height: 0; }
+.stage-box__half { display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 4px 0 4px 4px; box-shadow: inset 4px 0 0 var(--team-us); }
+.stage-box__half--them { border-left: 2px solid var(--rule-strong); box-shadow: inset 4px 0 0 var(--team-them, var(--opp)); }
+.stage-box__tables { display: flex; flex-direction: column; min-width: 0; }
+.stage-box__empty { margin: 0; padding: 8px 12px; }
+.stage-box__abbr { margin-right: 8px; letter-spacing: 0.04em; color: var(--team-us); }
+.stage-box__abbr--them { color: var(--team-them, var(--opp-alt)); }
+/* the short box holds still (owner 2026-10-22): its heads never stick (a stuck head covered the passer's row on the iPad held
+   upright), and the three tables of a half share their columns, so the numbers line up from passing to receiving */
+.stage-box .stat-table th { position: static; }
+.stage-box .stat-table :is(th, td):not(:first-child) { width: 15%; }
 .stage-box .stat-table tbody :is(td, th) { padding-top: 2px; padding-bottom: 2px; }
+.stage-box .stat-table-wrap { margin: 0; }
+.stage-box .stat-table thead th { padding-top: 3px; padding-bottom: 3px; height: auto; } /* the heads as slim as the rows: no wasted space */
 .stage-plays { list-style: none; margin: 0; padding: 4px 12px; display: flex; flex-direction: column; min-height: 0; }
 .stage-play { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-bottom: 1px solid var(--rule); min-width: 0; }
 .stage-play:last-child { border-bottom: 0; }
@@ -2254,7 +2460,27 @@ body.board-mode .run-bar { display: none !important; }
 .stage-play--score .stage-play__words { color: var(--team-accent); }
 .stage-plays__empty { margin: 0; padding: 12px; }
 .stage-score { display: flex; flex-direction: column; min-height: 0; }
-.stage-score .qline { padding: 6px 12px; }
+.stage-score .qline { padding: 6px 12px; grid-template-columns: minmax(max-content, 1fr) repeat(var(--q, 4), minmax(26px, 48px)) minmax(36px, 60px); } /* the teams' abbreviations whole (they were cut to "S…") */
+.stage-score .qline__team { overflow: visible; }
+/* the trivia standings at Score by quarter's foot (owner 2026-10-22), on In Game and the board alike */
+.stage-trivia { margin: auto 12px 10px; }
+.stage-trivia[hidden] { display: none; }
+.trivia-panel { display: grid; gap: 2px; padding: 6px 10px 4px; background: var(--panel-raised); border: 1px solid var(--rule); border-left: 4px solid var(--team-accent); border-radius: var(--radius); }
+.trivia-panel__head { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.trivia-panel__title { flex: none; font-family: var(--font-cond); font-size: calc(18px * var(--ui-scale)); color: var(--team-accent); }
+.trivia-panel__sub { min-width: 0; color: var(--fog); font-size: var(--text-caption); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.trivia-panel__clock { margin-left: auto; flex: none; font-family: var(--font-cond); font-weight: 700; color: var(--team-accent); }
+.trivia-panel__table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.trivia-panel__table th { font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--fog); text-align: left; padding: 0 0 2px; }
+.trivia-panel__table td { font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; padding: 2px 0; border-top: 1px solid var(--row-rule); white-space: nowrap; }
+.trivia-panel__table td:first-child { max-width: 0; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.trivia-panel__table :is(th, td).num { text-align: right; padding-left: 12px; }
+.trivia-panel__table tr.is-you td { color: var(--team-accent); }
+.trivia-panel__rank { font-style: normal; color: var(--team-accent); margin-right: 8px; }
+.trivia-panel__q { margin: 0; font-weight: 600; font-size: var(--text-label); }
+.trivia-panel__choices { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: var(--text-label); }
+.trivia-panel__choices li { display: flex; align-items: baseline; gap: 8px; }
+.trivia-panel__foot { margin: 0; color: var(--fog); font-size: var(--text-caption); }
 .stage-drives { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 3px 14px; padding: 6px 12px 8px; border-top: 1px solid var(--rule); font-size: var(--text-label); font-variant-numeric: tabular-nums; }
 .stage-drives__head, .stage-drives__row { display: contents; }
 .stage-drives__head > * { font-size: var(--text-caption); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); }
@@ -2262,7 +2488,20 @@ body.board-mode .run-bar { display: none !important; }
 .stage-drives__them { color: var(--team-them, var(--fog)); text-align: right; }
 .stage-drives__label { color: var(--fog); }
 .stage-drives__val { text-align: right; }
-.shot-chart--both { padding: 6px 12px 6px; gap: 4px; }
+.shot-chart--both { padding: 0 12px 6px; gap: 4px; }
+/* the end zone over the chart (owner 2026-10-22: the chart follows the offense on the field): whose offense, in its color */
+.shot-endzone { display: flex; align-items: baseline; justify-content: flex-start; gap: 12px; margin: 6px 12px 0; padding: 3px 10px; border-radius: var(--radius) var(--radius) 0 0; background: color-mix(in srgb, var(--team-us) 72%, black); color: #fff; font-family: var(--font-cond); white-space: nowrap; overflow: hidden; }
+.shot-endzone--them { background: color-mix(in srgb, var(--team-them, var(--opp)) 72%, black); }
+.shot-endzone__team { font-size: calc(17px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+.shot-endzone__counts { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-caption); font-weight: 600; }
+.shot-endzone + .shot-chart--both .shot-field { border-top-left-radius: 0; border-top-right-radius: 0; }
+.stage .shot-chart-host { container: shot / inline-size; }
+@container shot (max-width: 439px) { .shot-cell__yds { display: none; } } /* narrow cells: the success rate alone, never two lines */
+/* a short stage (an iPad sideways under its top bar and buttons): the trivia keeps its top two and this tablet's line */
+@container score (max-height: 339px) {
+  .trivia-panel__table thead { display: none; }
+  .trivia-panel__table tbody tr:nth-child(n+3):not(.is-you) { display: none; }
+}
 .shot-field--both { grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1fr); }
 .shot-row--runs .shot-cell__label { opacity: 0.85; }
 /* the strip's extras: the percentage and the last play, before the pill */
@@ -2279,27 +2518,17 @@ body.board-mode .run-bar { display: none !important; }
 .remote--stage .remote__btn small { display: none; }
 .remote__btn--tool { text-decoration: none; }
 .remote__btn--tool:visited { color: var(--chalk); }
-/* the essentials (a phone, an iPad upright): the last play and the percentage, large, under the strip */
-.stage-essentials { display: none; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--rule); background: var(--panel); }
-.stage-essentials__label { font-size: var(--text-caption); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--team-accent); }
-.stage-essentials__words { font-family: var(--font-cond); font-size: calc(24px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
-.stage-essentials__wp { font-size: var(--text-label); color: var(--fog); }
-.stage-essentials__wp b { font-family: var(--font-cond); font-size: calc(28px * var(--ui-scale)); color: var(--team-us); margin-right: 6px; }
 @media (max-width: 959px), (max-height: 559px) {
-  .stage-essentials { display: grid; }
-  .live-frame .strip__extras { display: none; }
   .stage-box { grid-template-columns: minmax(0, 1fr); }
-  .stage-box__half--us { border-right: 0; border-bottom: 2px solid var(--rule-strong); }
+  .stage-box__half--them { border-left: 0; border-top: 2px solid var(--rule-strong); }
 }
 /* the stage: one landscape screen, the cells take the room between the strip and the buttons, nothing scrolls */
 @media (min-width: 960px) and (min-height: 560px) {
   .live-frame { height: calc(100vh - var(--topbar)); }
-  .live-frame > .strip { flex: none; }
-  .live-frame > .live-ticker { flex: none; margin: 0; }
-  .live-frame > .remote { flex: none; }
+  .live-frame > .live-dock { flex: none; position: static; }
   .live-frame > div { min-height: 0; }
-  .stage { flex: 1 1 0; min-height: 0; grid-template-rows: minmax(0, 11fr) minmax(0, 10fr); }
-  .stage__row { grid-template-columns: minmax(0, 23fr) minmax(0, 14fr) minmax(0, 21fr); min-height: 0; }
+  .stage { flex: 1 1 0; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+  .stage__row { grid-template-columns: repeat(3, minmax(0, 1fr)); min-height: 0; }
   .stage .band { height: 100%; overflow: hidden; }
   .stage .band > .band__body { flex: 1 1 0; overflow: hidden; display: flex; flex-direction: column; }
   .stage .band > .band__body > * { min-height: 0; }
@@ -2313,11 +2542,21 @@ body.board-mode .run-bar { display: none !important; }
   .stage .shot-field { padding: 4px 6px; gap: 3px; }
   .stage .shot-field__los { padding: 1px 0; }
   .stage .shot-chart > .note { margin: 0; }
-  .stage .stat-table tr[role="button"] > :is(td, th) { height: auto; } /* the box score's rows step; a press height is for a finger */
+  .stage .stat-table tr[role="button"] > :is(td, th) { height: auto; } /* the board has no finger; a tablet's rows keep 44 px through their padding */
+  .stage > .band { height: auto; } /* the short box takes its own height; the row of three takes the rest */
+  .stage > .band > .band__body { flex: none; }
+  .stage .stage-score { flex: 1 1 0; container: score / size; }
+  .stage :is(.qline__head, .qline__team, .qline__val) { padding: 2px 0; line-height: 1.2; } /* room for the trivia under the drive lines */
+  .stage .stage-drives { gap: 1px 14px; padding: 4px 12px; line-height: 1.25; }
+  .stage .trivia-panel { line-height: 1.25; }
+  .stage .stage-trivia { margin: auto 8px 6px; }
+  .live-dock .strip { padding-top: 3px; padding-bottom: 3px; }
+  .live-dock :is(.remote__panels, .remote__tools) { padding-top: 4px; padding-bottom: 4px; }
   .stage .qline { flex: none; }
-  .stage-drives { flex: 1 1 0; align-content: start; }
-  .remote--stage { flex-wrap: wrap; justify-content: center; overflow: visible; }
-  .remote--stage .remote__btn { min-width: 0; flex: 1 1 60px; padding: 4px 6px; min-height: var(--tap); }
+  .stage-drives { flex: none; align-content: start; }
+  .stage .shot-chart-host { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; }
+  .stage .shot-chart-host > .shot-chart { flex: 1 1 0; }
+  .remote--stage .remote__panels .remote__btn { flex: 1 0 auto; min-width: 64px; padding: 4px 8px; } /* no wasted space: the panel buttons fill the row, then slide */
 }
 .ticker__label:empty { display: none; }
 /* your notes inside the program notes, the Notes sheet, the matchup buttons, the Setup page's developer line (wave F5) */
@@ -2329,7 +2568,6 @@ body.board-mode .run-bar { display: none !important; }
 .notes-sheet .game-info { border: 1px solid var(--rule); border-radius: var(--radius); }
 .paper-tools { margin: 4px 0 0; }
 .paper-matchup, .top25-card__tools .btn { min-height: var(--tap); font-size: var(--text-caption); } /* a press target of 44 px, as every button (the rules wave, 2026-10-21) */
-.top25-card__tools { margin: 0; padding: 0 var(--sp-3) var(--sp-2); display: flex; justify-content: flex-end; }
 .setup-dev { margin-top: var(--sp-3); }
 
 /* === NV: national list view, national sheet, search and glossary polish === */
@@ -2448,9 +2686,6 @@ body.board-mode .run-bar { display: none !important; }
 td .poll-badge { margin-left: 0; }
 
 /* the Season grid's columns and page rows (the three-column layout itself is .season, above) */
-.season__col, .season__guide { display: grid; gap: var(--gap); align-content: start; min-width: 0; }
-.season__wide, .season__top { grid-column: 1 / -1; min-width: 0; }
-.season__top:empty { display: none; }
 .skel-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--gap); padding: var(--gap); }
 .skel-tiles .skel--block { height: 96px; margin: 0; }
 /* poll movement (GX-06): the sign carries the color, and the text says it too */
@@ -2565,6 +2800,86 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 /* a row padding the shorter of two tables side by side, so the pair ends on one line (Design rules, owner 2026-10-21; stat-table.js matchRows) */
 .stat-table tr.is-pad td { color: transparent; }
 .stat-table tr.is-pad td::after { content: "\00a0"; }
+
+/* --- Season with My Teams (the layout pass, board 9, owner 2026-10-22) -----------------------------------------------------
+   The selection window on top: the team picked, its facts, ‹ and › through the followed teams, one chip a team. The page
+   under it: bands side by side ending flush ("The bands need to be flush if side by side. they can be in a 2:1 formation
+   or similar"), Schedule | Standings 2:1, Polls | Ratings over Résumé 1:2; a phone stacks them. */
+.season-pick { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-top: 3px solid var(--pick, var(--team-us)); border-radius: var(--radius); }
+.season-pick--loading { min-height: 180px; }
+.season-pick__row { display: grid; grid-template-columns: var(--tap) minmax(0, 1fr) var(--tap); gap: var(--sp-3); align-items: center; }
+.season-pick--alone .season-pick__row { grid-template-columns: minmax(0, 1fr); }
+.season-pick__arrow { display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); border: 1px solid var(--rule-strong); border-radius: 50%; color: var(--chalk); font-family: var(--font-cond); font-size: calc(28px * var(--ui-scale)); font-weight: 600; line-height: 1; text-decoration: none; }
+.season-pick__arrow--off { visibility: hidden; }
+@media (hover: hover) { .season-pick__arrow:not(.season-pick__arrow--off):hover { background: var(--panel-raised); } }
+.season-pick__arrow:active { background-color: var(--press); transform: translateY(1px); }
+.season-pick__who { display: grid; grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--sp-3); row-gap: 2px; align-items: center; min-width: 0; }
+.season-pick__logo { grid-row: span 2; width: 56px; height: 56px; }
+.season-pick__name { margin: 0; font-family: var(--font-cond); font-size: var(--text-h1); font-weight: 700; line-height: 1.05; text-wrap: balance; }
+.season-pick__line { display: flex; flex-wrap: wrap; gap: 4px var(--sp-2); align-items: center; margin: 0; color: var(--fog); font-size: var(--text-label); }
+.season-pick__line span[data-k] { color: var(--chalk); font-family: var(--font-cond); font-weight: 600; font-size: var(--text-body); }
+.season-pick__role { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid var(--pick, var(--team-us)); border-radius: 12px; color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-chip); font-weight: 600; }
+.season-pick__facts { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border-top: 1px solid var(--row-rule); }
+.season-pick__fact { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: var(--sp-2) var(--sp-2) 0; }
+.season-pick__fact:first-child { padding-left: 0; }
+.season-pick__fact + .season-pick__fact { border-left: 1px solid var(--row-rule); }
+.season-pick__fact small { color: var(--fog); font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.season-pick__fact b { font-family: var(--font-cond); font-size: var(--text-title); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.season-pick__fact span { color: var(--fog); font-size: var(--text-caption); }
+.season-pick__teams { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); border-top: 1px solid var(--row-rule); }
+.season-pick__team { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3) 0 6px; border: 1px solid var(--rule-strong); border-radius: 22px; color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-body); font-weight: 600; text-decoration: none; }
+.season-pick__team i { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding: 0 4px; border-radius: 16px; font-size: var(--text-caption); font-style: normal; font-weight: 700; }
+.season-pick__team small { color: var(--fog); font-size: var(--text-caption); font-weight: 500; }
+.season-pick__team.is-on { border-color: var(--stale); background: var(--panel-raised); box-shadow: inset 0 -3px 0 var(--stale); }
+@media (hover: hover) { .season-pick__team:not(.is-on):hover { background: var(--panel-raised); } }
+.season-pick__count { margin-left: var(--sp-2); color: var(--fog); font-size: var(--text-caption); } /* beside the chips, never pushed to the far edge (page check: a stretched row) */
+.season-pick__change { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--stale); font-family: var(--font-cond); font-size: var(--text-body); font-weight: 600; text-underline-offset: 3px; }
+.season-pick__note { margin: 0; color: var(--fog); font-size: var(--text-label); }
+@media (max-width: 699px) {
+  .season-pick { padding: var(--sp-3); }
+  .season-pick__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--sp-2); }
+  .season-pick__fact:nth-child(4) { padding-left: 0; border-left: 0; }
+}
+
+/* the flush rows: the row's grid stretches both columns to the taller one; a band, or the last band of a stack, fills its column */
+.flush-row { display: grid; gap: var(--gap); align-items: stretch; min-width: 0; }
+.flush-row--21 { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.flush-row--12 { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+.flush-row > .band, .flush-stack > .band { min-width: 0; }
+.flush-stack { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
+.flush-stack > .band:last-child { flex: 1 1 auto; }
+@media (max-width: 699px) { .flush-row--21, .flush-row--12 { grid-template-columns: minmax(0, 1fr); } }
+
+/* the trends, one column a game (board 9: "can we identify each week by the team we played, maybe their team colors?") */
+.tgrid-wrap { min-width: 0; overflow-x: auto; overflow-y: hidden; } /* 12 games on a phone scroll sideways inside the band, never up and down */
+.tgrid { --tg-label: 150px; display: grid; min-width: calc(var(--tg-label) + var(--tg-n, 7) * 46px); padding: 0 var(--sp-3); }
+.tgrid__row { display: grid; grid-template-columns: var(--tg-label) minmax(0, 1fr); gap: var(--sp-2); align-items: center; padding: 6px 0; border-bottom: 1px solid var(--row-rule); }
+.tgrid__row--head { border-bottom-color: var(--rule); }
+.tgrid__label { display: flex; flex-direction: column; min-width: 0; }
+.tgrid__label b { font-family: var(--font-cond); font-size: var(--text-body); font-weight: 600; }
+.tgrid__label small { color: var(--fog); font-size: var(--text-caption); }
+.tgrid__games, .tgrid__plot { display: grid; grid-template-columns: repeat(var(--tg-n, 7), minmax(0, 1fr)); min-width: 0; }
+.tgrid__game { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; text-align: center; }
+.tgrid__chip { display: inline-grid; place-items: center; min-width: 40px; max-width: 100%; height: 26px; padding: 0 6px; border-radius: 13px; font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 700; letter-spacing: 0.02em; overflow: hidden; }
+.tgrid__when { color: var(--fog); font-size: var(--text-caption); line-height: 1.2; }
+.tgrid__score { font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; white-space: nowrap; }
+.tgrid__score.is-win { color: var(--good); }
+.tgrid__score.is-loss { color: var(--bad); }
+.tgrid__plot { position: relative; height: 68px; }
+.tgrid__lines { position: absolute; inset: 0 0 auto 0; width: 100%; height: 44px; overflow: visible; pointer-events: none; }
+.tgrid__line { fill: none; stroke: var(--fog); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.tgrid__avg { stroke: var(--stale); stroke-width: 1.5; stroke-dasharray: 4 4; opacity: 0.7; vector-effect: non-scaling-stroke; }
+.tgrid__cell { position: relative; min-width: 0; }
+.tgrid__dot { position: absolute; left: 50%; width: 12px; height: 12px; border: 2.5px solid var(--dot, var(--fog)); border-radius: 50%; background: var(--panel); transform: translate(-50%, -50%); }
+.tgrid__dot.is-win { background: var(--dot, var(--fog)); }
+.tgrid__val { position: absolute; left: 0; right: 0; bottom: 2px; font-family: var(--font-cond); font-size: var(--text-caption); font-weight: 600; text-align: center; }
+@media (max-width: 699px) {
+  .tgrid { --tg-label: 0px; min-width: calc(var(--tg-n, 7) * 40px); padding: 0 var(--sp-2); }
+  .tgrid__row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .tgrid__row--head > .tgrid__label { display: none; }
+  .tgrid__label { flex-direction: row; gap: var(--sp-2); align-items: baseline; }
+}
+body.spoiler-on:not(.spoiler-all) :is(.tgrid__score, [data-k="pick:last"]):not(.spoiler-shown) { filter: blur(0.45em); cursor: pointer; user-select: none; }
 
 /* === The Pre-Game Program from the mock (owner 2026-10-20) ======================================================= */
 /* two bands side by side in one row of the flow, the same height; one column on a phone */
@@ -3033,7 +3348,7 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 .race-badge--out { border: 1px solid var(--rule-strong); color: var(--fog); }
 .helps-chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border-radius: 10px; background: var(--team-accent); color: var(--chalk); font-size: 13px; font-weight: 600; }
 .helps-chip__dot, .ticker__helps-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
-.top25-card__helps { margin: var(--sp-1) var(--sp-3) var(--sp-2); }
+.top25-card__helps { display: inline-flex; margin: 0; }
 .ticker__helps { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; font-family: var(--font-body); font-size: 13px; color: var(--fog); }
 .ticker__helps-dot { background: var(--team-accent); }
 .st__team-badged { display: inline-flex; align-items: center; gap: 6px; }
@@ -3245,6 +3560,87 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 .paper-qline .qline__val { padding: 3px 0; font-size: 1.1em; }
 .paper-qline .qline__val--tot { font-size: 1.2em; }
 
+/* --- the front page (the layout pass, owner 2026-10-22, board 5: https://claude.ai/artifact/Vv827cCpVUGkdDWuN4QeAV) ---------
+   A newspaper's front instead of boxes of two: the skybox under the flag; one dominant story with a banner headline across
+   the page, a deck, the picture and the press box beside it; then tiers of modules of different widths and depths with a
+   rail at the right ("By the numbers", the Top 25 in agate); briefs at the foot. Rules between the tiers, no box chrome. */
+.front { --front-gap: clamp(12px, 1.4vw, 24px); --paper-top: clamp(30px, 3.2vw, 46px); } /* no score numeral bigger than this (the banner is bigger still) */
+.front-sky { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); border-bottom: 1px solid var(--rule-strong); }
+.front-sky__item { display: flex; flex-direction: column; justify-content: center; gap: 2px; min-height: var(--tap); padding: 6px var(--sp-3); border-left: 1px solid var(--rule); color: var(--chalk); text-decoration: none; }
+.front-sky__item:first-child { border-left: 0; padding-left: 0; }
+.front-sky__words { font-family: var(--paper-serif); font-size: calc(16px * var(--ui-scale)); line-height: 1.25; }
+.front-sky__go { color: var(--team-accent); }
+@media (hover: hover) { a.front-sky__item:hover .front-sky__words { text-decoration: underline; text-decoration-color: var(--team-accent); } }
+.front-lead { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.front-banner { margin: 0; font-family: var(--paper-serif); font-size: clamp(30px, 4.2vw, 60px); font-weight: 700; line-height: 1.05; letter-spacing: -0.005em; text-wrap: balance; }
+.front-banner a { color: var(--chalk); text-decoration: none; }
+@media (hover: hover) { .front-banner a:hover { text-decoration: underline; text-decoration-color: var(--team-accent); } }
+.front-banner--live .paper-status { justify-items: start; }
+.front-banner--live .paper-status__score { font-size: clamp(36px, 5vw, 64px); }
+.front-deck { margin: 0; color: var(--fog); font-family: var(--paper-serif); font-size: clamp(17px, 1.5vw, 23px); font-style: italic; line-height: 1.3; text-wrap: balance; }
+.front-leadrow { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: var(--front-gap); margin-top: var(--sp-2); }
+.front-art { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; }
+.front-art .paper-pic { aspect-ratio: 16 / 8; }
+.front-cutline { color: var(--fog); font-family: var(--paper-serif); font-size: var(--text-caption); font-style: italic; }
+.front-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-family: var(--paper-serif); font-size: calc(16px * var(--ui-scale)); line-height: 1.45; }
+.front-col p { margin: 0; }
+.front-col .front-byline { color: var(--fog); font-family: var(--font-cond); font-size: var(--text-label); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
+.front-refer { display: flex; align-items: center; min-height: var(--tap); border-top: 1px solid var(--rule); color: var(--team-accent); font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; text-decoration: none; }
+.front-tier { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--front-gap) var(--front-gap); padding-top: var(--front-gap); }
+.front-tier--two { border-top: 4px double var(--rule-strong); }
+.front-tier--three { border-top: 1px solid var(--rule-strong); }
+.front-span2 { grid-column: span 2; min-width: 0; }
+.front-tier > .front-rail { grid-column: 3; grid-row: 1; min-width: 0; padding-left: var(--front-gap); border-left: 1px solid var(--rule); }
+.front-tier--rail-only > .front-rail, .front-tier--three:not(:has(.front-mod)) > .front-rail { grid-column: 1 / -1; padding-left: 0; border-left: 0; }
+.front-mod { min-width: 0; }
+/* a tier with one module beside the rail (no player story that week): the module takes both columns, so none stands
+   empty between, and a column of briefs runs across it, one brief the whole width (the page check's stretched row, 2026-10-22) */
+@media (min-width: 700px) {
+  .front-tier--three:not(:has(.front-mod + .front-mod)) > .front-mod { grid-column: span 2; }
+  .front-tier--three:not(:has(.front-mod + .front-mod)) .front-briefs--column .front-briefs__list { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+}
+.front-mod + .front-mod { padding-left: var(--front-gap); border-left: 1px solid var(--rule); }
+/* the old boxes inside the front's modules: no chrome, the picture over (or, for the coach, under) the words */
+.front :is(.front-span2, .front-mod) > .paper-box { padding: 0; background: none; border: 0; border-radius: 0; overflow: visible; }
+.front :is(.front-span2, .front-mod) > .paper-box::before { display: none; }
+.front .front-mod > :is(.paper-feat, .paper-art) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: var(--sp-2); }
+.front .front-mod .paper-m { display: none; }
+.front .front-mod .paper-pic { aspect-ratio: 4 / 3; }
+.front .front-mod--coach .paper-words { order: -1; } /* the coach's headline above its picture: never side by side with the player's (board 5) */
+.front .front-mod .paper-words { justify-content: flex-start; padding-inline: 0; }
+.front .front-mod :is(.paper-head--feat, .paper-head--art) { font-size: clamp(19px, 1.8vw, 26px); }
+@media (min-width: 700px) { .front .front-span2 .paper-match--big { grid-template-columns: 0 11fr 34fr 11fr 0; column-gap: var(--sp-2); } } /* a phone keeps the helmets over the words */
+.front .front-span2 .paper-match--big .paper-mid { font-size: clamp(20px, 1.9vw, 28px); }
+.front-numbers { display: grid; gap: 10px; padding: 10px 12px 12px; background: var(--panel-raised); border-top: 3px solid var(--team-accent); }
+.front-railhead { margin: 0 0 6px; padding-bottom: 2px; border-bottom: 2px solid var(--chalk); font-family: var(--font-cond); font-size: var(--text-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.front-numbers .front-railhead { margin-bottom: 0; }
+.front-num { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; gap: 10px; margin: 0; }
+.front-num b { font-family: var(--paper-serif); font-size: clamp(28px, 2.6vw, 40px); line-height: 1; }
+.front-num span { color: var(--fog); font-size: var(--text-label); line-height: 1.3; }
+.front-scores { display: flex; flex-direction: column; min-width: 0; }
+.front-agate { display: flex; flex-direction: column; font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); line-height: 1.3; font-variant-numeric: tabular-nums; }
+.front-agate__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 8px; padding: 4px 0; border-bottom: 1px dotted var(--rule); color: var(--chalk); text-decoration: none; }
+.front-agate__row b { font-weight: 700; }
+.front-agate__row.is-us .front-agate__game { color: var(--team-us); }
+.front-agate__l { color: var(--fog); }
+.front-agate__state { color: var(--fog); font-size: var(--text-caption); white-space: nowrap; }
+.front-agate__live { color: var(--bad); font-weight: 700; }
+.front-off { margin: 6px 0 0; color: var(--fog); font-size: var(--text-caption); line-height: 1.35; }
+.front-briefs { padding-top: var(--front-gap); border-top: 1px solid var(--rule-strong); }
+.front-briefs__list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 var(--front-gap); }
+.front-briefs--column { padding-top: 0; border-top: 0; }
+.front-briefs--column .front-briefs__list { grid-template-columns: minmax(0, 1fr); }
+.front-brief { display: grid; gap: 2px; margin: 0; padding: 6px 0; border-bottom: 1px solid var(--rule); font-family: var(--paper-serif); font-size: calc(16px * var(--ui-scale)); line-height: 1.3; }
+.front-brief a { display: flex; align-items: center; min-height: var(--tap); color: var(--chalk); text-decoration: none; }
+.front-brief small { color: var(--fog); font-family: var(--font-body); font-size: var(--text-caption); }
+@media (max-width: 699px) {
+  .front-leadrow, .front-tier, .front-briefs__list { grid-template-columns: minmax(0, 1fr); }
+  .front-span2, .front-tier > .front-rail { grid-column: auto; grid-row: auto; }
+  .front-tier > .front-rail, .front-mod + .front-mod { padding-left: 0; border-left: 0; }
+  .front-sky__item { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); }
+  .front-sky__item:first-child { border-top: 0; }
+}
+
 /* a phone: one column, the boxes stacked in the same order */
 @media (max-width: 699px) {
   .paper-mast { grid-template-columns: auto minmax(0, 1fr) auto; gap: var(--sp-2); padding: var(--sp-3) var(--sp-2); }
@@ -3277,7 +3673,7 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 /* --- the Top 25 page (queue item 11, mock approved 2026-10-13) ----------------------------------------------------------
    Every game of the week with an AP Top 25 team as a compact Pre-Game Program cover (ui/cover.js compact): three a row on
    a 1080p screen, two on the iPad held sideways, one on a phone; a last card alone in its row takes the whole row. */
-.top25 { gap: var(--sp-3); }
+.top25 { gap: var(--sp-4); }
 .top25-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-left: 3px solid var(--team-us); border-radius: 6px; }
 .top25-head__title { margin: 0; font-family: var(--font-cond); font-size: calc(30px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
 .top25-head__line { margin: 2px 0 0; color: var(--fog); font-size: var(--text-label); }
@@ -3289,9 +3685,20 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 .top25-off__team { white-space: nowrap; color: var(--chalk); }
 .top25-off__team.is-us { color: var(--team-us); }
 
-/* two across at every tablet width and above (the tablet lock, owner 2026-10-13: three across from 1500 px until then) */
-.top25-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); align-items: stretch; }
+/* two across on a tablet (the tablet lock, owner 2026-10-13), three from 1700 px and four from 2500 (the design rule of
+   2026-10-21, board 6 of the layout pass); a last card alone in its row takes the whole row */
+.top25-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-4); align-items: stretch; }
 .top25-grid > :last-child:nth-child(2n + 1) { grid-column: 1 / -1; }
+@media (min-width: 1700px) {
+  .top25-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .top25-grid > :last-child:nth-child(2n + 1) { grid-column: auto; }
+  .top25-grid > :last-child:nth-child(3n + 1) { grid-column: 1 / -1; }
+}
+@media (min-width: 2500px) {
+  .top25-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .top25-grid > :last-child:nth-child(3n + 1) { grid-column: auto; }
+  .top25-grid > :last-child:nth-child(4n + 1) { grid-column: 1 / -1; }
+}
 @media (max-width: 699px) {
   .top25-grid { grid-template-columns: minmax(0, 1fr); }
   .top25-grid > :last-child:nth-child(2n + 1) { grid-column: auto; }
@@ -3301,50 +3708,69 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 .top25-card--skel { min-height: 300px; padding: var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; }
 .top25-card--skel .skel { width: 100%; height: 100%; margin: 0; }
 
-/* a compact cover: the cover's own classes and look, scaled down */
-.cover--compact { position: relative; grid-template-rows: auto minmax(0, 1fr) auto; gap: var(--sp-2); padding: calc(var(--sp-3) + 3px) var(--sp-3) var(--sp-3); border-top: 1px solid var(--rule); overflow: hidden; }
+/* a compact cover (the Top 25's card): the cover's own classes and look, scaled down. The layout pass (owner 2026-10-22,
+   board 6, "just needs some better spacing"): 16 px inside and between the cards, 12 px between a card's parts with a
+   thin rule over each; the score alone in the middle; the logo, name, record, AP rank and last five on rows level across
+   the two sides (a subgrid, so a name on two lines moves both sides' rows together); "Head coach" over each name; the
+   when in two lines; the win probability across the card; the weather and the card's tools in its last row */
+.cover--compact { position: relative; grid-template-rows: auto minmax(0, 1fr) auto; align-content: start; gap: var(--sp-3); padding: calc(var(--sp-4) + 3px) var(--sp-4) var(--sp-3); border-top: 1px solid var(--rule); overflow: hidden; }
 .cover--compact::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--c-away, var(--rule-strong)) 0 50%, var(--c-home, var(--rule-strong)) 50% 100%); }
+.cover--compact > :not(.cover__matchup) { width: 100%; max-width: 760px; justify-self: center; } /* a lone last card across a wide row keeps its parts together */
 .cover--compact .cover__kicker-row { min-height: 0; margin: 0; justify-content: center; }
 .cover--compact .cover__kicker { font-family: var(--font-cond); font-size: calc(14px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); text-align: center; }
 .top25-card--us .cover__kicker { color: var(--team-us); }
 .top25-card--live .cover__kicker { color: var(--bad); }
-.cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1fr); grid-template-areas: "us center them" "us-staff center them-staff" "when when when"; align-content: center; gap: var(--sp-2) var(--sp-3); }
-.cover--compact .cover__staff { align-self: start; font-size: calc(14px * var(--ui-scale)); }
-.cover--compact .cover__logo.cover__logo--hero { width: 64px; height: 64px; }
-.cover--compact .cover__side { gap: 4px; }
-.cover--compact .cover__side .cover__name { width: 100%; overflow-x: clip; overflow-y: visible; font-size: calc(23px * var(--ui-scale)); line-height: 1.15; white-space: nowrap; }
+.cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) 104px minmax(0, 1fr); grid-template-rows: repeat(7, auto); grid-template-areas: "us center them" "us center them" "us center them" "us center them" "us center them" "us-staff . them-staff" "when when when"; align-content: start; gap: 6px var(--sp-3); }
+.cover--compact .cover__side { grid-template-rows: subgrid; align-content: stretch; gap: 6px; }
+.cover--compact .cover__side > * { align-self: center; }
+.cover--compact .cover__logo.cover__logo--hero { width: 56px; height: 56px; } /* the tablet lock: the iPad's size at every width */
+.cover--compact .cover__side .cover__name { width: 100%; font-size: calc(20px * var(--ui-scale)); line-height: 1.15; text-wrap: balance; overflow-wrap: anywhere; }
 .cover--compact .cover__side--us .cover__name { color: var(--chalk); }
 .cover--compact .cover__rec { gap: 4px; line-height: 1.4; }
+.cover--compact .cover__ap { display: flex; justify-content: center; min-height: 22px; }
+.cover--compact .form-guide--none { min-height: 18px; }
 .cover--compact .cover-chip { min-height: 20px; padding: 1px 5px; line-height: 16px; }
 .cover--compact .form-guide__game { width: 18px; height: 18px; }
-.cover--compact .cover__vs { font-size: calc(16px * var(--ui-scale)); }
+.cover--compact .cover__staff { align-self: start; font-size: var(--text-caption); line-height: 1.25; }
+.top25-coach { display: grid; justify-items: center; color: var(--fog); }
+.top25-coach b { color: var(--chalk); font-size: var(--text-label); font-weight: 500; }
+.cover--compact .cover__center { grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; align-self: center; }
+.cover--compact .cover__vs { font-size: var(--text-caption); }
 .cover--compact .cover__countdown .num { font-size: calc(34px * var(--ui-scale)); }
-.cover--compact .cover__center { grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; }
 .cover--compact .cover__center > *, .cover--compact .cover__middle > * { min-width: 0; max-width: 100%; }
 .cover--compact .cover__center .num { overflow: hidden; white-space: nowrap; }
+.cover--compact .cover__countdown small { font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
 .cover--compact .cover__middle--link { display: block; min-height: var(--tap); color: inherit; text-decoration: none; border-radius: 4px; }
 @media (hover: hover) { .cover--compact .cover__middle--link:hover { background: var(--panel-raised); } }
-.cover--compact .cover__center .cover__line { flex-direction: column; align-items: center; gap: 0; margin-top: 4px; padding-top: 4px; }
-.cover--compact .cover__line b { font-size: calc(17px * var(--ui-scale)); }
-.cover--compact .cover__faceoff > .cover__when { font-size: calc(17px * var(--ui-scale)); line-height: 1.3; padding-top: var(--sp-2); border-top: 1px solid var(--row-rule); text-wrap: balance; }
-.cover--compact .cover__foot { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "mid end"; align-items: center; gap: var(--sp-2) var(--sp-3); padding-top: var(--sp-2); }
+.cover--compact .cover__center .cover__line { flex-direction: column; align-items: center; gap: 0; margin-top: 6px; padding-top: 6px; border-top-color: var(--row-rule); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); line-height: 1.35; }
+.cover--compact .cover__line b { font-size: calc(15px * var(--ui-scale)); }
+.cover--compact .cover__faceoff > .cover__when { margin-top: 6px; padding-top: var(--sp-3); border-top: 1px solid var(--row-rule); color: var(--chalk); font-size: calc(16px * var(--ui-scale)); line-height: 1.35; text-wrap: balance; }
+.cover--compact .cover__when-day, .cover--compact .cover__when-place { display: block; }
+.cover--compact .cover__when-place { color: var(--fog); font-weight: 500; }
+.cover--compact .cover__foot, .cover--compact .cover__foot:has(> .cover__foot-row) { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: none; align-items: center; gap: var(--sp-3); padding-top: 0; border-top: 0; }
+.cover--compact .cover__foot > * { grid-area: auto; }
 .cover--compact .cover__wp { width: 100%; }
-.cover--compact .cover__wp-label { font-size: calc(16px * var(--ui-scale)); }
+.cover--compact .cover__wpbar { max-width: none; }
+.cover--compact .cover__wp-caption { font-size: var(--text-caption); }
+.cover--compact .cover__wp-label { font-size: calc(15px * var(--ui-scale)); }
 .cover__wpbar--teams { display: flex; height: 8px; border-radius: 4px; }
 .cover__wpbar--teams > div { position: static; height: 100%; }
 .cover__wpbar--teams > div + div { border-left: 2px solid var(--panel); }
-.cover--compact .cover__conditions { align-self: center; }
-.cover__state--score small { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(16px * var(--ui-scale)); font-weight: 600; }
-.top25-weather { color: var(--chalk); font-size: var(--text-label); text-align: center; text-wrap: balance; }
+.cover--compact .cover__foot-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding-top: var(--sp-2); border-top: 1px solid var(--row-rule); }
+.cover--compact .cover__foot-row > .cover__conditions { flex: 1 1 140px; min-width: 0; }
+.cover__state--score small { display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); font-weight: 600; }
+.top25-weather { color: var(--chalk); font-size: var(--text-label); line-height: 1.3; text-align: left; }
 .top25-weather__label { color: var(--fog); }
-.cover--compact .cover__logo.cover__logo--hero { width: 56px; height: 56px; } /* the tablet lock: the iPad's size at every width */
-.cover--compact .cover__side .cover__name { font-size: calc(21px * var(--ui-scale)); }
+.top25-card__tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-2); margin-left: auto; }
 @media (max-width: 699px) {
-  .cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "us them" "us-staff them-staff" "center center" "when when"; }
-  .cover--compact .cover__foot { grid-template-columns: minmax(0, 1fr); grid-template-areas: "mid" "end"; }
+  .cover--compact .cover__faceoff { grid-template-columns: minmax(0, 1fr) 92px minmax(0, 1fr); column-gap: var(--sp-2); }
+  .cover--compact .cover__countdown .num { font-size: calc(30px * var(--ui-scale)); }
 }
 
 /* --- The trivia (owner 2026-10-21): the corner popups on any page and the board, the join card, the Trivia page --- */
+.trivia-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--gap); align-items: stretch; min-width: 0; } /* Your score beside the Leaderboard (the layout pass, 2026-10-22) */
+.trivia-pair > .band { min-width: 0; }
+@media (max-width: 699px) { .trivia-pair { grid-template-columns: minmax(0, 1fr); } }
 .trivia-pop { position: fixed; right: var(--sp-3); bottom: calc(var(--dock-h, 0px) + var(--sp-3)); width: min(380px, calc(100vw - 2 * var(--sp-3))); z-index: 58; }
 .trivia-pop[hidden] { display: none; }
 .trivia-pop__card { background: var(--panel-raised); border: 1px solid var(--rule-strong); border-left: 4px solid var(--team-accent); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); padding: var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-2); }

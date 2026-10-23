@@ -16,13 +16,23 @@
 //   every data point in its own column (the value, then its FBS rank from medium, the conference's at large). The
 //   standings, the polls, the road ahead and the committee rankings sort, each keeping the reader's order in the view's
 //   ui.sorts across refreshes; a poll's own order is its badge at large and medium and a plain number at small.
+// Season with My Teams (the layout pass, board 9, owner 2026-10-22: "I want my teams, and season to combine. Have a selection
+//   window at the top, start with the primary and allow to switch between teams similar to the pre-game-program weeks"):
+//   params.team names the team picked (#season?team=Red%20Clay; none is the home team, every visit). The window on top steps
+//   through the followed teams with ‹ and › (the home team, the other primary teams, then the secondary ones), one chip a team
+//   under it, and carries what My Teams' table said: the record, AP, SP+, Elo, FPI, the last game and the next. The page under
+//   it is the picked team's season in the same order, the bands side by side ending flush (Schedule | Standings 2:1, Polls |
+//   Ratings over Résumé 1:2, the rest across the page); the College Football Playoff band only while the team is in the AP
+//   Top 25; the trends one column a game, headed by the opponent in its colors. A free key follows the home team alone: the
+//   window shows it without arrows, with the line on what a Tier 2 key adds.
 
-import { confLabel, usSchool } from "../identity.js";
+import { confLabel as ourConfLabel, usSchool } from "../identity.js";
 import { pollMs } from "../prefs.js";
-import { DASH, el, flashChanges, fmtNum, fmtStat, isNum, records, remember, snapshotKeys, text } from "../ui/dom.js";
+import { DASH, el, flashChanges, fmtDate, fmtNum, fmtStat, isNum, records, remember, snapshotKeys, teamLogo, text } from "../ui/dom.js";
+import { teamChipColors } from "../ui/colors.js";
 import { nationalHref, pollName } from "../ui/national-link.js";
 import { openGame, recordLine, scheduleList, scheduleSkeleton } from "../ui/schedule.js";
-import { rankPath, trendRow } from "../ui/sparkline.js";
+import { rankPath, trendGrid } from "../ui/sparkline.js";
 import { band, note, sectionChips, subhead } from "../ui/states.js";
 import { pollBadge, rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { conferenceColumn, logoLink, profileTable, profileTiles, standingsTable, teamAbbrLink } from "../ui/team-page.js";
@@ -77,13 +87,52 @@ export function jumpToBand(section) {
   return true;
 }
 
-function column(...children) {
-  return el("div", { class: "season__col" }, children);
+/** The address of a team's Season page: the home team's is plain #season (board 9). Exported for the tests. */
+export function seasonHref(team, home = usSchool()) {
+  const name = school(team);
+  return !name || name === home ? "#season" : `#season?team=${encodeURIComponent(name)}`;
 }
 
-/** The middle column (app.css stacks its two-up spreads at 1100-1599 px). */
-function guide(...children) {
-  return el("div", { class: "season__guide" }, children);
+/** The followed teams in the window's order and where the picked one sits: { teams, at, prev, next }. Exported for the tests. */
+export function pickOrder(picker, team) {
+  const teams = records(picker?.teams).filter((t) => school(t.school));
+  const at = teams.findIndex((t) => t.school === team);
+  return { teams, at, prev: at > 0 ? teams[at - 1] : null, next: at >= 0 && at < teams.length - 1 ? teams[at + 1] : null };
+}
+
+/** Whether the team picked is in the AP Top 25 this week (the playoff band shows only then, owner 2026-10-22). Exported for the tests. */
+export function inTopTwentyFive(data) {
+  const rank = data?.record?.apRank;
+  return isNum(rank) && rank >= 1 && rank <= 25;
+}
+
+/** The finished games in the trends' order, matched by game id (board 9): the schedule rows that head the columns. */
+export function trendGames(data) {
+  const trends = data?.trends && typeof data.trends === "object" ? data.trends : {};
+  const finished = records(data?.schedule).filter((g) => g.completed === true);
+  const ids = Array.isArray(trends.gameIds) ? trends.gameIds : null;
+  if (ids) {
+    const byId = new Map(finished.map((g) => [String(g.gameId), g]));
+    return ids.map((id, i) => byId.get(String(id)) || { week: Array.isArray(trends.weeks) ? trends.weeks[i] : null, opponent: { school: Array.isArray(trends.opponents) ? trends.opponents[i] : null } });
+  }
+  const weeks = Array.isArray(trends.weeks) ? trends.weeks : [];
+  if (finished.length === weeks.length) return finished;
+  return weeks.map((week, i) => ({ week, opponent: { school: Array.isArray(trends.opponents) ? trends.opponents[i] : null } }));
+}
+
+function shortName(team) {
+  const short = typeof team?.abbreviation === "string" ? team.abbreviation.trim() : "";
+  return short || text(team?.school);
+}
+
+/** Two bands, or a band and a stack, side by side ending flush (board 9): `ratio` "21" or "12"; a phone stacks them. */
+function flushRow(ratio, ...children) {
+  return el("div", { class: `flush-row flush-row--${ratio} flow-full` }, children.filter(Boolean));
+}
+
+/** Bands one over the other in a flush row's column: the last one takes the room left. */
+function flushStack(...bands) {
+  return el("div", { class: "flush-stack" }, bands.filter(Boolean));
 }
 
 /**
@@ -91,18 +140,86 @@ function guide(...children) {
  * onStatus receives { kind, label } for the top-bar pill.
  */
 export function createSeasonView({ onStatus, arg, params } = {}) {
-  const ui = { poll: pollFromArg(arg), revealed: false, flow: null, chips: null, sorts: {} }; // sorts: each sortable table's order, kept across refreshes
+  const ui = { poll: pollFromArg(arg), revealed: false, flow: null, chips: null, sorts: {}, conf: null }; // sorts: each sortable table's order, kept across refreshes
   const focusBand = ui.poll !== null ? "#season-polls" : params?.band === "standings" ? "#season-standings" : null;
+  const picked = school(params?.team); // board 9: another followed team; none is the home team
+  const confLabel = () => ui.conf || ourConfLabel(); // the team picked's conference, once its answer is here
 
   function loadingLayout() {
     const loading = (id, title, skeleton) => band({ id, title, collapsible: false, state: { status: "loading" }, skeleton });
     return el(
       "div",
-      { class: "season" },
-      column(loading("season-schedule", "Schedule", scheduleSkeleton), loading("season-polls", "Polls", () => statTableSkeleton(8, 3)), loading("season-trends", "Trends, week by week", () => statTableSkeleton(5, 3))),
-      guide(loading("season-profile", "Stat profile", () => el("div", {}, el("div", { class: "skel-tiles" }, Array.from({ length: 4 }, () => el("div", { class: "skel skel--block" }))), statTableSkeleton(14, 3), statTableSkeleton(12, 3))), loading("season-last", "This season and last", () => statTableSkeleton(6, 4))),
-      column(loading("season-standings", `${confLabel()} standings`, () => statTableSkeleton(8, 5)), loading("season-ratings", "Ratings", () => statTableSkeleton(5, 2)), loading("season-resume", "Résumé", () => statTableSkeleton(5, 2)), loading("season-advanced", "Advanced", () => statTableSkeleton(12, 3))),
-      el("div", { class: "season__wide" }, loading("season-road", "Road ahead", () => statTableSkeleton(5, 8))),
+      { class: "page season season--flow season--loading" },
+      el("section", { class: "season-pick season-pick--loading", "aria-label": "Your teams" }, el("div", { class: "skel skel--bar" }), el("div", { class: "skel skel--block" })),
+      flushRow("21", loading("season-schedule", "Schedule", scheduleSkeleton), loading("season-standings", `${picked ? "Conference" : confLabel()} standings`, () => statTableSkeleton(8, 5))),
+      flushRow("12", loading("season-polls", "Polls", () => statTableSkeleton(8, 3)), flushStack(loading("season-ratings", "Ratings", () => statTableSkeleton(5, 2)), loading("season-resume", "Résumé", () => statTableSkeleton(5, 2)))),
+      loading("season-profile", "Stat profile", () => el("div", {}, el("div", { class: "skel-tiles" }, Array.from({ length: 4 }, () => el("div", { class: "skel skel--block" }))), statTableSkeleton(14, 3))),
+      loading("season-trends", "Trends, week by week", () => statTableSkeleton(5, 3)),
+    );
+  }
+
+  /** The selection window (board 9): the team picked, its facts, the arrows and one chip a followed team. */
+  function pickWindow(data, team) {
+    const picker = data.picker && typeof data.picker === "object" ? data.picker : null;
+    const home = school(picker?.home) || usSchool();
+    const { teams, at, prev, next } = pickOrder(picker, team);
+    const many = teams.length > 1;
+    const info = data.team && typeof data.team === "object" ? data.team : {};
+    const record = data.record && typeof data.record === "object" ? data.record : {};
+    const r = data.ratings && typeof data.ratings === "object" ? data.ratings : {};
+    const me = at >= 0 ? teams[at] : null;
+    const roleWord = { home: "Home team", primary: "Primary team", secondary: "Secondary team" }[me?.role] || null;
+    const arrow = (which, t) => {
+      if (!many) return null;
+      if (!t) return el("span", { class: `season-pick__arrow season-pick__arrow--${which} season-pick__arrow--off`, "aria-hidden": "true" }, which === "prev" ? "‹" : "›");
+      const word = which === "prev" ? "Previous" : "Next";
+      return el("a", { class: `season-pick__arrow season-pick__arrow--${which}`, href: seasonHref(t.school, home), "aria-label": `${word} team: ${t.school}`, title: `${word}: ${t.school}` }, which === "prev" ? "‹" : "›");
+    };
+    const games = records(data.schedule);
+    const played = games.filter((g) => g.completed === true);
+    const last = played.length ? played[played.length - 1] : null;
+    const coming = games.find((g) => String(g.gameId) === String(data.nextGameId ?? "")) || null;
+    const where = (g) => (g.homeAway === "away" ? "at" : g.homeAway === "neutral" ? "vs" : "vs");
+    const fact = (label, value, detail, key) => el("div", { class: "season-pick__fact" }, el("small", {}, label), el("b", { "data-k": key ? `pick:${key}` : null }, value), detail ? el("span", {}, detail) : null);
+    const rank = (block) => (isNum(block?.rank) ? `#${block.rank}` : DASH);
+    const facts = el(
+      "div",
+      { class: "season-pick__facts" },
+      fact("AP", isNum(record.apRank) ? `No. ${record.apRank}` : "Unranked", isNum(record.coachesRank) ? `Coaches No. ${record.coachesRank}` : null, "ap"),
+      fact("SP+", rank(r.sp), isNum(r.sp?.rating) ? `${fmtNum(r.sp.rating, 1)}${isNum(r.sp.of) ? ` · of ${r.sp.of}` : ""}` : null, "sp"), // plain: the Ratings band below links each one
+      fact("Elo", rank(r.elo), isNum(r.elo?.rating) ? fmtNum(r.elo.rating, 0) : null, "elo"),
+      fact("FPI", rank(r.fpi), isNum(r.fpi?.rating) ? `${fmtNum(r.fpi.rating, 1)}${isNum(r.fpi.of) ? ` · of ${r.fpi.of}` : ""}` : null, "fpi"),
+      fact("Last", last && isNum(last.usPoints) && isNum(last.themPoints) ? `${last.result ? `${last.result} ` : ""}${last.usPoints}-${last.themPoints}` : DASH, last ? `${where(last)} ${shortName(last.opponent)}` : "no game yet", "last"),
+      fact("Next", coming ? `${where(coming)} ${shortName(coming.opponent)}` : DASH, coming ? (coming.startTimeTbd ? `${fmtDate(coming.date)}, time TBA` : fmtDate(coming.date)) : "season over", "next"),
+    );
+    const chip = (t) => {
+      const on = t.school === team;
+      const { background, color } = teamChipColors(t);
+      return el(
+        "a",
+        { class: `season-pick__team${on ? " is-on" : ""}`, href: seasonHref(t.school, home), "aria-current": on ? "page" : null, title: t.school },
+        el("i", { style: { background, color } }, shortName(t)),
+        el("span", {}, t.school),
+        el("small", {}, t.role === "home" ? "home" : t.role === "primary" ? "primary" : "secondary"),
+      );
+    };
+    const logo = teamLogo({ ...info, school: team }, { size: 56, lazy: false, className: "season-pick__logo" }); // its tile when there is no logo
+    const plans = typeof picker?.plansUrl === "string" && /^https:\/\//.test(picker.plansUrl) ? picker.plansUrl : null;
+    const noteLine = typeof picker?.note === "string" && picker.note ? el("p", { class: "season-pick__note" }, picker.note, " ", picker.allowed === false && plans ? el("a", { href: plans, target: "_blank", rel: "noopener" }, "CFBD's plans") : picker.allowed ? el("a", { href: "#profile=teams" }, "Change my teams") : null) : null;
+    const { background } = teamChipColors(info);
+    return el(
+      "section",
+      { class: `season-pick flow-full${many ? "" : " season-pick--alone"}`, "aria-label": "Your teams", style: { "--pick": background } },
+      el(
+        "div",
+        { class: "season-pick__row" },
+        arrow("prev", prev),
+        el("div", { class: "season-pick__who" }, logo, el("h2", { class: "season-pick__name" }, team), el("p", { class: "season-pick__line" }, roleWord ? el("span", { class: "season-pick__role" }, roleWord) : null, el("span", { "data-k": "pick:record" }, `${recordText(record.overall)} · ${recordText(record.conference)} conf`), info.conference ? el("span", {}, text(info.conference)) : null)),
+        arrow("next", next),
+      ),
+      facts,
+      many ? el("div", { class: "season-pick__teams" }, teams.map(chip), el("span", { class: "season-pick__count" }, `${at + 1} of ${teams.length}`), el("a", { class: "season-pick__change", href: "#profile=teams" }, "Change my teams")) : null,
+      noteLine,
     );
   }
 
@@ -175,21 +292,25 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
     });
   }
 
+  /** Board 9 ("can we identify each week by the team we played, maybe their team colors?"): one column a game. */
   function trendsBody(data) {
     const trends = data.trends && typeof data.trends === "object" ? data.trends : {};
     const missing = Array.isArray(data.parts?.trends?.missingWeeks) ? data.parts.trends.missingWeeks : [];
-    // G3-12: W or L for each finished game, in schedule order (the trend arrays' order); none when they disagree
-    const finished = records(data.schedule).filter((g) => g.completed === true);
-    const results = finished.length > 0 && finished.length === (Array.isArray(trends.weeks) ? trends.weeks.length : -1) ? finished.map((g) => (g.result === "W" || g.result === "L" ? g.result : null)) : null;
+    const grid = trendGrid({
+      games: trendGames(data),
+      metrics: [
+        { key: "points", label: "Points scored", values: trends.points },
+        { key: "pointsAllowed", label: "Points allowed", values: trends.pointsAllowed },
+        { key: "yardsPerPlay", label: "Yards per play", values: trends.yardsPerPlay, format: "1f" },
+        { key: "turnoverMargin", label: "Turnover margin", values: trends.turnoverMargin, format: "+0f" },
+        { key: "thirdDown", label: "Third down", values: trends.thirdDown, format: "pct" },
+      ],
+    });
     return el(
       "div",
-      {},
-      trendRow({ label: "Points scored", values: trends.points, key: "points", results }),
-      trendRow({ label: "Points allowed", values: trends.pointsAllowed, them: true, key: "pointsAllowed", results }),
-      trendRow({ label: "Yards per play", values: trends.yardsPerPlay, format: "1f", key: "yardsPerPlay", results }),
-      trendRow({ label: "Turnover margin", values: trends.turnoverMargin, format: "+0f", key: "turnoverMargin", results }),
-      trendRow({ label: "Third down", values: trends.thirdDown, format: "pct", key: "thirdDown", results }),
-      results ? el("p", { class: "note trend__key" }, "Filled dot a win, hollow a loss; the dashed line is the season average.") : null,
+      { class: "tgrid-wrap" },
+      grid,
+      grid ? el("p", { class: "note trend__key" }, "Each column is one game, headed by the opponent in its colors; a filled dot is a win, a hollow one a loss; the dashed line is the season average.") : null,
       missing.length ? note(`Box scores for week${missing.length > 1 ? "s" : ""} ${missing.map(text).join(", ")} could not be loaded. The app keeps retrying.`) : null,
     );
   }
@@ -410,35 +531,32 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
     });
   }
 
-  /** The Season bands that span two columns on a wide page (owner pick 2026-10-07: the big tables). */
-  const SEASON_WIDE = ["season-profile", "season-advanced", "season-last", "season-playoff"]; // final pass: "This season and last" was clipped in one column on the iPad; the playoff bracket needs the width (2026-10-20)
-
   function render(envelope, container) {
     const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
-    const team = school(data.team?.school) || usSchool();
+    const team = school(data.team?.school) || picked || usSchool();
+    ui.conf = school(data.team?.conferenceShort) || school(data.team?.conference);
     const next = nextOpponent(data);
-    if (next) remember(NEXT_OPPONENT_KEY, next);
+    const ours = !picked || picked === school(data.picker?.home);
+    if (next && ours) remember(NEXT_OPPONENT_KEY, next); // the Ratings page marks our next opponent, not another team's
     const before = snapshotKeys(container);
-    // Phase 17 #7, #28: one flowing page instead of three fixed columns (whose short middle left holes): the
-    // bands pack into 1 to 4 columns by width, the stat profile and the advanced tables span two
-    // The owner's order (2026-10-10). The College Football Playoff band (only once the committee's first ranking is out)
-    // sits last until week 8, then first.
-    const playoff = data.playoff ? el("div", { class: "season__wide flow-full" }, playoffBand(data, team)) : null;
+    // The owner's order (2026-10-10), laid out as board 9 drew it (2026-10-22): the window, then the bands side by side ending
+    // flush, Schedule | Standings 2:1 and Polls | Ratings over Résumé 1:2, the rest across the page. The College Football
+    // Playoff band shows only while the team picked is in the AP Top 25 ("Otherwise they are too far out of the playoff
+    // picture"): last until week 8, then first.
+    const playoff = data.playoff && inTopTwentyFive(data) ? el("div", { class: "flow-full" }, playoffBand(data, team)) : null;
     const playoffFirst = seasonWeek(data) >= 8;
     const grid = el(
       "div",
       { class: "page season season--flow" },
+      pickWindow(data, team),
       playoffFirst ? playoff : null,
-      scheduleBand(data, team),
-      standingsBand(data, next?.school),
-      pollsBand(data, next?.school),
-      ratingsBand(data, team),
-      resumeBand(data, team),
-      profileBand(data, team),
-      trendsBand(data),
-      advancedBand(data, team),
-      el("div", { class: "season__wide flow-full" }, roadAheadBand(data)),
-      lastSeasonBand(data, team),
+      flushRow("21", scheduleBand(data, team), standingsBand(data, next?.school)),
+      flushRow("12", pollsBand(data, next?.school), flushStack(ratingsBand(data, team), resumeBand(data, team))),
+      el("div", { class: "flow-full" }, profileBand(data, team)),
+      el("div", { class: "flow-full" }, trendsBand(data)),
+      el("div", { class: "flow-full" }, advancedBand(data, team)),
+      el("div", { class: "flow-full" }, roadAheadBand(data)),
+      el("div", { class: "flow-full" }, lastSeasonBand(data, team)),
       playoffFirst ? null : playoff,
     );
     if (ui.flow) ui.flow.stop();
@@ -446,7 +564,7 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
     ui.chips = sectionChips(grid); // Phase 17 #5: the pinned section chips, above the page
     ui.chips.refresh();
     container.replaceChildren(ui.chips, grid);
-    ui.flow = flow(grid, { wide: SEASON_WIDE });
+    ui.flow = flow(grid);
     flashChanges(before, container);
     if (focusBand && !ui.revealed) {
       ui.revealed = true;
@@ -455,7 +573,7 @@ export function createSeasonView({ onStatus, arg, params } = {}) {
   }
 
   const view = poller({
-    url: "/api/season/overview",
+    url: picked ? `/api/season/overview?team=${encodeURIComponent(picked)}` : "/api/season/overview",
     refreshMs: pollMs(),
     onStatus,
     render,

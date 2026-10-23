@@ -230,11 +230,12 @@ scenarios.gameinfo = async () => {
   const status = { mode: "live", window: WINDOW_OPEN, feed: feed("ok") };
   const { view, container } = await mountLive({ status, program: withCrew });
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
-  const frame = liveFrame();
+  const frame = liveFrame({ possession: "Swampwater Tech" });
   latest().emit("state", frame);
   await settle();
   assert.equal(container.querySelector(".game-info"), null, "no game line on the page: In Game is one screen");
-  assert.equal(container.querySelector(".strip").parentNode, container.querySelector(".stage-essentials").parentNode, "the strip and the essentials are siblings, so the strip stays sticky");
+  assert.ok(container.querySelector(".live-dock .live-dock__line .strip"), "the layout pass (owner 2026-10-22): the score line sits in the dock at the bottom");
+  assert.equal(container.querySelector(".stage-essentials"), null, "no essentials: the line carries the last play and the percentage on every screen");
   toolButton(container, "Notes").click();
   await settle();
   assert.equal(sheetTitle(), "Notes");
@@ -257,8 +258,10 @@ scenarios.gameinfo = async () => {
   document.body.querySelector(".side-sheet__head button").click();
   assert.equal(layer(), null);
   const chart = container.querySelector("#live-chart");
-  assert.ok(chart && text(chart.querySelector(".band__title")).includes("SWT offense"));
-  assert.match(text(chart.querySelector(".band__summary")), /^\d+ passes, \d+ runs(, \d+ sacks?)?$/, "the counts ride in the summary: no room for a note on one screen");
+  assert.equal(chart.querySelector(".band__head"), null, "no title bar (owner 2026-10-22)");
+  assert.equal(text(chart.querySelector(".shot-endzone .shot-endzone__team")), "SWT offense", "the end zone names the offense on the field");
+  assert.ok(chart.querySelector(".shot-endzone--us"), "in our color");
+  assert.match(text(chart.querySelector(".shot-endzone__counts")), /^\d+ passes, \d+ runs(, \d+ sacks?)?$/, "the counts ride in the end zone: no room for a note on one screen");
   const field = chart.querySelector(".shot-field--both");
   assert.ok(field && field.querySelector(".shot-field__los"), "passes over the line of scrimmage, runs under it");
   assert.equal(field.querySelectorAll(".shot-cell").length, 9, "six pass zones and three run lanes");
@@ -269,6 +272,14 @@ scenarios.gameinfo = async () => {
   assert.ok(!RAW.test(text(chart)), text(chart));
   latest().emit("state", frame);
   assert.ok(container.querySelector("#live-chart .shot-field--both"), "both across frames");
+  // the chart follows the offense on the field (owner 2026-10-22), and keeps it through a kickoff or a break
+  latest().emit("state", liveFrame({ possession: "Silver Dollar" }));
+  await settle();
+  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "SIL offense", "their ball, their chart");
+  assert.ok(container.querySelector("#live-chart .shot-endzone--them"), "in their color");
+  latest().emit("state", liveFrame({ possession: null }));
+  await settle();
+  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "SIL offense", "no one has the ball: the last offense stays");
   view.unmount();
 
   // no crew and no staffs in the notes: a quiet hint where to add them; no program notes: where to add those
@@ -514,12 +525,13 @@ scenarios.live = async () => {
   assert.ok(tickerNode, "the ticker is on the page");
   assert.equal(text(tickerNode.querySelector(".ticker__label")), "", "wave F5: no label on the national ticker");
 
-  // wave F5 (owner 2026-10-20): In Game on one screen. The frame holds the strip (the percentage and the last play at its
-  // right), the essentials (for a phone; the stage hides them), the stage (the box score side by side, then the last
-  // five plays, Score by quarter with the drive lines, and the shot chart), the ticker, and the panel row with the tools.
+  // wave F5 (owner 2026-10-20): In Game on one screen. The layout pass (owner 2026-10-22): the stage (the short box score
+  // side by side, then the last five plays, Score by quarter with the drive lines, and the shot chart, no title bars), then
+  // the dock at the bottom: the score line (the percentage and the last play at its right), the ticker, the panel row.
   const frame = container.querySelector(".live-frame");
   assert.ok(frame, "the frame");
-  assert.deepEqual(partsOf(frame, ["strip", "stage-essentials", "stage", "live-ticker", "remote"]), ["strip", "stage-essentials", "stage", "live-ticker", "remote"], "in order: the strip and the essentials, the stage, the ticker, the panel row");
+  assert.deepEqual(partsOf(frame, ["strip", "stage-essentials", "stage", "live-ticker", "remote"]), ["stage", "strip", "live-ticker", "remote"], "in order: the stage, then the score line, the ticker and the panel row");
+  assert.deepEqual(partsOf(frame.querySelector(".live-dock"), ["strip", "live-ticker", "remote"]), ["strip", "live-ticker", "remote"], "the three in the dock");
   assert.ok(container.querySelector(".remote").className.includes("remote--stage"), "the panel row of the stage kind");
   const extras = container.querySelector(".strip .strip__right .strip__extras");
   assert.ok(extras, "the strip's right side carries the extras");
@@ -528,14 +540,30 @@ scenarios.live = async () => {
   assert.equal(text(extras.querySelector(".strip__last .strip__last-label")), "Last play");
   const lastWords = text(extras.querySelector(".strip__last .strip__last-words"));
   assert.ok(lastWords.includes("SWT") && /Q\d \d+:\d\d$/.test(lastWords), lastWords);
-  const essentials = container.querySelector(".stage-essentials");
-  assert.ok(essentials && text(essentials.querySelector(".stage-essentials__words")) === lastWords && text(essentials).includes("SWT to win"), "the essentials repeat the strip's extras, large, for a phone");
+  assert.ok(["strip__last-who", "strip__last-ppa", "strip__last-when"].every((c) => extras.querySelector(`.${c}`)), "each part the line may drop is its own span");
+  assert.equal(text(container.querySelector(".live-dock__play .live-dock__play-words")), lastWords, "the phone's moment in the ticker's place says the same play");
   const stage = container.querySelector(".stage");
   assert.deepEqual(stage.querySelectorAll(".band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"], "the four cells");
+  assert.equal(stage.querySelectorAll(".band__head").length, 0, "no title bars (owner 2026-10-22)");
   const halves = stage.querySelectorAll("#live-box .stage-box__half");
   assert.equal(halves.length, 2, "both teams' box scores side by side");
-  assert.ok(halves.every((h) => h.querySelector(".stage-box__scroll.stage-step") && h.querySelectorAll(".stat-table-wrap").length >= 2), "each half a stepping column of box tables");
-  assert.deepEqual(halves.map((h) => text(h.querySelector(".stage-box__team b"))), ["SWT", "SIL"], "each half headed by its team");
+  assert.equal(stage.querySelectorAll(".stage-step").length, 0, "nothing steps: the short box holds still");
+  assert.deepEqual(halves.map((h) => text(h.querySelector(".stage-box__abbr"))), ["SWT", "SIL"], "each half headed by its team, at its first table's head");
+  for (const h of halves) {
+    const tables = h.querySelectorAll(".stat-table");
+    const caps = { Passing: 1, Rushing: 2, Receiving: 3 };
+    assert.ok(tables.length >= 2 && tables.length <= 3, `passing, rushing and receiving only: ${tables.length}`);
+    for (const t of tables) {
+      const head = text(t.querySelector("thead th")).replace(/^(SWT|SIL)/, "");
+      const cap = Object.entries(caps).find(([name]) => head.includes(name));
+      assert.ok(cap, `a short box category: ${head}`);
+      assert.ok(t.querySelectorAll("tbody tr").length <= cap[1], `${cap[0]}: the top ${cap[1]}`);
+      assert.ok(!t.querySelectorAll("thead th").some((th) => text(th).includes("QBR")), "no QBR in the short box");
+      assert.equal(t.querySelectorAll("thead th button").length, 0, "the short box never re-sorts");
+    }
+    const rushYards = h.querySelectorAll(".stat-table")[1]?.querySelectorAll("tbody tr").map((tr) => Number(text(tr.children[2])));
+    assert.ok(!rushYards || rushYards.every((y, i) => i === 0 || rushYards[i - 1] >= y), `the leaders by yards: ${rushYards}`);
+  }
   const plays = stage.querySelectorAll("#live-plays ol.stage-plays li.stage-play");
   assert.equal(plays.length, 5, "the last five plays");
   assert.ok(plays.every((p) => text(p.querySelector(".stage-play__clock")) && text(p.querySelector(".stage-play__side")) && text(p.querySelector(".stage-play__words"))), "clock, side and words on every play");
@@ -552,6 +580,7 @@ scenarios.live = async () => {
   const bigScreen = row.querySelectorAll(".remote__btn--tool")[4];
   assert.ok(bigScreen.tagName === "A" && bigScreen.getAttribute("href") === "#board", "the Big screen is a link");
   assert.ok(row.querySelectorAll(".remote__btn").slice(-5).every((b) => b.className.includes("remote__btn--tool")), "the tools at the row's end");
+  assert.deepEqual(row.querySelectorAll(".remote__tools .remote__btn--tool").map(text), ["Delay 30 s", "Radio", "Notes", "Invite", "Big screen"], "pinned at the right end (owner 2026-10-22), the panels sliding beside them");
   assert.ok(!RAW.test(text(container)), "no raw value on the live sheet");
 
   // F9: CFBD's rate, the source label, the summary only for a judged play, no Success rate row in the feed table. Wave F5:
@@ -860,7 +889,7 @@ scenarios.pregame = async () => {
   assert.ok(text(container.querySelector(".strip .strip__wp")).includes("40%") && text(container.querySelector(".strip .strip__wp")).includes("at kickoff"), "the pregame number, marked as such");
   assert.equal(container.querySelector(".strip .strip__last"), null, "no last play before the game");
   assert.deepEqual(container.querySelectorAll(".stage .band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"], "the stage, waiting");
-  assert.ok(page.includes("Player lines appear after the first pass or run.") && page.includes("Plays appear after kickoff.") && page.includes("The chart fills in with the first pass or run."), page);
+  assert.ok(page.includes("The box score fills in with the first pass or run.") && page.includes("Plays appear after kickoff.") && page.includes("The shot chart fills in with the first pass or run."), page);
   assert.ok(container.querySelector(".live-ticker .ticker"));
   assert.ok(container.querySelector(".remote"), "the remote bar is there before kickoff too");
   assert.equal(text(container.querySelector(".remote .remote__delay")), "Delay 30 s", "the delay on its button");
@@ -990,7 +1019,7 @@ scenarios.finalnote = async () => {
   assert.ok(shell().startsWith("Final"), shell());
   const note = container.querySelector(".final-note");
   const link = container.querySelector(`a[href="#archive=${GID}"]`);
-  assert.ok(note && link && text(link).includes("Archive") && text(note).includes("In Game shows this final until"), `the final's line on In Game (the whole game in the Archive, the next game's program, until when the final stays): ${note ? text(note) : "no .final-note on the page; the frame holds " + partsOf(container.querySelector(".live-frame"), ["strip", "stage-essentials", "stage", "live-ticker", "remote"]).join(", ")}`);
+  assert.ok(note && link && text(link).includes("Archive") && text(note).includes("In Game shows this final until"), `the final's line on In Game (the whole game in the Archive, the next game's program, until when the final stays): ${note ? text(note) : "no .final-note on the page; the frame holds " + partsOf(container.querySelector(".live-frame"), ["strip", "stage", "live-ticker", "remote"]).join(", ")}`);
   view.unmount();
 };
 
@@ -1067,8 +1096,9 @@ scenarios.board = async () => {
   const tv = container.querySelector(".tv");
   assert.ok(tv && tv.className.includes("live-frame") && !tv.className.includes("tv--empty"), `In Game's frame: ${tv && tv.className}`);
   assert.ok(!/\[object \w+\]|\b(undefined|NaN|null)\b/.test(text(tv)), text(tv).slice(0, 300));
-  assert.deepEqual(partsOf(tv, ["strip", "stage-essentials", "stage", "live-ticker", "remote", "tv__foot"]), ["strip", "stage-essentials", "stage", "live-ticker", "tv__foot"], "the strip and the essentials, the stage, the ticker, the foot; no panel row");
-  assert.equal(tv.childNodes[tv.childNodes.length - 1].className, "tv__foot", "the foot last");
+  assert.deepEqual(partsOf(tv, ["strip", "stage-essentials", "stage", "live-ticker", "remote", "tv__foot"]), ["stage", "strip", "live-ticker", "tv__foot"], "the stage, then the score line, the ticker and the foot; no panel row");
+  const dockEl = tv.querySelector(".live-dock");
+  assert.equal(dockEl.childNodes[dockEl.childNodes.length - 1].className, "tv__foot", "the foot last, in the dock");
   // the strip with the percentage and the last play
   const extras = tv.querySelector(".strip .strip__extras");
   assert.ok(extras && extras.querySelector(".strip__wp") && extras.querySelector(".strip__last"), "the strip's extras");
@@ -1077,7 +1107,7 @@ scenarios.board = async () => {
   assert.deepEqual(tv.querySelectorAll(".stage .band").map((b) => b.getAttribute("id")), ["live-box", "live-plays", "live-score", "live-chart"]);
   const halves = tv.querySelectorAll("#live-box .stage-box__half");
   assert.equal(halves.length, 2, "both teams' box score, each its half");
-  assert.ok(halves.every((h) => h.querySelector(".stage-box__scroll.stage-step") && h.querySelectorAll(".stat-table-wrap").length >= 2), "each half a stepping column of box tables");
+  assert.ok(halves.every((h) => h.querySelectorAll(".stat-table-wrap").length >= 2 && !h.querySelector(".stage-step")), "each half its short box, holding still");
   assert.equal(tv.querySelectorAll("#live-plays li.stage-play").length, 5, "the last five plays");
   assert.ok(tv.querySelector("#live-score .qline__row") && tv.querySelectorAll("#live-score .stage-drives__row").length === 4, "Score by quarter with the drive lines is on the board now: In Game mirrored");
   const chart = tv.querySelector("#live-chart");
@@ -1094,8 +1124,8 @@ scenarios.board = async () => {
   assert.deepEqual(foot.childNodes.map((n) => n.className), ["tv__radio", "tv__note", "tv__qr"]);
   assert.ok(text(foot.querySelector(".tv__note")).includes("30 s behind the broadcast"), "the spoiler-delay line");
   assert.equal(text(foot.querySelector(".tv__note .tv__delay")), "30 s");
-  // the box-score halves step through their rows on their own (BOARD_STEP_MS); a frame keeps the frame
-  assert.ok([...timers.values()].some((t) => t.every === 2200), "the stepping timer runs while a game is on");
+  // nothing steps any more (owner 2026-10-22: "the box currently moves around a lot"); a frame keeps the frame
+  assert.ok(![...timers.values()].some((t) => t.every === 2200), "no stepping timer");
   await advance(2500);
   latest().emit("state", withNewPlay(frame1, "Board play"));
   await settle();

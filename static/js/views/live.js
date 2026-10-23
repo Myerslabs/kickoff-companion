@@ -18,7 +18,7 @@ import { screenLock } from "../awake.js";
 import { isUs, usLabel, usName, usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { delaySlider } from "../ui/delay-slider.js";
-import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtPct, fmtStat, fmtTime, isNum, obj, records, reducedMotion, replaceWith, snapshotKeys, str, text } from "../ui/dom.js";
+import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtPct, fmtStat, fmtTime, isNum, obj, records, replaceWith, snapshotKeys, str, text } from "../ui/dom.js";
 import { edgesTable } from "../ui/edges.js";
 import { driveList } from "../ui/drive-bar.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
@@ -29,6 +29,8 @@ import { fillWiki, wikiLink } from "../ui/wiki-links.js";
 import { playLog } from "../ui/play-log.js";
 import { kickWind } from "../ui/wind.js";
 import { openSheet, remoteBar } from "../ui/remote.js";
+import { openWide } from "../ui/flyout.js";
+import { takeLivePanel } from "../ui/live-panel.js";
 import { radioStations } from "../ui/radio-stations.js";
 import { gameNotesPanel } from "../ui/game-notes.js";
 import { inviteBody, loadInvite } from "./invite.js";
@@ -38,7 +40,8 @@ import { statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { driveSummaryTable, fourthDownTable, madeOf, splitsTable, teamValueTable, tendencyTable, visitorsTable } from "../ui/in-game-tables.js";
 import { playValueTable } from "../ui/play-value.js";
 import { strip } from "../ui/strip.js";
-import { boxHalves, lastPlayWords, lastPlaysList, scoreCell, stageTools, stripExtras, wpSummary } from "../ui/stage.js";
+import { lastPlayParts, lastPlayWords, lastPlaysList, offenseHead, scoreCell, stageBox, stageTools, stripExtras, wpSummary } from "../ui/stage.js";
+import { lastTriviaData, triviaPanel } from "../ui/trivia.js";
 import { advancedBoxBlock } from "../ui/depth2.js";
 import { scoresSummary, scoresTable } from "../ui/scores.js";
 import { shotChart, shotCounts } from "../ui/shot-chart.js";
@@ -218,10 +221,9 @@ function mergedBox(state, team) {
 }
 
 
-/** The box-score halves step through their rows on their own when longer than their column (freeze wave F5, owner
- *  2026-10-20; the 2026-10-11 board's panes stepped the same way), on the tablet and the board alike. */
-const BOARD_STEP_MS = 2200; // one row every couple of seconds
-const BOARD_REST_MS = 5000; // the pause at the end before the pane returns to the top
+/** How long the last play takes the ticker's place on a phone after each play (the layout pass, owner 2026-10-22: the score
+ *  line keeps one line there, so the play shows for a moment where the ticker runs). */
+const PLAY_FLASH_MS = 6000;
 
 export function createLiveView({ onStatus, board = false } = {}) {
   const savedDelay = Number(getPrefs().delaySeconds ?? DEFAULT_DELAY); // the server's prefs always carry a delay; the device memory that was read here was never reached (freeze wave F1, F15)
@@ -271,11 +273,19 @@ export function createLiveView({ onStatus, board = false } = {}) {
     sheet: null,
     slider: null,
     visitors: null,
+    chartOffense: null, // the team whose offense the shot chart shows: the one with the ball, kept through a kickoff or a break
+    trivia: null, // the trivia's last answer (ui/trivia.js "kickoff:trivia-now"), for the static block in Score by quarter
+    lastPlayId: undefined, // the last play the score line showed, so a new one flashes in the ticker's place on a phone
+    playTimer: null,
   };
   let container = null;
   let frame = null;
   let slots = null;
   let tickerHost = null;
+  let dock = null; // the bottom stack (owner 2026-10-22): the score line, the ticker, then the buttons or the board's foot
+  let stripHost = null;
+  let playHost = null;
+  let triviaHost = null;
   const warned = new Set();
   const warnOnce = (key, message, detail) => {
     if (warned.has(key)) return;
@@ -633,7 +643,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const stripEl = stripFor(s, kickoffLabel(g));
     const line = `${kickoffLabel(g)}. The sheet fills in as the game is played, ${state.delay} s behind the broadcast; the Spoiler delay button changes that.`;
     return {
-      top: [stripEl, essentials(s)],
+      top: null,
       strip: stripEl,
       middle: [stageFor(s)],
       bottom: null,
@@ -726,8 +736,10 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const themPts = usHome ? s.awayScore : s.homeScore;
     const possession = s.possession === usTeam() ? "us" : s.possession ? "them" : null;
     // freeze wave F5: the win probability as a percentage and the last play ride on the strip (owner 2026-10-20)
-    const extras = stripExtras({ wp: wpSummary(s, { usHome, pregame: state.program?.pregame?.usWinProbability }), lastPlay: s.status === "pre" ? null : lastPlayWords(s.lastPlay, { abbr: (school) => abbrOf(school, state.program) }), usAbbr: usAbbr() });
-    return strip({ extras, us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, kickoffText, pill: null, sticky: true });
+    // the layout pass (owner 2026-10-22): the line sits at the bottom above the ticker and never wraps; the parts it drops on a
+    // narrow screen are their own spans (ui/stage.js stripExtras, the .live-dock rules in components.css)
+    const extras = stripExtras({ wp: wpSummary(s, { usHome, pregame: state.program?.pregame?.usWinProbability }), lastPlay: s.status === "pre" ? null : lastPlayParts(s.lastPlay, { abbr: (school) => abbrOf(school, state.program) }), usAbbr: usAbbr() });
+    return strip({ extras, us: { abbr: usAbbr(), points: usPts, timeouts: null }, them: { abbr: themSide().abbr, points: themPts, timeouts: null }, status: s.status === "final" ? "final" : s.status === "pre" ? "pre" : "live", period: s.period, clock: s.clock, possession, down: s.down, distance: s.distance, yardsToGoal: s.yardsToGoal, kickoffText, pill: null, sticky: false });
   }
 
   // --- Phase 12: splits, tendencies, drive summary, fourth down, sync ---------------------------------
@@ -858,47 +870,6 @@ export function createLiveView({ onStatus, board = false } = {}) {
 
   /** Where the leaders come from: the box score, or the play-by-play until CFBD posts it (Phase 11). */
 
-  /**
-   * The shot chart band. On the sheet it switches between passes and runs (the switch redraws the chart alone, in place:
-   * a whole-sheet render replaced every band under the reader and threw the page back to the top, owner bug 2026-10-10).
-   * fixed: one view and no switch, for the board, which shows the pass chart and the run chart side by side (owner mock
-   * 2026-10-11).
-   */
-  function chartBand(s, { view = null, fixed = false, id = "live-chart" } = {}) {
-    const shown = () => (fixed ? view : state.chartView);
-    return band({
-      id,
-      title: `Shot chart: ${usAbbr()} offense`,
-      kind: "neutral",
-      area: "chart",
-      summary: view === "both" ? shotCounts(obj(s.shotChart)[usTeam()]) : shown() === "runs" ? "runs by lane" : "passes by zone",
-      state: obj(obj(s.shotChart)[usTeam()]).passes ? { status: "ready" } : { status: "empty", message: "The chart fills in with the first pass or run." },
-      body: () => {
-        const host = el("div", { class: "shot-chart-host" });
-        const draw = () => {
-          host.replaceChildren(
-            shotChart({
-              chart: obj(s.shotChart)[usTeam()],
-              view: shown(),
-              team: usWords(),
-              fixed,
-              onView: fixed
-                ? undefined
-                : (next) => {
-                    state.chartView = next;
-                    draw();
-                    const summary = host.closest(".band")?.querySelector(".band__summary");
-                    if (summary) summary.textContent = next === "runs" ? "runs by lane" : "passes by zone";
-                  },
-            }),
-          );
-        };
-        draw();
-        return host;
-      },
-    });
-  }
-
   /** Team stats, with the live feed's efficiency lines under it (the Box score panel carries it since wave F5). */
   function teamStatsBand(s) {
     const usBox = mergedBox(s, usTeam());
@@ -927,10 +898,89 @@ export function createLiveView({ onStatus, board = false } = {}) {
     });
   }
 
+  /** The team whose offense the shot chart shows (owner 2026-10-22): the one with the ball; on a kickoff, a timeout or a break
+   *  the one that last had it; before the first snap ours. A new game starts over. */
+  function chartTeam(s) {
+    const named = (team) => (typeof team === "string" && team && (team === s.home || team === s.away) ? team : null);
+    if (state.chartGame !== (s.gameId ?? null)) {
+      state.chartGame = s.gameId ?? null;
+      state.chartOffense = null;
+    }
+    const now = named(s.possession) || (state.chartOffense ? null : named(s.lastPlay?.offense));
+    if (now) state.chartOffense = now;
+    return named(state.chartOffense) || usTeam();
+  }
+
+  /** The shot chart cell (wave F5's passes over the line of scrimmage and the runs under it; the layout pass: no title bar,
+   *  the offense on the field named in the end zone at the top, in its color, with its passes and runs). */
+  function chartCell(s) {
+    const team = chartTeam(s);
+    const isUsTeam = team === usTeam();
+    const abbr = isUsTeam ? usAbbr() : abbrOf(team, state.program);
+    const chart = obj(obj(s.shotChart)[team]);
+    return band({
+      id: "live-chart",
+      title: `Shot chart: ${abbr} offense`,
+      bare: true,
+      kind: "neutral",
+      area: "chart",
+      collapsible: false,
+      state: chart.passes ? { status: "ready" } : { status: "empty", message: "The shot chart fills in with the first pass or run." },
+      body: () => el("div", { class: "shot-chart-host" }, offenseHead({ abbr, side: isUsTeam ? "us" : "them", counts: shotCounts(chart) }), shotChart({ chart, view: "both", team: isUsTeam ? usWords() : team, fixed: true })),
+    });
+  }
+
+  /** The trivia's static block at the foot of Score by quarter (owner 2026-10-22), one node kept across frames and redrawn
+   *  whenever the trivia answers (ui/trivia.js); empty and hidden when there is no trivia today. */
+  function triviaSlot() {
+    if (!triviaHost) triviaHost = el("div", { class: "stage-trivia" });
+    drawTrivia();
+    return triviaHost;
+  }
+
+  function drawTrivia() {
+    if (!triviaHost) return;
+    let node = null;
+    try {
+      node = triviaPanel(state.trivia, { board });
+    } catch (error) {
+      console.error("In Game: the trivia standings could not be drawn.", error);
+    }
+    triviaHost.replaceChildren(...(node ? [node] : []));
+    if (node) triviaHost.removeAttribute("hidden");
+    else triviaHost.setAttribute("hidden", "");
+  }
+
+  function onTrivia(event) {
+    state.trivia = event?.detail && typeof event.detail === "object" ? event.detail : null;
+    drawTrivia();
+  }
+
+  /** On a phone the score line has no room for the last play, so a new play takes the ticker's place for a few seconds
+   *  (owner 2026-10-22); the CSS shows it only on a narrow dock. The first frame of a visit never flashes. */
+  function drawPlayFlash(s) {
+    if (!playHost || !dock) return;
+    const play = s && typeof s === "object" ? s.lastPlay : null;
+    const id = play && typeof play === "object" ? play.id ?? null : null;
+    const words = play ? lastPlayWords(play, { abbr: (school) => abbrOf(school, state.program) }) : null;
+    replaceWith(playHost, words ? [el("b", { class: "live-dock__play-label" }, "Last play"), el("span", { class: "live-dock__play-words" }, words)] : null);
+    const fresh = state.lastPlayId !== undefined && id !== null && id !== state.lastPlayId;
+    state.lastPlayId = s ? id : undefined;
+    if (!fresh || !words) return;
+    dock.classList.add("live-dock--play");
+    if (state.playTimer) clearTimeout(state.playTimer);
+    state.playTimer = setTimeout(() => {
+      state.playTimer = null;
+      dock?.classList.remove("live-dock--play");
+    }, PLAY_FLASH_MS);
+  }
+
   /**
    * In Game on one screen (freeze wave F5, the owner's mock of 2026-10-20): the box score with both teams side by side,
    * then the last five plays, Score by quarter with the drive lines, and the shot chart with the passes over the line of
-   * scrimmage and the runs under it. The strip above it carries the percentage and the last play; the panels hold the rest.
+   * scrimmage and the runs under it. The layout pass (owner 2026-10-22): no title bars, every cell filled; the box score keeps
+   * the leaders and holds still; the trivia standings at Score by quarter's foot; the chart follows the offense. The score
+   * line, the ticker and the buttons sit under it in the dock.
    */
   function stageFor(s) {
     const usHome = s.home === usTeam();
@@ -938,34 +988,17 @@ export function createLiveView({ onStatus, board = false } = {}) {
     const them = themSide();
     const lines = obj(s.playerStats);
     const haveLines = Object.values(lines).some((cats) => Object.values(obj(cats)).some((rows) => records(rows).length));
-    const fromPlays = Object.values(obj(s.playerStatsSource)).includes("plays");
     return el(
       "div",
       { class: "stage" },
-      band({ id: "live-box", title: "Box score", kind: "neutral", collapsible: false, summary: haveLines ? (fromPlays ? "from the play-by-play until CFBD posts the box score" : "both teams") : "", state: haveLines ? { status: "ready" } : { status: "empty", message: "Player lines appear after the first pass or run." }, body: () => boxHalves({ us, them, usTables: boxPanel(s, usTeam(), false), themTables: boxPanel(s, themSide().name, true) }) }),
+      band({ id: "live-box", title: "Box score", bare: true, kind: "neutral", collapsible: false, state: haveLines ? { status: "ready" } : { status: "empty", message: "The box score fills in with the first pass or run." }, body: () => stageBox({ us, them, usCats: obj(lines[usTeam()]), themCats: obj(lines[themSide().name]), onTap: (row, side) => (hasId(row.playerId) ? openPlayer(row.playerId, { ...row, isUs: side === "us" }) : null) }) }),
       el(
         "div",
         { class: "stage__row" },
-        band({ id: "live-plays", title: "Last 5 plays", kind: "neutral", collapsible: false, summary: records(s.plays).length ? "newest first" : "", body: () => lastPlaysList({ plays: records(s.plays), us, them, limit: 5 }) }),
-        band({ id: "live-score", title: "Score by quarter", kind: "neutral", collapsible: false, summary: s.status === "final" ? "Final" : "", body: () => scoreCell({ s, us, them, usHome }) }),
-        chartBand(s, { view: "both", fixed: true }),
+        band({ id: "live-plays", title: "Last 5 plays", bare: true, kind: "neutral", collapsible: false, body: () => lastPlaysList({ plays: records(s.plays), us, them, limit: 5 }) }),
+        band({ id: "live-score", title: "Score by quarter", bare: true, kind: "neutral", collapsible: false, body: () => scoreCell({ s, us, them, usHome, extra: triviaSlot() }) }),
+        chartCell(s),
       ),
-    );
-  }
-
-  /** The essentials under the strip on a phone or an iPad held upright (the stage hides them): the last play and the percentage, large. */
-  function essentials(s) {
-    const usHome = s.home === usTeam();
-    const wp = wpSummary(s, { usHome, pregame: state.program?.pregame?.usWinProbability });
-    const words = s.status === "pre" ? null : lastPlayWords(s.lastPlay, { abbr: (school) => abbrOf(school, state.program) });
-    const pct = isNum(wp.pct) ? wp.pct : wp.kickoff;
-    if (!words && !isNum(pct)) return null;
-    const kick = isNum(wp.pct) && isNum(wp.kickoff) ? `, ${fmtPct(wp.kickoff)} at kickoff` : isNum(wp.pct) ? "" : " at kickoff";
-    return el(
-      "div",
-      { class: "stage-essentials" },
-      words ? [el("span", { class: "stage-essentials__label" }, "Last play"), el("span", { class: "stage-essentials__words", dataset: { k: "ess:last" } }, words)] : null,
-      isNum(pct) ? el("span", { class: "stage-essentials__wp" }, el("b", { dataset: { k: "ess:wp" } }, fmtPct(pct)), `${usAbbr()} to win${kick}`) : null,
     );
   }
 
@@ -1090,13 +1123,61 @@ export function createLiveView({ onStatus, board = false } = {}) {
     refreshPill(); // a Display error from the sheet just closed no longer applies
   }
 
-  // --- the board (owner mock 2026-10-11, queue item 7): one 1080p screen, nothing to scroll ---------------------------
-  // Win probability and Leaders across the top left, the pass chart and the run chart under them with the QR between them
-  // and the right half, Team stats and one In Game panel as two full-height columns (the Box score until a menu button
-  // picks another). Along the bottom, edge to edge: the score strip with the radio at its left, the ticker, the
-  // spoiler-delay line and the twelve menu buttons. Score by quarter and the game line are not on the board. Below the
-  // TV size (components.css) the same cells stack and the page scrolls. The long columns step through their rows on
-  // their own, as the old board's panes did.
+  /**
+   * One of the panels opened wide from the menu (the layout pass, owner 2026-10-22, board 4): the same panel as its button
+   * opens, about 83% of the screen, "‹ In Game's panels" back to the menu and previous and next through the panels.
+   * detail: { id, steps: { items: [{ id, label }], where }, back: { label, onClick }, entryOf(id) }.
+   */
+  function openItemWide(detail) {
+    const first = state.items.find((i) => i.id === detail?.id);
+    if (!first || !container) return;
+    closeSheet();
+    state.seenPlays = null;
+    const sheet = { id: first.id, handle: null, sorts: {}, filter: "all", wide: true };
+    state.sheet = sheet;
+    if (state.bar) state.bar.setActive(first.id);
+    const items = Array.isArray(detail.steps?.items) ? detail.steps.items.filter((i) => state.items.some((item) => item.id === i.id)) : [];
+    const stepsFor = (id) => (items.length > 1 ? { items, index: items.findIndex((i) => i.id === id), where: detail.steps?.where || "", onStep: stepTo } : null);
+    function stepTo(id) {
+      const item = state.items.find((i) => i.id === id);
+      if (!item || state.sheet !== sheet) return;
+      sheet.id = id;
+      sheet.sorts = {};
+      sheet.filter = "all";
+      state.seenPlays = null;
+      sheet.handle.setTitle(item.label);
+      sheet.handle.setBody(() => safeBody(item));
+      sheet.handle.setSteps(stepsFor(id));
+      if (state.bar) state.bar.setActive(id);
+      const entry = typeof detail.entryOf === "function" ? detail.entryOf(id) : null;
+      if (entry && typeof CustomEvent === "function") document.dispatchEvent(new CustomEvent("kickoff:menu-mark", { detail: { mark: entry } }));
+      refreshPill();
+    }
+    sheet.handle = openWide({
+      title: first.label,
+      subtitle: `${usAbbr()} vs ${themSide().abbr}`,
+      back: detail.back && typeof detail.back.onClick === "function" ? detail.back : null,
+      steps: stepsFor(first.id),
+      body: () => safeBody(first),
+      onClose: () => {
+        if (state.sheet !== sheet) return;
+        state.sheet = null;
+        state.sheetError = false;
+        if (state.bar) state.bar.setActive(null);
+        refreshPill();
+      },
+    });
+    refreshPill();
+  }
+
+  function onLivePanel(event) {
+    if (event?.detail && typeof event.detail === "object") openItemWide(event.detail);
+  }
+
+  // --- the board: In Game's own frame on the big screen (freeze wave F5, owner 2026-10-20: "the big screen should mirror the
+  // tablet's exactly"), scaled to fill it (views/board.js). The layout pass (owner 2026-10-22): the stage on top, nothing
+  // steps or scrolls; the dock along the bottom, edge to edge: the score line, the ticker, then the foot with the radio, the
+  // spoiler-delay line and the QR. Below the TV size (components.css) the cells stack and the page scrolls under the dock.
 
   /** The board's skeleton, built once: the cells keep their place (and their scroll) while every frame redraws them. */
   function buildTv() {
@@ -1104,7 +1185,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
     // frame, with a foot in place of the buttons: the radio, the delay line (or the final's), the QR (views/board.js)
     const tv = { radio: el("div", { class: "tv__radio" }), note: el("div", { class: "tv__note" }), qr: el("div", { class: "tv__qr" }) };
     state.tv = tv;
-    return el("div", { class: "tv live-frame" }, slots.top, slots.middle, tickerHost, slots.bottom, el("div", { class: "tv__foot" }, tv.radio, tv.note, tv.qr));
+    dock.append(el("div", { class: "tv__foot" }, tv.radio, tv.note, tv.qr)); // the layout pass: the foot under the score line and the ticker
+    return el("div", { class: "tv live-frame" }, slots.top, slots.middle, slots.bottom, dock);
   }
 
   /** The delay line for a game under way (In Game says it only before kickoff). */
@@ -1118,42 +1200,6 @@ export function createLiveView({ onStatus, board = false } = {}) {
     if (!tv) return;
     const note = view.boardNote;
     replaceWith(tv.note, typeof note === "string" ? el("p", {}, note) : note || tvDelayLine());
-  }
-
-  /** The columns that step through their rows: each box-score half (owner 2026-10-20: longer than its column, it steps). */
-  function stepScrollers() {
-    return frame && typeof frame.querySelectorAll === "function" ? [...frame.querySelectorAll(".stage-step")] : [];
-  }
-
-  function startStepping() {
-    if (state.stepTimer || typeof setInterval !== "function" || reducedMotion()) return;
-    state.stepRest = new WeakMap();
-    state.stepTimer = setInterval(stepTv, BOARD_STEP_MS);
-  }
-
-  /** Each long column moves one row; at its end it rests, then returns to the top (a column that fits never moves). */
-  function stepTv() {
-    const rest = state.stepRest || (state.stepRest = new WeakMap());
-    for (const node of stepScrollers()) {
-      const room = node.scrollHeight - node.clientHeight;
-      if (!(room > 0)) continue;
-      if (node.scrollTop >= room - 1) {
-        const waited = (rest.get(node) || 0) + BOARD_STEP_MS;
-        if (waited >= BOARD_REST_MS) {
-          rest.set(node, 0);
-          node.scrollTo({ top: 0, behavior: "auto" });
-        } else rest.set(node, waited);
-        continue;
-      }
-      const row = node.querySelector("tbody tr, li, .play");
-      const step = row && row.getBoundingClientRect().height > 0 ? row.getBoundingClientRect().height : 28;
-      node.scrollTo({ top: Math.min(room, node.scrollTop + step), behavior: "smooth" });
-    }
-  }
-
-  function stopTv() {
-    if (state.stepTimer) clearInterval(state.stepTimer);
-    state.stepTimer = null;
   }
 
   /** Close the open sheet, if any; the caller refreshes the pill. */
@@ -1189,9 +1235,9 @@ export function createLiveView({ onStatus, board = false } = {}) {
   function liveParts(s) {
     const stripEl = stripFor(s);
     return {
-      // siblings: the strip stays sticky against the page, not a wrapper; after a final the owner's held-final line (2026-10-10:
-      // the Archive, the next game's program, how long this final stays up) sits under the strip, one line, the stage below it
-      top: [stripEl, essentials(s), s.status === "final" ? finalNote(s) : null],
+      // after a final the owner's held-final line (2026-10-10: the Archive, the next game's program, how long this final stays
+      // up) sits over the stage, one line; the score line itself is in the dock at the bottom (owner 2026-10-22)
+      top: s.status === "final" ? finalNote(s) : null,
       strip: stripEl,
       middle: [stageFor(s)],
       bottom: null,
@@ -1252,7 +1298,13 @@ export function createLiveView({ onStatus, board = false } = {}) {
     // the same kind: the delay (Phase 7b), the radio (owner 2026-10-11: within reach at every moment), the Notes (Phase 19: your
     // own lines, part of the program notes now), Invite (Phase 18.6) and the Big screen (owner 2026-10-10: reached from here only)
     state.tools = stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet });
-    frame = board ? buildTv() : el("div", { class: "live-frame" }, slots.top, slots.middle, tickerHost, slots.bottom);
+    // the layout pass (owner 2026-10-22: "this should be on the bottom of the screen, right above the ticker"; "client or
+    // server always sees the score"): the dock pinned at the bottom holds the score line, the ticker, then the panel row (or
+    // the board's foot); on a phone the last play takes the ticker's place for a few seconds after each play
+    stripHost = el("div", { class: "live-dock__line" });
+    playHost = el("div", { class: "live-dock__play", "aria-hidden": "true" });
+    dock = el("div", { class: "live-dock" }, stripHost, playHost, tickerHost);
+    frame = board ? buildTv() : el("div", { class: "live-frame" }, slots.top, slots.middle, slots.bottom, dock);
     updateTicker();
   }
 
@@ -1294,6 +1346,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
     replaceWith(slots.top, view.top);
     replaceWith(slots.middle, view.middle);
     replaceWith(slots.bottom, view.bottom);
+    replaceWith(stripHost, view.strip || null);
+    drawPlayFlash(pregame ? null : state.live);
     if (board && sheet) drawTv(view); // the board's foot: the final's line, else the delay line
     keepAnchor(anchor);
     fillWiki(frame); // Phase 19: the stadium and the coaches become their Wikipedia pages
@@ -1304,22 +1358,21 @@ export function createLiveView({ onStatus, board = false } = {}) {
     if (!sheet) {
       closeSheet();
       if (state.bar) state.bar.style.display = "none";
-      stopTv();
     } else {
       state.items = view.items;
       if (!board) {
         if (!state.bar) {
-          state.bar = remoteBar({ items: view.items, onOpen: openItem });
-          state.bar.classList.add("remote--stage"); // wave F5: one row, labels only, the tools at its end
-          state.bar.append(...state.tools);
-          frame.append(state.bar);
+          state.bar = remoteBar({ items: view.items, onOpen: openItem, tools: state.tools });
+          state.bar.classList.add("remote--stage"); // wave F5: one row, labels only; the layout pass: the five tools pinned right
+          dock.append(state.bar);
         }
         state.bar.style.display = "";
         for (const item of view.items) state.bar.setHint(item.id, item.hint);
         if (state.sheet) state.bar.setActive(state.sheet.id);
         refreshOpenSheet();
+        const asked = takeLivePanel(); // a panel chosen in the menu from another page (ui/live-panel.js)
+        if (asked) openItemWide(asked);
       }
-      startStepping(); // the box-score halves step through their rows when longer than their column (wave F5)
     }
     refreshPill();
     if (!pregame && state.live.status === "final") maybeLoadAnalytics();
@@ -1584,6 +1637,9 @@ export function createLiveView({ onStatus, board = false } = {}) {
       setStatus({ kind: "quiet", label: "Loading" });
       buildFrame();
       document.addEventListener("visibilitychange", onVisible);
+      state.trivia = lastTriviaData(); // the trivia's standings in Score by quarter, redrawn on every answer it reads
+      document.addEventListener("kickoff:trivia-now", onTrivia);
+      document.addEventListener("kickoff:live-panel", onLivePanel); // a panel chosen in the menu while In Game is up
       state.watchTimer = setInterval(watch, WATCH_TICK_MS);
       const next = loadProgram(); // the next game's, unless a held final asks for its own (the newer request wins)
       await checkWindow({ retryProgram: false });
@@ -1598,7 +1654,10 @@ export function createLiveView({ onStatus, board = false } = {}) {
       return checkWindow();
     },
     unmount() {
-      stopTv();
+      if (state.playTimer) clearTimeout(state.playTimer);
+      state.playTimer = null;
+      document.removeEventListener("kickoff:trivia-now", onTrivia);
+      document.removeEventListener("kickoff:live-panel", onLivePanel);
       const slider = state.slider;
       stopSync();
       closeSheet();

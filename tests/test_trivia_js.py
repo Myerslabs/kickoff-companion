@@ -85,12 +85,41 @@ scenarios.page = async () => {
   assert.ok(clean("rules", rulesBand()).includes("case sensitive"));
   clean("junk card", questionCard("junk", null));
   clean("junk cells", scoreCells({ team: "junk", best: 5, day: "x" }));
+
+  // the layout pass (owner 2026-10-22, "Ok" to the picks): the join card on game days only, Your score beside the
+  // Leaderboard, How it plays folded
+  installWindow();
+  const { createTriviaView } = await import(moduleUrl("views/trivia.js"));
+  const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
+  const mountWith = async (answer) => {
+    clearEnvelopeCache();
+    route("/api/trivia", () => envelope(answer));
+    const main = document.createElement("main");
+    document.body.append(main);
+    const view = createTriviaView({});
+    view.mount(main);
+    await settle();
+    return { main, view };
+  };
+  const gameDay = await mountWith(base({ questions: [], seasonTable: [] }));
+  clean("game-day page", gameDay.main);
+  assert.ok(gameDay.main.querySelector(".trivia-head .trivia-join"), "a game day, not joined: the join card");
+  const twin = gameDay.main.querySelector(".trivia-pair");
+  assert.ok(twin && twin.querySelector("#trivia-score") && twin.querySelector("#trivia-board"), "Your score beside the Leaderboard");
+  assert.equal(gameDay.main.querySelector("#trivia-rules").getAttribute("data-collapsed"), "true", "How it plays folded");
+  gameDay.view.unmount();
+  const quiet = await mountWith(base({ gameDay: false, day: null, questions: [], seasonTable: [] }));
+  assert.equal(quiet.main.querySelector(".trivia-head .trivia-join"), null, "another day: no join card");
+  quiet.main.querySelector(".trivia-head__anyway").click();
+  assert.ok(quiet.main.querySelector(".trivia-head .trivia-join"), "Start trivia anyway brings it");
+  quiet.view.unmount();
 };
 
 scenarios.flow = async () => {
   installWindow();
   const { startTrivia, teamName, rememberName, forgetName, declineToday, POLL_MS } = await import(moduleUrl("ui/trivia.js"));
-  const { noteShowing } = await import(moduleUrl("ui/page-notes.js"));
+  const { noteCount } = await import(moduleUrl("ui/page-notes.js"));
+  const joinUp = () => { const pop = document.querySelector(".trivia-pop"); return Boolean(pop && !pop.hasAttribute("hidden") && pop.querySelector(".trivia-pop__card--join")); };
   forgetName();
   let server = base();
   const posts = [];
@@ -103,13 +132,14 @@ scenarios.flow = async () => {
   window.location.hash = "#program";
   await startTrivia();
   await settle();
-  assert.ok(noteShowing("trivia-join"), "a game day and no name: the join note");
-  assert.equal(document.querySelectorAll(".trivia-pop:not([hidden])").length, 0, "no popup before a join");
-  // Not today: the note goes and nothing else shows
+  // the layout pass (owner 2026-10-22): the join is the corner popup on every page, never an item of the To do
+  assert.ok(joinUp(), "a game day and no name: the join popup in the corner of the Pre-Game Program");
+  assert.equal(noteCount(), 0, "the To do has no trivia item");
+  // Not today: the popup goes and nothing else shows
   document.querySelector(".trivia-join__decline").click();
   await settle();
-  assert.ok(!noteShowing("trivia-join"));
-  // the next day the tablet joins from the note
+  assert.ok(!joinUp() && document.querySelector(".trivia-pop").hasAttribute("hidden"));
+  // the next day the tablet joins from the popup
   forgetName();
   localStorage.removeItem("trivia.declined");
   await advance(POLL_MS * 2);
@@ -117,7 +147,7 @@ scenarios.flow = async () => {
   server = base();
   await advance(5 * 60 * 1000 + 10);
   await settle();
-  assert.ok(noteShowing("trivia-join"), "asked again on a day it did not decline");
+  assert.ok(joinUp(), "asked again on a day it did not decline");
   const input = document.querySelector(".trivia-join input");
   input.value = "Couch Coordinators";
   document.querySelector(".trivia-join__join").click();
@@ -148,13 +178,74 @@ scenarios.flow = async () => {
   server = base({ on: false, team: { name: "Couch Coordinators", joined: true } });
   await advance(POLL_MS + 10);
   await settle();
-  assert.ok(pop.hasAttribute("hidden") && !noteShowing("trivia-join"));
+  assert.ok(pop.hasAttribute("hidden") && !joinUp());
+  assert.ok(errors.length === 0, errors.join("\n"));
+};
+
+// Not today before anyone has joined (2026-10-22): there is no trivia day yet, so the tablet keeps today's date as the day
+// it said no to; the popup came back on every page before.
+scenarios.declineBeforeDay = async () => {
+  installWindow();
+  const { startTrivia, forgetName } = await import(moduleUrl("ui/trivia.js"));
+  const joinUp = () => { const pop = document.querySelector(".trivia-pop"); return Boolean(pop && !pop.hasAttribute("hidden") && pop.querySelector(".trivia-pop__card--join")); };
+  forgetName();
+  localStorage.removeItem("trivia.declined");
+  route("/api/trivia/now", () => envelope(base({ day: null })));
+  window.location.hash = "#program";
+  await startTrivia();
+  await settle();
+  assert.ok(joinUp(), "a game day, no trivia day yet: the join popup");
+  document.querySelector(".trivia-join__decline").click();
+  await settle();
+  assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(localStorage.getItem("trivia.declined") || ""), "today's date kept");
+  await advance(5 * 60 * 1000 + 10);
+  await settle();
+  assert.ok(!joinUp(), "not asked again today");
+};
+
+// The layout pass (owner 2026-10-22): the standings sit, static, at the foot of In Game's Score by quarter and on the board,
+// which also shows the open question there (no buttons, never the answer); In Game gets no standings popup.
+scenarios.panel = async () => {
+  installWindow();
+  const { triviaPanel, triviaRunning, PANEL_ROWS, startTrivia, rememberName } = await import(moduleUrl("ui/trivia.js"));
+  const FOUR = [...STANDINGS, { rank: 3, name: "The Back Row", today: [0, 2], season: [3, 9], you: false }, { rank: 4, name: "Ted", today: [0, 2], season: [0, 2], you: false }];
+  assert.equal(PANEL_ROWS, 3);
+  const p = triviaPanel(base({ standings: FOUR }));
+  const t = clean("standings panel", p);
+  assert.equal(p.querySelectorAll("tbody tr").length, 3, "the top three");
+  assert.ok(t.includes("Trivia") && t.includes("2 teams") && t.includes("next at 7:27 pm") && t.includes("2 of 2") && t.includes("16 of 22"), t);
+  assert.equal(p.querySelectorAll("button").length, 0, "nothing to press: it is a static block");
+  const lower = FOUR.map((r, i) => ({ ...r, you: i === 3 }));
+  const withYou = triviaPanel(base({ standings: lower }));
+  assert.equal(withYou.querySelectorAll("tbody tr").length, 4, "this tablet's line under the top three");
+  assert.ok(withYou.querySelector("tr.is-you").textContent.includes("Ted"));
+  // the board shows the open question in the same spot, plain, with its clock, never the answer
+  const q = triviaPanel(base({ question: QUESTION }), { board: true });
+  const qt = clean("board question", q);
+  assert.ok(qt.includes("Where does Diner Tech play") && qt.includes("Griddle Field") && qt.includes("Answer on your tablet") && /3\d s/.test(qt), qt);
+  assert.equal(q.querySelectorAll("button").length, 0, "no buttons on the board");
+  assert.ok(q.querySelector(".trivia-clock"), "the clock counts down by itself");
+  assert.ok(clean("tablet panel", triviaPanel(base({ question: QUESTION }))).includes("Couch Coordinators"), "a tablet's block keeps the standings; its question is a popup");
+  // no trivia today, the trivia off, the day ended, the leaderboard off: nothing
+  for (const data of [null, "junk", base({ day: null }), base({ on: false }), base({ day: { ...DAY, endedAt: "2026-10-24T23:00:00-04:00" } }), base({ board: false })]) assert.equal(triviaPanel(data), null, String(JSON.stringify(data)).slice(0, 80));
+  assert.ok(triviaRunning(base()) && !triviaRunning(base({ day: null })));
+  clean("junk rows", triviaPanel(base({ standings: [null, { rank: "x", name: null, today: "bad", season: [1] }, 7] })));
+  // on In Game a joined tablet hears the answers (the static block) and gets no standings popup
+  rememberName("Couch Coordinators");
+  route("/api/trivia/now", () => envelope(base({ team: { name: "Couch Coordinators", joined: true, today: [1, 2], season: [14, 22] } })));
+  const heard = [];
+  document.addEventListener("kickoff:trivia-now", (event) => heard.push(event.detail));
+  window.location.hash = "#live";
+  await startTrivia();
+  await settle();
+  assert.ok(heard.length >= 1 && heard[heard.length - 1].standings.length === 2, "In Game hears every answer");
+  assert.equal(document.querySelectorAll(".trivia-pop:not([hidden])").length, 0, `no standings popup on In Game: they sit in Score by quarter (${document.querySelector(".trivia-pop")?.textContent})`);
   assert.ok(errors.length === 0, errors.join("\n"));
 };
 """
 
 
 @needs_node
-@pytest.mark.parametrize("scenario", ["popups", "page", "flow"])
+@pytest.mark.parametrize("scenario", ["popups", "page", "flow", "declineBeforeDay", "panel"])
 def test_trivia_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)

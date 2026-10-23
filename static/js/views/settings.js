@@ -1,20 +1,32 @@
-// The Settings page (X6): every option lives here and is stored on the server (owner direction
+// The Profile page, once the Settings page (X6; the layout pass, owner 2026-10-22: "a Profile that shows your settings and
+// setup information"; #profile, and #settings and #setup still open it): every option lives here and is stored on the server (owner direction
 // 2026-09-23). Spoiler delay, radio source, theme, page refresh, start at login, tray mode, the
 // notes command, a Desktop icon, and the quota readout. Each change saves on its own and says so.
 // Public release Phase 5b: the score ticker (every game, or my teams with a Tier 2 key), radio stations
 // for any team (add, remove, find the broadcast, request it), and the primary and secondary teams.
 // Public release Phase 6: the notes prompt the Game program copies for an AI chat, editable here.
-// Phase 17 #31 (owner pick: Steam's settings): the sections listed on the left (a chip row on a phone), the
-// options grouped as Game day, Display, and Start and the server; one row per setting, its name and grey help on
-// the left and the switch or picker on the right; switches instead of checkboxes; a green "saved" line.
+// Phase 17 #31 (owner pick: Steam's settings): one row per setting, its name and grey help on the left and the switch or
+// picker on the right; switches instead of checkboxes; a green "saved" line.
+// The layout pass, board 7 (owner 2026-10-22, https://claude.ai/artifact/QtUh4cS1MsSdwc11fjevCj; "Put the Tier 2 Key info
+// in about and help. Change Start and Server to Server Settings. Everything else is good."): a short page. Who and what at
+// the top (the team, host or guest, the server, and four facts that open their sections: the CFBD plan with the month's
+// calls, the version, the address, the friends); the four settings changed on game day on the page itself (the spoiler
+// delay, the theme, keeping the screen on, the text size); then every section a tile saying what is set now, opening its
+// settings in the wide flyout (about 83%): Game day, Trivia, Display, Your teams, Friends and the big screen, Radio
+// stations, Claude and loading data (gold while something is not loaded), Server Settings, About and help (the CFBD key
+// and plan with the version and the files), Setup. #profile=radio (and the old #settings=radio) opens a section's flyout.
 
 import { cvdOn, setCvd } from "../ui/cvd.js";
 import { readinessBand } from "../ui/readiness.js";
+import { icon } from "../ui/icons.js";
+import { ours, usSchool } from "../identity.js";
+import { openSheet } from "../ui/remote.js";
 import { setSpoiler, spoilerOn } from "../ui/spoiler.js";
 import { restartFlow } from "../ui/restart.js";
 import { fetchJson } from "./common.js";
-import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, text } from "../ui/dom.js";
-import { band, note, revealBand, settleOn, subhead } from "../ui/states.js";
+import { setupBand } from "./setup-page.js";
+import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, teamLogo, text } from "../ui/dom.js";
+import { band, note, subhead } from "../ui/states.js";
 import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
 import { radioHelpBlock, reloadRadioSources, startRadio } from "../radio.js";
 import { copyText } from "../ui/notes-paste.js";
@@ -72,7 +84,7 @@ function loginText(auto) {
 }
 
 export function createSettingsView({ onStatus, arg = null } = {}) {
-  let focus = typeof arg === "string" && /^[a-z-]{1,30}$/.test(arg) ? `settings-${arg}` : null; // #settings=radio opens a section (2026-10-16)
+  let focus = typeof arg === "string" && /^[a-z-]{1,30}$/.test(arg) ? arg : null; // #settings=radio (2026-10-16), #profile=radio: that section's flyout
   let container = null;
   const setStatus = (kind, label) => {
     if (typeof onStatus === "function") onStatus({ kind, label });
@@ -130,12 +142,13 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Spoiler delay", el("div", { class: "setting__slider" }, slider, delayValue), "Every live panel and our line in the ticker run this far behind the broadcast. Audio cannot be delayed."),
         row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the In Game sheet also keeps the screen on while plays come in."),
         row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Pre-Game Program uses first. Add stations for any team under Radio stations."),
-        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams with Change my teams on the My Teams page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
+        row("Announcer", toggle(p.announcer !== false, (value) => change({ announcer: value }, "Announcer"), "Announcer"), "A little announcer in a headset calls out each section's stat line the first time it scrolls into view. Nothing moves when the device asks for reduced motion."),
+        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams with Change my teams on the Season page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
       ],
       trivia: [
         row("Trivia during the game", toggle(p.trivia !== false, (value) => change({ trivia: value }, "Trivia"), "Trivia during the game"), "Three-choice questions from the schools' facts in a small popup in the corner of any page, for the tablets that joined with a team name; each tablet is asked when it connects on a game day. Off is off for every tablet."),
         row("Leaderboard", toggle(p.triviaBoard !== false, (value) => change({ triviaBoard: value }, "Leaderboard"), "Leaderboard"), "The room's standings by team name, in the popup between questions and on the Trivia page. Off, every tablet keeps its own score."),
-        row("Before and after our game", select([{ value: "15", label: "A question every 15 minutes (default)" }, { value: "30", label: "A question every 30 minutes" }, { value: "game", label: "Only during our game" }], p.triviaPace || "15", (value) => change({ triviaPace: value }, "Before and after our game"), "Before and after our game"), "Game day runs from the first join to the last tablet. Before kickoff and after the final the questions are about the teams in the games on, from the ticker; during our game one a quarter, whatever the pace."),
+        row("Before and after our game", select([{ value: "15", label: "A question every 15 minutes (default)" }, { value: "30", label: "A question every 30 minutes" }, { value: "game", label: "Only during our game" }], p.triviaPace || "15", (value) => change({ triviaPace: value }, "Before and after our game"), "Before and after our game"), "Game day runs from the first join to the last tablet. Before kickoff and after the final the questions are about the teams in the games on, from the ticker; during our game one at each break (the end of the 1st quarter, halftime, the end of the 3rd and the end of the game), whatever the pace."),
       ],
       display: [
         row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme"), "Charcoal or light; the team's colors mark what is ours either way."),
@@ -148,12 +161,13 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "A small question mark after a stat's name explains it when tapped. The Glossary in the menu lists every one."),
         row("Color-blind friendly colors", toggle(cvdOn(), (value) => setCvd(value), "Color-blind friendly colors"), "Blue and orange instead of green and red, and a shape on every rank chip (up for the top quarter, a dot for the middle, down for the bottom). Only this device."),
         row("Spoiler mode", toggle(spoilerOn(), (value) => setSpoiler(value), "Spoiler mode"), "For a recorded game: this device hides the scores, results, win chance and plays until you tap them. Only this device; the host and other devices are not affected."),
-        row("Announcer", toggle(p.announcer !== false, (value) => change({ announcer: value }, "Announcer"), "Announcer"), "A little announcer in a headset calls out each section's stat line the first time it scrolls into view. Nothing moves when the device asks for reduced motion."),
         row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The In Game sheet streams regardless."),
       ],
-      start: [
-        // owner 2026-10-10: Device setup is First time setup, here in Settings (the menu's Setup page holds the demo and the rest)
+      setup: [
+        // owner 2026-10-10: Device setup is First time setup, here in the Profile (board 7: in the Setup section)
         row("First time setup", el("a", { class: "btn", href: "/setup" }, "Open"), "Connect a phone, a tablet or a TV: the QR code and the address to open, and, with HTTPS on, trusting the certificate once. Nothing to install."),
+      ],
+      start: [
         row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
         row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
         auto.tray ? row("Tray mode", toggle(p.trayMode, (value) => change({ trayMode: value }, "Tray mode"), "Tray mode"), "The server's window hides behind a tray icon (Open the app, Status, Log, Quit). Takes effect on the next start from the Desktop icon or at login.") : null,
@@ -161,7 +175,9 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
         row("HTTPS for my devices", httpsControl(meta.network), `${meta.network?.https ? "On: this server also answers https://." : "Off: plain HTTP only."} On, your own devices trust the certificate once on First time setup and then get the screen lock without the video, one-tap paste of the answer and the home-screen app; guests keep http:// and need nothing. Switching restarts the server.`),
         row("Restart the server", restartControl(), "Starts the server over in the same window, for a changed setting or an update pulled while it runs. The page reloads when it's back, usually 10 to 20 seconds."),
-        row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "Once a day the server asks GitHub whether a newer release is out and says so under About. It never downloads anything by itself."),
+        row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "Once a day the server asks GitHub whether a newer release is out and says so under About and help. It never downloads anything by itself."),
+      ],
+      claude: [
         row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Pre-Game Program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt. To use it, install it, or set CLAUDE_COMMAND in the .env file to its full path."),
       ],
     };
@@ -180,10 +196,6 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
    *  an empty head row. The value wraps (a sentence, a list of teams, a folder's path breaks anywhere). */
   function factList(rows, label) {
     return el("dl", { class: "facts settings-facts", "aria-label": label }, rows.map((r) => [el("dt", {}, text(r.label)), el("dd", {}, text(r.value))]));
-  }
-
-  function section(id, title, rows, summary = null) {
-    return band({ id, title, collapsible: false, summary, state: { status: "ready" }, body: () => el("div", { class: "settings" }, rows) });
   }
 
   function quotaBand() {
@@ -218,31 +230,41 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         typeof plan.warning === "string" && plan.warning ? el("p", { class: "note note-bad", role: "alert" }, plan.warning) : null, // a key CFBD reports as out of calls
         el("ul", { class: "plain-list plan-features" }, featureRows),
         el("p", { class: "note plan-note" }, "Every feature your plan includes is on. A bigger plan adds the rest; nothing else changes. ", el("a", { href: plansUrl, target: "_blank", rel: "noopener" }, "See CFBD's plans")),
-        el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", changeKey),
+        el("p", { class: "settings__actions" }, changeKey),
       ),
     });
   }
 
-  function serverBand() {
+  /** The teams the install follows (which only Settings knows): the home team, more primary teams, the secondary ones. */
+  function teamsOf() {
     const meta = prefsMeta() || {};
-    const s = meta.server || {};
-    // freeze wave F3 (one fact, one source): the season, conference, time zone, port and live poll are the status page's
-    // Configuration panel; this band keeps the teams (which only Settings knows) and the two folders
-    const rows = [
-      { label: "Team", value: text(s.team) },
-      { label: "Data folder", value: text(s.dataDir) },
-      { label: "Log folder", value: text(s.logDir) },
-    ];
     const prefs = getPrefs();
     const set = meta.teamSet && typeof meta.teamSet === "object" ? meta.teamSet : {};
     const names = (list) => (Array.isArray(list) ? list.filter((v) => typeof v === "string" && v) : []);
     const extra = names(set.extraPrimaries);
+    const saved = names(prefs.primaryTeams);
     const secondary = [...names(prefs.likedTeams), ...names(prefs.likedConferences), ...names(prefs.likedStates)];
-    const locked = set.allowed === false && (names(prefs.primaryTeams).length || secondary.length) ? " (saved; shows with a Tier 2 key)" : "";
-    rows[0] = { label: "Home team", value: text(s.team) };
-    rows.splice(1, 0, { label: "More primary teams", value: extra.length ? extra.join(", ") : names(prefs.primaryTeams).length ? `${names(prefs.primaryTeams).join(", ")}${locked}` : DASH });
-    rows.splice(2, 0, { label: "Secondary teams", value: secondary.length ? `${secondary.join(", ")}${locked}` : DASH });
-    return band({ id: "settings-server", title: "Server", collapsible: false, summary: "teams from My Teams; the rest on the status page", state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Server"), el("p", { class: "note" }, "Change the home team and the primary and secondary teams with Change my teams on the My Teams page (the server restarts for a new home team). Only the home team's colors and mascot theme the app. The season, the time zone, the port, the live poll, the network name and the CFBD plan are on the ", el("a", { href: "/status" }, "status page"), "; the key and the network settings live in .env and never show here.")) });
+    const locked = set.allowed === false && (saved.length || secondary.length);
+    return { home: text(meta.server?.team), primary: extra.length ? extra : saved, secondary, locked };
+  }
+
+  function teamsBand() {
+    // freeze wave F3 (one fact, one source): the season, conference, time zone, port and live poll are the status page's
+    // Configuration panel; this keeps the teams. Board 7: the CFBD key and plan moved to About and help.
+    const t = teamsOf();
+    const lock = t.locked ? " (saved; shows with a Tier 2 key)" : "";
+    const rows = [
+      { label: "Home team", value: t.home },
+      { label: "More primary teams", value: t.primary.length ? `${t.primary.join(", ")}${lock}` : DASH },
+      { label: "Secondary teams", value: t.secondary.length ? `${t.secondary.join(", ")}${lock}` : DASH },
+    ];
+    return band({ id: "settings-teams", title: "Your teams", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Your teams"), el("p", { class: "note" }, "Only the home team's colors and mascot theme the app; a new home team restarts the server. More primary and secondary teams need a Tier 2 key."), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", el("a", { class: "btn btn--quiet", href: "#season" }, "Their seasons"))) });
+  }
+
+  /** The folders this install keeps (About and help): where the data and the logs are. */
+  function foldersBand() {
+    const s = prefsMeta()?.server || {};
+    return band({ id: "settings-folders", title: "The data and the logs", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList([{ label: "Data folder", value: text(s.dataDir) }, { label: "Log folder", value: text(s.logDir) }], "Folders"), el("p", { class: "note" }, "The season, the time zone, the port, the live poll and the network name are on the ", el("a", { href: "/status" }, "status page"), "; the key and the network settings live in .env and never show here.")) });
   }
 
   async function saveStations(next, label) {
@@ -455,7 +477,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     const again = el("button", { class: "btn btn--quiet", type: "button", disabled: update.checking ? true : null, onclick: () => loadUpdate(true) }, update.checking ? "Checking…" : "Check now");
     if (update.error) return el("p", { class: "note" }, `Update check: ${update.error}. `, again);
     if (!u) return el("p", { class: "note" }, "Update check: not asked yet. ", again);
-    if (u.enabled === false) return el("p", { class: "note" }, `You run version ${text(u.current)}. Checking for updates is off (Start and the server).`);
+    if (u.enabled === false) return el("p", { class: "note" }, `You run version ${text(u.current)}. Checking for updates is off (Server Settings).`);
     const when = typeof u.checkedAt === "string" ? ` Checked ${fmtDate(u.checkedAt, "short")}.` : "";
     if (u.newer) {
       const link = typeof u.url === "string" && u.url.startsWith("https://github.com/") ? el("a", { href: u.url, target: "_blank", rel: "noopener" }, "What's new and how to update") : null;
@@ -627,57 +649,229 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     });
   }
 
+  // --- the page (board 7): who and what, the game-day four, the tiles; each section in a wide flyout ----------------------
+  const SECTIONS = [
+    { id: "gameday", title: "Game day", icon: "live" },
+    { id: "trivia", title: "Trivia", icon: "trivia" },
+    { id: "display", title: "Display", icon: "sun" },
+    { id: "teams", title: "Your teams", icon: "shield" },
+    { id: "friends", title: "Friends and the big screen", icon: "person" },
+    { id: "radio", title: "Radio stations", icon: "radio" },
+    { id: "claude", title: "Claude and loading data", icon: "sparkle" },
+    { id: "server", title: "Server Settings", icon: "bars" },
+    { id: "about", title: "About and help", icon: "book" },
+    { id: "setup", title: "Setup", icon: "program" },
+  ];
+  // the old section names of #settings=... (saved links, the radio's "Add it in Settings") lead to their new homes
+  const ALIASES = { start: "server", quota: "about", plan: "about", prompts: "claude", folders: "about", teams: "teams" };
+  const sectionOf = (name) => {
+    const key = typeof name === "string" ? name.replace(/^settings-/, "") : "";
+    const id = ALIASES[key] || key;
+    return SECTIONS.find((sec) => sec.id === id) || null;
+  };
+  let flyout = null; // { id, handle } while a section is open
+  const extras = { host: null, invite: null, readiness: null, asked: false }; // the facts read after the page is drawn
+
+  function sectionBody(id) {
+    const o = optionRows();
+    const rows = (list) => el("div", { class: "settings" }, list);
+    switch (id) {
+      case "gameday": return [rows([...o.problems, ...o.gameday])];
+      case "trivia": return [rows(o.trivia)];
+      case "display": return [rows(o.display)];
+      case "teams": return [teamsBand()];
+      case "friends": return [friendsBand()];
+      case "radio": return [radioBand()];
+      case "claude": return [rows(o.claude), claudeBand(), readinessBand(), ...prompts.map((pr) => pr.view())];
+      case "server": return [rows(o.start)];
+      case "about": return [quotaBand(), aboutBand(), foldersBand()];
+      case "setup": return [rows(o.setup), setupBand()];
+      default: return [note("Nothing here.")];
+    }
+  }
+
+  function flyoutContent(id) {
+    return el("div", { class: "profile-flyout" }, saved, ...sectionBody(id));
+  }
+
+  function openSection(id) {
+    const sec = SECTIONS.find((x) => x.id === id);
+    if (!sec) return null;
+    if (flyout && flyout.id === id) return flyout.handle;
+    if (flyout) flyout.handle.close();
+    saved.textContent = "";
+    const handle = openSheet({
+      title: sec.title,
+      wide: true,
+      className: "profile-sheet",
+      body: flyoutContent(id),
+      onClose: () => {
+        if (flyout && flyout.handle === handle) flyout = null;
+        render(); // the tiles say what is set now
+      },
+    });
+    flyout = { id, handle };
+    return handle;
+  }
+
+  const onOff = (on) => (on ? "on" : "off");
+
+  /** What each tile says is set now, in one line. */
+  function tileLine(id) {
+    const p = getPrefs();
+    const meta = prefsMeta() || {};
+    const sources = Array.isArray(meta.radioSources) ? meta.radioSources.filter((x) => x && typeof x.id === "string") : [];
+    const radio = sources.find((x) => x.id === p.radioSourceId) || sources[0];
+    const plan = meta.plan && typeof meta.plan === "object" ? meta.plan : {};
+    const auto = meta.autoStart || {};
+    switch (id) {
+      case "gameday": return `Radio ${radio ? (radio.origin === "sample" ? "a sample station" : text(radio.name)) : "none yet"} · ticker ${p.tickerMode === "mine" && plan.likedAllowed === true ? "my teams" : "every FBS game"} · announcer ${onOff(p.announcer !== false)}`;
+      case "trivia": return `${p.trivia !== false ? "On" : "Off"} · leaderboard ${onOff(p.triviaBoard !== false)} · ${p.triviaPace === "30" ? "every 30 min" : p.triviaPace === "game" ? "only during our game" : "every 15 min"} before and after our game`;
+      case "display": return `Stat hints ${onOff(p.hints !== false)} · color-blind colors ${onOff(cvdOn())} · spoiler mode ${onOff(spoilerOn())} · refresh ${isNum(p.refreshMinutes) ? `${p.refreshMinutes} min` : DASH}`;
+      case "teams": {
+        const t = teamsOf();
+        return `${t.home || "No home team"} · ${t.primary.length} more primary · ${t.secondary.length} secondary`;
+      }
+      case "friends": return extras.host ? `Host PIN ${extras.host.pinSet === true ? "set" : "not set"} · invite with the QR code · the big screen` : "The host PIN, inviting friends, the big screen";
+      case "radio": {
+        const n = sources.filter((x) => x.origin !== "sample").length;
+        return n ? `${n === 1 ? "1 station" : `${n} stations`}${radio ? ` (${text(radio.name)})` : ""} · how to add yours` : "No station yet · how to add yours";
+      }
+      case "claude": {
+        const missing = Array.isArray(extras.readiness?.items) ? extras.readiness.items.length : null;
+        return `Claude Code ${meta.notes?.commandFound ? "found" : "not found"} · schedule ${onOff(p.scheduledRuns !== false && meta.notes?.commandFound === true)}${missing ? ` · ${missing} ${missing === 1 ? "load" : "loads"} missing` : missing === 0 ? " · everything loaded" : ""}`;
+      }
+      case "server": return `Start at login ${onOff(p.autoStart === true && auto.supported !== false)} · backups ${onOff(p.backups !== false)} · ${meta.network?.https ? "HTTPS" : "HTTP"} · restart, updates`;
+      case "about": return `${text(plan.tierName || meta.quota?.tierName)} key · ${isNum(plan.used) ? fmtNum(plan.used) : DASH} of ${isNum(plan.monthlyLimit) ? fmtNum(plan.monthlyLimit) : DASH} calls · version ${text(meta.about?.version)}`;
+      case "setup": return "First time setup · the demo · the Archive · the Season in review";
+      default: return "";
+    }
+  }
+
+  function tile(sec) {
+    const warn = sec.id === "claude" && Array.isArray(extras.readiness?.items) && extras.readiness.items.length > 0;
+    return el(
+      "button",
+      { type: "button", class: `profile-tile${warn ? " profile-tile--warn" : ""}`, dataset: { section: sec.id }, "aria-haspopup": "dialog", onclick: () => openSection(sec.id) },
+      el("span", { class: "profile-tile__icon", "aria-hidden": "true" }, icon(sec.icon)),
+      el("span", { class: "profile-tile__words" }, el("b", {}, sec.title), el("small", {}, tileLine(sec.id))),
+      el("span", { class: "profile-tile__go", "aria-hidden": "true" }, icon("wide")),
+    );
+  }
+
+  /** One fact at the top that opens its section. */
+  function fact(label, value, sub, section) {
+    return el("button", { type: "button", class: "profile-fact", onclick: () => openSection(section) }, el("small", {}, label), el("b", {}, value), el("span", {}, sub));
+  }
+
+  function helloCard() {
+    const meta = prefsMeta() || {};
+    const me = ours();
+    const plan = meta.plan && typeof meta.plan === "object" ? meta.plan : {};
+    const guest = typeof document !== "undefined" && document.body?.dataset?.role === "guest";
+    const u = update.data && typeof update.data === "object" ? update.data : null;
+    let address = null;
+    try {
+      address = extras.invite?.url ? new URL(extras.invite.url) : null;
+    } catch {
+      address = null;
+    }
+    return el(
+      "section",
+      { class: "profile-hello", "aria-label": "This install" },
+      el("div", { class: "profile-hello__logo" }, teamLogo({ school: usSchool(), abbreviation: me.label, color: me.color, altColor: me.altColor }, { size: 64, lazy: false })),
+      el("div", { class: "profile-hello__words" }, el("h1", {}, text(me.school ? `${me.school}${me.name && me.name !== me.school ? ` ${me.name}` : ""}` : "Kickoff Companion")), el("p", {}, me.conference ? `${me.conference} · the team this install follows and colors` : "The team this install follows and colors")),
+      el("div", { class: "profile-hello__chips" }, el("span", { class: "profile-chip profile-chip--role" }, guest ? "Guest" : "Host"), el("span", { class: `profile-chip${prefsError() ? " profile-chip--bad" : " profile-chip--good"}` }, prefsError() ? "Server not answering" : "Server running")),
+      el(
+        "div",
+        { class: "profile-facts" },
+        fact("CFBD plan", text(plan.tierName || meta.quota?.tierName), isNum(plan.used) && isNum(plan.monthlyLimit) ? `${fmtNum(plan.used)} of ${fmtNum(plan.monthlyLimit)} calls` : "this month's calls", "about"),
+        fact("Version", text(meta.about?.version), u ? (u.newer ? `${text(u.latest)} is out` : "up to date") : "checking", "about"),
+        fact("Address", address ? address.hostname : DASH, address ? (address.port ? `port ${address.port}` : address.protocol.replace(":", "")) : "the home network", "friends"),
+        fact("Friends", extras.host ? (extras.host.pinSet === true ? "PIN set" : "No PIN") : DASH, extras.host ? (extras.host.pinSet === true ? "guests view only" : "every device can change settings") : "the host PIN", "friends"),
+      ),
+    );
+  }
+
+  /** The four settings changed on game day, on the page itself (board 7). */
+  function quickCard() {
+    const p = getPrefs();
+    const delayValue = el("b", { class: "profile-quick__value" }, `${p.delaySeconds} s`);
+    const slider = el("input", { type: "range", min: "0", max: "120", step: "5", value: String(p.delaySeconds), "aria-label": "Spoiler delay in seconds", oninput: (event) => { delayValue.textContent = `${event.target.value} s`; }, onchange: (event) => change({ delaySeconds: Number(event.target.value) }, "Spoiler delay") });
+    const seg = (label, options, value, pick) => el(
+      "div",
+      { class: "seg profile-seg", role: "group", "aria-label": label },
+      options.map((o) => el("button", { type: "button", class: o.value === value ? "is-on" : null, "aria-pressed": o.value === value ? "true" : "false", "aria-label": o.aria || null, onclick: () => pick(o.value) }, o.label)),
+    );
+    const item = (label, help, control) => el("div", { class: "profile-quick__row" }, el("span", { class: "profile-quick__label" }, el("b", {}, label), el("small", {}, help)), control);
+    return el(
+      "section",
+      { class: "profile-quick", "aria-label": "On game day" },
+      item("Spoiler delay", "scores wait for your TV", el("span", { class: "profile-quick__slider" }, slider, delayValue)),
+      item("Theme", "the team's colors either way", seg("Theme", [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], p.theme === "light" ? "light" : "dark", (value) => change({ theme: value }, "Theme"))),
+      item("Keep the screen on", "so the tablet never sleeps", seg("Keep the screen on", [{ value: "gameday", label: "Game days" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"))),
+      item("Text size", "this device only", seg("Text size", TEXT_SIZES.map((x, i) => ({ value: x.id, label: ["A", "A+", "A++"][i] || x.label, aria: x.label })), textSize(), (value) => {
+        const size = setTextSize(value);
+        saved.classList.remove("note--error");
+        saved.classList.add("setting__saved--ok");
+        saved.textContent = `Text size ${size.label.toLowerCase()} on this device.`;
+        render();
+      })),
+    );
+  }
+
+  /** The host, the address and what is not loaded: read once after the page is drawn, then the tiles and facts say so. */
+  function askExtras() {
+    if (extras.asked) return;
+    extras.asked = true;
+    const take = (key, url) => fetchJson(url).then((envelope) => {
+      extras[key] = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
+      if (container) render();
+    }).catch(() => {});
+    take("host", "/api/host");
+    take("invite", "/api/invite");
+    take("readiness", "/api/readiness");
+  }
+
   function render() {
     if (!container) return;
-    const o = optionRows();
-    const sections = [
-      section("settings-gameday", "Game day", [...o.problems, ...o.gameday], "saved on the server for every device"),
-      section("settings-trivia", "Trivia", o.trivia, "the popups for the tablets that joined, the room's board, the pace"), // the trivia (owner 2026-10-21)
-      // freeze wave F3: the readiness list ("Not loaded yet") is the status pill's card and the Load data page, not a band here
-      section("settings-display", "Display", o.display),
-      section("settings-start", "Start and the server", o.start),
-      claudeBand(),
-      friendsBand(),
-      radioBand(),
-      ...prompts.map((p) => p.view()),
-      quotaBand(),
-      serverBand(),
-      aboutBand(),
-    ];
-    const nav = el(
-      "nav",
-      { class: "settings-nav", "aria-label": "Settings sections" },
-      sections.map((b) => {
-        const title = b.querySelector?.(".band__title")?.textContent || "";
-        const id = b.getAttribute?.("id");
-        if (!id || !title) return null;
-        const link = el("a", { class: "settings-nav__item", href: `#${id}` }, title);
-        link.addEventListener("click", (event) => {
-          event.preventDefault(); // a section id is not a route
-          revealBand(b);
-          for (const a of nav.querySelectorAll(".settings-nav__item")) a.classList.toggle("is-current", a === link);
-        });
-        return link;
-      }),
+    if (flyout) {
+      try {
+        flyout.handle.update(flyoutContent(flyout.id)); // an open section follows a saved setting, where the reader is
+      } catch (error) {
+        console.error("The open section could not be redrawn.", error);
+      }
+    }
+    container.replaceChildren(
+      el(
+        "div",
+        { class: "page profile-page" },
+        flyout ? null : saved,
+        helloCard(),
+        el("p", { class: "profile-label" }, "On game day"),
+        quickCard(),
+        el("p", { class: "profile-label" }, "Everything else"),
+        el("div", { class: "profile-tiles" }, SECTIONS.map(tile)),
+        el("p", { class: "note profile-foot" }, "Each tile opens its section in a wide flyout; Back or › closes it."),
+      ),
     );
-    container.replaceChildren(el("div", { class: "page settings-page" }, nav, el("div", { class: "settings-main" }, saved, ...sections)));
-    const target = focus ? sections.find((b) => b.getAttribute?.("id") === focus) : null;
+    askExtras();
+    const target = focus ? sectionOf(focus) : null;
     if (target) {
       focus = null; // once: a later redraw (a saved setting) leaves the reader where they are
-      revealBand(target);
-      settleOn(target); // the sections above it grow as they load
+      openSection(target.id);
     }
   }
 
   return {
     async mount(target) {
       container = target;
-      container.replaceChildren(el("div", { class: "page settings-page" }, el("div", { class: "settings-main" }, band({ title: "Settings", collapsible: false, state: { status: "loading" } }))));
+      container.replaceChildren(el("div", { class: "page profile-page" }, band({ title: "Profile", collapsible: false, state: { status: "loading" } })));
       setStatus("quiet", "Loading");
       for (const p of prompts) p.load();
       loadUpdate();
       await loadPrefs(true);
-      setStatus(prefsError() ? "offline" : "quiet", prefsError() ? "Offline" : "Settings");
+      setStatus(prefsError() ? "offline" : "quiet", prefsError() ? "Offline" : "Profile");
       drawn = true;
       render();
     },
@@ -686,6 +880,8 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     },
     unmount() {
       container = null;
+      if (flyout) flyout.handle.close("route");
+      flyout = null;
     },
   };
 }

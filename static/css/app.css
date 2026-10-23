@@ -156,12 +156,6 @@ code {
   overflow-wrap: anywhere;
 }
 
-/* Season view: inside the three-column media-guide grid the middle column is about 520 px
-   wide on the iPad, so the offense and defense tables stack there. Only there (Phase 16,
-   bug 4): the other pages that borrowed the .season wrapper keep their two-up spreads. */
-@media (min-width: 1100px) { /* the tablet lock (owner 2026-10-13): the iPad's one column at every width above it too */
-  .season__guide .spread--2 { grid-template-columns: minmax(0, 1fr); }
-}
 .plan-features { margin-top: 12px; }
 /* the demo page's key form (owner 2026-10-13): the field beside its button, stacked when narrow */
 .demo-key { display: grid; gap: var(--sp-2); margin: var(--sp-3) 0; }

@@ -154,7 +154,7 @@ export function createPreseasonView({ onStatus } = {}) {
           { class: "page preseason" },
           el("h1", { class: "page-title flow-full" }, `${text(data.season)} Preseason Magazine`),
           ui.loads,
-          teams.length ? teams.map(teamBand) : note("No primary teams yet. Pick them with Change my teams on the My Teams page."),
+          teams.length ? teams.map(teamBand) : note("No primary teams yet. Pick them with Change my teams on the Season page."),
       );
       mountFlow(ui, container, page); // final pass: the flowing page with its section chips
       fillWiki(container); // Phase 19: the staff's names open their Wikipedia pages

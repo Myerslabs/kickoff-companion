@@ -132,9 +132,11 @@ def test_setup_mode_lets_the_demo_page_through(tmp_path: Path, monkeypatch):
 def test_the_readme_and_the_menu_say_the_same():
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert PRIVACY in readme and PLANS in readme and "**Use my own team**" in readme and "**demo**" in readme
-    # owner 2026-10-10: the Demo is on the Setup page (the menu's Setup item), not a menu item of its own
+    # owner 2026-10-10: the Demo is on the Setup page, not a menu item of its own; since the layout pass (owner 2026-10-22)
+    # the Setup links are the Profile's Setup section, and the menu's Profile group holds the Profile
     setup = (ROOT / "static/js/views/setup-page.js").read_text(encoding="utf-8")
-    assert '{ label: "Demo", href: "/demo"' in setup
-    assert '{ id: "setup", label: "Setup"' in (ROOT / "static/js/ui/shell.js").read_text(encoding="utf-8")
+    assert '{ label: "Demo", href: "/demo"' in setup and "export function setupBand()" in setup
+    assert "setupBand()" in (ROOT / "static/js/views/settings.js").read_text(encoding="utf-8")
+    assert '{ id: "profile", label: "Profile"' in (ROOT / "static/js/ui/menu-tree.js").read_text(encoding="utf-8")
     app_js = (ROOT / "static/js/app.js").read_text(encoding="utf-8")
     assert "showDemoBanner(page);" in app_js

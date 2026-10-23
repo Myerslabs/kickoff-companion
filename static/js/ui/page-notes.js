@@ -1,17 +1,22 @@
-// The one note at the top of a page (item 6, step C, owner 2026-10-11; Design rules, owner 2026-10-21: "Reminders are one
-// format only: a single note at the top of the page that lists ALL open issues and how to correct each, with one close
-// button. Never a side sheet, never a bottom banner, never on the board"). What once opened by itself as a sheet over
-// whatever the reader was doing ("Not loaded yet" after a server start, a guest's welcome, a new build on the server) is
-// one item of one note above the page, in the shell's .page-notes slot between the top bar and the page: never over the
-// Menu, never a layer, never on the board, never on In Game (one screen since wave F5). Each item shows on the routes it
-// names; the note shows while any item does; its one close button dismisses every item on screen.
+// The one To do note (item 6, step C, owner 2026-10-11; Design rules, owner 2026-10-21: "Reminders are one format only: a
+// single note ... that lists ALL open issues and how to correct each, with one close button. Never a side sheet, never a
+// bottom banner, never on the board"). What once opened by itself as a sheet over whatever the reader was doing ("Not
+// loaded yet" after a server start, a guest's welcome, a new build on the server) is one item of one note. The layout pass
+// (owner 2026-10-22: "dont show that unless its in its own flyout"): the note no longer sits above the page. It waits in
+// the shell's .page-notes slot, which never shows, and the To do flyout (ui/todo.js), opened from the menu, carries it
+// while open; the Menu button counts its items (the "kickoff:notes" event). Nothing opens by itself. Each item is listed
+// on the routes it names (the board never); an item is seen, and onShow runs, only when the flyout shows it; the one close
+// (the flyout's Clear the list) dismisses every item listed.
 //
 //   addNote({ id, title, body, when, onShow, onDismiss, leaveWithPage })
-//       place an item (one with the same id is replaced). when(routeId) says where it shows (the board never); onShow runs
-//       the first time it is on screen; onDismiss when the reader closes the note; leaveWithPage takes it away at the next
-//       page change once it has been seen. Returns the item's element, or null when the page has no slot for it.
+//       place an item (one with the same id is replaced). when(routeId) says where it is listed (the board never); onShow
+//       runs the first time the flyout shows it; onDismiss when the reader clears the list; leaveWithPage takes it away at
+//       the next page change once it has been seen. Returns the item's element, or null when the page has no slot for it.
 //   removeNote(id)        take an item away (onDismiss does not run)
-//   noteShowing(id)       true while the item is on screen
+//   noteShowing(id)       true while the item is listed (it belongs to the page on screen)
+//   noteCount()           how many items are listed
+//   takeNotes() / parkNotes()   the flyout takes the note (its items are seen) and gives it back to the slot
+//   dismissAll()          the one close: every item listed goes, each telling its owner
 //   routeIdOf(hash)       "#program=123" -> "program"; no hash -> "program" (the app's home)
 
 import { el, text } from "./dom.js";
@@ -20,6 +25,7 @@ const TITLE = "To do";
 const notes = new Map(); // id -> { node, when, onShow, onDismiss, leaveWithPage, shownOn }
 let host = null; // the one aside, while any item exists
 let listening = false;
+let viewing = false; // the To do flyout holds the note: only then is an item on screen (seen)
 
 export function routeIdOf(hash) {
   const match = /^#?([a-z][\w-]*)/i.exec(String(hash ?? ""));
@@ -42,7 +48,7 @@ function slot() {
   }
 }
 
-/** The one close button: every item on screen goes, each telling its owner. */
+/** The one close: every item listed goes, each telling its owner. */
 function dismissShown() {
   for (const [id, note] of [...notes]) {
     if (note.node.hasAttribute("hidden")) continue;
@@ -84,12 +90,35 @@ function syncSlot() {
   }
   if (any) box.removeAttribute("hidden");
   else box.setAttribute("hidden", "");
+  announce();
+}
+
+/** The Menu's count and the open flyout follow the list (ui/shell.js, ui/todo.js). */
+function announce() {
+  if (typeof document === "undefined" || typeof document.dispatchEvent !== "function" || typeof CustomEvent !== "function") return;
+  try {
+    document.dispatchEvent(new CustomEvent("kickoff:notes", { detail: { count: noteCount() } }));
+  } catch (error) {
+    console.error("The To do count could not be sent.", error);
+  }
+}
+
+function markShown(id, note, route) {
+  if (note.shownOn !== null) return;
+  note.shownOn = route;
+  if (typeof note.onShow === "function") {
+    try {
+      note.onShow();
+    } catch (error) {
+      console.error(`The note ${id} did not take its showing.`, error);
+    }
+  }
 }
 
 function apply(id, note, route) {
   let on = false;
   try {
-    on = route !== "board" && route !== "live" && note.when(route) === true; // the big screen board never carries a note, nor In Game since wave F5 (one screen)
+    on = route !== "board" && note.when(route) === true; // the big screen board never lists one; In Game may, since the note left the page (2026-10-22)
   } catch (error) {
     console.error("A note could not tell where it belongs; it stays hidden.", error);
   }
@@ -98,16 +127,7 @@ function apply(id, note, route) {
     return;
   }
   note.node.removeAttribute("hidden");
-  if (note.shownOn === null) {
-    note.shownOn = route;
-    if (typeof note.onShow === "function") {
-      try {
-        note.onShow();
-      } catch (error) {
-        console.error(`The note ${id} did not take its showing.`, error);
-      }
-    }
-  }
+  if (viewing) markShown(id, note, route); // seen only in the flyout
 }
 
 function onRoute(event) {
@@ -171,4 +191,29 @@ export function removeNote(id) {
 export function noteShowing(id) {
   const note = notes.get(id);
   return Boolean(note && note.node.isConnected && !note.node.hasAttribute("hidden") && host && !host.hasAttribute("hidden"));
+}
+
+export function noteCount() {
+  return [...notes.values()].filter((note) => !note.node.hasAttribute("hidden")).length;
+}
+
+/** The To do flyout takes the note: every item listed is seen now (and any added while it is open). Null with none. */
+export function takeNotes() {
+  if (!host || !noteCount()) return null;
+  viewing = true;
+  const route = currentRoute();
+  for (const [id, note] of [...notes]) if (!note.node.hasAttribute("hidden")) markShown(id, note, route);
+  return host;
+}
+
+/** The flyout closed: the note goes back to its slot off the page, every item kept. */
+export function parkNotes() {
+  viewing = false;
+  const box = slot();
+  if (host && box && host.parentNode !== box) box.append(host);
+  syncSlot();
+}
+
+export function dismissAll() {
+  dismissShown();
 }

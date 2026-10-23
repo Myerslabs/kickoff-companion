@@ -8,26 +8,28 @@ import { icon } from "./icons.js";
 import { holdLayer, placeLayers } from "./layers.js";
 
 /**
- * remoteBar({ items: [{ id, label, hint }], onOpen(id) })
+ * remoteBar({ items: [{ id, label, hint }], onOpen(id), tools })
  * returns the element with setActive(id) and setHint(id, hint). The live sheet builds it once
  * and only updates the hints, so a bar scrolled sideways on a narrow screen stays where it is.
+ * tools (the layout pass, owner 2026-10-22): nodes pinned at the row's right end, always in reach, while the panel
+ * buttons slide sideways beside them.
  */
-export function remoteBar({ items = [], onOpen } = {}) {
+export function remoteBar({ items = [], onOpen, tools = null } = {}) {
   const buttons = new Map();
-  const bar = el(
-    "nav",
-    { class: "remote", "aria-label": "Open a panel" },
-    items.map((item) => {
-      const button = el(
-        "button",
-        { class: "remote__btn", type: "button", "aria-pressed": "false", dataset: { id: item.id }, onclick: () => onOpen && onOpen(item.id) },
-        text(item.label),
-        el("small", {}, item.hint ? text(item.hint) : " "),
-      );
-      buttons.set(item.id, button);
-      return button;
-    }),
-  );
+  const panelButtons = items.map((item) => {
+    const button = el(
+      "button",
+      { class: "remote__btn", type: "button", "aria-pressed": "false", dataset: { id: item.id }, onclick: () => onOpen && onOpen(item.id) },
+      text(item.label),
+      el("small", {}, item.hint ? text(item.hint) : " "),
+    );
+    buttons.set(item.id, button);
+    return button;
+  });
+  const pinned = Array.isArray(tools) ? tools.filter(Boolean) : [];
+  const bar = pinned.length
+    ? el("nav", { class: "remote remote--split", "aria-label": "Open a panel" }, el("div", { class: "remote__panels" }, panelButtons), el("div", { class: "remote__tools" }, pinned))
+    : el("nav", { class: "remote", "aria-label": "Open a panel" }, panelButtons);
   bar.setActive = (id) => {
     for (const [key, button] of buttons) button.setAttribute("aria-pressed", key === id ? "true" : "false");
   };
@@ -68,8 +70,12 @@ export function closeAllSheets(reason) {
  * working (placeLayers, components.css); a phone keeps the whole screen. A sheet takes one history entry (ui/layers.js):
  * Back closes it and stays on the page, and closing it by hand takes the entry back out. close(reason) is "self" (the
  * default), "route" or "history"; only "self" moves the history.
+ * The wide flyout (the layout pass, owner 2026-10-22, board 4: https://claude.ai/artifact/4VVfYTQpLu1oyz8dz9xosZ): `wide`
+ * makes it about 83% of the screen (a phone's whole width), with `lead` (the "back to the list" button) at the head's left,
+ * `subtitle` under the title, the × at its right as drawn, and `foot` (previous and next) pinned at its foot. The handle
+ * adds setSubtitle(text) and setFoot(node).
  */
-export function openSheet({ title, body, onClose, mount = document.body, inline = false, tools, className, persist = false } = {}) {
+export function openSheet({ title, body, onClose, mount = document.body, inline = false, tools, className, persist = false, wide = false, lead = null, subtitle = null, foot = null, swipeClose = true } = {}) {
   const content = typeof body === "function" ? body() : body;
   const layer = el("div", {
     class: `sheet-layer${inline ? " sheet-layer--inline" : ""}`,
@@ -82,7 +88,9 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
   });
   const bodyEl = el("div", { class: "side-sheet__body" }, content);
   const titleEl = el("h2", { class: "side-sheet__title" }, text(title));
+  const subtitleEl = wide ? el("p", { class: "side-sheet__subtitle", hidden: subtitle ? null : true }, subtitle ? text(subtitle) : null) : null;
   const toolsEl = el("div", { class: "side-sheet__tools" }, tools || null);
+  const footEl = wide ? el("div", { class: "side-sheet__foot", hidden: foot ? null : true }, foot || null) : null;
   const opener = inline ? null : document.activeElement; // Phase 15: focus goes back here on close
   let closed = false;
   let release = null; // the layer's history entry (ui/layers.js)
@@ -98,7 +106,7 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     if (!persist) close("route");
   };
   // item 8: the › slides the sheet away to the right, the way it came in; its words are for a screen reader and a hover
-  const closeButton = el("button", { class: "btn btn--quiet icon-btn side-sheet__close", type: "button", "aria-label": `Close ${text(title)}`, title: "Slide away" }, icon("chevron-right"));
+  const closeButton = el("button", { class: "btn btn--quiet icon-btn side-sheet__close", type: "button", "aria-label": `Close ${text(title)}`, title: wide ? "Close" : "Slide away" }, icon(wide ? "close" : "chevron-right"));
   closeButton.addEventListener("click", () => close());
   let anchor = null; // where the sheet lies on the page, and the page's scroll when it opened
   function close(reason) {
@@ -116,9 +124,12 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     if (anchor && reason !== "route" && typeof window !== "undefined" && typeof window.scrollTo === "function") window.scrollTo(0, anchor.scrollY);
     if (opener && typeof opener.focus === "function" && document.contains(opener)) opener.focus({ preventScroll: true });
   }
-  const aside = el("aside", { class: `side-sheet${className ? ` ${className}` : ""}` }, el("div", { class: "side-sheet__head" }, closeButton, titleEl, toolsEl), bodyEl);
+  const head = wide
+    ? el("div", { class: "side-sheet__head" }, lead ? el("div", { class: "side-sheet__lead" }, lead) : null, el("div", { class: "side-sheet__titles" }, titleEl, subtitleEl), toolsEl, closeButton)
+    : el("div", { class: "side-sheet__head" }, closeButton, titleEl, toolsEl);
+  const aside = el("aside", { class: `side-sheet${wide ? " side-sheet--wide" : ""}${className ? ` ${className}` : ""}` }, head, bodyEl, footEl);
   layer.append(el("div", { class: "sheet-layer__scrim", onclick: () => close() }), aside);
-  if (!inline) swipeToClose(aside, () => close()); // Phase 16 wave 3 (2B): a swipe right closes it
+  if (!inline && swipeClose) swipeToClose(aside, () => close()); // Phase 16 wave 3 (2B): a swipe right closes it (a wide flyout with a pager steps instead)
   const update = (next) => {
     if (closed) return;
     const fresh = typeof next === "function" ? next() : next;
@@ -144,6 +155,18 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     if (closed) return;
     replaceWith(toolsEl, node || null);
   };
+  const setSubtitle = (next) => {
+    if (closed || !subtitleEl) return;
+    subtitleEl.textContent = next ? text(next) : "";
+    if (next) subtitleEl.removeAttribute("hidden");
+    else subtitleEl.setAttribute("hidden", "");
+  };
+  const setFoot = (node) => {
+    if (closed || !footEl) return;
+    replaceWith(footEl, node || null);
+    if (node) footEl.removeAttribute("hidden");
+    else footEl.setAttribute("hidden", "");
+  };
   if (!inline) {
     anchor = sheetAnchor(placeLayers()); // under the top bar from 700 px up, on the page where the reader is (item 8)
     aside.style.setProperty("--sheet-top", `${anchor.top}px`);
@@ -157,5 +180,5 @@ export function openSheet({ title, body, onClose, mount = document.body, inline 
     syncPageLock();
     closeButton.focus({ preventScroll: true });
   }
-  return { close, layer, update, setTitle, setBody, setTools };
+  return { close, layer, update, setTitle, setBody, setTools, setSubtitle, setFoot };
 }

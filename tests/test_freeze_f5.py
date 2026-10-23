@@ -24,9 +24,14 @@ def test_prefs_keep_the_host_name():
 
 
 def test_page_notes_never_on_in_game():
-    """Owner 2026-10-20: In Game fits one screen; a note at its top would push the rest off. The board never had one."""
-    src = (Path(__file__).resolve().parents[1] / "static" / "js" / "ui" / "page-notes.js").read_text(encoding="utf-8")
-    assert 'route !== "board" && route !== "live"' in src
+    """Owner 2026-10-20: In Game fits one screen; a note at its top would push the rest off. Since the layout pass (owner
+    2026-10-22: "dont show that unless its in its own flyout") no page carries the note: its slot never shows and the To do
+    flyout holds it; the board never lists one."""
+    root = Path(__file__).resolve().parents[1]
+    src = (root / "static" / "js" / "ui" / "page-notes.js").read_text(encoding="utf-8")
+    css = (root / "static" / "css" / "components.css").read_text(encoding="utf-8")
+    assert 'route !== "board" && note.when(route) === true' in src
+    assert ".page-notes { display: none; }" in css
 
 
 SCENARIOS = r"""
@@ -107,10 +112,11 @@ scenarios.notesAndMenu = async () => {
   assert.equal(noteAuthor("  Pat "), "Pat");
   assert.equal(noteAuthor(""), "the host", "no name set: the host");
   const { MENU } = await import(moduleUrl("ui/shell.js"));
-  const views = MENU.find((g) => g.group === "Views").items.map((i) => i.label);
-  assert.deepEqual(views.slice(-4), ["Preseason Magazine", "Archive", "Season in review", "Trivia"], "the Archive and the Season in review after the Magazine, then the trivia (2026-10-21)");
-  const app = MENU.find((g) => g.group === "App").items;
-  const status = app.find((i) => i.label === "Server status");
+  // the layout pass (owner 2026-10-22): the Archive and the Season in review under My Teams, the trivia a game-day tile
+  const teams = MENU.groups.find((g) => g.id === "teams").items.filter((i) => i.label).map((i) => i.label);
+  assert.ok(["Season in review", "Preseason Magazine", "Archive"].every((label) => teams.includes(label)), teams.join(", "));
+  assert.ok(MENU.tiles.some((t) => t.page === "trivia"), "the trivia on the opening level");
+  const status = MENU.groups.find((g) => g.id === "profile").items.find((i) => i.label === "Server status");
   assert.ok(status && status.href === "/status" && status.external === true, "the server's page, in a new tab");
   const { boardZoom } = await import(moduleUrl("views/board.js"));
   assert.equal(boardZoom(1180, 820), 1);

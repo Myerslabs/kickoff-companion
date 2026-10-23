@@ -96,6 +96,6 @@ def test_hint_class_mappings_name_real_entries(glossary: dict):
 
 
 def test_the_glossary_is_in_the_menu_and_routed():
-    assert '{ id: "glossary", label: "Glossary" }' in (STATIC_JS / "ui" / "shell.js").read_text(encoding="utf-8")
+    assert '{ id: "glossary", label: "Glossary"' in (STATIC_JS / "ui" / "menu-tree.js").read_text(encoding="utf-8"), "the menu's Knowledge group (the layout pass, 2026-10-22)"
     app = (STATIC_JS / "app.js").read_text(encoding="utf-8")
     assert "glossary: (opts, arg) => createGlossaryView" in app and "enableHints(document.body)" in app

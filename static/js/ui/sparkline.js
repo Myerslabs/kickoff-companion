@@ -1,6 +1,7 @@
 // A trend sparkline: the last N games, current value labelled. Hand-drawn SVG, no library.
 
-import { el, fmtStat, isNum, text } from "./dom.js";
+import { teamChipColors } from "./colors.js";
+import { DASH, el, fmtStat, isNum, text } from "./dom.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -81,6 +82,104 @@ export function trendRow({ label, values = [], format = "0f", them = false, key,
       el("small", { class: "trend__cap" }, "last"),
       points.length >= 2 ? el("small", { class: "trend__avg" }, `avg ${fmtStat(avg, AVG_FORMAT[format] || format)}`) : null,
     ),
+  );
+}
+
+// --- the trends by game (the layout pass, board 9, owner 2026-10-22) ---------------------------------------------------
+
+const PLOT_H = 44; // the line's height in px; the value sits under it
+const PLOT_PAD = 7;
+
+function siteWord(homeAway) {
+  return homeAway === "away" ? "at" : homeAway === "neutral" ? "n" : "vs";
+}
+
+function weekWord(game) {
+  if (game.playoffRound) return "CFP";
+  if (game.postseason) return "bowl";
+  return isNum(game.week) ? `wk ${game.week}` : DASH;
+}
+
+function abbrOf(team) {
+  const short = typeof team?.abbreviation === "string" ? team.abbreviation.trim() : "";
+  if (short) return short.slice(0, 5);
+  const words = typeof team?.school === "string" ? team.school.trim().split(/\s+/).filter(Boolean) : [];
+  return words.length > 1 ? words.map((w) => w[0]).join("").slice(0, 4).toUpperCase() : words.length ? words[0].slice(0, 4).toUpperCase() : DASH;
+}
+
+/** One game's column head: the opponent's abbreviation in its colors, the week and the site, the result and the score. */
+function gameHead(game) {
+  const opp = game.opponent && typeof game.opponent === "object" ? game.opponent : {};
+  const { background, color } = teamChipColors(opp);
+  const scored = isNum(game.usPoints) && isNum(game.themPoints);
+  const result = game.result === "W" || game.result === "L" || game.result === "T" ? game.result : null;
+  const where = siteWord(game.homeAway);
+  const named = typeof opp.school === "string" && opp.school.trim() ? opp.school.trim() : null;
+  return el(
+    "div",
+    { class: "tgrid__game", title: [weekWord(game), where === "n" ? "neutral site," : where, named, scored ? `${result || ""} ${game.usPoints}-${game.themPoints}`.trim() : null].filter(Boolean).join(" ") },
+    el("span", { class: "tgrid__chip", style: { background, color } }, abbrOf(opp)),
+    el("small", { class: "tgrid__when" }, `${weekWord(game)} · ${where}`),
+    el("b", { class: `tgrid__score${result === "W" ? " is-win" : result === "L" ? " is-loss" : ""}` }, scored ? `${result ? `${result} ` : ""}${game.usPoints}-${game.themPoints}` : DASH),
+  );
+}
+
+/** One stat's row: its name and season average, the line through the games' columns, a dot and the value under each game. */
+function metricRow(metric, games) {
+  const m = metric && typeof metric === "object" ? metric : {};
+  const raw = Array.isArray(m.values) ? m.values : [];
+  const values = games.map((_, i) => (isNum(raw[i]) ? raw[i] : null));
+  const points = values.filter(isNum);
+  const avg = average(points);
+  const format = typeof m.format === "string" ? m.format : "0f";
+  const lo = points.length ? Math.min(...points, avg) : 0;
+  const hi = points.length ? Math.max(...points, avg) : 1;
+  const span = hi - lo || 1;
+  const y = (v) => PLOT_PAD + (1 - (v - lo) / span) * (PLOT_H - PLOT_PAD * 2);
+  const n = games.length;
+  const svg = svgEl("svg", { class: "tgrid__lines", viewBox: `0 0 ${n * 100} ${PLOT_H}`, preserveAspectRatio: "none", "aria-hidden": "true" });
+  if (points.length >= 2 && isNum(avg)) svg.append(svgEl("line", { class: "tgrid__avg", x1: 0, y1: y(avg).toFixed(1), x2: n * 100, y2: y(avg).toFixed(1) }));
+  let run = [];
+  const flush = () => {
+    if (run.length > 1) svg.append(svgEl("polyline", { class: "tgrid__line", points: run.join(" ") }));
+    run = [];
+  };
+  values.forEach((v, i) => {
+    if (v === null) flush();
+    else run.push(`${(i * 100 + 50).toFixed(0)},${y(v).toFixed(1)}`);
+  });
+  flush();
+  const cells = games.map((game, i) => {
+    const v = values[i];
+    const opp = game.opponent && typeof game.opponent === "object" ? game.opponent : {};
+    const dot = v === null ? null : el("span", { class: `tgrid__dot${game.result === "W" ? " is-win" : ""}`, style: { top: `${y(v).toFixed(1)}px`, "--dot": teamChipColors(opp).background } });
+    return el("div", { class: "tgrid__cell" }, dot, el("span", { class: "tgrid__val", "data-k": m.key ? `trend:${m.key}:${i}` : null }, v === null ? DASH : fmtStat(v, format)));
+  });
+  return el(
+    "div",
+    { class: "tgrid__row" },
+    el("div", { class: "tgrid__label" }, el("b", {}, text(m.label)), el("small", { class: "tgrid__avgtext" }, points.length ? `avg ${fmtStat(avg, AVG_FORMAT[format] || format)}` : "no games yet")),
+    el("div", { class: "tgrid__plot" }, svg, cells),
+  );
+}
+
+/**
+ * trendGrid({ games, metrics }) (the layout pass, board 9, owner 2026-10-22: "can we identify each week by the team we
+ * played, maybe their team colors?"): one column a finished game, headed by the opponent's abbreviation in its own
+ * colors, the week, home or away and the score; each stat's line runs through the columns with its value under each game,
+ * a filled dot for a win and a hollow one for a loss, the dashed season average behind. Null without a game.
+ *   games    the finished games in order, schedule rows: { week, postseason, playoffRound, homeAway, opponent, result, usPoints, themPoints }
+ *   metrics  [{ key, label, values, format }], values in the games' order; a null leaves its game's dot out and breaks the line
+ */
+export function trendGrid({ games = [], metrics = [] } = {}) {
+  const list = (Array.isArray(games) ? games : []).filter((g) => g && typeof g === "object");
+  if (!list.length) return null;
+  const style = { "--tg-n": String(list.length) };
+  return el(
+    "div",
+    { class: "tgrid", role: "group", "aria-label": "Trends, game by game", style },
+    el("div", { class: "tgrid__row tgrid__row--head" }, el("div", { class: "tgrid__label" }), el("div", { class: "tgrid__games" }, list.map(gameHead))),
+    (Array.isArray(metrics) ? metrics : []).map((metric) => metricRow(metric, list)),
   );
 }
 

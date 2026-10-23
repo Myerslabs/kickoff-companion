@@ -51,15 +51,16 @@ import { createSeasonView } from "./views/season.js";
 import { createArchiveView } from "./views/archive.js";
 import { createGlossaryView } from "./views/glossary.js";
 import { createNationalView } from "./views/national.js";
-import { createMyTeamsView } from "./views/myteams.js";
 import { createSettingsView } from "./views/settings.js";
+import { gameLine, loadProgram, openFromMenu } from "./views/panels.js"; // the menu's tables opened wide (the layout pass, 2026-10-22)
 import { createTeamView, openTeam } from "./views/team.js";
 import { createBoxView } from "./views/box.js";
 import { installCvd } from "./ui/cvd.js";
 import { startGuestMode } from "./ui/guest.js";
 import { installSpoiler } from "./ui/spoiler.js";
 import { startReadiness } from "./ui/readiness.js";
-import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): the join note and the popups
+import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): the join and the question popups
+import { openTodo } from "./ui/todo.js"; // the To do flyout (the layout pass, 2026-10-22): the notes off the page
 import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";
 import { createBoardView, seedBoardHistory } from "./views/board.js";
 import { createInviteView } from "./views/invite.js";
@@ -70,7 +71,6 @@ import { createPromptsView } from "./views/prompts.js";
 import { createTriviaView } from "./views/trivia.js";
 import { addNote } from "./ui/page-notes.js";
 import { installRunBar } from "./ui/run-bar.js";
-import { createSetupPageView } from "./views/setup-page.js";
 import { reloadWhenServerAnswers, restartFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
 
@@ -87,18 +87,19 @@ const BUILT = {
   preseason: (opts) => createPreseasonView(opts), // Phase 17 Part 3a: the season loads and each primary team's preseason // Phase 17 #2: any game's box score, from a W or L square
   live: (opts) => createLiveView(opts),
   archive: (opts, arg) => createArchiveView({ ...opts, gameId: arg }),
-  settings: (opts, arg) => createSettingsView({ ...opts, arg }), // #settings=radio opens that section (2026-10-16)
+  settings: (opts, arg) => createSettingsView({ ...opts, arg }), // #settings=radio opens that section (2026-10-16); the Profile page since 2026-10-22
+  profile: (opts, arg) => createSettingsView({ ...opts, arg }), // the layout pass (owner 2026-10-22): "a Profile that shows your settings and setup information"
   ratings: (opts, arg, focus, params) => createRatingsView({ ...opts, arg, params }),
   glossary: (opts, arg) => createGlossaryView({ ...opts, focusId: arg }),
   national: (opts, arg, focus, params) => createNationalView({ ...opts, arg, params }), // Phase 16 NV: a chip's list as a page
-  myteams: (opts) => createMyTeamsView(opts), // public release Phase 5b
+  myteams: (opts, arg, focus, params) => createSeasonView({ ...opts, params }), // board 9 (owner 2026-10-22): My Teams is the Season page's window now; the old address opens it
   invite: (opts) => createInviteView(opts), // Phase 18.6: the QR code for friends
   review: (opts) => createReviewView(opts), // Phase 19: the season told from the schedule
   board: (opts) => createBoardView(opts), // Phase 18.6: the Live sheet made for a wall
   injuries: (opts) => createInjuriesView(opts), // owner 2026-10-10: our injuries through the season, from the game notes
   prompts: (opts) => createPromptsView(opts), // the Prompts phase (2026-10-13): every prompt, its Copy, Paste and Run, the one run, the schedule
   trivia: (opts) => createTriviaView(opts), // the trivia (2026-10-21): the room's board by team name, today's answers, the rules
-  setup: (opts) => createSetupPageView(opts), // owner 2026-10-10: the demo, the archive, the season in review and the radio
+  setup: (opts) => createSettingsView(opts), // the Setup page joined the Profile (owner 2026-10-22): the old address lands on the Profile; the menu's Setup opens its flyout (#profile=setup)
 };
 
 const LATER = {
@@ -458,7 +459,10 @@ async function start() {
       }
       openSearch();
     },
-    menu: MENU, // owner 2026-10-10: the other primary teams are reached from the My Teams page, not the menu
+    menu: MENU, // the layout pass (owner 2026-10-22): one level at a time, ui/menu-tree.js
+    onOpen: (entry, ctx) => openFromMenu(entry, ctx), // a table in the menu opens wide by itself (views/panels.js)
+    onTodo: () => openTodo(), // the To do row at the top of the menu (owner 2026-10-22: "its own flyout")
+    subOf: (key) => (key === "game" ? loadProgram().then(() => gameLine()).catch(() => "") : ""), // the game the matchup's tables are about
   });
   root.replaceChildren(page.root); // the loading bar (and its Reload, item 6) gives way to the real one with its Menu
   forgetBootRetry();

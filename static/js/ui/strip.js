@@ -1,5 +1,6 @@
 // The score strip (L1): one line on wide screens, two on narrow. The broadcast owns the
-// score and the clock; this only repeats them so the rest of the sheet has context.
+// score and the clock; this only repeats them so the rest of the sheet has context. In Game's line (the layout pass, owner
+// 2026-10-22) sits at the bottom and never wraps: it drops its parts by width (components.css, .live-dock).
 
 import { el, fmtClock, isNum, period, situationText, text } from "./dom.js";
 import { pill } from "./pills.js";
@@ -36,16 +37,22 @@ export function strip(props) {
   if (status === "live" && isNum(props.down)) {
     const offense = possession === "them" ? them : us;
     const defense = possession === "them" ? us : them;
+    const words = situationText({
+      down: props.down,
+      distance: props.distance,
+      yardsToGoal: props.yardsToGoal,
+      offenseAbbr: offense.abbr,
+      defenseAbbr: defense.abbr,
+    });
+    // the layout pass (owner 2026-10-22): the score line drops "BLUE ball" and then the spot on a narrow screen, so each is
+    // its own span (the words read the same)
+    const at = words.indexOf(" at ");
     situation = el(
       "span",
       { class: "strip__situation" },
-      `${text(offense.abbr)} ball · ${situationText({
-        down: props.down,
-        distance: props.distance,
-        yardsToGoal: props.yardsToGoal,
-        offenseAbbr: offense.abbr,
-        defenseAbbr: defense.abbr,
-      })}`,
+      el("span", { class: "strip__ball-words" }, `${text(offense.abbr)} ball · `),
+      at > 0 ? words.slice(0, at) : words,
+      at > 0 ? el("span", { class: "strip__spot" }, words.slice(at)) : null,
     );
   }
 

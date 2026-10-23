@@ -144,3 +144,69 @@ def test_the_shipped_file_covers_every_fbs_school_of_the_season():
 def test_the_fbs_fixture_is_the_seasons_list():
     fbs = facts_build.fbs_list(FBS_FIXTURE)
     assert len(fbs) >= 130 and all(isinstance(c, str) and c for c in fbs.values())
+
+
+# --- the preloading (owner 2026-10-22): coaches, rumored costs and the season load shipped for one season -------------
+
+
+def _shipped(path: Path, season: int, teams: dict) -> Path:
+    path.write_text(json.dumps({"format": 1, "season": season, "checkedAt": "2026-10-22", "author": "Claude research", "teams": teams}), encoding="utf-8")
+    return path
+
+
+def test_the_shipped_season_files_sit_under_the_installs_own_for_their_season(tmp_path: Path, monkeypatch):
+    from app.services.season_notes import CoachesBatch, PreseasonTeam, TeamCoaches
+
+    monkeypatch.setattr(season_notes, "SHIPPED_COACHES", _shipped(tmp_path / "coaches.json", 2026, {"Home U": {"conference": "Big Pie", "headCoach": "Shipped Coach", "offensiveCoordinator": "Ship OC", "defensiveCoordinator": None}, "Away U": {"conference": "Big Pie", "headCoach": "Away Coach"}, "bad": 5}))
+    monkeypatch.setattr(season_notes, "SHIPPED_COSTS", _shipped(tmp_path / "costs.json", 2026, {"Home U": {"school": "Home U", "totalUsd": 20500000, "note": "rumored"}, "Broken U": {"school": 5}}))
+    monkeypatch.setattr(season_notes, "SHIPPED_PRESEASON", _shipped(tmp_path / "preseason.json", 2026, {"Home U": {"school": "Home U", "staff": [{"name": "Shipped Coach", "role": "Head coach"}], "birthdates": []}, "Damaged U": {"staff": "x"}}))
+    notes = SeasonNotes(tmp_path / "data", 2026)
+    # every page reads the shipped rows, marked as such, with the shipped file's date
+    assert notes.coaches_for("Home U")["headCoach"] == "Shipped Coach" and notes.coaches_for("Home U")["shipped"] is True
+    assert notes.coaches_for("Home U")["checkedAt"] == "2026-10-22"
+    assert notes.costs_for("Home U")["totalUsd"] == 20500000 and "Broken U" not in notes.costs()["teams"], "a damaged shipped row is left out"
+    assert isinstance(notes.preseason_for("Home U"), PreseasonTeam) and "Damaged U" not in notes.preseason()
+    # the install's own load wins, and saving never writes the shipped rows into the install's file
+    batch = CoachesBatch(conference="Big Pie", teams=[TeamCoaches(school="Home U", headCoach="Own Coach")])
+    notes.save_coaches(batch, "Big Pie", ["Home U", "Away U"])
+    assert notes.coaches_for("Home U")["headCoach"] == "Own Coach" and notes.coaches_for("Home U")["shipped"] is False
+    assert notes.coaches_for("Away U")["shipped"] is True
+    own = json.loads(notes.coaches_path.read_text(encoding="utf-8"))
+    assert list(own["teams"]) == ["Home U"], "the install's file holds its own rows only"
+    # the status counts the shipped rows and their date, so Load data can say "Preloaded Oct 22"
+    status = notes.status(["Home U"], {"Big Pie": ["Home U", "Away U"]}, date(2026, 10, 22))
+    assert status["coachesSaved"] == 2 and status["coaches"][0]["shipped"] == 1 and status["shipped"]["coaches"] == 1
+    assert status["preseason"][0]["shipped"] is True and status["preseason"][0]["checkedAt"] == "2026-10-22" and status["shipped"]["preseason"] == 1
+    assert status["shipped"]["checkedAt"]["costs"] == "2026-10-22" and status["costsSaved"] == 1
+    # last season's shipped files are not this season's
+    assert SeasonNotes(tmp_path / "data", 2027).coaches_for("Away U") is None
+    assert SeasonNotes(tmp_path / "data", 2027).preseason() == {}
+
+
+def test_a_shipped_season_load_counts_as_loaded_for_the_reminder():
+    from app.services.readiness import readiness
+
+    status = {"season": 2026, "preseason": [{"school": "Home U", "savedAt": None, "shipped": True}], "coachesSaved": 2, "coachesOf": 2, "costsSaved": 2, "factsSaved": 2}
+    assert readiness(status, None, None)["ready"] is True, "preloaded with the program: the To do does not nag"
+    status["preseason"][0]["shipped"] = False
+    assert readiness(status, None, None)["ready"] is False
+
+
+def test_the_shipped_season_files_are_real_and_name_fbs_schools():
+    """The files shipped tonight (2026-10-22): every FBS school's coaches; costs and the season load where found. The public
+    tree carries no CFBD recording, so the names are checked against the season's FBS list where the fixture is; the
+    files' own shape and depth are checked everywhere."""
+    from tools.facts_build import fbs_list
+
+    files = (season_notes.SHIPPED_DIR / "coaches.json", season_notes.SHIPPED_DIR / "costs.json", season_notes.SHIPPED_DIR / "preseason.json")
+    for path in files:
+        data = season_notes.shipped_file(path)
+        assert data and data["season"] == 2026 and data["checkedAt"], path.name
+    coaches = season_notes.shipped_file(files[0])["teams"]
+    assert len(coaches) >= 130, "every FBS school's coaches"
+    recording = Path(__file__).resolve().parent / "fixtures" / "cfbd" / "teams_fbs.json"
+    if recording.is_file():
+        fbs = fbs_list(recording)
+        for path in files:
+            assert set(season_notes.shipped_file(path)["teams"]) <= set(fbs), f"{path.name}: every school is an FBS school as CFBD spells it"
+        assert len(coaches) == len(fbs), "every FBS school's coaches"

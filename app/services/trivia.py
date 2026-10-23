@@ -8,8 +8,9 @@ joins again in a later week gets its season score back.
 A day runs from the first join until the host ends it, until no tablet has answered the last three questions (the room
 went home), or until it is eighteen hours old. Before our kickoff and after the final a question every `triviaPace`
 minutes (15 or 30; "game" asks only during the game) about the teams in the games on then, from the ticker, and ours;
-during our game one a quarter, at the first look after the quarter's eight-minute mark, never in the last two minutes of
-a half, about the two schools playing. A question stays open forty seconds; the answer never shows in the popup, only on
+during our game one at each break (the layout pass, owner 2026-10-22: "They should fire at the end of the quarters, and
+halftime"): the end of the 1st quarter, halftime, the end of the 3rd and the end of the game, about the two schools
+playing. A question stays open forty seconds; the answer never shows in the popup, only on
 the Trivia page. Every tablet gets the same question at the same moment, because the server builds and stores it.
 
     TriviaService(data_dir, season, tz, clock, prefs, facts, live, our_team)
@@ -17,7 +18,8 @@ the Trivia page. Every tablet gets the same question at the same moment, because
       .end_day(now, by) / .mark(question_id, note, now)
       await .tick(now, games_on)      opens the next question when one is due (games_on: the ticker's games, awaited
                                       only when a question outside our game needs the teams on)
-      .now_for(name, now)             what the popups show: the open question (no answer), the standings, the welcome
+      .now_for(name, now, board)      what the popups show: the open question (no answer), the standings, the welcome;
+                                      board: the big screen, which shows the open question in its static spot unjoined
       .page_for(name, now, is_host)   the Trivia page
 
 The file is written whole on every change (atomic). A damaged file is set aside and the trivia starts fresh; nothing
@@ -43,8 +45,9 @@ FORMAT = 1
 OPEN_SECONDS = 40
 QUIET_AFTER = 3  # unanswered questions in a row that end the day: the room went home
 DAY_HOURS = 18  # a day started this long ago is over
-QUARTER_MARK = 8 * 60
-HALF_END = 2 * 60
+QUARTER_SECONDS = 15 * 60
+BREAK_LATE = 3 * 60  # this far into the next quarter a break's question is too late: the game is going again
+BREAKS = {1: "the end of the 1st quarter", 2: "halftime", 3: "the end of the 3rd quarter", 4: "the end of the game"}
 NAME_MAX = 40
 PACE_MINUTES = {"15": 15, "30": 30, "game": None}
 STANDINGS_ROWS = 6
@@ -417,14 +420,25 @@ class TriviaService:
         return period, left
 
     def _game_due(self, day: dict[str, Any], state: dict[str, Any] | None) -> int | None:
-        """The quarter a question is due in during our game: once a quarter, after the eight-minute mark, never in
-        the last two minutes of a half; None when none is due."""
+        """The break a question is due at during our game (owner 2026-10-22: "at the end of the quarters, and
+        halftime"): the quarter that just ended, 1 to 4 (2 is halftime), once its clock reads 0:00 or in the first three
+        minutes of the next quarter; one a break, never a missed break later; None when none is due (overtime asks
+        nothing until the final)."""
         period, left = self._clock_left(state)
-        if period is None or left is None or not 1 <= period <= 4 or period in (day.get("periods") or []):
+        if period is None or left is None or period < 1:
             return None
-        if left > QUARTER_MARK or (period in (2, 4) and left < HALF_END):
+        if left == 0 and period <= 4:
+            ended = period
+        elif 2 <= period <= 4 and left >= QUARTER_SECONDS - BREAK_LATE:
+            ended = period - 1  # the feed went on to the next quarter before a look caught the 0:00
+        else:
             return None
-        return period
+        return None if ended in (day.get("periods") or []) else ended
+
+    @staticmethod
+    def _final_due(day: dict[str, Any], state: dict[str, Any] | None) -> bool:
+        """The end of the game's question, at the first look after the final, unless the 4th quarter's 0:00 had it."""
+        return bool(state) and state.get("status") == "final" and 4 not in (day.get("periods") or [])
 
     def _pace_due(self, day: dict[str, Any], now: datetime) -> bool:
         minutes = PACE_MINUTES.get(self.settings()["pace"], 15)
@@ -440,11 +454,11 @@ class TriviaService:
         if day.get("endedAt"):
             return "Ended for today"
         if context == "game":
-            period, left = self._clock_left(state)
-            if period and 1 <= period <= 4 and period not in (day.get("periods") or []) and left is not None and left > QUARTER_MARK:
-                return f"Next at the {['1st', '2nd', '3rd', '4th'][period - 1]} quarter's eight-minute mark"
-            if period and period < 4:
-                return f"Next in the {['2nd', '3rd', '4th'][period - 1]} quarter"
+            period, _ = self._clock_left(state)
+            asked = day.get("periods") or []
+            upcoming = next((q for q in range(max(1, period or 1), 5) if q not in asked), None) if (period or 1) <= 4 else None
+            if upcoming is not None:
+                return f"Next at {BREAKS[upcoming]}"
             return "Next after the game" if PACE_MINUTES.get(self.settings()["pace"], 15) else "No more tonight"
         minutes = PACE_MINUTES.get(self.settings()["pace"], 15)
         if minutes is None:
@@ -490,6 +504,8 @@ class TriviaService:
             return
         context, state = self._game_context(now)
         period = self._game_due(day, state) if context == "game" else None
+        if context == "post" and self._final_due(day, state):
+            context, period = "game", 4  # the end of the game: about the two schools that played, then the pace comes back
         due = period is not None if context == "game" else self._pace_due(day, now)
         if not due:
             if changed:
@@ -541,8 +557,9 @@ class TriviaService:
             out["answer"], out["fact"], out["answered"], out["marked"] = q.get("answer"), q.get("fact"), q.get("answered"), bool(q.get("marked"))
         return out
 
-    def now_for(self, name: Any, now: datetime) -> dict[str, Any]:
-        """What the popups show on one tablet: the open question without its answer, the standings, the welcome."""
+    def now_for(self, name: Any, now: datetime, board: bool = False) -> dict[str, Any]:
+        """What the popups show on one tablet: the open question without its answer, the standings, the welcome. The big
+        screen (`board`, the layout pass of 2026-10-22) joins no team but shows the open question for the room to read."""
         settings = self.settings()
         you = None
         try:
@@ -564,7 +581,7 @@ class TriviaService:
             "serverNow": _iso(now),
             "day": {"date": key, "startedAt": day.get("startedAt"), "endedAt": day.get("endedAt"), "endedBy": day.get("endedBy"), "asked": len(day.get("questions") or []), "playing": sum(1 for t in self.data["teams"].values() if not t.get("hidden") and isinstance(t.get("days"), dict) and key in t["days"]), "next": self.next_text(day, now, context, state), "context": context} if day else None,
             "team": {"name": you, "joined": joined, "hidden": bool(team.get("hidden")), "firstDay": team.get("firstDay"), "today": list(self._day_score(key, day, team, now)) if day else [0, 0], "season": list(self._season_score(team, now))} if team is not None and you else None,
-            "question": self._question_view(open_q, now, team, reveal=False) if open_q and joined and settings["on"] else None,
+            "question": self._question_view(open_q, now, team, reveal=False) if open_q and (joined or board) and settings["on"] else None,
             "standings": self._standings(key, day, now, you)[:STANDINGS_ROWS] if day and settings["board"] else [],
         }
         return out

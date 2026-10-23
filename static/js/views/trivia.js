@@ -2,7 +2,9 @@
 // answers and the scores live here, never on In Game: this tablet's team and its day, the three score cells (today,
 // the season, the best day), the room's leaderboard by team name, today's questions with the right answer and the
 // pick, the season table and the rules. The host ends the day from here. Reads /api/trivia?name=; the joins, the
-// answers and the marks go through ui/trivia.js.
+// answers and the marks go through ui/trivia.js. The layout pass (owner 2026-10-22, "Ok" to the picks): the join card at
+// the top on game days only (another day, "Start trivia anyway" brings it), Your score beside the Leaderboard, and How it
+// plays folded until opened.
 //
 //   createTriviaView({ onStatus })   the view (mount, refresh, unmount)
 //   scoreCells(data), boardTable(data), questionCard(q, data), seasonTable(data), rulesBand()   exported for the tests
@@ -151,13 +153,14 @@ export function rulesBand() {
     title: "How it plays",
     collapsible: false,
     foldable: true,
+    collapsed: true, // folded until opened (the layout pass, 2026-10-22); the band remembers the reader's choice
     state: { status: "ready" },
     body: () =>
       el(
         "div",
         { class: "trivia-rules" },
-        rule("Who.", 'Only the tablets that joined. When a tablet connects on a game day a note at the top asks for a team name and Join, or Not today; Not today means no question, no standings, nothing, until it joins here. A name is case sensitive ("Couch Coordinators" and "couch coordinators" are two teams), and the host keeps a master file on the server with every team\'s name and every answer by game day, so every tablet sees the same board and a team that joins again in a later week gets its season score back.'),
-        rule("When.", "All game day, not just the game: it starts at the first join and runs until the host ends it here or no tablet has answered the last three (the room went home). Before our kickoff and after the final, a question every fifteen minutes about the teams in the games on then, from the ticker, in the corner of whatever page is open; during our game one a quarter, the way the announcers drop theirs in, at the first look after the eight-minute mark and never in the last two minutes of a half. Forty seconds, then it closes; no answer shows there."),
+        rule("Who.", 'Only the tablets that joined. When a tablet connects on a game day a popup in the corner asks for a team name and Join, or Not today; Not today means no question, no standings, nothing, until it joins here. A name is case sensitive ("Couch Coordinators" and "couch coordinators" are two teams), and the host keeps a master file on the server with every team\'s name and every answer by game day, so every tablet sees the same board and a team that joins again in a later week gets its season score back.'),
+        rule("When.", "All game day, not just the game: it starts at the first join and runs until the host ends it here or no tablet has answered the last three (the room went home). Before our kickoff and after the final, a question every fifteen minutes about the teams in the games on then, from the ticker, in the corner of whatever page is open; during our game one at each break: the end of the 1st quarter, halftime, the end of the 3rd and the end of the game. Forty seconds, then it closes; no answer shows there."),
         rule("What.", "Three choices, one right, built from the schools' facts: the stadium and its nickname, the year it opened, who founded the school when, the trophy and the series, the fight song, the mascot's name, the Heisman winners, the national title years, the winningest coach, the longest streak, the record crowd, the retired numbers, and the dated events. The wrong choices are other schools' facts of the same kind, so they read as real. Every tablet in the room gets the same question at the same moment; the standings popup shows the room's teams, today and the season."),
         rule("The answers and the score.", "Here, never on In Game: every question asked today with the right answer, your pick and how many teams answered, then today, this season and your best day for this tablet. The board resets with the season."),
         rule("On the big screen.", "The question alone, larger, in the board's corner, with no buttons, for forty seconds; the standings between questions. The room answers on its tablets; the host reads the answer here."),
@@ -165,6 +168,12 @@ export function rulesBand() {
         rule("Where the facts come from.", 'The facts shipped with the app for every FBS school, under any facts this install has loaded itself; a yearly refresh from the schedule. "Wrong? Mark it" under an answer writes a note to the facts file until the next refresh overwrites the school.'),
       ),
   });
+}
+
+/** Another day: one quiet button that brings the join card, since a join starts the trivia any day. */
+function anyway(data, remake) {
+  const button = el("button", { type: "button", class: "btn btn--quiet trivia-head__anyway", onclick: () => button.replaceWith(joinCard(data, { onJoin: () => { announce(); remake(); }, onDecline: () => { forgetName(); remake(); } })) }, "Start trivia anyway");
+  return button;
 }
 
 function headBand(data, { remake }) {
@@ -198,7 +207,9 @@ function headBand(data, { remake }) {
         } }, "Change the name"),
         el("button", { type: "button", class: "btn btn--quiet", onclick: () => act("Leave", () => leave()) }, "Leave the board"),
       )
-    : joinCard(data, { onJoin: () => { announce(); remake(); }, onDecline: () => { forgetName(); remake(); } });
+    : data?.gameDay === true
+      ? joinCard(data, { onJoin: () => { announce(); remake(); }, onDecline: () => { forgetName(); remake(); } })
+      : anyway(data, remake); // the join card on game days only (owner 2026-10-22)
   const dayLine = day
     ? el(
         "div",
@@ -228,8 +239,12 @@ function render(envelope, container, state) {
     "div",
     { class: "page trivia-page" },
     headBand(data, state),
-    band({ id: "trivia-score", title: "Your score", collapsible: false, state: { status: "ready" }, summary: data.team ? `today ${pair(data.team.today)}` : "join to keep one", body: () => scoreCells(data) }),
-    band({ id: "trivia-board", title: "Leaderboard", collapsible: false, foldable: true, summary: `${isNum(data.day?.playing) ? data.day.playing : 0} playing today, ${isNum(data.teamsThisSeason) ? data.teamsThisSeason : 0} this season`, state: { status: "ready" }, body: () => el("div", {}, data.board === false ? note("The leaderboard is off in Settings; every tablet keeps its own score.") : boardTable(data)) }),
+    el(
+      "div",
+      { class: "trivia-pair" }, // Your score beside the Leaderboard (the layout pass, 2026-10-22); a phone stacks them
+      band({ id: "trivia-score", title: "Your score", collapsible: false, state: { status: "ready" }, summary: data.team ? `today ${pair(data.team.today)}` : "join to keep one", body: () => scoreCells(data) }),
+      band({ id: "trivia-board", title: "Leaderboard", collapsible: false, foldable: true, summary: `${isNum(data.day?.playing) ? data.day.playing : 0} playing today, ${isNum(data.teamsThisSeason) ? data.teamsThisSeason : 0} this season`, state: { status: "ready" }, body: () => el("div", {}, data.board === false ? note("The leaderboard is off in Settings; every tablet keeps its own score.") : boardTable(data)) }),
+    ),
     band({
       id: "trivia-today",
       title: "Today's questions",

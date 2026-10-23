@@ -52,23 +52,29 @@ scenarios.injuries = async () => {
   await settle();
   const t = clean("injuries", main);
   const bands = [...main.querySelectorAll("section.band")];
-  assert.deepEqual(bands.map((b) => b.getAttribute("id")), ["injuries-5", "injuries-4", "injuries-3", "injuries-2", "injuries-1"], "newest first");
+  assert.deepEqual(bands.map((b) => b.getAttribute("id")), ["injuries-5", "injuries-3", "injuries-2", "injuries-1"], "newest first; a played game with no report is in the line at the foot (the layout pass, 2026-10-22)");
+  assert.equal(main.querySelector(".chips-row"), null, "no strip of week chips over the page");
   assert.ok(text(bands[0].querySelector(".band__head")).includes("Next: Week 5 vs Lake Effect"));
   assert.ok(text(bands[0]).includes("1 out, 1 questionable"));
   assert.ok(text(bands[0]).includes("Zed Out") && text(bands[0]).includes("Team not named in the report") && text(bands[0]).includes("Who Knows"));
-  assert.deepEqual(bands.map((b) => b.getAttribute("data-collapsed")), ["false", "false", "false", "true", "true"], "the next game and the last two played open, the rest folded");
-  const missing = bands[1].querySelector('a[href="#program=4"]');
-  assert.ok(missing && text(bands[1]).includes("No notes for this game yet."), "a game with no report leads to its program");
-  assert.ok(text(bands[2]).includes("could not be read"), "an unreadable notes file says so");
-  assert.ok(text(bands[3].querySelector(".band__head")).includes("Kickoff Classic vs Gravel State"));
-  assert.ok(text(bands[3]).includes("Nobody from Swampwater Tech on the report"));
-  assert.ok(text(bands[4]).includes("Old Hurt"), "a bad row is skipped, a good one kept");
+  assert.deepEqual(bands.map((b) => b.getAttribute("data-collapsed")), ["false", "false", "false", "true"], "the next game and the last two shown open, the rest folded");
+  const quiet = main.querySelector(".injuries-quiet");
+  assert.ok(quiet && text(quiet).startsWith("No report for one played game") && quiet.querySelector('a[href="#program=4"]'), "a played game with no report: one line, its link to the program");
+  assert.ok(text(bands[1]).includes("could not be read"), "an unreadable notes file keeps its band and says so");
+  assert.ok(text(bands[2].querySelector(".band__head")).includes("Kickoff Classic vs Gravel State"));
+  assert.ok(text(bands[2]).includes("Nobody from Swampwater Tech on the report"));
+  assert.ok(text(bands[3]).includes("Old Hurt"), "a bad row is skipped, a good one kept");
   assert.ok(t.includes("Newest week first"));
   view.unmount();
   assert.equal(gameTitle({ week: 7, homeAway: "away", opponent: { school: "Lake Effect" } }), "Week 7 at Lake Effect");
   assert.equal(gameTitle(null), "Game vs the opponent");
   assert.equal(countsLine([{ status: "Out" }, { status: "out" }, { status: "Probable" }, { status: "Not reported" }]), "2 out, 1 probable, 1 other");
   assert.equal(countsLine([]), "nobody listed");
+  const { quietLine } = await import(moduleUrl("views/injuries.js"));
+  assert.equal(quietLine([]), null);
+  assert.equal(quietLine(null), null);
+  const two = quietLine([{ gameId: 7, week: 7, homeAway: "away", opponent: { school: "Lake Effect" } }, { gameId: "bad id", week: 6, opponent: null }]);
+  assert.ok(text(two).includes("2 played games") && two.querySelectorAll("a").length === 1 && text(two).includes("Week 6 vs the opponent"), text(two));
   // a broken answer never breaks the page
   clearEnvelopeCache();
   route("/api/injuries", () => envelope({ games: "x", team: null }));
@@ -88,7 +94,8 @@ scenarios.setup = async () => {
   const links = [...main.querySelectorAll("a.setup-link")];
   assert.deepEqual(links.map((a) => a.getAttribute("href")), ["/demo", "#archive", "#review", "#radio"]);
   assert.deepEqual(SETUP_LINKS.map((l) => l.label), ["Demo", "Archive", "Season in review", "Radio"]);
-  assert.ok(clean("setup", main).includes("First time setup, in Settings"));
+  assert.ok(clean("setup", main).includes("First time setup, above"), "the Setup links sit under First time setup in the Profile's Setup flyout (board 7, 2026-10-22)");
+  assert.ok(main.querySelector("#settings-setup"), "the band the Profile shows");
 };
 
 scenarios.leaders = async () => {

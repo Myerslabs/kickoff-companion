@@ -1,9 +1,9 @@
 """The week's AP-ranked games (queue items 10 to 12, mocks approved 2026-10-13): the Top 25 page's cards and the
 newspaper's matchups come from here, so the two always agree.
 
-Every game of the week (CFBD's calendar week; our week when the calendar has none) with an AP Top 25 team, in the
-owner's order ("The higher the ranked game, the higher the article"): games of two ranked teams first, the lowest pair
-of ranks first; then games of one ranked team, by its rank. Each game carries what the Pre-Game Program's cover shows
+Every game of the week (CFBD's calendar week; our week when the calendar has none) with an AP Top 25 team, in AP poll
+order (the layout pass, owner 2026-10-22: "always needs to show the games in order by the AP poll"): the No. 1 team's
+game first, then No. 2's, a game of two ranked teams at the better rank. Each game carries what the Pre-Game Program's cover shows
 ("Same initial information for every game that the cover has in the pre-game program"): both teams with their AP
 rank, record, conference record, last five and head coach; the kickoff, the stadium and TV; the line and the
 over/under; the pregame win probability; the weather. Then the live score, quarter and clock from the ticker's own
@@ -112,17 +112,16 @@ def period_of(detail: Any) -> tuple[int | None, str | None]:
 
 
 def ranked_order(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The owner's order: games of two ranked teams by the sum of their ranks (then the better rank), then games of one
-    ranked team by its rank. A game id breaks any tie, so the order never shuffles between refreshes."""
+    """AP poll order (the layout pass, owner 2026-10-22): each game at its better AP rank, so the No. 1 team's game comes
+    first and No. 2 against No. 20 sits second. Live, to come and final stay mixed. A game id breaks any tie (a bad rank
+    sorts last), so the order never shuffles between refreshes."""
     def rank(game: dict[str, Any], side: str) -> int | None:
         block = game.get(side) if isinstance(game.get(side), dict) else {}
         return _int(block.get("rank"))
 
-    def key(game: dict[str, Any]) -> tuple[int, int, int, int]:
-        h, a = rank(game, "home"), rank(game, "away")
-        best = min(r for r in (h, a, 99) if r is not None)
-        both = h is not None and a is not None
-        return (0 if both else 1, (h + a) if both else best, best, _int(game.get("gameId")) or 0)
+    def key(game: dict[str, Any]) -> tuple[int, int]:
+        best = min(r for r in (rank(game, "home"), rank(game, "away"), 99) if r is not None)
+        return (best, _int(game.get("gameId")) or 0)
 
     return sorted(games, key=key)
 

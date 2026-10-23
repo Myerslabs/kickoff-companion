@@ -47,7 +47,7 @@ def readiness(status: dict[str, Any] | None, notes: Any, game: dict[str, Any] | 
     items: list[dict[str, str]] = []
     s = status if isinstance(status, dict) else {}
     pre = [r for r in (s.get("preseason") or []) if isinstance(r, dict)]
-    absent = [str(r.get("school")) for r in pre if not r.get("savedAt")]
+    absent = [str(r.get("school")) for r in pre if not r.get("savedAt") and not r.get("shipped")]  # a season load shipped with the app counts (2026-10-22)
     coaches_saved, coaches_of = s.get("coachesSaved"), s.get("coachesOf")
     if absent or (isinstance(coaches_of, int) and coaches_of and coaches_saved != coaches_of):
         bits = []

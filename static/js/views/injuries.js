@@ -1,7 +1,9 @@
 // The Injury Report (owner 2026-10-10): our team's injuries through the season, newest week first, from the availability
 // reports the game notes already hold (/api/injuries, no CFBD call). One band per game: the next game first and open, then
 // the games played, the older ones folded until opened (each band remembers its fold). A game with no report says so and
-// leads to its program, where the notes that bring one are added (spec R2: missing data shows where to get it).
+// leads to its program, where the notes that bring one are added (spec R2: missing data shows where to get it). The layout
+// pass (owner 2026-10-22, "This is good" to the picks): no strip of week chips over the page, and the played games with no
+// report fold into one line, each game in it a way to its program.
 // injurySheetBand() is the same report for another team, in its side sheet: our games against it.
 
 import { el, fmtDate, isNum, records, text } from "../ui/dom.js";
@@ -73,21 +75,41 @@ function emptyState(data) {
   return part && part.status === "error" ? partState(part, false) : { status: "empty", message: "No games on the schedule yet." };
 }
 
+/** The played games with no report, in one line (the layout pass, 2026-10-22): each a link to its program, where the notes
+ *  that bring a report are added. Null when every played game has one. Exported for the tests. */
+export function quietLine(games) {
+  const list = records(games);
+  if (!list.length) return null;
+  const link = (game) => {
+    const id = game.gameId;
+    return isNum(id) || /^\d+$/.test(String(id ?? "")) ? el("a", { href: `#program=${encodeURIComponent(String(id))}` }, gameTitle(game)) : gameTitle(game);
+  };
+  return el(
+    "p",
+    { class: "note injuries-quiet flow-full" },
+    el("b", {}, `No report for ${list.length === 1 ? "one played game" : `${list.length} played games`}: `),
+    list.flatMap((game, i) => [i ? " · " : null, link(game)]).filter(Boolean),
+  );
+}
+
 function render(envelope, container, state) {
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
   const games = records(data.games);
   const team = text(data.team?.school);
+  const quiet = games.filter((game) => game.completed === true && !game.reported && !game.error); // played, no report: one line at the foot (a notes file that will not read keeps its band and says so)
+  const shown = games.filter((game) => !quiet.includes(game));
   const page = el(
     "div",
     { class: "page injuries-page" },
     games.length
-      ? games.map((game, index) => gameBand(game, index, { isUs: data.isUs === true, team }))
+      ? shown.map((game, index) => gameBand(game, index, { isUs: data.isUs === true, team }))
       : band({ id: "injuries-none", title: "Injury Report", collapsible: false, state: emptyState(data), errorLead: "Could not load the schedule." }),
+    quietLine(quiet),
     seasonLongBand(data), // freeze wave F3: the preseason load's season-long injuries, at the bottom
     el("p", { class: "note flow-full" }, "From the availability reports in each game's notes (the conference's report where it publishes one). Newest week first. Season-long injuries and suspensions from the preseason load are at the end."),
   );
   // each game's report spans two columns where there are two or more (wave 3): a table with a column of notes needs the room
-  mountFlow(state.ui, container, page, { chips: games.length > 1, wide: [...games.map((game) => `injuries-${game.gameId}`), "injuries-season"] });
+  mountFlow(state.ui, container, page, { chips: false, wide: [...shown.map((game) => `injuries-${game.gameId}`), "injuries-season"] }); // no week chips over the page (2026-10-22)
 }
 
 /** The preseason load's "Injuries and suspensions" (freeze wave F3): the same table kit as a game's report, once, at the end. */

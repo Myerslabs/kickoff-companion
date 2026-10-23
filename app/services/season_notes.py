@@ -313,31 +313,57 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-SHIPPED_FACTS = Path(__file__).resolve().parent.parent / "facts" / "schools.json"  # every FBS school, researched once (2026-10-21)
+SHIPPED_DIR = Path(__file__).resolve().parent.parent / "facts"
+SHIPPED_FACTS = SHIPPED_DIR / "schools.json"  # every FBS school, researched once (2026-10-21)
+# the preloading (owner 2026-10-22: "the preloaded data should show its date from the data that gets downloaded with the
+# program"): every FBS team's coaches, rumored roster costs and season load, researched for one season and shipped with
+# the app; laid under the install's own loads (a team loaded on the install wins) for that season only
+SHIPPED_COACHES = SHIPPED_DIR / "coaches.json"
+SHIPPED_COSTS = SHIPPED_DIR / "costs.json"
+SHIPPED_PRESEASON = SHIPPED_DIR / "preseason.json"
 FACTS_FRESH_DAYS = 365  # a school's facts older than this are asked for again by the schedule, once a year
-_SHIPPED: tuple[tuple[Path, int, int], dict[str, Any]] | None = None
+_SHIPPED: dict[Path, tuple[tuple[int, int], dict[str, Any]]] = {}
 
 
-def shipped_facts(path: Path = SHIPPED_FACTS) -> dict[str, Any]:
-    """The facts shipped with the app: {"checkedAt", "author", "teams": {school: facts}}, decoded once per change of the
-    file; {} when the file is missing or damaged (the install's own facts still work)."""
-    global _SHIPPED
+def shipped_file(path: Path) -> dict[str, Any]:
+    """A file shipped with the app: {"checkedAt", "author", "season", "teams": {school: row}}, decoded once per change of
+    the file; {} when the file is missing or damaged (the install's own loads still work)."""
     try:
         stat = path.stat()
     except OSError:
         return {}
-    stamp = (path, stat.st_mtime_ns, stat.st_size)
-    if _SHIPPED is not None and _SHIPPED[0] == stamp:
-        return _SHIPPED[1]
+    stamp = (stat.st_mtime_ns, stat.st_size)
+    kept = _SHIPPED.get(path)
+    if kept is not None and kept[0] == stamp:
+        return kept[1]
     try:
         raw = json.loads(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError) as exc:
-        log.warning("The shipped facts file %s is unreadable (%s); the install's own facts only", path, exc)
+        log.warning("The shipped file %s is unreadable (%s); the install's own loads only", path, exc)
         return {}
-    teams = raw.get("teams") if isinstance(raw, dict) and isinstance(raw.get("teams"), dict) else {}
-    data = {"checkedAt": raw.get("checkedAt") if isinstance(raw, dict) else None, "author": raw.get("author") if isinstance(raw, dict) else None, "teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}}
-    _SHIPPED = (stamp, data)
+    raw = raw if isinstance(raw, dict) else {}
+    teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
+    season = raw.get("season")
+    data = {
+        "checkedAt": raw.get("checkedAt") if isinstance(raw.get("checkedAt"), str) else None,
+        "author": raw.get("author") if isinstance(raw.get("author"), str) else None,
+        "season": season if isinstance(season, int) and not isinstance(season, bool) else None,
+        "teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)},
+    }
+    _SHIPPED[path] = (stamp, data)
     return data
+
+
+def shipped_facts(path: Path = SHIPPED_FACTS) -> dict[str, Any]:
+    """The facts shipped with the app (every season: a school's history outlives one)."""
+    return shipped_file(path)
+
+
+def shipped_for_season(path: Path, season: int) -> dict[str, Any]:
+    """A season's shipped file, or {} when it was researched for another season (last year's coaches are not this
+    year's)."""
+    data = shipped_file(path)
+    return data if data and data.get("season") == season else {}
 
 
 class SeasonNotes:
@@ -378,11 +404,19 @@ class SeasonNotes:
 
     # --- coaches ----------------------------------------------------------------------------------------
 
-    def coaches(self) -> dict[str, Any]:
+    def _own_coaches(self) -> dict[str, Any]:
         raw = self._read(self.coaches_path)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
         return {"teams": {k: v for k, v in teams.items() if isinstance(k, str) and isinstance(v, dict)}, "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)}}
+
+    def coaches(self) -> dict[str, Any]:
+        """Every team's coaches: the shipped file under the install's own (2026-10-22); `shipped` marks the shipped rows."""
+        own = self._own_coaches()
+        shipped = shipped_for_season(SHIPPED_COACHES, self.season)
+        teams = {school: {**row, "shipped": True, "checkedAt": row.get("checkedAt") or shipped.get("checkedAt")} for school, row in shipped.get("teams", {}).items()}
+        teams.update({school: {**row, "shipped": False} for school, row in own["teams"].items()})
+        return {"teams": teams, "batches": own["batches"]}
 
     def coaches_for(self, school: Any) -> dict[str, Any] | None:
         if not isinstance(school, str):
@@ -393,7 +427,7 @@ class SeasonNotes:
     def save_coaches(self, batch: CoachesBatch, conference: str, schools: list[str]) -> dict[str, Any]:
         """Keep the teams of this conference the answer names (spelled as CFBD spells them); returns what was kept."""
         by_lower = {s.lower(): s for s in schools}
-        data = self.coaches()
+        data = self._own_coaches()  # the install's own file: the shipped rows stay in the shipped file
         kept: list[str] = []
         unknown: list[str] = []
         when = _now()
@@ -523,17 +557,22 @@ class SeasonNotes:
         return self.dir / "costs.json"
 
     def costs(self) -> dict[str, Any]:
+        """Every team's rumored roster costs: the shipped file under the install's own (2026-10-22)."""
         raw = self._read(self.costs_path)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
+        shipped = shipped_for_season(SHIPPED_COSTS, self.season)
         good: dict[str, Any] = {}
-        for school, value in teams.items():
-            if not isinstance(school, str) or not isinstance(value, dict):
-                continue
-            try:
-                good[school] = {**TeamCosts.model_validate(value).model_dump(exclude_none=True), "conference": value.get("conference"), "savedAt": value.get("savedAt")}
-            except ValidationError:
-                log.warning("Roster costs for %s are damaged; left out", school)
+        for source, rows in (("shipped", shipped.get("teams", {})), ("own", teams)):
+            for school, value in rows.items():
+                if not isinstance(school, str) or not isinstance(value, dict):
+                    continue
+                try:
+                    row = {**TeamCosts.model_validate(value).model_dump(exclude_none=True), "conference": value.get("conference"), "savedAt": value.get("savedAt")}
+                except ValidationError:
+                    log.warning("Roster costs for %s (%s) are damaged; left out", school, source)
+                    continue
+                good[school] = {**row, "shipped": source == "shipped", **({"checkedAt": value.get("checkedAt") or shipped.get("checkedAt")} if source == "shipped" else {})}
         return {"teams": good, "batches": {k: v for k, v in batches.items() if isinstance(k, str) and isinstance(v, dict)}}
 
     def costs_for(self, school: Any) -> dict[str, Any] | None:
@@ -566,30 +605,39 @@ class SeasonNotes:
     # --- preseason --------------------------------------------------------------------------------------
 
     def preseason(self) -> dict[str, PreseasonTeam]:
-        """Every saved team, read once per change of the file (a roster asks for each player's age)."""
+        """Every team's season load, read once per change of the files (a roster asks for each player's age): the shipped
+        file under the install's own (2026-10-22)."""
         try:
             stamp = self.preseason_path.stat().st_mtime_ns
         except OSError:
             stamp = None
+        shipped = shipped_for_season(SHIPPED_PRESEASON, self.season)
+        key = (stamp, id(shipped.get("teams")) if shipped else None)
         cached = getattr(self, "_preseason_cache", None)
-        if cached is not None and cached[0] == stamp and stamp is not None:
+        if cached is not None and cached[0] == key:
             return cached[1]
-        out = self._load_preseason()
-        self._preseason_cache = (stamp, out)
+        out = self._load_preseason(shipped.get("teams", {}) if shipped else {})
+        self._preseason_cache = (key, out)
         return out
 
-    def _load_preseason(self) -> dict[str, PreseasonTeam]:
+    def _load_preseason(self, shipped: dict[str, Any] | None = None) -> dict[str, PreseasonTeam]:
         raw = self._read(self.preseason_path)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         out: dict[str, PreseasonTeam] = {}
-        for school, value in teams.items():
-            if not isinstance(school, str) or not isinstance(value, dict):
-                continue
-            try:
-                out[school] = PreseasonTeam.model_validate(value)
-            except ValidationError as exc:
-                log.warning("Preseason entry for %s is damaged (%s); left out", school, exc.errors()[0].get("msg") if exc.errors() else exc)
+        for source, rows in (("shipped", shipped or {}), ("own", teams)):
+            for school, value in rows.items():
+                if not isinstance(school, str) or not isinstance(value, dict):
+                    continue
+                try:
+                    out[school] = PreseasonTeam.model_validate({"school": school, **value})  # a row's own bad school still fails
+                except ValidationError as exc:
+                    log.warning("Preseason entry for %s (%s) is damaged (%s); left out", school, source, exc.errors()[0].get("msg") if exc.errors() else exc)
         return out
+
+    def preseason_shipped(self) -> dict[str, Any]:
+        """The shipped season load's schools and its date: {"schools": set, "checkedAt"} (empty for another season)."""
+        shipped = shipped_for_season(SHIPPED_PRESEASON, self.season)
+        return {"schools": set(shipped.get("teams", {})) if shipped else set(), "checkedAt": shipped.get("checkedAt") if shipped else None}
 
     def preseason_meta(self) -> dict[str, dict[str, Any]]:
         raw = self._read(self.preseason_path)
@@ -634,27 +682,37 @@ class SeasonNotes:
         coaches = self.coaches()
         meta = self.preseason_meta()
         loaded = self.preseason()
+        pre_shipped = self.preseason_shipped()
         rows = []
         for school in primaries:
             team = loaded.get(school)
+            own_at = (meta.get(school) or {}).get("savedAt")
             rows.append({
                 "school": school,
-                "savedAt": (meta.get(school) or {}).get("savedAt"),
+                "savedAt": own_at,
+                "shipped": not own_at and school in pre_shipped["schools"],  # the preloading (2026-10-22): shipped with the app, not loaded here
+                "checkedAt": None if own_at else pre_shipped["checkedAt"] if school in pre_shipped["schools"] else None,
                 "counts": {
                     "staff": len(team.staff), "birthdates": len(team.birthdates), "departures": len(team.departures), "arrivals": len(team.arrivals),
                     "injuries": len(team.injuries), "programFacts": len(team.programFacts),
                 } if team else None,
             })
+        def shipped_of(rows: dict[str, Any], schools: list[str]) -> tuple[int, str | None]:
+            mine = [rows[s] for s in schools if s in rows and rows[s].get("shipped")]
+            return len(mine), max((r.get("checkedAt") for r in mine if isinstance(r.get("checkedAt"), str)), default=None)
+
         batches = []
         for conference, schools in sorted(conferences.items()):
             saved = coaches["batches"].get(conference) or {}
             have = sum(1 for s in schools if s in coaches["teams"])
-            batches.append({"conference": conference, "schools": len(schools), "saved": have, "savedAt": saved.get("savedAt")})
+            n, checked = shipped_of(coaches["teams"], schools)
+            batches.append({"conference": conference, "schools": len(schools), "saved": have, "savedAt": saved.get("savedAt"), "shipped": n, "checkedAt": checked})
         costs = self.costs()
         cost_batches = []
         for conference, schools in sorted(conferences.items()):
             saved = costs["batches"].get(conference) or {}
-            cost_batches.append({"conference": conference, "schools": len(schools), "saved": sum(1 for s in schools if s in costs["teams"]), "savedAt": saved.get("savedAt")})
+            n, checked = shipped_of(costs["teams"], schools)
+            cost_batches.append({"conference": conference, "schools": len(schools), "saved": sum(1 for s in schools if s in costs["teams"]), "savedAt": saved.get("savedAt"), "shipped": n, "checkedAt": checked})
         facts = self.facts()
         fact_batches = []
         for conference, schools in sorted(conferences.items()):
@@ -681,5 +739,18 @@ class SeasonNotes:
             "coaches": batches,
             "coachesSaved": sum(b["saved"] for b in batches),
             "coachesOf": sum(b["schools"] for b in batches),
+            # the preloading (2026-10-22): how many of the followed teams' rows came with the program, and its date
+            "shipped": {
+                "coaches": sum(b["shipped"] for b in batches),
+                "costs": sum(b["shipped"] for b in cost_batches),
+                "facts": sum(b["shipped"] for b in fact_batches),
+                "preseason": sum(1 for r in rows if r["shipped"]),
+                "checkedAt": {
+                    "coaches": max((b["checkedAt"] for b in batches if b["checkedAt"]), default=None),
+                    "costs": max((b["checkedAt"] for b in cost_batches if b["checkedAt"]), default=None),
+                    "facts": max((b["checkedAt"] for b in fact_batches if b["checkedAt"] and b["shipped"]), default=None),
+                    "preseason": pre_shipped["checkedAt"] if any(r["shipped"] for r in rows) else None,
+                },
+            },
             "remind": bool(missing) and today.month >= 8 and today.year == self.season,
         }

@@ -719,11 +719,13 @@ def test_remote_bar_offsets_by_the_dock_height() -> None:
     assert remote and "bottom: var(--dock-h, 0px)" in remote.group(1)
 
 
-def test_the_stacked_spread_rule_is_scoped_to_seasons_middle_column() -> None:
-    assert ".season__guide .spread--2" in APP_CSS
-    assert not re.search(r"(?m)^\s*\.season \.spread--2", APP_CSS)
+def test_the_old_season_columns_are_gone_with_their_rules() -> None:
+    """Board 9 (owner 2026-10-22): the Season page is flush rows and bands across the page; the three-column media guide's
+    middle column, and the rule that stacked its spreads, are gone (the stat profile's two tables sit side by side again)."""
     season = (STATIC / "js" / "views" / "season.js").read_text(encoding="utf-8")
-    assert season.count('class: "season__guide"') == 1
+    for name in ("season__col", "season__guide", "season__wide", "season__top"):
+        assert not any(re.search(rf"(?<![\w-]){name}", text) for text in (season, APP_CSS, CSS)), name  # .preseason__top is another page's
+    assert not re.search(r"(?m)^\s*\.season \.spread--2", APP_CSS)
 
 
 def test_type_tokens_follow_the_text_size() -> None:

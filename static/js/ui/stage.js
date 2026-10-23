@@ -2,18 +2,28 @@
 // itself fits one landscape screen with nothing to scroll). The pieces the one-screen "stage" is built from; views/live.js
 // lays them out and keeps them fresh, on the tablet and on the board alike.
 //
+// The layout pass (owner 2026-10-22, https://claude.ai/artifact/Mrt8VH6khBN5GNZ1Mrzbdt): the score line sits at the bottom
+// above the ticker on one line, dropping its least-needed parts by width; the panels have no title bars; the box score
+// keeps one passer, two rushers and three receivers a team and holds still; the shot chart follows the offense on the field.
+//
 //   wpSummary(s, { usHome, pregame })                  { pct, kickoff } for us, 0..1 each, or nulls: the latest scoreboard
 //                                                        reading (the series' last point), the pregame number before kickoff
+//   lastPlayParts(play, { abbr })                      { words, who, ppa, when } or null: the line drops ppa and when first
 //   lastPlayWords(play, { abbr })                      "TD pass, 29 yds, BLUE · +3.4 PPA · Q1 2:08", or null
 //   playWords(play)                                    the short words for a play type ("TD pass", "Incomplete pass", "Run")
-//   stripExtras({ wp, lastPlay, usAbbr })              the strip's right side: the percentage and the last play
+//   stripExtras({ wp, lastPlay, usAbbr })              the line's right side: the percentage and the last play (lastPlay is
+//                                                        lastPlayParts' answer, or a string)
 //   lastPlaysList({ plays, us, them, limit })          the newest plays, one row each (clock, side, situation, PPA, words)
-//   scoreCell({ s, us, them, usHome })                 Score by quarter over the four drive lines
-//   boxHalves({ us, them, usTables, themTables })      both teams' box scores side by side, each half a stepping column
-//   stageTools({ delayLabel, onDelay, onRadio, onNotes, onInvite })   the five tool buttons that sit with the panel buttons
+//   scoreCell({ s, us, them, usHome, extra })          Score by quarter over the four drive lines, `extra` (the trivia) under
+//   stageBox({ us, them, usCats, themCats, onTap })    both teams' short box scores side by side
+//   shortBox(categories, { team, side, onTap })        one team's: the leaders by yards, one passer, two rushers, three receivers
+//   offenseHead({ abbr, side, counts })                the shot chart's end zone: whose offense, its passes and runs
+//   stageTools({ delayLabel, onDelay, onRadio, onNotes, onInvite })   the five tool buttons, pinned at the row's right end
 //   driveLines(summary, usTeam, themTeam)              [{ label, us, them }] (exported for the tests)
 
 import { DASH, el, fmtClock, fmtPct, fmtSigned, isNum, obj, period, records, situationText, text } from "./dom.js";
+import { BOX_COLUMNS, boxRows } from "./box-columns.js";
+import { statTable } from "./stat-table.js";
 import { quarterLine } from "./team-stats.js";
 
 const WORDS = [
@@ -54,15 +64,26 @@ export function playWords(play) {
 
 const scrimmage = (play) => isNum(play?.down) && play.down > 0;
 
-/** "TD pass, 29 yds, BLUE · +3.4 PPA · Q1 2:08": the play's words, its yards on a real down, who had the ball, its value and when. */
-export function lastPlayWords(play, { abbr } = {}) {
+/** The last play in its parts: { words: "TD pass, 29 yds", who: "BLUE", ppa: "+3.4 PPA", when: "Q1 2:08" }, any of the last
+ *  three null when unknown; null without a play. The score line drops `ppa` and `when` first, then `who`. */
+export function lastPlayParts(play, { abbr } = {}) {
   if (!play || typeof play !== "object") return null;
   const yards = scrimmage(play) && isNum(play.yardsGained) ? `${fmtSigned(play.yardsGained, 0)} yds` : null;
-  const who = typeof abbr === "function" ? abbr(play.offense) : typeof play.offense === "string" ? play.offense : null;
-  const first = [playWords(play), yards, who].filter((part) => typeof part === "string" && part).join(", ");
-  const ppa = isNum(play.ppa) ? `${fmtSigned(play.ppa, 1)} PPA` : null;
-  const when = isNum(play.period) ? `${period(play.period)} ${fmtClock(play.clock)}` : null;
-  return [first, ppa, when].filter(Boolean).join(" · ");
+  const named = typeof abbr === "function" ? abbr(play.offense) : typeof play.offense === "string" ? play.offense : null;
+  const who = typeof named === "string" && named ? named : null;
+  return {
+    words: [playWords(play), yards].filter(Boolean).join(", "),
+    who,
+    ppa: isNum(play.ppa) ? `${fmtSigned(play.ppa, 1)} PPA` : null,
+    when: isNum(play.period) ? `${period(play.period)} ${fmtClock(play.clock)}` : null,
+  };
+}
+
+/** "TD pass, 29 yds, BLUE · +3.4 PPA · Q1 2:08": the play's words, its yards on a real down, who had the ball, its value and when. */
+export function lastPlayWords(play, { abbr } = {}) {
+  const parts = lastPlayParts(play, { abbr });
+  if (!parts) return null;
+  return [[parts.words, parts.who].filter(Boolean).join(", "), parts.ppa, parts.when].filter(Boolean).join(" · ");
 }
 
 /** Our win probability now and at kickoff, 0..1 each (null when unknown). The latest scoreboard reading wins over the series. */
@@ -79,7 +100,8 @@ export function wpSummary(s, { usHome = true, pregame = null } = {}) {
   return { pct, kickoff };
 }
 
-/** The strip's right side on the stage: the percentage, then the last play. Nothing when neither is known. */
+/** The score line's right side: the percentage, then the last play. Nothing when neither is known. Each part the line may
+ *  drop on a narrow screen is its own span (the kickoff number, the play's team, PPA and clock; CSS decides by width). */
 export function stripExtras({ wp = {}, lastPlay = null, usAbbr = DASH } = {}) {
   const pct = isNum(wp.pct) ? wp.pct : isNum(wp.kickoff) ? wp.kickoff : null;
   const wpNode = pct === null ? null : el(
@@ -89,7 +111,22 @@ export function stripExtras({ wp = {}, lastPlay = null, usAbbr = DASH } = {}) {
     el("span", { class: "strip__wp-who" }, `${text(usAbbr)} to win`),
     isNum(wp.pct) && isNum(wp.kickoff) && fmtPct(wp.kickoff) !== fmtPct(wp.pct) ? el("small", { class: "strip__wp-kick" }, `${fmtPct(wp.kickoff)} at kickoff`) : isNum(wp.pct) ? null : el("small", { class: "strip__wp-kick" }, "at kickoff"),
   );
-  const lastNode = lastPlay ? el("span", { class: "strip__last" }, el("b", { class: "strip__last-label" }, "Last play"), el("span", { class: "strip__last-words", dataset: { k: "strip:last" } }, lastPlay)) : null;
+  const parts = typeof lastPlay === "string" ? (lastPlay ? { words: lastPlay } : null) : lastPlay && typeof lastPlay === "object" && lastPlay.words ? lastPlay : null;
+  const lastNode = parts
+    ? el(
+        "span",
+        { class: "strip__last" },
+        el("b", { class: "strip__last-label" }, "Last play"),
+        el(
+          "span",
+          { class: "strip__last-words", dataset: { k: "strip:last" } },
+          text(parts.words),
+          parts.who ? el("span", { class: "strip__last-who" }, `, ${text(parts.who)}`) : null,
+          parts.ppa ? el("span", { class: "strip__last-ppa" }, ` · ${text(parts.ppa)}`) : null,
+          parts.when ? el("span", { class: "strip__last-when" }, ` · ${text(parts.when)}`) : null,
+        ),
+      )
+    : null;
   if (!wpNode && !lastNode) return null;
   return el("span", { class: "strip__extras" }, wpNode, lastNode);
 }
@@ -142,8 +179,9 @@ export function driveLines(summary, usTeam, themTeam) {
   return DRIVE_LINES.map(([label, key, decimals]) => ({ label, us: show(side(usTeam)[key], decimals), them: show(side(themTeam)[key], decimals) }));
 }
 
-/** Score by quarter, then the drive lines. `us` and `them` are { name, abbr }. */
-export function scoreCell({ s = {}, us = {}, them = {}, usHome = true } = {}) {
+/** Score by quarter, then the drive lines, then `extra` (the trivia standings, owner 2026-10-22) at the cell's foot. `us` and
+ *  `them` are { name, abbr }. */
+export function scoreCell({ s = {}, us = {}, them = {}, usHome = true, extra = null } = {}) {
   const lines = driveLines(s.driveSummary, us.name, them.name);
   return el(
     "div",
@@ -155,19 +193,45 @@ export function scoreCell({ s = {}, us = {}, them = {}, usHome = true } = {}) {
       el("div", { class: "stage-drives__head", role: "row" }, el("span", {}, "Drives"), el("b", { class: "stage-drives__us" }, text(us.abbr)), el("b", { class: "stage-drives__them" }, text(them.abbr))),
       lines.map((line) => el("div", { class: "stage-drives__row", role: "row" }, el("span", { class: "stage-drives__label" }, line.label), el("span", { class: "stage-drives__val" }, line.us), el("span", { class: "stage-drives__val" }, line.them))),
     ),
+    extra,
   );
 }
 
-/** Both teams' box scores side by side (owner 2026-10-20: "right and left, not up and down"), each half its own stepping column. */
-export function boxHalves({ us = {}, them = {}, usTables, themTables } = {}) {
-  const half = (side, team, tables) =>
-    el(
-      "div",
-      { class: `stage-box__half stage-box__half--${side}` },
-      el("div", { class: `stage-box__team stage-box__team--${side}` }, el("b", {}, text(team.abbr)), el("span", {}, text(team.name))),
-      el("div", { class: "stage-box__scroll stage-step" }, tables || null),
-    );
-  return el("div", { class: "stage-box" }, half("us", us, usTables), half("them", them, themTables));
+// The short box (owner 2026-10-22): the leaders by yards, QBR left out (it reads "–" during a game; the Box score panel keeps it)
+export const SHORT_BOX = [["passing", 1], ["rushing", 2], ["receiving", 3]];
+
+const yardsOf = (row) => (isNum(row.YDS) ? row.YDS : typeof row.YDS === "string" && Number.isFinite(Number(row.YDS)) ? Number(row.YDS) : -Infinity);
+
+/** One team's short box: one table per category with lines, the team's abbreviation at the head of the first. Rows are in
+ *  yards order and never re-sort, the heads never stick (the In Game bug of 2026-10-22: a stuck head covered the passer). */
+export function shortBox(categories, { team = {}, side = "us", onTap } = {}) {
+  const cats = obj(categories);
+  const tables = SHORT_BOX.filter(([name]) => records(cats[name]).length).map(([name, keep]) => {
+    const rows = boxRows(cats[name]).sort((a, b) => yardsOf(b) - yardsOf(a)).slice(0, keep);
+    return statTable({ columns: BOX_COLUMNS[name].filter((c) => c.key !== "QBR"), rows, compact: true, sizes: true, sortable: false, onRowTap: typeof onTap === "function" ? onTap : undefined });
+  });
+  if (!tables.length) return el("p", { class: "note stage-box__empty" }, `${text(team.abbr)}: player lines appear after the first pass or run.`);
+  const firstHead = tables[0].querySelector("thead th");
+  if (firstHead) firstHead.prepend(el("b", { class: `stage-box__abbr stage-box__abbr--${side}`, title: text(team.name) }, text(team.abbr)));
+  return el("div", { class: "stage-box__tables" }, tables);
+}
+
+/** Both teams' short box scores side by side (owner 2026-10-20: "right and left, not up and down"), the team's color down
+ *  each half's edge. `usCats` and `themCats` are the live state's playerStats for each team. */
+export function stageBox({ us = {}, them = {}, usCats, themCats, onTap } = {}) {
+  const half = (side, team, cats) => el("div", { class: `stage-box__half stage-box__half--${side}` }, shortBox(cats, { team, side, onTap: onTap ? (row) => onTap(row, side) : undefined }));
+  return el("div", { class: "stage-box" }, half("us", us, usCats), half("them", them, themCats));
+}
+
+/** The shot chart's end zone (owner 2026-10-22: the chart follows the offense on the field): whose offense, in its color, and
+ *  how many passes and runs are charted. */
+export function offenseHead({ abbr, side = "us", counts = "" } = {}) {
+  return el(
+    "div",
+    { class: `shot-endzone shot-endzone--${side === "them" ? "them" : "us"}` },
+    el("b", { class: "shot-endzone__team" }, `${text(abbr)} offense`),
+    counts ? el("span", { class: "shot-endzone__counts" }, counts) : null,
+  );
 }
 
 /** The five tools as buttons of the panel row's kind (owner 2026-10-20: "where the touch is"); the Big screen one is a link. */

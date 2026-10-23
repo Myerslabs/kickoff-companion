@@ -116,15 +116,20 @@ def test_a_zero_spread_is_a_pickem():
 # --- the order and the clock ----------------------------------------------------------------------------------
 
 
-def test_the_higher_the_ranked_game_the_higher_it_sits():
+def test_the_games_sit_in_ap_poll_order():
     games = [
-        {"gameId": 1, "home": {"rank": 1}, "away": {"rank": None}},
-        {"gameId": 2, "home": {"rank": 20}, "away": {"rank": 2}},
         {"gameId": 3, "home": {"rank": 18}, "away": {"rank": 6}},
+        {"gameId": 2, "home": {"rank": 20}, "away": {"rank": 2}},
         {"gameId": 4, "home": {"rank": None}, "away": {"rank": 3}},
-        {"gameId": 5, "home": {"rank": 12}, "away": {"rank": 12}},
+        {"gameId": 1, "home": {"rank": 1}, "away": {"rank": None}},
+        {"gameId": 6, "home": {"rank": "12"}, "away": {"rank": None}},  # a rank as text is no rank: last, by its id
+        {"gameId": 5, "home": {"rank": 12}, "away": {"rank": 25}},
+        {"gameId": 7, "home": {"rank": None}, "away": None},  # malformed: last
+        {"gameId": None, "home": "bad", "away": {"rank": 9}},
     ]
-    assert [g["gameId"] for g in ranked_order(games)] == [2, 3, 5, 1, 4]  # both ranked by the sum (22, 24, 24 by the better rank), then one by its rank
+    # the owner (layout pass, 2026-10-22): "always ... in order by the AP poll", each game at its better rank
+    assert [g["gameId"] for g in ranked_order(games)] == [1, 2, 4, 3, None, 5, 6, 7]
+    assert ranked_order([]) == []
     assert period_of("Q2 7:02") == (2, "7:02") and period_of("OT") == (5, None) and period_of("2OT") == (6, None)
     assert period_of("In progress") == (None, None) and period_of(None) == (None, None)
 

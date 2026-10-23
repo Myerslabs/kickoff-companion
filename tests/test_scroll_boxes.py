@@ -22,7 +22,7 @@ SHEETS = [STATIC / "css" / "components.css", STATIC / "css" / "app.css"]
 
 # The reader's own layers: each is fixed over the page (or drops down over it) and scrolls on its own. The status card
 # (item 6: it lists what is not loaded yet) hangs from the top bar the same way.
-LAYERS = (".drawer__panel", ".player-card", ".side-sheet__body", ".jump__panel", ".status-card")
+LAYERS = (".drawer__panel", ".drawer__levels", ".player-card", ".side-sheet__body", ".jump__panel", ".status-card")  # the menu's list scrolls inside its panel (the layout pass, 2026-10-22)
 SCROLLS = re.compile(r"\boverflow(-y)?\s*:\s*(auto|scroll|overlay)\b")
 SIDEWAYS = re.compile(r"\boverflow-x\s*:\s*(auto|scroll|overlay)\b")
 HIDES_Y = re.compile(r"\boverflow-y\s*:\s*(hidden|clip)\b")

@@ -78,17 +78,53 @@ scenarios.page = async () => {
   await settle();
   await settle();
   const t = clean("prompts page", main);
-  assert.ok(t.includes("Run them all") && t.includes("Run everything that is missing") && t.includes("Running since") && t.includes("The season load: skipped (nothing missing)") && t.includes("Coaches: running"));
-  assert.equal(main.querySelectorAll(".band").length, 7, "the run, five cards, the schedule");
-  assert.ok(t.includes("not loaded for Second U") && t.includes("Partly loaded"), "the season load is partly loaded");
+  assert.ok(t.includes("Load data") && t.includes("Run everything missing") && t.includes("Running since") && t.includes("The season load: skipped (nothing missing)") && t.includes("Coaches: running"));
+  assert.equal(main.querySelectorAll(".band").length, 7, "the head with the run, five cards, the schedule");
+  assert.equal(main.querySelector(".chips-row"), null, "board 8: no strip of section chips");
+  // at a glance: five tiles in the board's order, each its state's color
+  const tiles = main.querySelectorAll(".load-tile");
+  assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["This week's notes", "The season load", "Coaches", "Roster costs", "School facts"]);
+  assert.ok(tiles[0].className.includes("load-tile--missing") && tiles[2].className.includes("load-tile--loaded") && tiles[3].className.includes("load-tile--missing") && tiles[4].className.includes("load-tile--partial"), tiles.map((x) => x.className).join(" | "));
+  // this week first and largest, its five parts as checks
+  const week = main.querySelector(".load-week");
+  assert.equal(week.getAttribute("id"), "prompts-notes");
+  assert.ok(text(week).includes("This week's notes, Rival U"));
+  const checks = week.querySelectorAll(".load-check");
+  assert.equal(checks.length, 5);
+  assert.ok(!checks[0].className.includes("--ok") && !checks[1].className.includes("--ok") && checks[2].className.includes("--ok"), "the written notes and the injury report missing, the depth charts there");
+  // the season loads in even cards
+  assert.deepEqual([...main.querySelector(".load-season").children].map((b) => b.getAttribute("id")), ["prompts-season", "prompts-coaches", "prompts-costs", "prompts-facts"]);
+  assert.ok(t.includes("Not loaded for Second U") && t.includes("Partly loaded"), "the season load is partly loaded");
   assert.ok(t.includes("0 of 16 teams") && t.includes("Missing"), "the costs are missing");
-  assert.ok(t.includes("This week's notes, Rival U") && t.includes("missing: the written notes, the injury report"));
   assert.ok(t.includes("Big Pie: failed (no answer)"), "the facts run's batch");
-  assert.ok(t.includes("Monday's notes") && t.includes("catch-up: done") && t.includes("x: failed, broke"));
+  // the schedule as a short table
+  assert.ok(main.querySelector(".load-sched") && t.includes("Monday's notes") && t.includes("catch-up") && t.includes("failed, broke"));
   const buttons = [...main.querySelectorAll("button")].map(text);
   assert.ok(buttons.includes("Copy the prompt") && buttons.includes("Paste the answer") && buttons.includes("Run the missing with Claude Code"));
   assert.ok(main.querySelector("#prompts-run button[disabled]"), "a run under way: the buttons wait");
   view.unmount();
+  // the preloading (owner 2026-10-22): a load that came with the program reads "Preloaded <day>" in gold until the install
+  // loads its own ("Gold until you load")
+  const preloaded = clone(PAGE);
+  preloaded.season.coachesSaved = 16;
+  preloaded.season.preseason = [{ school: "Home U", savedAt: null, shipped: true, checkedAt: "2026-10-22" }];
+  preloaded.season.shipped = { coaches: 16, costs: 0, facts: 0, preseason: 1, checkedAt: { coaches: "2026-10-22T12:00:00Z", preseason: "2026-10-22T12:00:00Z" } };
+  const pre = document.createElement("div");
+  pre.append(...promptCards(preloaded, () => {}));
+  clean("preloaded cards", pre);
+  const coachesChip = pre.querySelector("#prompts-coaches .pill");
+  assert.ok(coachesChip.className.includes("pill--preloaded") && text(coachesChip).startsWith("Preloaded "), text(coachesChip));
+  assert.ok(text(pre.querySelector("#prompts-coaches")).includes("with the program"));
+  assert.ok(text(pre.querySelector("#prompts-season .pill")).startsWith("Preloaded "), "the season load shipped for Home U, the coaches too");
+  assert.ok(text(pre.querySelector("#prompts-season")).includes("With the program for Home U"));
+  const { loadState } = await import(moduleUrl("views/prompts.js"));
+  assert.equal(loadState(16, 0, 16), "loaded");
+  assert.equal(loadState(16, 16, 16), "preloaded");
+  assert.equal(loadState(16, 4, 16), "preloaded", "some shipped: gold until every team is the install's own");
+  assert.equal(loadState(3, 3, 16), "partial");
+  assert.equal(loadState(0, 0, 16), "missing");
+  assert.equal(loadState(5, "x", 0), "none");
+  assert.equal(loadState(null, null, 16), "missing");
   // a guest: the cards and no buttons at all
   document.body.dataset.role = "guest";
   const guest = document.createElement("div");
@@ -122,7 +158,7 @@ def test_the_reminders_share_one_format() -> None:
     assert ".update-banner" not in css and ".page-note__row" in css
     notes = (js / "ui" / "page-notes.js").read_text(encoding="utf-8")
     assert 'class: "btn btn--quiet icon-btn page-note__close"' in notes, "every note closes with its ×"
-    shell = (js / "ui" / "shell.js").read_text(encoding="utf-8")
-    assert '{ id: "prompts", label: "Load data"' in shell
+    tree = (js / "ui" / "menu-tree.js").read_text(encoding="utf-8")
+    assert '{ id: "prompts", label: "Load data"' in tree, "the menu's My Teams group (the layout pass, 2026-10-22)"
     for name, needle in (("ui/matchup-card.js", 'href: "#prompts"'), ("ui/roster-costs.js", 'href: "#prompts"'), ("views/preseason.js", 'href: "#prompts"'), ("views/injuries.js", 'href: "#prompts"')):
         assert needle in (js / name).read_text(encoding="utf-8"), f"{name}: the dead end leads to the Prompts page"

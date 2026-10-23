@@ -1,7 +1,8 @@
-"""Queue items 10 to 12 in the fake browser (mock approved 2026-10-13): the Newspaper to the owner's whiteboard. The
-masthead with this week's name and the edition arrows; our lead story beside the top-ranked game; the player feature and
-the coach's story (headlines only); then rows mixing stories and ranked games by rank, a headline before kickoff and
-after the final only; an earlier edition, a missing one and an old server's answer; no undefined, null or NaN on screen."""
+"""Queue items 10 to 12 in the fake browser (mock approved 2026-10-13), laid out as a newspaper's front page since the
+layout pass (owner 2026-10-22, board 5): the masthead with this week's name and the edition arrows; the skybox; our game
+as the dominant story with a banner headline, the deck and the press box; the game of the week beside "By the numbers";
+the player feature, the coach's story and every ranked game in one line of agate; the briefs; an earlier edition, a
+missing one and an old server's answer; no undefined, null or NaN on screen."""
 
 from __future__ import annotations
 
@@ -96,11 +97,20 @@ scenarios.paper = async () => {
   assert.equal(picked.coach.topic, "coach");
   assert.deepEqual(picked.rest.map((h) => h.topic), ["weather", "practice"]);
   assert.deepEqual(paper.pickStories(null), { lead: null, player: null, coach: null, rest: [] });
-  // the rows after the first two: a matchup and a story switching sides, then whatever is left, two a row
-  const rows = paper.paperRows([{ t: 1 }, { t: 2 }], [{ m: 1 }, { m: 2 }, { m: 3 }, { m: 4 }]);
-  assert.deepEqual(rows.map((r) => r.map(([k]) => k).join("")), ["MA", "AM", "MM"]);
-  assert.deepEqual(paper.paperRows([], []), []);
-  assert.deepEqual(paper.paperRows([{ t: 1 }], []).map((r) => r.length), [1]);
+  // a school in a line of agate: shortened the way a newspaper does, never cut (his 2)
+  assert.equal(paper.agateName("Dust Devil State"), "Dust Devil St.");
+  assert.equal(paper.agateName("Moonpie Mountain"), "Moonpie Mtn.");
+  assert.equal(paper.agateName("Red Clay"), "Red Clay", "a short name stays whole");
+  assert.equal(paper.agateName(null), "–");
+  // the game of the week (the layout pass, 2026-10-22): the matchups come in AP poll order, so No. 1 against an unranked
+  // team leads them; the game drawn large is still the best pair of ranked teams, else the first game not ours
+  const g = (id, a, h, extra = {}) => ({ gameId: id, away: { rank: a }, home: { rank: h }, ...extra });
+  const week = [g(1, 1, null), g(2, 2, 20), g(3, 6, 18), g(4, 9, 13), g(5, null, 12, { isUs: true })];
+  assert.equal(paper.gameOfWeek(week).gameId, 2, "No. 2 against No. 20 (22) over No. 9 against No. 13 (22, the better rank wins)");
+  assert.equal(paper.gameOfWeek([g(1, 1, null), g(5, 3, 4, { isUs: true }), g(6, null, 7)]).gameId, 1, "no other ranked pair: the first game not ours");
+  assert.equal(paper.gameOfWeek([g(5, 3, 4, { isUs: true })]), null);
+  assert.equal(paper.gameOfWeek(null), null);
+  assert.equal(paper.gameOfWeek([null, "x", g(8, "2", 3), g(9, 5, 6)]).gameId, 9, "a malformed rank is no rank");
 
   const { main, view } = await mounted(paper, fixture);
   const t = text(main);
@@ -112,38 +122,71 @@ scenarios.paper = async () => {
   assert.equal(prev.getAttribute("href"), "#newspaper=week-7");
   assert.ok(text(prev).includes("Week 7 edition") && text(prev).includes("vs Catfish Bend"));
   assert.ok(main.querySelector(".paper-mast__nav--next").className.includes("is-off"), "this week's paper has no later edition");
-  // row 1: our lead beside the top-ranked game, two helmets in their teams' colors
-  const rowA = main.querySelector(".paper-row--a");
-  assert.equal(text(rowA.querySelector(".paper-lead .paper-head--lead")), "Gameday: Swampwater Tech visits Bluegrass Bottoms");
-  assert.ok(rowA.querySelector(".paper-lead canvas.px-fill--stadium"));
-  const top = rowA.querySelector(".paper-match--big");
+  // the lead (board 5): our game under way, its score as the banner, the stadium, the press box with the way into In Game
+  const lead = main.querySelector(".front-lead");
+  assert.ok(text(lead.querySelector(".paper-kicker")).includes("Game week · Live"));
+  const liveBanner = lead.querySelector(".front-banner--live .paper-status");
+  assert.equal(liveBanner.getAttribute("href"), "#live", "our game opens In Game");
+  assert.ok(text(liveBanner).includes("2nd quarter, 7:02 left"), text(liveBanner));
+  assert.ok(lead.querySelector("canvas.px-fill--stadium"));
+  assert.ok(text(lead.querySelector(".front-col")).includes("From the press box"));
+  assert.ok(text(lead.querySelector(".front-deck")).includes("Prairie Fire Stadium"), "the deck before the final: when and where");
+  // the game of the week: the top-ranked other game across two columns, two helmets in their teams' colors
+  const top = main.querySelector(".front-tier--two .front-span2 .paper-match--big");
   assert.equal(top.querySelectorAll("canvas.px-fill--helmet").length, 2);
   assert.ok(text(top).includes("54-47") && text(top.querySelector(".paper-score")).includes("Final, 2 overtimes"));
   assert.ok(top.querySelector(".paper-qline"), "a finished top game shows its score by quarter");
   assert.equal(top.querySelector(".paper-head a").getAttribute("href"), "#box=1");
   assert.ok(top.querySelector(".paper-head--final"), "a final's headline is hidden in spoiler mode");
-  // row 2: the player feature and the coach's story, each a headline linking out
-  const rowB = main.querySelector(".paper-row--b");
-  const player = rowB.querySelector(".paper-feat--player");
+  // beside it, by the numbers: before the final, the two teams' records and the over/under
+  const nums = main.querySelectorAll(".front-tier--two .front-rail .front-num");
+  assert.ok(nums.length >= 2 && text(nums[0]).includes("5-1"), text(main.querySelector(".front-numbers")));
+  // the next tier: the player feature and the coach's story (headlines linking out), then the rail's scoreboard
+  const player = main.querySelector(".front-tier--three .front-mod--player .paper-feat--player");
   assert.ok(text(player).includes("Player feature") && player.querySelector("canvas.px-fill--player"));
   assert.equal(player.querySelector(".paper-head a").getAttribute("href"), "https://example.com/s");
-  assert.ok(text(rowB.querySelector(".paper-feat--coach")).includes("From the coach") && rowB.querySelector("canvas.px-fill--coach"));
-  // the rest: the other four games and the two other stories, in rows of two; a bad link is plain text
-  const rest = main.querySelectorAll(".paper-row--rest");
-  assert.equal(rest.flatMap((r) => r.querySelectorAll(".paper-match--half")).length, 4);
-  assert.equal(rest.flatMap((r) => r.querySelectorAll(".paper-art")).length, 2);
+  const coach = main.querySelector(".front-tier--three .front-mod--coach .paper-feat--coach");
+  assert.ok(text(coach).includes("From the coach") && coach.querySelector("canvas.px-fill--coach"));
+  // every ranked game one line of agate (his 1: the Top 25 compact): the winner first after a final, the quarter while live,
+  // the kickoff before, ours marked; the full cards a tap away on the Top 25 page
+  const agate = main.querySelectorAll(".front-agate__row");
+  assert.equal(agate.length, 5);
+  assert.ok(text(agate[0]).startsWith("2 Saddle Sore 54, 20 Prairie Fire 47") && text(agate[0]).endsWith("2OT"), text(agate[0]));
+  assert.ok(text(agate[1]).includes("6 Snowdrift St. 2, 18 Hayloft 0") && text(agate[1]).endsWith("Q2"), text(agate[1]));
+  assert.ok(text(agate[2]).startsWith("9 Rust Belt at Tater Tot Tech"), text(agate[2]));
+  assert.ok(agate[3].className.includes("is-us"));
+  assert.equal(main.querySelector(".front-scores .front-refer").getAttribute("href"), "#top25");
+  // the briefs at the foot: the other stories, and the feed's lead (our game leads the page); a bad link is plain text
+  const briefs = main.querySelectorAll(".front-briefs .front-brief").map(text);
+  assert.ok(briefs.some((b) => b.includes("Storms in the forecast")) && briefs.some((b) => b.includes("Gameday: Swampwater Tech visits")), briefs.join(" | "));
   assert.ok(!main.querySelectorAll("a").some((a) => (a.getAttribute("href") || "").startsWith("javascript")));
-  // a live game: no headline, the score, the quarter and the clock; ours links to In Game, the others to their box score
-  const live = main.querySelectorAll(".paper-match--live");
-  assert.equal(live.length, 2);
-  for (const box of live) assert.equal(box.querySelector(".paper-head"), null, "no funny headline while a game is on");
-  assert.ok(text(live[0]).includes("SNOW 2") && text(live[0]).includes("2nd quarter, 7:02 left"));
-  assert.equal(main.querySelector(".paper-match--us .paper-status").getAttribute("href"), "#live");
-  assert.ok(text(main.querySelector(".paper-match--us")).includes("Our game"));
-  // a game to come: its headline, its kickoff, the line and the win probability
-  const pre = main.querySelector(".paper-match--pre");
-  assert.ok(text(pre).includes("brew the coffee") && text(pre).includes("EMBR -3.5") && pre.querySelector(".paper-wp"));
   view.unmount();
+
+  // after our final, with the recap: the paper's own headline as the banner, the player of the game and the record in the
+  // deck, the turning point and the key stats in the press box, the key stats by the numbers, the skybox's refers
+  const done = clone(fixture);
+  const ourGame = done.edition.matchups[3];
+  Object.assign(ourGame, { status: "final", detail: "Final", period: null, clock: null, headline: { kind: "final", text: "Swampwater Tech takes down No. 12 Bluegrass Bottoms, 40-34" } });
+  ourGame.away.points = 40;
+  ourGame.home.points = 34;
+  done.rankedWeek = { counts: { live: 1, pre: 1, final: 3 } };
+  done.recap = { gameId: 4, opponent: "Bluegrass Bottoms", final: { usScore: 40, themScore: 34, result: "W" }, record: { wins: 5, losses: 2, ties: 0 }, playerOfGame: { name: "Keegan Crawford", position: "QB", isUs: true, value: 19.7 }, turningPoint: { period: 4, clock: { minutes: 4, seconds: 55 }, usScore: 40, themScore: 34, usWpBefore: 0.6487, usWpAfter: 0.9219 }, keyStats: [{ label: "Turnovers", format: "0f", us: 0, them: 3 }, { label: "Third-down rate", format: "pct", us: 0.214, them: 0.4 }, null], next: { opponent: "Front Porch State", homeAway: "home", date: "2026-10-31T19:30:00Z" } };
+  const fin = await mounted(paper, done);
+  const ft = text(fin.main);
+  assert.ok(!RAW.test(ft), ft.slice(0, 400));
+  const banner = fin.main.querySelector(".front-banner");
+  assert.equal(text(banner), "Swampwater Tech takes down No. 12 Bluegrass Bottoms, 40-34");
+  assert.ok(banner.className.includes("paper-head--final"), "a final's banner is hidden in spoiler mode");
+  const deck = text(fin.main.querySelector(".front-deck"));
+  assert.ok(deck.includes("Keegan Crawford is the player of the game") && deck.includes("moves to 5-2"), deck);
+  const press = text(fin.main.querySelector(".front-col"));
+  assert.ok(press.includes("4:55 left in the 4th quarter") && press.includes("65% to 92%") && press.includes("Turnovers: SWT 0, BLUE 3") && press.includes("21%") && press.includes("Next: Front Porch State at home"), press);
+  assert.ok(fin.main.querySelector('.front-col a[href="#program=4"]'), "the way into the Post-Game Program");
+  assert.equal(text(fin.main.querySelector(".front-numbers .front-num b")), "0", "the key stats by the numbers");
+  const sky = fin.main.querySelectorAll(".front-sky__item").map(text);
+  assert.ok(sky[0].includes("Next up") && sky[0].includes("Front Porch State") && sky[1].includes("3 final, 1 live, 1 to come") && sky[2].includes("5-2"), sky.join(" | "));
+  assert.ok(text(fin.main.querySelector(".front-agate .is-us")).startsWith("Swampwater Tech 40, 12 Bluegrass Bottoms 34"));
+  fin.view.unmount();
 
   // an earlier edition, as the paper printed it (rebuilt from the headlines: no matchups)
   const old = clone(fixture);
@@ -152,7 +195,8 @@ scenarios.paper = async () => {
   const t2 = text(second.main);
   assert.ok(!RAW.test(t2) && t2.includes("Week 7 edition, as the paper printed it"), t2.slice(0, 300));
   assert.equal(second.main.querySelector(".paper-back a").getAttribute("href"), "#newspaper");
-  assert.ok(second.main.querySelector(".paper-row--a.paper-row--one"), "no matchup: the lead takes the row");
+  assert.equal(text(second.main.querySelector(".front-banner a")), "Gameday: Swampwater Tech visits Bluegrass Bottoms", "no matchup: the feed's lead story leads");
+  assert.equal(second.main.querySelector(".front-tier--two"), null, "no game of the week and nothing to number");
   assert.equal(second.main.querySelector("a.paper-mast__nav--next").getAttribute("href"), "#newspaper");
   second.view.unmount();
 

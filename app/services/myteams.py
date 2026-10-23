@@ -20,7 +20,7 @@ from typing import Any
 
 from app.cache import DataKind
 from app.cfbd.client import CfbdClient
-from app.cfbd.models import Game, TeamElo, TeamFPI, TeamSP
+from app.cfbd.models import Game, Team, TeamElo, TeamFPI, TeamSP
 from app.config import Settings
 from app.services import gamekeys, plan, teamset
 from app.services.parts import Assembled, Part, PartFetcher, assemble, statuses
@@ -79,6 +79,35 @@ def _rating(table: Any, school: str) -> dict[str, Any]:
     return {"value": table.value(school), "rank": table.rank(school), "of": table.of or None}
 
 
+def set_note(chosen: teamset.TeamSet, count: int) -> str | None:
+    """The line under the list of teams: what a Tier 2 key adds, or how to add teams; None when there is nothing to say."""
+    if not chosen.allowed:
+        return "More primary teams and secondary teams show with a Tier 2 key. Your saved picks come back when the key has it." if chosen.locked else "Add more primary teams and secondary teams with a Tier 2 key."
+    if count == 1:
+        return "Only your home team so far. Add primary and secondary teams on the setup page."
+    return None
+
+
+def season_picker(chosen: teamset.TeamSet, teams: list[Team], picked: str) -> dict[str, Any]:
+    """The Season page's selection window (the layout pass, board 9, owner 2026-10-22: "I want my teams, and season to
+    combine"): every followed team in the arrows' order (the home team, the other primary teams, then the secondary ones),
+    each with its abbreviation and colors for its chip, the team picked, and the line on what a Tier 2 key adds."""
+    meta = {t.school: t for t in teams if isinstance(t, Team) and t.school}
+    rows = []
+    for school in [*chosen.primaries, *chosen.secondary]:
+        team = meta.get(school)
+        rows.append({
+            "school": school,
+            "abbreviation": team.abbreviation if team else None,
+            "color": team.color if team else None,
+            "altColor": team.alternate_color if team else None,
+            "conference": team.conference if team else None,
+            "role": chosen.role(school),
+            "known": team is not None or not meta,
+        })
+    return {"teams": rows, "picked": picked, "home": chosen.home, "allowed": chosen.allowed, "note": set_note(chosen, len(rows)), "plansUrl": plan.PLANS_URL}
+
+
 class MyTeamsService:
     def __init__(self, client: CfbdClient, settings: Settings, prefs: Any, program: ProgramService, ratings_fetcher: PartFetcher) -> None:
         self.client = client
@@ -132,11 +161,7 @@ class MyTeamsService:
                 "next": upcoming,
             })
         rows.sort(key=lambda r: (ROLE_ORDER.get(r["role"] or "", 3), r["apRank"] if isinstance(r.get("apRank"), int) else 99, (r.get("school") or "").lower()))
-        note = None
-        if not chosen.allowed:
-            note = "More primary teams and secondary teams show with a Tier 2 key. Your saved picks come back when the key has it." if chosen.locked else "Add more primary teams and secondary teams with a Tier 2 key."
-        elif len(rows) == 1:
-            note = "Only your home team so far. Add primary and secondary teams on the setup page."
+        note = set_note(chosen, len(rows))
         return {
             "season": self.year,
             "pollWeek": poll_week,

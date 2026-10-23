@@ -95,7 +95,7 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     # --- public release Phase 5b: My teams, the opponents and My teams lists ---
     # --- Phase 18.6: Invite friends and the game-day board ---
     "FRIENDS": ["invite", "board", "review", "trivia"],  # the trivia page (2026-10-21)
-    "MYTEAMS": ["myteams", "injuries", "national=rating:sp?scope=opponents", "national=profile:ypp?scope=mine", "national=board:passing:YDS?scope=opponents"],
+    "MYTEAMS": ["season?team={OPP}", "injuries", "national=rating:sp?scope=opponents", "national=profile:ypp?scope=mine", "national=board:passing:YDS?scope=opponents"],
 }
 ROUTES = list(dict.fromkeys(route for group in ROUTE_GROUPS.values() for route in group))
 DEFAULT_SIZE = (820, 1180)  # the iPad held upright: the anchor (Design rules, owner 2026-10-21); sideways must not break
@@ -668,8 +668,13 @@ AFTER_MENU_JS = (r"""(async () => {""" + WAIT_JS + r"""
   const drawer = await until(() => document.querySelector('.drawer[open]'), 2500);
   if (!drawer) return 'a tap on the Menu did not open the menu';
   if (document.querySelector(OPEN_LAYERS)) return 'a tap on the Menu opened the menu but left the sheet open';
-  """ + ESCAPE_JS + r"""
-  const shut = await until(() => !document.querySelector('.drawer[open]'), 2500);
+  // the layout pass (owner 2026-10-22): the menu opens on the list of the page on screen and each Escape goes up one level,
+  // so a page inside a group takes one Escape per level, then one more to close it (never more than the menu is deep)
+  let shut = false;
+  for (let i = 0; i < 4 && !shut; i += 1) {
+    """ + ESCAPE_JS + r"""
+    shut = await until(() => !document.querySelector('.drawer[open]'), 800);
+  }
   return shut ? '' : 'Escape did not close the menu';
 })()""").replace("OPEN_LAYERS", json.dumps(OPEN_LAYERS))
 # the open sheet's own loading skeletons gone (a team's flyout fetches its page), before its names are read
@@ -972,6 +977,17 @@ def league_names() -> set[str]:
     return {name.lower() for t in league.teams for name in (t.school, t.abbr, t.conference, t.conf_short, conference_short(t.conference)) if name}
 
 
+def follow_teams(base: str, schools: list[str]) -> None:
+    """Follow made-up teams on the simulator (board 9, owner 2026-10-22), so the Season page's window has teams to step
+    through and #season?team= opens one. A refusal leaves the home team alone, and that route then says why on the page."""
+    body = json.dumps({"primaryTeams": schools}).encode("utf-8")
+    request = urllib.request.Request(f"{base}/api/settings", data=body, method="PUT", headers={"Content-Type": "application/json"})
+    try:
+        urllib.request.urlopen(request, timeout=10).close()
+    except (OSError, ValueError) as exc:
+        print(f"Could not follow {', '.join(schools)} ({exc}); the Season window shows the home team alone.", file=sys.stderr)
+
+
 def fill(route: str, values: dict[str, str]) -> str:
     for key, value in values.items():
         route = route.replace("{" + key + "}", value)
@@ -1057,6 +1073,10 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
         if not wait_for(base):
             print(f"No server answered at {base}.", file=sys.stderr)
             return 2
+        if sim is not None and any("season?team=" in route for route in args.routes):
+            from urllib.parse import unquote
+
+            follow_teams(base, [unquote((values or league_values())["OPP"])])
         if any("{ARCHIVED}" in route for route in args.routes):  # item 6: a game the server's archive holds, once it answers
             archived = archive_route_value(base, values.get("LAST", ""))
             args.routes = [fill(route, {"ARCHIVED": archived}) for route in args.routes]

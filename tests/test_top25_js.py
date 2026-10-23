@@ -1,7 +1,9 @@
 """Queue item 11 in the fake browser (mock approved 2026-10-13): the Top 25 page. Every game with an AP Top 25 team as a
 compact Pre-Game Program cover (the same facts as the cover, no headlines), the live score with its quarter and clock, a
 final without anyone's Won or Lost, Off this week, the spoiler-delay line; the tab after Season and every page in the
-menu (owner 2026-10-13: "everything should always be accessible from the menu")."""
+menu (owner 2026-10-13: "everything should always be accessible from the menu"). The layout pass, board 6 (owner
+2026-10-22): the score alone in the middle, the rows level, "Head coach" over the name, the weather and the tools in the
+last row, "In poll order" in the header."""
 
 from __future__ import annotations
 
@@ -51,6 +53,7 @@ scenarios.top25 = async () => {
   assert.ok(!RAW.test(t), t.slice(0, 400));
   assert.equal(text(main.querySelector(".top25-head__title")), "AP Top 25, Week 8");
   assert.ok(text(main.querySelector(".top25-head__line")).includes("AP poll, week 8") && text(main.querySelector(".top25-head__line")).includes("5 games with a ranked team"));
+  assert.ok(text(main.querySelector(".top25-head__line")).startsWith("In poll order"), "board 6: the header says how the cards run");
   assert.ok(text(main.querySelector(".top25-head__counts")).includes("2 live"));
   assert.ok(text(main.querySelector(".top25-head__delay")).includes("30 s behind the broadcast"));
   // one compact cover a game, in the server's order; the junk row is skipped
@@ -61,21 +64,39 @@ scenarios.top25 = async () => {
     assert.equal(card.querySelectorAll(".cover__nav").length, 0, "no arrows on a card");
     assert.equal(card.querySelectorAll(".cover__actions").length, 0, "no buttons on a card");
     assert.ok(!text(card).includes("SP+"), "no SP+ chip on a card");
-    assert.ok(card.querySelectorAll(".cover__name").every((n) => n.dataset.oneline === "1"));
+    // board 6: a long name wraps (never fitted down to the abbreviation); both sides keep the same rows, an unranked
+    // team its empty AP row and a team with no games its empty last five, so the rows stay level
+    assert.ok(card.querySelectorAll(".cover__name").every((n) => n.dataset.oneline !== "1"));
+    for (const side of card.querySelectorAll(".cover__side")) {
+      assert.equal(side.querySelectorAll(".cover__ap").length, 1);
+      assert.equal(side.querySelectorAll(".form-guide").length, 1);
+    }
+    assert.equal(card.querySelectorAll(".top25-coach").length, 2, "Head coach over each name");
+    assert.ok(card.querySelectorAll(".top25-coach").every((c) => text(c).startsWith("Head coach")));
+    // the last row: the weather at the left, Matchup at the right
+    const row = card.querySelector(".cover__foot-row");
+    assert.ok(row && row.querySelector(".top25-weather") && row.querySelector(".top25-card__matchup"));
+    // the when in two lines: the day and time, then the stadium and the TV
+    assert.ok(card.querySelector(".cover__when-day") && card.querySelector(".cover__when-place"));
   }
   assert.equal(cards[0].getAttribute("aria-label"), "Saddle Sore at Prairie Fire");
-  // a final: the score and "Final, 2 overtimes", never one side's Won or Lost; its score opens the box score
-  assert.ok(text(cards[0].querySelector(".cover__middle")).includes("Final, 2 overtimes"));
+  // a final: the points alone (the sides say who is who), "Final · 2 OT", never one side's Won or Lost; its score opens
+  // the box score; the abbreviations stay in the score's label
+  const finalScore = cards[0].querySelector(".cover__score");
+  assert.equal(text(finalScore), "54 · 47");
+  assert.equal(finalScore.getAttribute("aria-label"), "Final: SADL 54, EMBR 47");
+  assert.ok(text(cards[0].querySelector(".cover__middle")).includes("Final · 2 OT"));
   assert.ok(!/\bWon\b|\bLost\b/.test(text(cards[0])));
   assert.equal(cards[0].querySelector("a.cover__middle--link").getAttribute("href"), "#box=1");
   // a live game: the score with its quarter and clock, Live in the kicker
-  assert.ok(text(cards[1].querySelector(".cover__middle")).includes("SNOW 2") && text(cards[1].querySelector(".cover__middle")).includes("2nd quarter, 7:02"));
+  assert.equal(text(cards[1].querySelector(".cover__score")), "2 · 0");
+  assert.ok(text(cards[1].querySelector(".cover__middle")).includes("Q2 · 7:02"), text(cards[1].querySelector(".cover__middle")));
   assert.ok(text(cards[1].querySelector(".cover__kicker")).includes("Live"));
   // ours: Our game in the kicker, the middle opens In Game
   assert.ok(cards[3].className.includes("top25-card--us") && text(cards[3].querySelector(".cover__kicker")).includes("Our game"));
   assert.equal(cards[3].querySelector("a.cover__middle--link").getAttribute("href"), "#live");
   // the cover's facts: the line by abbreviation, the head coaches, the weather, the win probability in both colors
-  assert.ok(text(cards[2]).includes("EMBR -3.5") && text(cards[2]).includes("A Coach"));
+  assert.ok(text(cards[2]).includes("EMBR -3.5") && text(cards[2]).includes("A Coach") && text(cards[2]).includes("O/U"));
   assert.ok(text(cards[2].querySelector(".top25-weather")).includes("57°F") && text(cards[2].querySelector(".top25-weather")).includes("wind 11 mph ESE"));
   assert.ok(cards[2].querySelector(".cover__wpbar--teams"));
   // no headlines on this page (owner)
@@ -96,21 +117,38 @@ scenarios.top25 = async () => {
   const t2 = text(second.main);
   assert.ok(t2.includes("No AP poll yet this season.") && t2.includes("no spoiler delay") && t2.includes("Tier 1 key") && !RAW.test(t2), t2.slice(0, 400));
   assert.equal(second.main.querySelectorAll(".top25-card").length, 0);
+  assert.ok(!text(second.main.querySelector(".top25-head__line")).includes("In poll order"), "no cards, no order to state");
   second.view.unmount();
+
+  // the quarter and the clock under a live score, and a final's overtimes, short enough for the card's middle
+  const { clockText, overtimes } = await import(moduleUrl("views/top25.js"));
+  assert.equal(clockText({ period: 2, clock: "7:02" }), "Q2 · 7:02");
+  assert.equal(clockText({ period: 5, clock: null }), "OT");
+  assert.equal(clockText({ period: 6 }), "2OT");
+  assert.equal(clockText({ period: null, detail: "Halftime" }), "Halftime");
+  assert.equal(clockText({ period: "2", clock: "1:00" }), "Under way", "a period as text is no period");
+  assert.equal(clockText({}), "Under way");
+  assert.equal(overtimes({ home: { lineScores: [1, 2, 3, 4, 5] }, away: { lineScores: [1, 2, 3, 4, 5] } }), "OT");
+  assert.equal(overtimes({ home: { lineScores: [1, 2, 3, 4, 5, 6] }, away: null }), "2 OT");
+  assert.equal(overtimes({ home: { lineScores: [1, 2, 3, 4] }, away: { lineScores: "x" } }), null);
+  assert.equal(overtimes({}), null);
 };
 
 scenarios.tabs = async () => {
-  const { VIEWS, MENU } = await import(moduleUrl("ui/shell.js"));
+  const { VIEWS, TABS, MENU } = await import(moduleUrl("ui/shell.js"));
+  const { findPath } = await import(moduleUrl("ui/menu-tree.js"));
   assert.deepEqual(VIEWS.map((v) => v.id), ["newspaper", "program", "live", "season", "top25"], "Top 25 right after Season (owner)");
-  const views = MENU.find((g) => g.group === "Views").items.map((i) => i.id);
-  for (const v of VIEWS) assert.ok(views.includes(v.id), `${v.id} in the menu's Views`);
+  assert.deepEqual(TABS.map((v) => v.id), ["newspaper", "program", "live"], "the layout pass (owner 2026-10-22): three tabs; Season and Top 25 in the menu only");
+  for (const v of VIEWS) assert.ok(findPath(MENU, (entry) => entry.page === v.id), `${v.id} in the menu`);
+  assert.deepEqual(findPath(MENU, (entry) => entry.page === "top25"), ["national", "top25"], "Top 25 under National");
+  assert.deepEqual(findPath(MENU, (entry) => entry.page === "season"), ["teams", "season"], "Season under My Teams");
 };
 """
 
 # Pages reached from inside another page rather than from the menu: a team (any team name), a box score (any game), a
-# national list (any rank chip), the board (In Game's Big screen button), the Archive and Season in review (the Setup page,
-# which the menu holds), the radio (the Pre-Game Program's radio band).
-CONTEXT_ROUTES = {"team", "box", "national", "board", "archive", "review", "radio"}
+# national list (any rank chip), the radio (the Pre-Game Program's radio band; the menu's Radio tile opens the stations),
+# and the Profile's two older addresses (#settings and #setup open the Profile, which the menu holds).
+CONTEXT_ROUTES = {"team", "box", "national", "radio", "settings", "setup", "myteams"}  # myteams: the old address, the Season page now (board 9)
 
 
 @pytest.fixture(scope="module")
@@ -134,11 +172,11 @@ def test_every_page_is_in_the_menu() -> None:
     """Owner 2026-10-13: "everything should always be accessible from the menu". Every page the router builds is a menu
     item, or a page reached from inside one (CONTEXT_ROUTES, each named with where it is reached from)."""
     app = (ROOT / "static" / "js" / "app.js").read_text(encoding="utf-8")
-    shell = (ROOT / "static" / "js" / "ui" / "shell.js").read_text(encoding="utf-8")
+    tree = (ROOT / "static" / "js" / "ui" / "menu-tree.js").read_text(encoding="utf-8")  # the menu's tree (the layout pass, 2026-10-22)
     built = re.search(r"const BUILT = \{(.*?)\n\};", app, re.S)
     assert built, "app.js BUILT"
     routes = set(re.findall(r"^\s{2}(\w+): \(", built.group(1), re.M))
-    assert {"newspaper", "top25", "season", "settings"} <= routes
-    menu = set(re.findall(r'\{ id: "(\w+)"', shell))
+    assert {"newspaper", "top25", "season", "settings", "profile"} <= routes
+    menu = set(re.findall(r'page: "(\w+)"', tree))
     missing = sorted(routes - menu - CONTEXT_ROUTES)
     assert not missing, f"pages the menu cannot reach: {missing}"

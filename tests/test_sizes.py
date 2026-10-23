@@ -238,15 +238,14 @@ def test_the_people_pages_heads_fit_a_phone() -> None:
     """Wave 3, step 4: My Teams, Recruiting, the roster costs and the availability table name short forms a phone can hold
     and middle forms on one line; the roster grid's class codes and the availability's short statuses are a phone's words."""
     js = ROOT / "static" / "js"
-    sources = [js / "views" / "myteams.js", js / "views" / "recruiting.js", js / "ui" / "roster-costs.js", js / "ui" / "editorial.js"]
+    sources = [js / "views" / "recruiting.js", js / "ui" / "roster-costs.js", js / "ui" / "editorial.js"]
     mids: list[str] = []
     shorts: list[str] = []
     for path in sources:
         text = path.read_text(encoding="utf-8")
         mids += re.findall(r'(?:labelMid|subLabelMid): "([^"]+)"', text)
         shorts += re.findall(r'(?:labelShort|subLabelShort): "([^"]+)"', text)
-    assert {"Opp", "Nat", "Group"} <= set(shorts), shorts  # 2026-10-16: Where they're from is a pie, its table (#, Avg) gone
-    assert {"Conf", "AP", "SP+", "Elo", "FPI", "Last", "Opponent", "Next", "Date"} <= set(mids), mids
+    assert {"Nat", "Group"} <= set(shorts), shorts  # 2026-10-16: Where they're from is a pie, its table (#, Avg) gone; board 9: My Teams' table is the Season page's window
     assert not [word for word in shorts if len(word) > SMALL], shorts
     assert not [word for word in mids if len(word) > 24], mids
     grid = (js / "ui" / "roster-grid.js").read_text(encoding="utf-8")

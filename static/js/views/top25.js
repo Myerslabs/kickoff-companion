@@ -3,13 +3,19 @@
 // menu").
 //
 // Only the games of the week with an AP Top 25 team ("I only want the AP top 25 scores, no others"), "all games in a
-// single pane of glass": a grid of cards, three across on a 1080p screen, two on the iPad held sideways, one on a
-// phone; a last card alone in its row takes the whole row. Each card is a compact Pre-Game Program cover ("Same initial
+// single pane of glass": a grid of cards (how many across: board 6 below); a last card alone in its row takes the whole
+// row. Each card is a compact Pre-Game Program cover ("Same initial
 // information for every game that the cover has in the pre-game program"): both teams with their logo, AP rank,
 // records, last five and head coach; the countdown, or the live score with its quarter and clock, or the final; the line
 // and the over/under; the date, time, stadium and TV; the pregame win probability; the weather. No headlines here (the
-// newspaper has them). The order is the owner's: "The higher the ranked game, the higher the article". Ranked teams
-// with no game are named in one line, "Off this week", no card for them.
+// newspaper has them). The order is the AP poll's (the layout pass, owner 2026-10-22: "always needs to show the games in
+// order by the AP poll"; the server sorts). Ranked teams with no game are named in one line, "Off this week", no card for
+// them.
+//
+// The layout pass, board 6 (https://claude.ai/artifact/JyA5ZPwaWeMxWhryx1aQsR, "just needs some better spacing"): the
+// score alone in the middle, both sides' rows level, a long name on two lines (never the abbreviation the logo shows),
+// "Head coach" over each coach, the when in two lines, the weather and the card's tools in its last row; two across on
+// a tablet, three from 1700 px and four from 2500 (the design rule of 2026-10-21), one on a phone.
 //
 // Our game follows the spoiler delay, as on every page. The page refreshes every minute; the server's caches decide
 // what that costs (nothing while no game is on).
@@ -19,7 +25,7 @@
 import { usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
 import { el, isNum, obj, records, teamLink, text } from "../ui/dom.js";
-import { crewText, teamStaff } from "../ui/game-staff.js";
+import { crewText } from "../ui/game-staff.js";
 import { openMatchupSheet } from "../ui/matchup-sheet.js";
 import { fitNames } from "../ui/paper-fit.js";
 import { helpsChip } from "../ui/race.js";
@@ -28,18 +34,24 @@ import { getPrefs } from "../prefs.js";
 import { errorPanel, poller } from "./common.js";
 
 const REFRESH_MS = 60 * 1000;
-const QUARTERS = ["1st quarter", "2nd quarter", "3rd quarter", "4th quarter"];
 
-const abbr = (t) => text(t.abbreviation || (typeof t.school === "string" ? t.school.slice(0, 4).toUpperCase() : null));
-
-function clockText(g) {
-  const q = isNum(g.period) ? (g.period <= 4 ? QUARTERS[g.period - 1] : g.period === 5 ? "Overtime" : `${g.period - 4} overtimes`) : /half/i.test(text(g.detail)) ? "Halftime" : "Under way";
-  return typeof g.clock === "string" && g.clock ? `${q}, ${g.clock}` : q;
+/** The quarter and the clock under a live score, short enough for the card's middle (board 6): "Q2 · 7:02", "OT", "2OT". */
+export function clockText(g) {
+  const period = isNum(g.period) && g.period >= 1 ? Math.floor(g.period) : null;
+  const q = period ? (period <= 4 ? `Q${period}` : period === 5 ? "OT" : `${period - 4}OT`) : /half/i.test(text(g.detail)) ? "Halftime" : "Under way";
+  return period && typeof g.clock === "string" && g.clock ? `${q} · ${g.clock}` : q;
 }
 
-function overtimes(g) {
+/** A final's overtimes from its score by quarter: "OT", "2 OT", else null. */
+export function overtimes(g) {
   const n = Math.max(Array.isArray(obj(g.home).lineScores) ? g.home.lineScores.length : 0, Array.isArray(obj(g.away).lineScores) ? g.away.lineScores.length : 0) - 4;
-  return n > 0 ? (n === 1 ? "overtime" : `${n} overtimes`) : null;
+  return n > 0 ? (n === 1 ? "OT" : `${n} OT`) : null;
+}
+
+/** "Head coach" over the coach's name, on both sides of every card (board 6); a dash when the coach is unknown. */
+function coachCell(team, side) {
+  const name = typeof team.headCoach === "string" && team.headCoach.trim() ? team.headCoach.trim() : null;
+  return el("div", { class: `game-staff cover__staff cover__staff--${side} top25-coach` }, el("span", { class: "top25-coach__label" }, "Head coach"), el("b", {}, text(name)));
 }
 
 function weatherLine(g) {
@@ -65,7 +77,12 @@ function card(g) {
   const home = obj(g.home);
   const status = ["pre", "live", "final"].includes(g.status) ? g.status : "pre";
   const line = obj(g.line);
-  const coaches = { coaches: { us: { headCoach: away.headCoach }, them: { headCoach: home.headCoach } } };
+  // the card's last row (board 6): What we need's chip (F8 feature 1: the game helps our path), then Matchup, which opens
+  // the two teams side by side in a sheet (freeze wave F5, ui/matchup-sheet.js)
+  const chip = g.helps && typeof g.helps === "object" ? helpsChip(g.helps) : null;
+  const matchup = typeof away.school === "string" && away.school && typeof home.school === "string" && home.school
+    ? el("button", { class: "btn top25-card__matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")
+    : null;
   const section = cover({
     compact: true,
     label: `${text(away.school)} ${g.neutralSite ? "versus" : "at"} ${text(home.school)}`,
@@ -87,23 +104,15 @@ function card(g) {
     live: status === "live" ? { text: clockText(g) } : null,
     finalNote: status === "final" ? overtimes(g) : null,
     kicker: [g.isUs === true ? "Our game" : null, status === "live" ? "Live" : null, tagOf(g)].filter(Boolean).join(" · "),
-    staff: { us: teamStaff(coaches, "us", { abbr: abbr(away), school: away.school }), them: teamStaff(coaches, "them", { abbr: abbr(home), school: home.school }) },
+    staff: { us: coachCell(away, "us"), them: coachCell(home, "them") },
     conditions: weatherLine(g),
+    extra: chip || matchup ? el("div", { class: "top25-card__tools" }, chip ? el("span", { class: "top25-card__helps" }, chip) : null, matchup) : null,
   });
-  // freeze wave F5 (owner 2026-10-20): the two teams side by side in a sheet (ui/matchup-sheet.js), from the card's foot
-  if (typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
-    section.append(el("p", { class: "top25-card__tools" }, el("button", { class: "btn btn--quiet top25-card__matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
-  }
-  const chip = g.helps && typeof g.helps === "object" ? helpsChip(g.helps) : null; // What we need (F8 feature 1): the game helps our path
-  if (chip) section.append(el("p", { class: "top25-card__helps" }, chip));
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");
   section.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");
   section.style.setProperty("--c-home", typeof home.color === "string" && home.color ? home.color : "var(--rule-strong)");
-  for (const name of section.querySelectorAll(".cover__name")) {
-    name.dataset.oneline = "1"; // a team's name on one line: it shrinks, then reads as its abbreviation
-    name.dataset.min = "15";
-  }
+  // a long name wraps to two balanced lines (board 6), so no name is fitted; the score still keeps to the middle column
   for (const num of section.querySelectorAll(".cover__center .num")) {
     num.dataset.oneline = "1"; // the score or the countdown keeps to the middle column: it shrinks, never runs under a name
     num.dataset.min = "20";
@@ -121,11 +130,12 @@ function header(data) {
   const label = text(data.label || "This week");
   const title = label === "Bowl season" ? "AP Top 25, bowl season" : `AP Top 25, ${label}`;
   const sub = [isNum(poll.week) ? `AP poll, week ${poll.week}` : null, `${games.length} ${games.length === 1 ? "game" : "games"} with a ranked team`].filter(Boolean).join(" · ");
+  const order = games.length > 1 ? el("b", { class: "top25-head__order" }, "In poll order") : null; // board 6: says how the cards run
   const pill = (n, words, live = false) => el("span", { class: `top25-count${live ? " top25-count--live" : ""}` }, live ? el("i", { class: "top25-live-dot", "aria-hidden": "true" }) : null, `${isNum(n) ? n : 0} ${words}`);
   return el(
     "header",
     { class: "top25-head" },
-    el("div", { class: "top25-head__words" }, el("h1", { class: "top25-head__title" }, title), el("p", { class: "top25-head__line" }, sub)),
+    el("div", { class: "top25-head__words" }, el("h1", { class: "top25-head__title" }, title), el("p", { class: "top25-head__line" }, order, order ? " · " : null, sub)),
     el("div", { class: "top25-head__counts" }, pill(counts.live, "live", true), pill(counts.pre, "to come"), pill(counts.final, "final")),
     el(
       "p",

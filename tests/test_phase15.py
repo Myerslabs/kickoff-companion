@@ -298,8 +298,8 @@ def test_a_damaged_player_search_answer_keeps_the_good_rows(client, fake_cfbd):
 def test_ratings_is_in_the_menu():
     from pathlib import Path
 
-    shell_js = Path("static/js/ui/shell.js").read_text(encoding="utf-8")
-    assert '{ id: "ratings", label: "Advanced Team Ratings" }' in shell_js
+    tree = Path("static/js/ui/menu-tree.js").read_text(encoding="utf-8")
+    assert '{ id: "ratings", label: "Advanced Team Ratings"' in tree, "the menu's Advanced stats group (the layout pass, 2026-10-22)"
 
 
 # --- D: context tables ------------------------------------------------------------------------------

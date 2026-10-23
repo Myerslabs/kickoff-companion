@@ -1,0 +1,664 @@
+{
+ "format": 1,
+ "season": 2026,
+ "checkedAt": "2026-10-22",
+ "author": "Claude research",
+ "schools": 18,
+ "teams": {
+  "Alabama": {
+   "school": "Alabama",
+   "totalUsd": 38000000,
+   "note": "Rumored: lower bound of The Athletic's reported $38M-$42M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Keelon Russell",
+     "position": "QB",
+     "amountUsd": 2010705,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Ryan Coleman-Williams",
+     "position": "WR",
+     "amountUsd": 1800000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Jayvin James",
+     "position": "OT",
+     "amountUsd": 1144000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Alabama roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/alabama"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Arkansas": {
+   "school": "Arkansas",
+   "totalUsd": 22000000,
+   "note": "Rumored: lower bound of The Athletic's reported $22M-$25M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "KJ Jackson",
+     "position": "QB",
+     "amountUsd": 1567938,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Quincy Rhodes Jr.",
+     "position": "EDGE",
+     "amountUsd": 1069411,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Steven Soles Jr.",
+     "position": "EDGE",
+     "amountUsd": 1068895,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Arkansas roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/arkansas"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Auburn": {
+   "school": "Auburn",
+   "totalUsd": 31000000,
+   "note": "Rumored: lower bound of The Athletic's reported $31M-$35M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Byrum Brown",
+     "position": "QB",
+     "amountUsd": 3000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Da'Shawn Womack",
+     "position": "EDGE",
+     "amountUsd": 1221615,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Joseph Simmons",
+     "position": "OT",
+     "amountUsd": 1150000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Auburn roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/auburn"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Florida": {
+   "school": "Florida",
+   "totalUsd": 31000000,
+   "note": "Rumored: lower bound of The Athletic's reported $31M-$41M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Aaron Philo",
+     "position": "QB",
+     "amountUsd": 1806334,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Jadan Baugh",
+     "position": "RB",
+     "amountUsd": 1300000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Kamran James",
+     "position": "EDGE",
+     "amountUsd": 1125828,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Florida roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/florida"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Georgia": {
+   "school": "Georgia",
+   "totalUsd": 31000000,
+   "note": "Rumored: lower bound of The Athletic's reported $31M-$34M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Gunner Stockton",
+     "position": "QB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Earnest Greene III",
+     "position": "OT",
+     "amountUsd": 1000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Gabe Harris Jr.",
+     "position": "EDGE",
+     "amountUsd": 982920,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Georgia roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/georgia"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Kentucky": {
+   "school": "Kentucky",
+   "totalUsd": 23000000,
+   "note": "Rumored: lower bound of The Athletic's reported $23M-$26M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Kenny Minchey",
+     "position": "QB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Lance Heard",
+     "position": "OT",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Mi'Quise Humphrey-Grace",
+     "position": "EDGE",
+     "amountUsd": 1020759,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Kentucky roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/kentucky"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "LSU": {
+   "school": "LSU",
+   "totalUsd": 47000000,
+   "note": "Rumored: lower bound of The Athletic's reported $47M-$50M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Sam Leavitt",
+     "position": "QB",
+     "amountUsd": 4500000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Jordan Seaton",
+     "position": "OT",
+     "amountUsd": 4000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Princewill Umanmielen",
+     "position": "EDGE",
+     "amountUsd": 1500000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: LSU roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/lsu"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Mississippi State": {
+   "school": "Mississippi State",
+   "totalUsd": 25000000,
+   "note": "Rumored: lower bound of The Athletic's reported $25M-$30M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Kamario Taylor",
+     "position": "QB",
+     "amountUsd": 1500000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Kelley Jones",
+     "position": "CB",
+     "amountUsd": 1000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Will Whitson",
+     "position": "EDGE",
+     "amountUsd": 805568,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Mississippi State roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/mississippi-state"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Missouri": {
+   "school": "Missouri",
+   "totalUsd": 27000000,
+   "note": "Rumored: lower bound of The Athletic's reported $27M-$30M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Austin Simmons",
+     "position": "QB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Cayden Green",
+     "position": "OT",
+     "amountUsd": 1498749,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Darris Smith",
+     "position": "EDGE",
+     "amountUsd": 1115882,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Missouri roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/missouri"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Oklahoma": {
+   "school": "Oklahoma",
+   "totalUsd": 28000000,
+   "note": "Rumored: lower bound of The Athletic's reported $28M-$34M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "John Mateer",
+     "position": "QB",
+     "amountUsd": 3000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "David Stone",
+     "position": "DT",
+     "amountUsd": 1910000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Taylor Wein",
+     "position": "EDGE",
+     "amountUsd": 1469909,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Oklahoma roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/oklahoma"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Ole Miss": {
+   "school": "Ole Miss",
+   "totalUsd": 39000000,
+   "note": "Rumored: lower bound of The Athletic's reported $39M-$45M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Trinidad Chambliss",
+     "position": "QB",
+     "amountUsd": 6000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Kewan Lacy",
+     "position": "RB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Kam Franklin",
+     "position": "EDGE",
+     "amountUsd": 1302603,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Ole Miss roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/ole-miss"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "South Carolina": {
+   "school": "South Carolina",
+   "totalUsd": 32000000,
+   "note": "Rumored: lower bound of The Athletic's reported $32M-$35M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Dylan Stewart",
+     "position": "EDGE",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "LaNorris Sellers",
+     "position": "QB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Jacarrius Peak",
+     "position": "OT",
+     "amountUsd": 1000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal (tied with WR Nyck Harbor)"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: South Carolina roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/south-carolina"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Tennessee": {
+   "school": "Tennessee",
+   "totalUsd": 41000000,
+   "note": "Rumored: lower bound of The Athletic's reported $41M-$43M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "David Sanders Jr.",
+     "position": "OT",
+     "amountUsd": 1700000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "George MacIntyre",
+     "position": "QB",
+     "amountUsd": 1600000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Jeremiah Telander",
+     "position": "EDGE",
+     "amountUsd": 1212977,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Tennessee roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/tennessee"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Texas": {
+   "school": "Texas",
+   "totalUsd": 45000000,
+   "note": "Rumored: lower bound of The Athletic's reported $45M-$55M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Arch Manning",
+     "position": "QB",
+     "amountUsd": 6800000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Cam Coleman",
+     "position": "WR",
+     "amountUsd": 3000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Colin Simmons",
+     "position": "EDGE",
+     "amountUsd": 2500000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Texas roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/texas"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Texas A&M": {
+   "school": "Texas A&M",
+   "totalUsd": 45000000,
+   "note": "Rumored: lower bound of The Athletic's reported $45M-$50M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Marcel Reed",
+     "position": "QB",
+     "amountUsd": 3000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-15, not a reported deal"
+    },
+    {
+     "name": "Wilkin Formby",
+     "position": "OT",
+     "amountUsd": 1497328,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-15, not a reported deal"
+    },
+    {
+     "name": "T.J. Searcy",
+     "position": "EDGE",
+     "amountUsd": 1253451,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-15, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Texas A&M roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/texas-am"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Vanderbilt": {
+   "school": "Vanderbilt",
+   "totalUsd": 25000000,
+   "note": "Rumored: lower bound of The Athletic's reported $25M-$28M 2026 football roster budget (revenue sharing and NIL not split), via The Big Lead",
+   "positions": [],
+   "players": [
+    {
+     "name": "Jared Curtis",
+     "position": "QB",
+     "amountUsd": 2000000,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Miles Capers",
+     "position": "EDGE",
+     "amountUsd": 1209165,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    },
+    {
+     "name": "Junior Sherrill",
+     "position": "WR",
+     "amountUsd": 1060063,
+     "note": "The NIL Standard modeled NIL value as of 2026-10-22, not a reported deal"
+    }
+   ],
+   "sources": [
+    {
+     "label": "The Big Lead: top NIL budgets for the 2026 season, citing The Athletic",
+     "url": "https://www.thebiglead.com/top-10-nil-budgets-college-football-2026-season/"
+    },
+    {
+     "label": "The NIL Standard: Vanderbilt roster NIL valuation",
+     "url": "https://thenilstandard.com/football/teams/vanderbilt"
+    }
+   ],
+   "asOf": "2026-09-16",
+   "conference": "SEC",
+   "checkedAt": "2026-10-22"
+  },
+  "Washington State": {
+   "school": "Washington State",
+   "totalUsd": 2000000,
+   "note": "Reported football revenue-sharing pool for the 2025 season, about $2 million to $2.5 million (low end shown), rumored; report date not confirmed (2025-26 offseason).",
+   "positions": [],
+   "players": [],
+   "sources": [
+    {
+     "label": "Yakima Herald: Washington State football re-signing Jaylin Caldwell, two others",
+     "url": "https://www.yakimaherald.com/sports/college_sports/wsu_sports/washington-state-football-re-signing-jaylin-caldwell-two-others/article_1d42582b-4c5b-5ed8-801b-6a945151d3c1.html"
+    }
+   ],
+   "conference": "Pac-12",
+   "checkedAt": "2026-10-22"
+  },
+  "Wyoming": {
+   "school": "Wyoming",
+   "totalUsd": 2000000,
+   "note": "Reported 2026 football revenue-sharing roster budget, 'closer to $2 million' per head coach Jay Sawvel (2025 was about $700,000 after Alston awards); approximate.",
+   "positions": [],
+   "players": [],
+   "sources": [
+    {
+     "label": "Wyoming Athletics: $4-5 million needed to compete for football championships, Mar 2026 (WyoSports)",
+     "url": "https://www.wyomingnews.com/wyosports/university_of_wyoming/wyoming-athletics-4-5-million-needed-to-compete-for-football-championships/article_17a156b2-e26d-4f4a-bc81-c83c0f7a73c3.html"
+    }
+   ],
+   "asOf": "2026-03-30",
+   "conference": "Mountain West",
+   "checkedAt": "2026-10-22"
+  }
+ }
+}

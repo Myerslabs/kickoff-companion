@@ -1,21 +1,27 @@
-// The trivia on every page (owner 2026-10-21): the join note on connect, then the question popup and the standings popup
+// The trivia on every page (owner 2026-10-21): the join popup on connect, then the question popup and the standings popup
 // in the corner of whatever page is open, for the tablets that joined with a team name. Only a joined tablet (or the
 // board) asks the server; a tablet that said Not today sees nothing until it joins from the Trivia page.
 //
-//   startTrivia()                 at boot: learns whether it is a game day and the trivia is on, shows the join note
+//   startTrivia()                 at boot: learns whether it is a game day and the trivia is on, shows the join popup
 //                                 once per tablet per day, polls /api/trivia/now while joined (10 s, visible pages only)
 //   teamName() / rememberName() / forgetName()   this tablet's team name, kept in localStorage
 //   join(name) / leave() / answer(id, choice) / endDay()   the writes, each a POST the guest guard allows
 //   questionPopup(data, handlers) / standingsPopup(data)   the two popups' markup (exported for the tests)
+//   triviaPanel(data, { board })  the static block at the foot of In Game's Score by quarter (the layout pass, owner
+//                                 2026-10-22): the standings while the trivia runs, on the board the open question too;
+//                                 null when there is no trivia today. Every answer read is also sent as the document
+//                                 event "kickoff:trivia-now" (detail: the data), which In Game redraws the block from.
 //
 // Rules from the mocks: the question shows for forty seconds, a pick, the × or the clock closes it, and no answer ever
 // shows here (the Trivia page has them); the standings sit in the corner between questions and the × closes them until
-// the next question; on the board the same popups show larger with no buttons. The join prompt is a page note like the
-// others (ui/page-notes.js), which never shows on In Game or the board, so In Game gets a compact join card in the
-// corner instead.
+// the next question. The join prompt is the compact join card in the corner of every page but the board (the layout pass,
+// owner 2026-10-22: the To do note left the page for its own flyout, and "the join is a pop up ... you just have to click
+// away if you dont want to join"): × or Not today says no for the day, and it goes once the tablet joins. The layout pass
+// (owner 2026-10-22: "the game is shown always on the big screen"): In Game and the board show the standings in their
+// static block instead of the corner popup, and the board shows the question there too, with no buttons, never a popup.
 
 import { el, isNum, records, str, text } from "./dom.js";
-import { addNote, noteShowing, removeNote, routeIdOf } from "./page-notes.js";
+import { routeIdOf } from "./page-notes.js";
 import { fetchJson } from "../views/common.js";
 
 const NAME_KEY = "trivia.name";
@@ -36,6 +42,7 @@ const state = {
   welcomeUntil: 0,
   shownKey: null, // what the corner shows now, so a poll that brings nothing new leaves the buttons alone
   started: false,
+  panelClock: null, // the static block's countdown on the board
 };
 
 function storage() {
@@ -207,6 +214,53 @@ export function standingsPopup(data, { onClose = () => {}, board = false, welcom
   );
 }
 
+const SCORE = (pair) => (Array.isArray(pair) && isNum(pair[0]) && isNum(pair[1]) ? `${pair[0]} of ${pair[1]}` : "–");
+export const PANEL_ROWS = 3;
+
+/** Whether today's trivia is running: on in Settings, a day started (the first join) and not ended. */
+export function triviaRunning(data) {
+  return data?.on === true && !!data?.day && typeof data.day === "object" && !data.day.endedAt;
+}
+
+/** The static block (owner 2026-10-22): the standings (the top three, and this tablet's line when it is lower), the next
+ *  question's time; on the board an open question in their place, plain, with its clock. Null without a running day. */
+export function triviaPanel(data, { board = false } = {}) {
+  if (!triviaRunning(data)) return null;
+  const day = data.day;
+  const question = board && data.question && typeof data.question === "object" && str(data.question.id) && secondsLeft(data.question) > 0 ? data.question : null;
+  if (question) {
+    const choices = Array.isArray(question.choices) ? question.choices : [];
+    return el(
+      "div",
+      { class: "trivia-panel trivia-panel--question", role: "region", "aria-label": "Trivia question", dataset: { question: question.id } },
+      el("div", { class: "trivia-panel__head" }, el("b", { class: "trivia-panel__title" }, "Trivia"), el("span", { class: "trivia-panel__sub" }, questionSub(question)), el("span", { class: "trivia-panel__clock trivia-clock", dataset: { closes: str(question.closesAt) ? question.closesAt : "" } }, `${secondsLeft(question)} s`)),
+      el("p", { class: "trivia-panel__q" }, text(question.text)),
+      el("ol", { class: "trivia-panel__choices" }, choices.slice(0, 3).map((choice, index) => el("li", {}, el("span", { class: "trivia-pop__letter" }, "ABC"[index]), text(choice)))),
+      el("p", { class: "trivia-panel__foot" }, "Answer on your tablet"),
+    );
+  }
+  if (data.board === false) return null; // the leaderboard is off in Settings: nothing to stand in a table
+  const rows = records(data.standings);
+  const shown = rows.slice(0, PANEL_ROWS);
+  const you = rows.slice(PANEL_ROWS).find((r) => r.you === true);
+  if (you) shown.push(you);
+  const playing = isNum(day.playing) ? `${day.playing} ${day.playing === 1 ? "team" : "teams"}` : null;
+  const sub = [playing, str(day.next) ? day.next.charAt(0).toLowerCase() + day.next.slice(1) : null].filter(Boolean).join(" · ");
+  return el(
+    "div",
+    { class: "trivia-panel", role: "region", "aria-label": "Trivia standings" },
+    el("div", { class: "trivia-panel__head" }, el("b", { class: "trivia-panel__title" }, "Trivia"), el("span", { class: "trivia-panel__sub" }, sub)),
+    shown.length
+      ? el(
+          "table",
+          { class: "trivia-panel__table" },
+          el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "Team"), el("th", { scope: "col", class: "num" }, "Today"), el("th", { scope: "col", class: "num" }, "Season"))),
+          el("tbody", {}, shown.map((r) => el("tr", { class: r.you ? "is-you" : null }, el("td", {}, isNum(r.rank) ? el("i", { class: "trivia-panel__rank" }, String(r.rank)) : null, text(r.name)), el("td", { class: "num" }, SCORE(r.today)), el("td", { class: "num" }, SCORE(r.season))))),
+        )
+      : el("p", { class: "trivia-panel__q" }, "Nobody on the board yet. Join from the Trivia page."),
+  );
+}
+
 /** The join card: a team name, Join, Not today. `compact` is the corner version for In Game. */
 export function joinCard(data, { onJoin = () => {}, onDecline = () => {}, compact = false } = {}) {
   const remembered = teamName();
@@ -288,56 +342,65 @@ function startCountdown(question) {
 }
 
 function currentRoute() {
-  return typeof location !== "undefined" ? routeIdOf(location.hash || "") : "";
+  const where = typeof window !== "undefined" && window.location ? window.location : typeof location !== "undefined" ? location : null;
+  return where ? routeIdOf(where.hash || "") : "";
 }
 
-function showJoinNote(data) {
-  if (noteShowing("trivia-join")) return; // up already: a poll must not redraw the form under the reader's fingers
-  const date = data?.day?.date || new Date(serverNow()).toISOString().slice(0, 10);
-  addNote({
-    id: "trivia-join",
-    title: "Trivia today?",
-    body: () =>
-      joinCard(data, {
-        onJoin: () => {
-          removeNote("trivia-join");
-          tick();
-        },
-        onDecline: () => {
-          declineToday(date);
-          removeNote("trivia-join");
-          hidePop();
-        },
-      }),
-    onDismiss: () => declineToday(date),
-  });
+/** In Game's and the board's static block hear every answer (the layout pass, 2026-10-22). */
+function announce(data) {
+  if (typeof document === "undefined" || typeof document.dispatchEvent !== "function" || typeof CustomEvent !== "function") return;
+  document.dispatchEvent(new CustomEvent("kickoff:trivia-now", { detail: data }));
+}
+
+/** The static block's clock counts down on its own, once a second, and asks the server again when it runs out. */
+function startPanelClock() {
+  if (state.panelClock || typeof document === "undefined" || typeof setInterval !== "function") return;
+  state.panelClock = setInterval(() => {
+    const clocks = typeof document.querySelectorAll === "function" ? [...document.querySelectorAll(".trivia-clock[data-closes]")] : [];
+    if (!clocks.length) {
+      clearInterval(state.panelClock);
+      state.panelClock = null;
+      return;
+    }
+    let ended = false;
+    for (const clock of clocks) {
+      const left = secondsLeft({ closesAt: clock.dataset.closes });
+      clock.textContent = `${left} s`;
+      if (left <= 0) ended = true;
+    }
+    if (ended) {
+      clearInterval(state.panelClock);
+      state.panelClock = null;
+      tick(); // the question closed: the standings come back
+    }
+  }, 1000);
 }
 
 function render(data) {
   state.data = data;
   const serverAt = Date.parse(data?.serverNow);
   if (isNum(serverAt)) state.offsetMs = serverAt - Date.now();
+  announce(data);
+  if (onBoard() && data?.question && triviaRunning(data)) startPanelClock();
   const board = onBoard();
+  if (board) {
+    hidePop(); // the board shows the trivia in its static block, never a popup (owner 2026-10-22)
+    return;
+  }
   const name = teamName();
   const joined = data?.team?.joined === true;
   const date = data?.day?.date || null;
   if (data?.on !== true) {
-    removeNote("trivia-join");
     hidePop();
     return;
   }
-  // a tablet without a name, or with one from an earlier game day: the question of joining, once per day
-  if (!board && !joined && data?.gameDay === true && !declinedToday(date || new Date(serverNow()).toISOString().slice(0, 10))) {
-    if (currentRoute() === "live") {
-      removeNote("trivia-join");
-      showPop(el("div", { class: "trivia-pop__card trivia-pop__card--join" }, el("div", { class: "trivia-pop__head" }, el("b", { class: "trivia-pop__title" }, "Trivia today?"), closeButton(() => { declineToday(date); hidePop(); })), joinCard(data, { compact: true, onJoin: () => tick(), onDecline: () => { declineToday(date); hidePop(); } })), "join");
-    } else {
-      hidePop();
-      showJoinNote(data);
-    }
+  // a tablet without a name, or with one from an earlier game day: the question of joining, once per day, in the corner. Before
+  // anyone joins there is no trivia day yet, so the day said no to is today's date (else Not today was never kept, 2026-10-22)
+  const today = date || new Date(serverNow()).toISOString().slice(0, 10);
+  if (!board && !joined && data?.gameDay === true && !declinedToday(today)) {
+    showPop(el("div", { class: "trivia-pop__card trivia-pop__card--join" }, el("div", { class: "trivia-pop__head" }, el("b", { class: "trivia-pop__title" }, "Trivia today?"), closeButton(() => { declineToday(today); hidePop(); })), joinCard(data, { compact: true, onJoin: () => tick(), onDecline: () => { declineToday(today); hidePop(); } })), "join");
     return;
   }
-  removeNote("trivia-join");
   if (!joined && !board) {
     hidePop();
     return;
@@ -376,8 +439,8 @@ function render(data) {
   }
   stopCountdown();
   const asked = isNum(data.day.asked) ? data.day.asked : 0;
-  if (currentRoute() === "trivia" && !board) {
-    hidePop(); // the Trivia page draws the board itself
+  if ((currentRoute() === "trivia" || currentRoute() === "live") && !board) {
+    hidePop(); // the Trivia page draws the board itself; In Game shows the standings in Score by quarter (owner 2026-10-22)
     return;
   }
   if (data.board === true && asked > state.closedStandingsAt && (records(data.standings).length || board)) {
@@ -403,7 +466,7 @@ async function tick() {
   if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
   const name = teamName();
   try {
-    const envelope = await fetchJson(`/api/trivia/now?name=${encodeURIComponent(name)}`);
+    const envelope = await fetchJson(`/api/trivia/now?name=${encodeURIComponent(name)}${onBoard() ? "&board=1" : ""}`);
     render(envelope?.data && typeof envelope.data === "object" ? envelope.data : null);
   } catch (error) {
     console.warn("The trivia could not be read.", error);
@@ -413,7 +476,7 @@ async function tick() {
 
 function schedule() {
   if (state.timer) clearTimeout(state.timer);
-  const active = !!teamName() || onBoard();
+  const active = !!teamName() || onBoard() || currentRoute() === "live"; // In Game shows the standings to every tablet
   state.timer = setTimeout(tick, active ? POLL_MS : CHECK_MS);
 }
 
@@ -426,7 +489,8 @@ export async function startTrivia() {
       if (document.visibilityState === "visible") tick();
     });
     document.addEventListener("kickoff:route", () => {
-      if (state.data) render(state.data); // the join prompt moves between the note and the In Game corner
+      if (currentRoute() === "live" && !teamName() && !onBoard()) tick(); // In Game's standings are read fresh, then every 10 s
+      else if (state.data) render(state.data); // the join prompt moves between the note and the In Game corner
     });
     document.addEventListener("kickoff:trivia", () => tick()); // the Trivia page joined, left or ended the day
   }

@@ -1,27 +1,29 @@
-// The Newspaper (N1 to N4), redone to the owner's whiteboard (queue items 10 to 12, mock approved 2026-10-13).
-//
-// The page is a front page that fills the screen "like a newspaper", in boxes of two across:
+// The Newspaper (N1 to N4): our local sports section (Design rules, 2026-10-21), laid out as a newspaper's front page since
+// the layout pass (owner 2026-10-22, board 5: https://claude.ai/artifact/Vv827cCpVUGkdDWuN4QeAV; "the problem is that the
+// articles become completely uniform down the page"; the whiteboard of 2026-10-13 had boxes of two across):
 //   the masthead: this week's name (steady within a week, made from the team's own names), the date and the edition,
-//     and the ‹ › arrows to the other weeks' editions (the weekly keepsake, kept on the server for the season);
-//   row 1: our lead story beside a pixel stadium | the week's top-ranked game, a pixel helmet for each team facing the
-//     other's, the game's facts between them;
-//   row 2: the player feature (the headline naming one of our players, his headshot in pixels) | the coach's story
-//     (the made-up pixel coach); headlines only (owner), each a link out;
-//   then "the paper continues in the same format" (owner): rows of two mixing the week's other headlines and the other
-//     AP-ranked games, "the higher the ranked game, the higher the article", the matchup switching sides.
+//     and the ‹ › ears to the other weeks' editions (the weekly keepsake, kept on the server for the season);
+//   the skybox: refers to inside (the next game, the Top 25's count, the trivia's leader or the season's record);
+//   the lead, one dominant story: our game with a banner headline across the page, the deck (the player of the game and
+//     the record after the final, the kickoff before it), the pixel stadium, and the press box beside it (the turning
+//     point, the key numbers in words, what is next; or the two teams and the line), the ways into the box and the program;
+//   then modules of different widths and depths: the game of the week (the best pair of ranked teams, else the
+//     top-ranked other game, its helmets facing and its score by quarter) across two columns beside "By the numbers"; the player feature (or the player of the game),
+//     the coach's story, and the rail's scoreboard: every ranked game of the week in one line of agate, ours marked, the
+//     full cards on the Top 25 page (his 1: ours first, the Top 25 compact), in AP poll order as there (2026-10-22);
+//   the other headlines as briefs at the foot.
 // A matchup carries a funny headline before kickoff and after the final only ("Funny headline only for the pregame and
-// postgame articles"); while a game is on it shows the score, the quarter and the clock, our game following the
-// spoiler delay. A matchup opens its box score (ours opens In Game); a story opens its source. A finished top game shows
-// its score by quarter. The scores table, the slate and the earlier-weeks bands left the paper: every ranked game's
-// score is on the Top 25 page.
-//
-// Every row's boxes are one height and the headlines take the largest size that fits (ui/paper-fit.js); the pictures
-// are drawn on a grid shaped like their box (ui/pixel-art.js fillPicture). On a phone the boxes stack in the same order.
-// The page refreshes every minute (live matchups); an earlier edition is read once from its file.
+// postgame articles"); while a game is on it shows the score, the quarter and the clock, our game following the spoiler
+// delay. A matchup opens its box score (ours opens In Game); a story opens its source. Names are never cut (his 2):
+// headlines wrap and balance, the agate shortens a long school the way a newspaper does ("Dust Devil St.").
+// The pictures are drawn on a grid shaped like their box (ui/pixel-art.js fillPicture). On a phone the modules stack in
+// the same order. The page refreshes every minute (live matchups); an earlier edition is read once from its file.
 //
 //   mastheadName(season, week, who)   this week's paper's name
-//   pickStories(headlines, us)         { lead, player, coach, rest }: the week's stories for the boxes
-//   paperRows(stories, matchups)       the rows after the first two: [["M" | "A", item], ...] pairs
+//   pickStories(headlines, us)         { lead, player, coach, rest }: the week's stories for the modules
+//   agateName(school)                  a school's name for a line of agate
+//   gameOfWeek(matchups, ours)         the game drawn large: the best pair of ranked teams, else the first other game
+//   layoutPaper(root)                  names on one line under the helmets, pictures redrawn to their boxes
 //   createNewspaperView({ onStatus, edition })   edition: "week-6" or "postseason" opens an earlier edition
 
 import { ours, usSchool } from "../identity.js";
@@ -29,7 +31,8 @@ import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text, recordText a
 import { crewText } from "../ui/game-staff.js";
 import { openMatchupSheet } from "../ui/matchup-sheet.js";
 import { ageOf } from "../ui/news.js";
-import { fitNames, fitRows, loosenNames } from "../ui/paper-fit.js";
+import { fitNames, loosenNames } from "../ui/paper-fit.js";
+import { lastTriviaData, triviaRunning } from "../ui/trivia.js";
 import { fillPicture, pixelBanner, pixelPicture, refitPictures, seedOf } from "../ui/pixel-art.js";
 import { band, note } from "../ui/states.js";
 import { quarterLine } from "../ui/team-stats.js";
@@ -115,28 +118,6 @@ export function pickStories(headlines, us = usSchool()) {
   return { lead, player, coach, rest };
 }
 
-/** The rows after the first two: two boxes a row, a matchup and a story switching sides, then whatever is left. */
-export function paperRows(stories, matchups) {
-  const as = [...records(stories)];
-  const ms = [...records(matchups)];
-  const pattern = ["MA", "AM", "MM"];
-  const rows = [];
-  for (let i = 0; as.length || ms.length; i += 1) {
-    let p = pattern[i % pattern.length];
-    if (!as.length) p = "MM";
-    if (!ms.length) p = "AA";
-    const pair = [];
-    for (const k of p) {
-      if (k === "M" && ms.length) pair.push(["M", ms.shift()]);
-      else if (k === "A" && as.length) pair.push(["A", as.shift()]);
-      else if (ms.length) pair.push(["M", ms.shift()]);
-      else if (as.length) pair.push(["A", as.shift()]);
-    }
-    rows.push(pair);
-  }
-  return rows;
-}
-
 // a score or a record ("52-16") and a team's or a player's name never split across two lines
 function richText(title, names) {
   const value = text(title);
@@ -177,14 +158,6 @@ function articleBox(item, side, names) {
   const kids = [margin(), cell(storyPicture(item)), words(item, KICKERS[item.topic] || "This week", "paper-head--art", names)];
   box.append(...(side === "left" ? kids : kids.reverse()));
   return box;
-}
-
-function leadBox(item, names) {
-  const stadium = fillPicture("stadium", { seed: seedOf(text(item?.title || "stadium")) }, "A pixel stadium under the lights");
-  if (!item) {
-    return el("article", { class: "paper-box paper-lead paper-lead--empty" }, el("div", { class: "paper-words" }, el("p", { class: "paper-kicker" }, "This week"), el("p", { class: "paper-empty" }, "No stories from the team's feeds yet this week. They show here as the feeds publish.")), cell(stadium, "paper-pic--stadium"), margin());
-  }
-  return el("article", { class: "paper-box paper-lead" }, words(item, KICKERS[item.topic] || "This week", "paper-head--lead", names), cell(stadium, "paper-pic--stadium"), margin());
 }
 
 function playerBox(item, names) {
@@ -348,6 +321,237 @@ function matchBox(g, size, names) {
   return box;
 }
 
+// --- the front page (the layout pass, owner 2026-10-22, board 5: https://claude.ai/artifact/Vv827cCpVUGkdDWuN4QeAV) ---------
+// "The problem is that the articles become completely uniform down the page": a newspaper's front instead. One dominant
+// story (our game) with a banner headline across the page, a deck, the big picture and a column beside it; then modules of
+// different widths and depths (the game of the week across two columns, the player, the coach); a rail at the right with
+// "By the numbers" and every ranked game in one line of agate; the other headlines as briefs at the foot. Our team first,
+// the Top 25 compact (his 1); names never cut (his 2).
+
+const pct = (v) => `${Math.round(v * 100)}%`;
+
+/** A key stat's value in its format: whole numbers, one decimal, or a whole-number rate (Design rules, 2026-10-21). */
+function statValue(value, format) {
+  if (!isNum(value)) return "–";
+  if (format === "pct") return pct(value);
+  if (format === "1f") return value.toFixed(1);
+  return String(Math.round(value));
+}
+
+/** The recap of our game when it belongs to this edition (this week's paper, our game final), else null. */
+function recapFor(data, edition, ours) {
+  const r = obj(data.recap);
+  if (!edition.current || !isNum(r.gameId)) return null;
+  const game = ours ? ours.gameId : edition.gameId;
+  return isNum(game) && game === r.gameId && r.final && typeof r.final === "object" ? r : null;
+}
+
+// a school's name short enough for a line of agate the way a newspaper shortens it; never cut with "…" (his 2)
+const SHORTER = [[/\bState\b/g, "St."], [/\bMountain\b/g, "Mtn."], [/\bJunction\b/g, "Jct."], [/\bCentral\b/g, "Cen."], [/\bUniversity\b/g, "U."], [/\bInternational\b/g, "Intl."], [/\bNorthern\b/g, "N."], [/\bSouthern\b/g, "S."], [/\bEastern\b/g, "E."], [/\bWestern\b/g, "W."]];
+
+/** "Dust Devil State" -> "Dust Devil St." in a line of agate (a name of thirteen letters or fewer stays whole). */
+/** The game of the week: the matchups come in AP poll order (No. 1 against an unranked team first), so the game drawn
+ * large is the best pair of ranked teams (the lowest sum of ranks, then the better rank), else the first other game. */
+export function gameOfWeek(matchups, ours = null) {
+  const others = records(matchups).filter((g) => g !== ours && g.isUs !== true);
+  const rank = (g, side) => (isNum(obj(g[side]).rank) ? obj(g[side]).rank : null);
+  const pairs = others.filter((g) => rank(g, "home") !== null && rank(g, "away") !== null);
+  if (!pairs.length) return others[0] || null;
+  const key = (g) => [rank(g, "home") + rank(g, "away"), Math.min(rank(g, "home"), rank(g, "away"))];
+  return pairs.reduce((best, g) => {
+    const [a, b] = key(g);
+    const [c, d] = key(best);
+    return a < c || (a === c && b < d) ? g : best;
+  });
+}
+
+export function agateName(school) {
+  const name = text(school);
+  if (name.length <= 13) return name;
+  return SHORTER.reduce((s, [from, to]) => s.replace(from, to), name);
+}
+
+/** The skybox under the flag: three refers to inside (the next game, the Top 25, the season or the trivia). */
+function skybox(data, edition, recap) {
+  const counts = obj(obj(data.rankedWeek).counts);
+  const next = recap ? obj(recap.next) : obj(data.nextGame);
+  const nextWhen = next.date ? `${fmtDate(next.date, "medium")}${next.startTimeTbd ? "" : `, ${fmtTime(next.date)}`}` : null;
+  const nextWho = next.opponent ? `${next.homeAway === "away" ? "at" : next.homeAway === "home" ? "vs" : ""} ${text(next.opponent)}`.trim() : null;
+  const top = [isNum(counts.final) && counts.final ? `${counts.final} final` : null, isNum(counts.live) && counts.live ? `${counts.live} live` : null, isNum(counts.pre) && counts.pre ? `${counts.pre} to come` : null].filter(Boolean).join(", ");
+  const trivia = lastTriviaData();
+  const leader = triviaRunning(trivia) ? records(trivia.standings)[0] : null;
+  const rec = recap ? obj(recap.record) : null;
+  const items = [
+    nextWho ? { kicker: recap ? "Next up" : "This week", words: [nextWho, nextWhen].filter(Boolean).join(", "), href: "#program" } : null,
+    top ? { kicker: "Top 25", words: top, href: "#top25" } : null,
+    leader && leader.name ? { kicker: "Trivia", words: `${text(leader.name)} lead${Array.isArray(leader.today) ? `, ${leader.today[0]} of ${leader.today[1]}` : ""}`, href: "#trivia" } : rec && isNum(rec.wins) ? { kicker: "The season", words: `${text(ours().name || usSchool())} ${sharedRecord(rec) || ""}`.trim(), href: "#season" } : null,
+  ].filter(Boolean);
+  if (!items.length) return null;
+  return el("nav", { class: "front-sky", "aria-label": "Inside" }, items.map((i) => el("a", { class: "front-sky__item", href: i.href }, el("span", { class: "paper-kicker" }, i.kicker), el("span", { class: "front-sky__words" }, i.words, el("span", { class: "front-sky__go", "aria-hidden": "true" }, " ›")))));
+}
+
+/** The lead: the kicker, the banner headline across the page, the deck, the big picture with a column of text beside it. */
+function leadPackage({ story, ours, recap, edition, names }) {
+  const status = ours ? (["pre", "live", "final", "unplayed"].includes(ours.status) ? ours.status : "pre") : recap ? "final" : null;
+  const us = text(ours ? (obj(ours.away).school === usSchool() ? obj(ours.away).abbreviation : obj(ours.home).abbreviation) : null);
+  const them = ours ? (obj(ours.away).school === usSchool() ? obj(ours.home) : obj(ours.away)) : {};
+  const final = status === "final";
+  const kicker = el("p", { class: `paper-kicker${final ? " paper-kicker--final" : ""}` }, ours || recap ? `Game week · ${final ? "Final" : status === "live" ? "Live" : "Preview"}` : KICKERS[story.lead?.topic] || "This week");
+  const headWords = ours && obj(ours.headline).text ? obj(ours.headline).text : story.lead ? story.lead.title : null;
+  const href = ours ? gameHref(ours) : story.lead ? storyHref(story.lead) : null;
+  let banner;
+  if (status === "live" && ours) banner = el("div", { class: "front-banner front-banner--live" }, statusLine(ours));
+  else if (headWords) banner = el("h2", { class: `front-banner${final ? " paper-head--final" : ""}` }, href ? el("a", href.startsWith("http") ? { href, target: "_blank", rel: "noopener" } : { href }, richText(headWords, names)) : richText(headWords, names));
+  else banner = el("p", { class: "paper-empty" }, "No stories from the team's feeds yet this week. They show here as the feeds publish.");
+  const pog = recap ? obj(recap.playerOfGame) : null;
+  const rec = recap ? sharedRecord(obj(recap.record)) : null;
+  const deckWords = recap
+    ? [pog && pog.name && pog.isUs !== false ? `${text(pog.name)} is the player of the game` : null, rec ? `${usSchool()} moves to ${rec}` : null].filter(Boolean).join(", and ")
+    : ours
+      ? [fmtDate(ours.kickoff, "long"), ours.startTimeTbd === true ? "time TBD" : fmtTime(ours.kickoff), ours.venue ? text(ours.venue) : null, crewOrTv(ours)].filter((f) => typeof f === "string" && f && f !== "–").join(" · ")
+      : null;
+  const deck = deckWords ? el("p", { class: `front-deck${final ? " paper-head--final" : ""}` }, deckWords) : null;
+  const stadium = fillPicture("stadium", { seed: seedOf(text(headWords || "stadium")) }, "A pixel stadium under the lights");
+  const art = el("figure", { class: "front-art" }, el("div", { class: "paper-pic paper-pic--stadium" }, stadium), ours && ours.venue ? el("figcaption", { class: "front-cutline" }, `${text(ours.venue)}${final ? ", after the final whistle" : status === "live" ? ", the game under way" : ", waiting for kickoff"}.`) : null);
+  return el(
+    "section",
+    { class: "front-lead", "aria-label": "Our game" },
+    kicker,
+    banner,
+    deck,
+    el("div", { class: "front-leadrow" }, art, pressBox({ ours, recap, story, them, us, status })),
+  );
+}
+
+/** The column beside the lead's picture: the turning point, the key numbers in words, what is next; or before the game,
+ *  the two teams and the line; always the way into the box score and the program. */
+function pressBox({ ours, recap, story, them, us, status }) {
+  const paras = [];
+  if (recap) {
+    const tp = obj(recap.turningPoint);
+    const q = isNum(tp.period) ? (tp.period <= 4 ? QUARTERS[tp.period - 1] : "overtime") : null;
+    const clock = tp.clock && isNum(tp.clock.minutes) ? `${tp.clock.minutes}:${String(isNum(tp.clock.seconds) ? tp.clock.seconds : 0).padStart(2, "0")}` : null;
+    if (q && isNum(tp.usScore) && isNum(tp.themScore)) paras.push(`The turning point came ${clock ? `with ${clock} left in the ` : "in the "}${q}: the play that made it ${tp.usScore}-${tp.themScore}${isNum(tp.usWpBefore) && isNum(tp.usWpAfter) ? `, our chances from ${pct(tp.usWpBefore)} to ${pct(tp.usWpAfter)}` : ""}.`);
+    const stats = records(recap.keyStats).filter((s) => typeof s.label === "string").slice(0, 3);
+    if (stats.length) paras.push(stats.map((s) => `${s.label}: ${text(us || "us")} ${statValue(s.us, s.format)}, ${text(them.abbreviation || recap.opponent)} ${statValue(s.them, s.format)}`).join(". ") + ".");
+    const next = obj(recap.next);
+    if (next.opponent) paras.push(`Next: ${text(next.opponent)}${next.homeAway === "home" ? " at home" : next.homeAway === "away" ? " on the road" : ""}${next.date ? `, ${fmtDate(next.date, "long")}` : ""}.`);
+  } else if (ours) {
+    const l = obj(ours.line);
+    const spread = typeof l.short === "string" && l.short ? l.short : typeof l.formatted === "string" && l.formatted ? l.formatted : null;
+    const away = obj(ours.away);
+    const home = obj(ours.home);
+    paras.push(`${rankedName(away)} (${recordText(away)}) ${ours.neutralSite ? "meets" : "visits"} ${rankedName(home)} (${recordText(home)}).`);
+    if (spread || isNum(l.overUnder)) paras.push(`The line: ${text(spread)}${isNum(l.overUnder) ? `, over/under ${l.overUnder}` : ""}.`);
+  } else if (story.lead) {
+    paras.push([story.lead.source, ageOf(story.lead.publishedAt)].filter(Boolean).map(text).join(" · "));
+  }
+  const gid = ours ? ours.gameId : recap ? recap.gameId : null;
+  return el(
+    "div",
+    { class: `front-col${status === "final" ? " paper-head--final" : ""}` },
+    el("p", { class: "front-byline" }, recap || ours ? "From the press box" : "The lead story"),
+    paras.map((p) => el("p", {}, p)),
+    ours || recap ? el("a", { class: "front-refer", href: ours ? gameHref(ours) || "#live" : `#box=${gid}` }, status === "pre" ? "In Game at kickoff ›" : "The box score ›") : null,
+    isNum(gid) ? el("a", { class: "front-refer", href: `#program=${gid}` }, status === "final" ? "The Post-Game Program ›" : "The Pre-Game Program ›") : null,
+  );
+}
+
+/** The rail's "By the numbers": our game's key stats after the final, the two teams before it, else the week's count. */
+function numbersBox({ recap, ours, data }) {
+  let rows = [];
+  if (recap) {
+    rows = records(recap.keyStats).filter((s) => typeof s.label === "string").slice(0, 3).map((s) => ({ big: statValue(s.us, s.format), words: `${s.label.toLowerCase()} for us; ${statValue(s.them, s.format)} for ${text(recap.opponent)}` }));
+  } else if (ours) {
+    const away = obj(ours.away);
+    const home = obj(ours.home);
+    const l = obj(ours.line);
+    rows = [
+      sharedRecord(obj(away.record)) ? { big: sharedRecord(obj(away.record)), words: `${text(away.school)}'s record` } : null,
+      sharedRecord(obj(home.record)) ? { big: sharedRecord(obj(home.record)), words: `${text(home.school)}'s record` } : null,
+      isNum(l.overUnder) ? { big: String(l.overUnder), words: "points, the over/under" } : null,
+    ].filter(Boolean);
+  } else {
+    const c = obj(obj(data.rankedWeek).counts);
+    rows = [isNum(c.final) ? { big: String(c.final), words: "ranked games final" } : null, isNum(c.live) ? { big: String(c.live), words: "ranked games live" } : null, isNum(c.pre) ? { big: String(c.pre), words: "ranked games to come" } : null].filter(Boolean);
+  }
+  if (!rows.length) return null;
+  return el("aside", { class: `front-numbers${recap ? " score-words" : ""}`, "aria-label": "By the numbers" }, el("p", { class: "front-railhead" }, "By the numbers"), rows.map((r) => el("p", { class: "front-num" }, el("b", {}, r.big), el("span", {}, r.words))));
+}
+
+/** One ranked game as a line of agate: the winner first after a final, the score and the quarter while live. */
+function agateLine(g) {
+  const away = obj(g.away);
+  const home = obj(g.home);
+  const name = (t) => `${isNum(t.rank) ? `${t.rank} ` : ""}${agateName(t.school)}`;
+  const status = ["pre", "live", "final", "unplayed"].includes(g.status) ? g.status : "pre";
+  let words;
+  let state;
+  if (status === "final" && isNum(away.points) && isNum(home.points)) {
+    const [w, l] = away.points >= home.points ? [away, home] : [home, away];
+    const periods = Math.max(Array.isArray(home.lineScores) ? home.lineScores.length : 0, Array.isArray(away.lineScores) ? away.lineScores.length : 0);
+    words = [el("b", {}, `${name(w)} ${w.points}`), ", ", el("span", { class: "front-agate__l" }, `${name(l)} ${l.points}`)];
+    state = periods > 5 ? `${periods - 4}OT` : periods === 5 ? "OT" : "F";
+  } else if (status === "live") {
+    words = `${name(away)} ${isNum(away.points) ? away.points : "–"}, ${name(home)} ${isNum(home.points) ? home.points : "–"}`;
+    state = el("span", { class: "front-agate__live" }, isNum(g.period) ? (g.period <= 4 ? `Q${g.period}` : "OT") : "Live");
+  } else if (status === "unplayed") {
+    words = `${name(away)} at ${name(home)}`;
+    state = "Not played";
+  } else {
+    words = `${name(away)} ${g.neutralSite ? "vs." : "at"} ${name(home)}`;
+    state = g.startTimeTbd === true ? "TBD" : fmtTime(g.kickoff);
+  }
+  // plain lines, as a newspaper's agate (a 44 px press target a line would stretch the rail): the cards are on the Top 25 page
+  return el("div", { class: `front-agate__row${g.isUs === true ? " is-us" : ""}${status === "final" || status === "live" ? " score-words" : ""}` }, el("span", { class: "front-agate__game" }, words), el("span", { class: "front-agate__state" }, state));
+}
+
+/** The rail's scoreboard: every ranked game of the week in one line, ours marked, the teams off this week, the way to the cards. */
+function scoreboard(matchups, edition) {
+  if (!matchups.length) return null;
+  const off = records(edition.offThisWeek).filter((t) => typeof t.school === "string");
+  return el(
+    "section",
+    { class: "front-scores", "aria-label": "Around the Top 25" },
+    el("p", { class: "front-railhead" }, "Around the Top 25"),
+    el("div", { class: "front-agate" }, matchups.map(agateLine)),
+    off.length ? el("p", { class: "front-off" }, el("b", {}, "Off this week: "), off.map((t) => `${isNum(t.rank) ? `${t.rank} ` : ""}${agateName(t.school)}`).join(", ")) : null,
+    el("a", { class: "front-refer", href: "#top25" }, "Every game's card on the Top 25 page ›"),
+  );
+}
+
+/** The player of the game from the recap, when no headline this week names one of ours. */
+function pogBox(recap) {
+  const p = obj(recap.playerOfGame);
+  const pic = fillPicture("player", { seed: seedOf(text(p.name)) }, `${text(p.name)}, in pixels`);
+  return el(
+    "article",
+    { class: "paper-box paper-feat paper-feat--player" },
+    margin(),
+    cell(pic, "paper-pic--player"),
+    el("div", { class: "paper-words" }, el("p", { class: "paper-kicker" }, "Player of the game"), el("h3", { class: "paper-head paper-head--feat" }, `${text(p.name)}${p.position ? `, ${text(p.position)}` : ""}`), el("p", { class: "paper-source" }, isNum(p.value) ? `${p.value.toFixed(1)} points of play value` : "From the play by play")),
+  );
+}
+
+/** The other headlines as briefs: two columns at the foot, or one column in a tier when no coach's story fills it. */
+function briefs(items, { column = false } = {}) {
+  const list = records(items).filter(headlineOk).slice(0, 8);
+  if (!list.length) return null;
+  return el(
+    "section",
+    { class: `front-briefs${column ? " front-briefs--column" : ""}`, "aria-label": "More headlines" },
+    el("p", { class: "front-railhead" }, "More headlines"),
+    el(
+      "div",
+      { class: "front-briefs__list" },
+      list.map((item) => {
+        const href = storyHref(item);
+        return el("p", { class: "front-brief" }, el("b", {}, href ? el("a", { href, target: "_blank", rel: "noopener" }, text(item.title)) : text(item.title)), el("small", {}, [item.source, ageOf(item.publishedAt)].filter(Boolean).map(text).join(" · ") || "Headline"));
+      }),
+    ),
+  );
+}
+
 // --- the page ---------------------------------------------------------------------------------------------------------
 
 /** The edition to draw: the server's, or (a server from before items 10-12) this week's headlines with no matchups. */
@@ -398,31 +602,37 @@ function render(envelope, container, asked) {
     ...matchups.flatMap((g) => [obj(g.away), obj(g.home)]).flatMap((t) => [isNum(t.rank) ? rankedName(t) : null, t.school]),
     ...records(edition.headlines).flatMap((h) => records(h.players).map((p) => p.name)),
   ];
-  const [top, ...others] = matchups;
-  const rowA = el("div", { class: `paper-row paper-row--a${top ? "" : " paper-row--one"}` }, leadBox(story.lead, names), top ? matchBox(top, "big", names) : null);
+  // the front page (board 5): our game leads; the best pair of ranked teams is the game of the week; every ranked game is
+  // a line in the rail's scoreboard; the player and the coach (or the player of the game, or another story) between them
+  const ours = matchups.find((g) => g.isUs === true) || null;
+  const top = gameOfWeek(matchups, ours);
+  const recap = recapFor(data, edition, ours);
   const rest = [...story.rest];
-  const rowBBoxes = [story.player ? playerBox(story.player, names) : rest.length ? articleBox(rest.shift(), "left", names) : null, story.coach ? coachBox(story.coach, names) : rest.length ? articleBox(rest.shift(), "left", names) : null].filter(Boolean);
-  const rowB = rowBBoxes.length ? el("div", { class: `paper-row paper-row--b${rowBBoxes.length === 1 ? " paper-row--one" : ""}` }, ...rowBBoxes) : null;
-  const rows = paperRows(rest, others).map((pair) =>
-    el(
-      "div",
-      { class: `paper-row paper-row--rest${pair.length === 1 ? " paper-row--one" : ""}` },
-      pair.map(([kind, item], i) => (kind === "M" ? matchBox(item, "half", names) : articleBox(item, i ? "right" : "left", names))),
-    ),
-  );
+  const leadAside = (ours || recap) && story.lead ? story.lead : null; // the lead is our game's own; the feed's headline about it goes to the briefs
+  const player = story.player ? playerBox(story.player, names) : recap && obj(recap.playerOfGame).name ? pogBox(recap) : rest.length ? articleBox(rest.shift(), "left", names) : null;
+  const coach = story.coach ? coachBox(story.coach, names) : rest.length ? articleBox(rest.shift(), "right", names) : null;
+  const numbers = numbersBox({ recap, ours, data });
+  const tier2 = top || numbers ? el("div", { class: `front-tier front-tier--two${top ? "" : " front-tier--rail-only"}` }, top ? el("div", { class: "front-span2" }, matchBox(top, "big", names)) : null, numbers ? el("div", { class: "front-rail" }, numbers) : null) : null;
+  const scores = scoreboard(matchups, edition);
+  const more = leadAside ? [...rest, leadAside] : rest;
+  // no coach's story this week: the other headlines take the coach's column instead of the foot, so no column stands empty
+  const middle = coach ? el("div", { class: "front-mod front-mod--coach" }, coach) : more.some(headlineOk) ? el("div", { class: "front-mod front-mod--briefs" }, briefs(more, { column: true })) : null;
+  const tier3 = player || middle || scores ? el("div", { class: "front-tier front-tier--three" }, player ? el("div", { class: "front-mod front-mod--player" }, player) : null, middle, scores ? el("div", { class: "front-rail" }, scores) : null) : null;
   const earlier = edition.current
     ? null
     : note(`${text(edition.label)} edition, as the paper printed it${edition.rebuilt ? ": its headlines (the paper kept its matchups from the week this feature arrived)" : ""}.`, { kind: "empty" });
   const page = el(
     "div",
-    { class: "page page--wide paper-page paper" },
+    { class: "page page--wide paper-page paper front" },
     masthead(data, edition, editions),
+    edition.current ? skybox(data, edition, recap) : null,
     edition.current ? feedTrouble(data.feeds) : null,
     earlier,
     edition.current ? null : el("p", { class: "paper-back" }, el("a", { class: "btn btn--quiet", href: "#newspaper" }, "This week's paper")),
-    rowA,
-    rowB,
-    ...rows,
+    leadPackage({ story, ours, recap, edition, names }),
+    tier2,
+    tier3,
+    coach ? briefs(more) : null,
   );
   container.replaceChildren(page);
   return page;
@@ -430,52 +640,17 @@ function render(envelope, container, asked) {
 
 // --- fitting the page ---------------------------------------------------------------------------------------------------
 
-const clamp = (lo, v, hi) => Math.max(lo, Math.min(hi, v));
-const FLOOR = 15; // no fitted text under this (the 13 px rule, with room): a size taken from a small lead never goes lower
-
-function setFit(root, selector, cap, min) {
-  for (const n of root.querySelectorAll(selector)) {
-    n.dataset.cap = String(cap);
-    n.dataset.min = String(min);
-  }
-}
-
-const boxesOf = (row) => [...row.children].filter((n) => n.classList?.contains("paper-box"));
-
-/** Fit every row to one height and its type to its boxes; on a phone the CSS sizes stand. */
+/** Fit the front page to the screen: a team's name under its helmet on one line, the pictures drawn to their boxes. The
+ *  modules keep their own heights (board 5: a newspaper's modules differ in depth); on a phone a long name may break. */
 export function layoutPaper(root) {
   if (!root || !root.isConnected || !(root.clientWidth > 0)) return null;
   const width = root.clientWidth;
   const phone = width < 700;
   root.classList.toggle("paper--phone", phone);
-  for (const n of root.querySelectorAll("[data-fit]")) n.style.fontSize = "";
-  for (const b of root.querySelectorAll(".paper-box")) b.style.height = "";
   fitNames(root);
-  if (phone) {
-    loosenNames(root);
-    refitPictures(root);
-    return { phone: true };
-  }
-  const rowA = root.querySelector(".paper-row--a");
-  const leadTarget = clamp(26, width * 0.021, 44);
-  root.style.setProperty("--paper-top", `${Math.round(leadTarget)}px`); // no score numeral bigger than the lead's headline
-  setFit(root, ".paper-head--lead", leadTarget * 1.3, leadTarget * 0.8);
-  setFit(root, ".paper-match--big .paper-mid", Math.max(17, Math.min(leadTarget - 4, clamp(20, width * 0.018, 36))), 17);
-  const lead = rowA?.querySelector(".paper-lead:not(.paper-lead--empty)");
-  const boxesA = rowA ? boxesOf(rowA) : [];
-  fitRows(rowA ? [{ row: rowA, boxes: boxesA, primary: lead ? boxesA.indexOf(lead) : null, target: leadTarget, minHeight: width * 0.22 }] : []); // a short lead never squeezes the top game
-  const leadFont = parseFloat(lead?.querySelector(".paper-head--lead")?.style.fontSize || "") || leadTarget;
-  root.style.setProperty("--paper-top", `${Math.floor(leadFont)}px`);
-  const featCap = Math.max(FLOOR + 2, Math.min(leadFont - 4, clamp(22, width * 0.022, 42)));
-  setFit(root, ".paper-head--feat", featCap, Math.max(FLOOR + 1, featCap * 0.6));
-  const artCap = Math.max(FLOOR + 2, Math.min(leadFont - 6, clamp(18, width * 0.018, 30)));
-  setFit(root, ".paper-row--b .paper-head--art", featCap, Math.max(FLOOR + 1, featCap * 0.6));
-  setFit(root, ".paper-row--rest .paper-head--art", artCap, Math.max(FLOOR, artCap * 0.62));
-  setFit(root, ".paper-match--half .paper-mid", Math.max(FLOOR + 1, Math.min(leadFont - 8, clamp(17, width * 0.0135, 26))), FLOOR);
-  const later = [...root.querySelectorAll(".paper-row--b, .paper-row--rest")].map((row) => ({ row, boxes: boxesOf(row), minHeight: width * (row.classList.contains("paper-row--b") ? 0.13 : 0.12) }));
-  const heights = fitRows(later);
+  if (phone) loosenNames(root);
   refitPictures(root);
-  return { width, leadTarget, leadFont, featCap, artCap, heights };
+  return { width, phone };
 }
 
 // --- the view -----------------------------------------------------------------------------------------------------------

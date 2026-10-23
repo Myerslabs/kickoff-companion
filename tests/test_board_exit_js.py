@@ -347,23 +347,22 @@ scenarios.notOverBoard = async () => {
   assert.ok(slot.hasAttribute("hidden"), "the slot stays shut");
   assert.equal(document.body.querySelector(".sheet-layer"), null, "nothing opens over the board");
   assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "and not marked seen, so the next page shows it");
-  // leaving the board lands on In Game, which carries no note either (one screen since wave F5, owner 2026-10-20: a note
-  // would push it off), and still nothing is marked seen; the first page after that shows it (every page but those two,
-  // owner 2026-10-13) and marks the day
+  // leaving the board lands on In Game: since the layout pass (owner 2026-10-22: "dont show that unless its in its own
+  // flyout") the note never sits on a page, so In Game lists it for the To do flyout like any page; listed is not seen
   document.body.classList.remove("board-mode");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
-  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "not on In Game either");
-  assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "In Game does not count as seen");
+  const { noteCount, parkNotes, takeNotes } = await import(moduleUrl("ui/page-notes.js"));
+  assert.ok(!note.hasAttribute("hidden") && noteCount() === 1, "listed on In Game for the To do flyout");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "listed is not seen");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "program" } }));
-  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Pre-Game Program, the first page off the board that is not In Game");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), null, "nor on another page: only the flyout shows it");
+  assert.equal(takeNotes(), note, "the flyout takes the note");
   const { todayKey } = await import(moduleUrl("ui/readiness.js"));
-  assert.equal(localStorage.getItem("kickoff.readiness.seen"), todayKey());
-  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "season" } }));
-  assert.ok(!note.hasAttribute("hidden") && !slot.hasAttribute("hidden"), "on the Season too");
-  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
-  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "back on In Game: gone again");
+  assert.equal(localStorage.getItem("kickoff.readiness.seen"), todayKey(), "seen once the flyout shows it, for the day");
+  parkNotes();
+  assert.equal(slot.querySelector(".page-note"), note, "the closed flyout gives it back to the slot, kept");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "board" } }));
-  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "and on the board");
+  assert.ok(note.hasAttribute("hidden") && noteCount() === 0, "and never listed on the board");
 };
 
 scenarios.guestNotOverBoard = async () => {
@@ -384,18 +383,22 @@ scenarios.guestNotOverBoard = async () => {
   assert.ok(note && note.hasAttribute("hidden"), "no welcome on the board");
   assert.equal(document.body.querySelector(".sheet-layer"), null, "and never a sheet");
   assert.equal(localStorage.getItem("kickoff.guest.welcome"), null, "not marked seen: the next page greets the guest");
-  // the guest leaves the board for In Game, which carries no note either (one screen since wave F5, owner 2026-10-20);
-  // the welcome waits for the first page after that, and shows there once
+  // the guest leaves the board for In Game: the welcome is listed for the To do flyout (the layout pass, 2026-10-22), and
+  // waits, unseen, until the flyout shows it; then it goes with the next page
   document.body.classList.remove("board-mode");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "live" } }));
-  assert.ok(note.hasAttribute("hidden") && slot.hasAttribute("hidden"), "no welcome on In Game");
-  assert.equal(slot.querySelector(".page-note"), note, "and it is still waiting, not gone with the page");
-  assert.equal(localStorage.getItem("kickoff.guest.welcome"), null, "In Game does not count as seen");
+  assert.ok(!note.hasAttribute("hidden") && note.textContent.includes("Welcome"), "listed on In Game");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "program" } }));
-  assert.ok(!note.hasAttribute("hidden") && note.textContent.includes("Welcome"), "the welcome on the first page that is neither the board nor In Game");
-  assert.equal(localStorage.getItem("kickoff.guest.welcome"), "1");
+  assert.equal(slot.querySelector(".page-note"), note, "unseen, it is still waiting, not gone with the page");
+  assert.equal(localStorage.getItem("kickoff.guest.welcome"), null, "listed is not seen");
+  const { openTodo } = await import(moduleUrl("ui/todo.js"));
+  const flyout = openTodo();
+  assert.ok(flyout && document.querySelector(".todo-sheet .page-note") === note, "the To do flyout carries the note");
+  assert.equal(localStorage.getItem("kickoff.guest.welcome"), "1", "seen once the flyout shows it");
+  flyout.close();
+  assert.equal(slot.querySelector(".page-note"), note, "closing the flyout keeps it");
   document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "season" } }));
-  assert.equal(slot.querySelector(".page-note"), null, "it goes with that page");
+  assert.equal(slot.querySelector(".page-note"), null, "seen, it goes with that page");
   assert.ok(slot.hasAttribute("hidden"));
 };
 """

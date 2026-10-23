@@ -4,7 +4,8 @@ only that team's own line on the board. Ending the day is the host's.
 
     GET  /api/trivia?name=            the Trivia page
     GET  /api/trivia/now?name=        the popups: the open question (no answer), the standings, the welcome; opens the
-                                      next question when one is due
+                                      next question when one is due; &board=1 for the big screen, which shows the open
+                                      question in its static spot without joining (the layout pass, 2026-10-22)
     POST /api/trivia/join             {"name"}            -> the welcome and the season score so far
     POST /api/trivia/leave            {"name"}
     POST /api/trivia/rename           {"name", "newName"}
@@ -73,11 +74,11 @@ async def trivia_page(request: Request, name: str = Query("", max_length=200)) -
 
 
 @router.get("/api/trivia/now")
-async def trivia_now(request: Request, name: str = Query("", max_length=200)) -> Any:
+async def trivia_now(request: Request, name: str = Query("", max_length=200), board: bool = Query(False)) -> Any:
     service = _service(request)
     now = _now(request)
     await service.tick(now, lambda: _games_on(request))
-    return envelope(service.now_for(name or None, now), source="live")
+    return envelope(service.now_for(name or None, now, board=board), source="live")
 
 
 @router.post("/api/trivia/join")

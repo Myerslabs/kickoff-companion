@@ -105,6 +105,16 @@ export function teamBarColors(left, right, { leftIsUs = false } = {}) {
   return { "--team-us": usable(left) || "var(--fog)", "--opp": usable(right) || "var(--fog)" };
 }
 
+/**
+ * teamChipColors({ color, altColor }) -> { background, color } for a chip in a team's own colors (the Season page's trends,
+ * the layout pass, board 9): its color, else its alternate, when it holds 3:1 against the panel, else the neutral; the text
+ * the more legible of chalk and the ground. Our own hue is no reason to refuse here: the chip names the team beside it.
+ */
+export function teamChipColors(team) {
+  const background = [team?.color, team?.altColor].find((c) => typeof c === "string" && !rejectReason(c, [])) || NEUTRAL;
+  return { background, color: contrastRatio(CHALK, background) >= contrastRatio(GROUND, background) ? CHALK : GROUND };
+}
+
 /** applyOpponentColors({ color, altColor }) sets --opp, --opp-alt, --opp-text on the root. */
 export function applyOpponentColors(team, root = document.documentElement) {
   const picked = pickOpponentColor([team?.color, team?.altColor]);

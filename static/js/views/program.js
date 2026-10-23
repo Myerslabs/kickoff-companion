@@ -1136,6 +1136,54 @@ function resultsSlot(data, state) {
   return host;
 }
 
+/** The game in the news on its own (the menu's flyout): the Post-Game lock read first, as the finished program reads it. */
+function newsAlone(data) {
+  const id = data.game?.gameId;
+  const host = el("div", {}, newsBand({ post: undefined }));
+  if (!data.game?.completed || id === undefined || id === null) {
+    host.replaceChildren(newsBand({ post: null }));
+    return host;
+  }
+  fetchJson(`/api/program/${encodeURIComponent(text(id))}/postgame`)
+    .then((envelope) => host.replaceChildren(newsBand({ post: envelope?.data && typeof envelope.data === "object" ? envelope.data : null })))
+    .catch((error) => {
+      if (!(isNum(error?.status) && error.status === 404)) console.warn("The Post-Game lock could not be read.", error);
+      host.replaceChildren(newsBand({ post: null }));
+    });
+  return host;
+}
+
+/** A table that only a finished game has, asked for before the final: what it will hold and when (the menu's flyout). */
+function untilFinal(title, words) {
+  return band({ title, collapsible: false, state: { status: "empty", message: words } });
+}
+
+/**
+ * The program's tables by name, for the menu's wide flyouts (the layout pass, owner 2026-10-22: "I just want the table that
+ * is already there, but I want it available in flyout"): each built from the program's own answer exactly as the page
+ * builds it, so a table looks the same in both places. views/panels.js opens them.
+ */
+export const PROGRAM_BANDS = {
+  notes: (data) => notesBand(data),
+  headlines: () => headlinesBand(undefined),
+  tape: (data) => tapeBand(data),
+  leaders: (data) => leadersBand(data),
+  lineups: (data) => lineupsBand(data),
+  advanced: (data) => advancedBand(data),
+  tendencies: (data) => tendenciesBand(data),
+  recruiting: (data) => recruitingBand(data),
+  ppa: (data) => ppaBand(data),
+  availability: (data) => availabilityBand(data),
+  visitors: (data) => visitorsBand(data),
+  common: (data) => commonBand(data),
+  series: (data) => seriesBand(data),
+  race: (data) => raceBand(data.race, data.picture),
+  final: (data) => finalBand(data) || untilFinal("Final box", "The final box shows here once this week's game is over. Earlier games' boxes are in the Archive."),
+  advancedBox: (data) => advancedBoxBand(data) || untilFinal("Advanced box score", "The advanced box score shows here once this week's game is over and CFBD posts it."),
+  results: (data) => (data.game?.completed ? resultsSlot(data, {}) : untilFinal("Expectations and results", "The program locked at kickoff is held against the result here once the game is over.")),
+  news: (data) => newsAlone(data),
+};
+
 /** The loading page in its real shape (P-04 item 5): the cover, then the first bands of the owner's order (2026-10-10). */
 function loadingPage(state) {
   const loading = (title, skeleton) => band({ title, collapsible: false, state: { status: "loading" }, skeleton });

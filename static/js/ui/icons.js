@@ -12,6 +12,10 @@ export const ICONS = [
   "search", "play", "pause", "star", "star-empty", "turnover", "sack", "flag", "ball", "explosive", "sort-down", "sort-up",
   "chevron-down", "chevron-right", "back", "close", "dot", "dot-half", "dot-empty",
   "sun", "partly", "cloud", "rain", "snow", "storm", "fog", "stadium",
+  // the menu (the layout pass, owner 2026-10-22)
+  "newspaper", "program", "live", "tv", "trivia", "radio", "shield", "matchup", "globe", "bars", "trend", "book", "person", "sparkle", "wide", "page",
+  // the To do flyout (the layout pass, owner 2026-10-22)
+  "todo",
 ];
 
 export function icon(name, { label, className, size } = {}) {

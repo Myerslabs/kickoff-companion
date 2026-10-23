@@ -9,6 +9,11 @@ never cost one call per team.
 Calls on a cold cache: games (team), games (all, for points per game ranks), games/media,
 records (conference), rankings, teams/fbs, stats/season (fbs), stats/season/advanced (fbs),
 ratings sp, elo, fpi, and one games/teams per finished game of ours (cached for good).
+
+Season with My Teams (the layout pass, board 9, owner 2026-10-22): overview(team) draws the same page for any team the
+reader follows. The shared parts (every game, the polls, the FBS teams, the national stats and ratings) are the ones the
+home team's page already caches; the team's own schedule, media, its conference's records and one games/teams per
+finished game are its own, asked for only when the reader opens that team. The client's game-day flag stays ours.
 """
 
 from __future__ import annotations
@@ -141,16 +146,37 @@ class Overview:
     all_failed: bool
 
 
+class UnknownTeam(LookupError):
+    """A followed team the FBS list does not have this season (a saved name CFBD no longer lists)."""
+
+
 class SeasonService:
-    def __init__(self, client: CfbdClient, settings: Settings) -> None:
+    def __init__(self, client: CfbdClient, settings: Settings, fetcher: PartFetcher | None = None) -> None:
         self.client = client
         self.settings = settings
-        self.fetcher = PartFetcher(client, CONCURRENCY)
+        self.fetcher = fetcher or PartFetcher(client, CONCURRENCY)
 
     async def _part(self, name: str, endpoint: str, params: dict[str, Any], model: type[CfbdModel], kind: DataKind) -> Part:
         return await self.fetcher.fetch(name, endpoint, params, model, kind)
 
-    async def overview(self) -> Overview:
+    async def fbs_teams(self) -> Part:
+        """CFBD's FBS list for the season (the page's own teams part, so it costs nothing more)."""
+        return await self._part("teams", "/teams/fbs", {"year": self.settings.season}, Team, DataKind.TEAMS)
+
+    async def overview(self, team: str | None = None) -> Overview:
+        """The season page for the home team, or with `team` for another team the reader follows (board 9): the same
+        answer from that team's side, its conference's standings and its own trends. Raises UnknownTeam when the FBS
+        list does not have `team`."""
+        if team and team != self.settings.team:
+            teams = await self.fbs_teams()
+            conference = next((t.conference for t in teams.records if t.school == team and isinstance(t.conference, str) and t.conference.strip()), None)
+            if conference is None:
+                raise UnknownTeam(team)
+            scoped = SeasonService(self.client, self.settings.model_copy(update={"team": team, "conference": conference}), self.fetcher)
+            return await scoped._overview(ours=False)
+        return await self._overview(ours=True)
+
+    async def _overview(self, ours: bool) -> Overview:
         year, team, conference = self.settings.season, self.settings.team, self.settings.conference
         now = self.client._clock()
 
@@ -182,7 +208,8 @@ class SeasonService:
         for part in boxes:
             parts[part.name] = part
 
-        self._set_game_day(parts["schedule"].records, now)
+        if ours:
+            self._set_game_day(parts["schedule"].records, now)  # lines and weather refresh faster on our game day, not another team's
         data = self._assemble(parts, completed, boxes, now)
         context16.season_extras(data, parts, team)  # Phase 16 BX: form, rank paths, season strip
         return self._wrap(data, parts, now)
@@ -226,7 +253,7 @@ class SeasonService:
                 row["raceStatus"] = status_by_team.get(row["team"])
         return {
             "season": self.settings.season,
-            "team": {**teams.get(team, {"school": team}), "school": team},
+            "team": {**teams.get(team, {"school": team}), "school": team, "conferenceShort": conference_short(self.settings.conference) or self.settings.conference},  # board 9: another team's page names its own conference
             "record": self._record_block(records.get(team), poll_ranks, parts["sp"].records),
             "schedule": schedule,
             "nextGameId": next_game.id if next_game else None,
@@ -425,6 +452,7 @@ class SeasonService:
         team = self.settings.team
         by_week = {part.name: part for part in boxes}
         weeks: list[int] = []
+        game_ids: list[int] = []  # board 9: the trends' columns are the schedule's finished games, matched by id
         opponents: list[str | None] = []
         points: list[float | None] = []
         allowed: list[float | None] = []
@@ -434,6 +462,7 @@ class SeasonService:
         for game in completed:
             home_is_us = game.home_team == team
             weeks.append(game.week or 0)
+            game_ids.append(game.id)
             opponents.append(game.away_team if home_is_us else game.home_team)
             points.append(float(game.home_points if home_is_us else game.away_points) if (game.home_points is not None and game.away_points is not None) else None)
             allowed.append(float(game.away_points if home_is_us else game.home_points) if (game.home_points is not None and game.away_points is not None) else None)
@@ -450,7 +479,7 @@ class SeasonService:
             margin.append(their_to - our_to if our_to is not None and their_to is not None else None)
             made, of = _split(u.get("thirdDownEff"))
             third.append(round(made / of, 3) if made is not None and of else None)
-        return {"weeks": weeks, "opponents": opponents, "points": points, "pointsAllowed": allowed, "yardsPerPlay": ypp, "turnoverMargin": margin, "thirdDown": third}
+        return {"weeks": weeks, "gameIds": game_ids, "opponents": opponents, "points": points, "pointsAllowed": allowed, "yardsPerPlay": ypp, "turnoverMargin": margin, "thirdDown": third}
 
     def _trend_status(self, boxes: list[Part], now: datetime) -> dict[str, Any]:
         if not boxes:

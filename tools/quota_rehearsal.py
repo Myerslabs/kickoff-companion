@@ -63,7 +63,7 @@ PAGES: dict[str, list[str]] = {
     "recruiting": ["/api/recruiting"],
     "ratings": ["/api/ratings"],
     "injuries": ["/api/injuries"],
-    "myteams": ["/api/myteams"],
+    "myteams": ["/api/season/overview"],  # board 9 (2026-10-22): the old My Teams address opens the Season page
 }
 
 

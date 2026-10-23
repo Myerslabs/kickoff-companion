@@ -266,9 +266,9 @@ scenarios.seasonLinks = async () => {
   assert.ok([...all(main, "#season-resume a.poll-badge--link")].length === 3, "the poll path's ranks are badges");
   // tiles: 'of N' beside the chip
   assert.ok([...all(main, ".tile__of")].some((n) => text(n) === "of 136"));
-  // trends: the last value captioned, the average beside it, and the wait text under two games
-  assert.ok(t.includes("Trend after game 2"));
-  assert.ok([...all(main, ".trend__avg")].some((n) => text(n) === "avg 14.7"), [...all(main, ".trend__avg")].map(text).join("|"));
+  // trends (board 9): one column a game, the season average under each stat's name
+  assert.ok(all(main, "#season-trends .tgrid__game").length >= 1, "the games head the columns");
+  assert.ok([...all(main, ".tgrid__avgtext")].some((n) => text(n) === "avg 14.7"), [...all(main, ".tgrid__avgtext")].map(text).join("|"));
   // every row opens the game's program (the mock, owner 2026-10-20: the prior weeks' programs are reached here; a finished game's program leads to the Archive)
   const rows = [...all(main, "#season-schedule li.sched__game")];
   assert.equal(rows.length, 3);
