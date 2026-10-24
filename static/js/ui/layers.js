@@ -56,8 +56,12 @@ function readState() {
   return state && typeof state === "object" ? state : {};
 }
 
+/** Layers whose entry a page change took over (goTo). Chromium clears their marker from the entry's state, WebKit (Safari)
+ *  keeps it, so the new page's entry would still name a layer that is gone and the next open would step Back over it. */
+const routed = new Set();
+
 function chainOf(state) {
-  return Array.isArray(state?.layers) ? state.layers.filter((id) => typeof id === "string" && id) : [];
+  return Array.isArray(state?.layers) ? state.layers.filter((id) => typeof id === "string" && id && !routed.has(id)) : [];
 }
 
 /** An entry's place in the list: the router's depth, then (for a layer's entry) when it was pushed. */
@@ -259,9 +263,11 @@ export function goTo(hash) {
     }
   }
   whenSettled(() => {
-    if (chainOf(readState()).length && typeof window.location.replace === "function") {
+    const chain = chainOf(readState());
+    if (chain.length && typeof window.location.replace === "function") {
       try {
-        window.location.replace(target); // the layer's entry becomes the new page: Back lands on the old one
+        window.location.replace(target);
+        for (const id of chain) routed.add(id); // the layer's entry becomes the new page: Back lands on the old one
         return;
       } catch (error) {
         console.warn("Could not reuse the layer's entry; the page gets its own.", error?.message || error);

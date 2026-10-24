@@ -37,7 +37,7 @@ const cards = () => document.body.querySelectorAll(".card-layer");
 /** A browser's history for one page: entries with their state and address, Back and Forward that land a moment later with
  *  popstate (and hashchange when the address changes), a hash setter that pushes, and location.replace. The module's own
  *  steps are logged in nav.steps; the reader's are nav.userBack() and nav.userForward(). */
-function browser(hash = "#season", state = { depth: 2, scrollY: 300 }) {
+function browser(hash = "#season", state = { depth: 2, scrollY: 300 }, keepStateOnReplace = false) {
   const win = installWindow();
   const entries = [{ state, url: hash }];
   let at = 0;
@@ -52,7 +52,7 @@ function browser(hash = "#season", state = { depth: 2, scrollY: 300 }) {
   function go(value, replace) {
     const url = `#${String(value).replace(/^#/, "")}`;
     if (url === loc.current) return;
-    if (replace) entries[at] = { state: null, url };
+    if (replace) entries[at] = { state: keepStateOnReplace ? entries[at].state : null, url }; // WebKit keeps the entry's state on a replace, Chromium clears it
     else {
       entries.splice(at + 1);
       entries.push({ state: null, url });
@@ -219,6 +219,27 @@ scenarios.goTo = async () => {
   await land();
   assert.equal(nav.at, 1, "and their two entries go in one step");
   assert.deepEqual(nav.steps, [-1, -2]);
+};
+
+scenarios.goToKeepsState = async () => {
+  // Safari: location.replace leaves the layer's marker on the new page's entry; the next open must not step Back over it
+  const nav = browser("#season", { depth: 2, scrollY: 300 }, true);
+  const { goTo, closeLayers, openLayerCount } = await import(moduleUrl("ui/layers.js"));
+  await openOne();
+  goTo("#newspaper");
+  await land();
+  assert.equal(nav.loc.hash, "#newspaper");
+  assert.ok(Array.isArray(nav.entries[nav.at].state?.layers), "the entry still carries the old marker, as WebKit leaves it");
+  const steps = nav.steps.length;
+  closeLayers(); // what opening the menu does first
+  await land();
+  assert.equal(nav.steps.length, steps, "no history step: the marker names a layer that is gone");
+  assert.equal(nav.loc.hash, "#newspaper", "the page stays where it is");
+  await openOne();
+  closeLayers();
+  await land();
+  assert.equal(nav.loc.hash, "#newspaper", "a layer opened and closed on the page lands back on the page");
+  assert.equal(openLayerCount(), 0);
 };
 
 scenarios.deadEntry = async () => {
@@ -706,7 +727,7 @@ scenarios.pageNotes = async () => {
 """
 
 SCENARIO_NAMES = [
-    "sheetBack", "sheetCloseByHand", "stacked", "routeCloses", "goTo", "deadEntry", "deferredPush", "persistAndInline", "leftover",
+    "sheetBack", "sheetCloseByHand", "stacked", "routeCloses", "goTo", "goToKeepsState", "deadEntry", "deferredPush", "persistAndInline", "leftover",
     "placeLayers", "drawerBack", "drawerItem", "drawerTab", "menuOverSheet", "escapeOrder", "drawerLevels", "inlineDrawer", "notice", "readiness", "pageNotes", "todoMenu",
 ]
 
