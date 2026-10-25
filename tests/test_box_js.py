@@ -34,6 +34,21 @@ async function mountView(factory, url, data, opts = {}) {
   return { main, view };
 }
 
+scenarios.standingsChipOnTheTopCard = async () => {
+  // A Top 25 card seats its away team in the cover's "us" slot; the chip must still follow the VIEWER's team
+  const { setIdentity, resetIdentity } = await import(moduleUrl("identity.js"));
+  const { cover } = await import(moduleUrl("ui/cover.js"));
+  setIdentity({ school: "Us State", conference: "Big Pie", mascot: "Pies", abbreviation: "USS" });
+  const away = { school: "Far Away U", abbreviation: "FAU", conference: "Other", record: { wins: 5, losses: 1 }, conferenceRecord: { wins: 2, losses: 2 } };
+  const home = { school: "Other Home", abbreviation: "OH", conference: "Other", record: { wins: 4, losses: 2 }, conferenceRecord: { wins: 3, losses: 1 } };
+  const node = cover({ compact: true, us: away, them: home, homeIsUs: false, date: "2026-10-24T19:30:00Z", state: "pre", now: new Date("2026-10-20T12:00:00Z") });
+  const hrefs = [...node.querySelectorAll("a.cover-chip--link")].map((a) => a.getAttribute("href"));
+  assert.deepEqual(hrefs, ["#team=Far%20Away%20U?band=standings", "#team=Other%20Home?band=standings"], "neither team is the viewer's: both lead to their own page");
+  const mine = cover({ compact: true, us: { ...away, school: "Us State", conference: "Big Pie" }, them: home, homeIsUs: false, date: "2026-10-24T19:30:00Z", state: "pre", now: new Date("2026-10-20T12:00:00Z") });
+  assert.equal([...mine.querySelectorAll("a.cover-chip--link")][0].getAttribute("href"), "#season?band=standings", "the viewer's own team leads to the Season page");
+  resetIdentity();
+};
+
 scenarios.links = async () => {
   const { formGuide, formHref, standingsHref } = await import(moduleUrl("ui/cover.js"));
   assert.equal(formHref({ gameId: 5, archived: true }, true), "#archive=5");
@@ -129,6 +144,6 @@ scenarios.standings = async () => {
 
 
 @needs_node
-@pytest.mark.parametrize("scenario", ["links", "page", "unplayed", "standings"])
+@pytest.mark.parametrize("scenario", ["links", "standingsChipOnTheTopCard", "page", "unplayed", "standings"])
 def test_box_and_standings_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)

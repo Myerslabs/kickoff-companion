@@ -39,7 +39,7 @@
 //   coverSkeleton()                                  the loading cover in the cover's real shape.
 //   countdownParts(kickoffIso, now), openingLine(spreadOpen, spread, homeName, awayName)   as before.
 
-import { usLabel } from "../identity.js";
+import { ours, usLabel } from "../identity.js";
 import { el, fmtDate, fmtNum, fmtTime, isNum, obj, teamLink, teamLogo, text, recordText as sharedRecord } from "./dom.js";
 import { nationalHref, pollHref } from "./national-link.js";
 import { pollBadge } from "./stat-table.js";
@@ -263,7 +263,9 @@ function recordParts(team, usTeam, { compact = false } = {}) {
   const chip = (value, title) => el("span", { class: "cover-chip", title }, value);
   if (isNum(t.record?.wins)) parts.push(chip(record(t.record), "Record"));
   if (isNum(t.conferenceRecord?.wins)) {
-    const href = standingsHref(t, usTeam);
+    // The viewer's own team decides where the chip leads, not the card's "us" slot: the Top 25 card seats its away team
+    // there, so every away team's chip led to the viewer's Season page. A blank identity (tests, demo start) falls back to the slot.
+    const href = standingsHref(t, ours().school ? ours() : usTeam);
     const label = [record(t.conferenceRecord), el("span", { class: "cover-chip__label" }, " conf")];
     parts.push(href ? el("a", { class: "cover-chip cover-chip--link", href, title: "Conference record. Open the standings", "aria-label": `Conference record ${record(t.conferenceRecord)}. Open the standings` }, label) : chip(label, "Conference record"));
   }
@@ -325,7 +327,9 @@ export function cover(props) {
   };
   const teamBlock = (team, side) => {
     const parts = recordParts(team, us, { compact });
-    const form = formGuide(team.form, { hrefFor: (g) => formHref(g, side === "us" || (typeof g.opponent === "string" && g.opponent === us.school)) });
+    // "ours" is the viewer's team (the slot named "us" is just a seat: the Top 25 card seats its away team there)
+    const viewer = ours().school ? ours().school : us.school;
+    const form = formGuide(team.form, { hrefFor: (g) => formHref(g, team.school === viewer || (typeof g.opponent === "string" && g.opponent === viewer)) });
     return el(
       "div",
       { class: `cover__side cover__side--${side}` },
