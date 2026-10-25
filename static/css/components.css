@@ -3619,7 +3619,7 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 @media (hover: hover) { a.front-sky__item:hover .front-sky__words { text-decoration: underline; text-decoration-color: var(--team-accent); } }
 .front-lead { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .front-banner { margin: 0; font-family: var(--paper-serif); font-size: clamp(30px, 4.2vw, 60px); font-weight: 700; line-height: 1.05; letter-spacing: -0.005em; text-wrap: balance; }
-.front-banner a { color: var(--chalk); text-decoration: none; }
+.front-banner a { display: block; min-height: var(--tap); color: var(--chalk); text-decoration: none; } /* a press target of 44 px with Linux's fonts too, like .paper-head a (BUG-20, CI 2026-10-25) */
 @media (hover: hover) { .front-banner a:hover { text-decoration: underline; text-decoration-color: var(--team-accent); } }
 .front-banner--live .paper-status { justify-items: start; }
 .front-banner--live .paper-status__score { font-size: clamp(36px, 5vw, 64px); }

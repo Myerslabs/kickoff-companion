@@ -212,3 +212,15 @@ def test_a_desktop_icon_no_longer_keeps_its_window(tmp_path: Path):
     launcher = Launcher(ROOT, platform="win32", appdata=str(tmp_path), runner=lambda args: (0, ""))
     script = launcher._lnk_script(tmp_path / "Kickoff Companion.lnk", True)
     assert "-NoExit" not in script and "-Tray" in script
+
+
+def test_the_windows_console_check_never_breaks_off_windows(monkeypatch):
+    # BUG-21 (the public CI on Linux and macOS, 1.0.0): the check imported msvcrt, which only Windows has
+    import sys
+
+    class Tty(io.StringIO):
+        def isatty(self) -> bool:
+            return True
+
+    monkeypatch.setitem(sys.modules, "msvcrt", None)  # importing it fails, as on Linux and macOS
+    assert portcheck.interactive(Tty(""), system="win32", environ={}) is False

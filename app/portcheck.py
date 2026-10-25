@@ -193,7 +193,7 @@ def interactive(stdin: Any, system: str = sys.platform, environ: Any = None) -> 
 
         mode = ctypes.c_uint32()
         return bool(ctypes.windll.kernel32.GetConsoleMode(msvcrt.get_osfhandle(stdin.fileno()), ctypes.byref(mode)))  # type: ignore[attr-defined]
-    except (AttributeError, OSError, ValueError, io.UnsupportedOperation):
+    except (ImportError, AttributeError, OSError, ValueError, io.UnsupportedOperation):  # BUG-21: no msvcrt off Windows
         return False
 
 
