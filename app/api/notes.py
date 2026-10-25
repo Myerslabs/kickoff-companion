@@ -1,9 +1,12 @@
 """The game notes from the app.
 
-GET and POST /api/notes/run           start the Claude Code tool on the server and watch it (only where found).
-GET /api/notes/prompt?gameId=         the prompt for one game, to copy into any AI chat (public release Phase 6).
+GET and POST /api/notes/run           start the Claude Code tool on the server and watch it (only where found); with
+                                      "parts", only those parts of the notes, merged into the rest (post-freeze Wave 1).
+GET /api/notes/prompt?gameId=         the prompt for one game, to copy into any AI chat (public release Phase 6);
+                                      &parts=visitors,lineups for those parts alone.
 POST /api/notes/preview               {gameId, text}: read a pasted answer and say what is in it; saves nothing.
-POST /api/notes/save                  {gameId, text}: read it the same way and save data/notes/<game_id>.json.
+POST /api/notes/save                  {gameId, text, parts?}: read it the same way and save data/notes/<game_id>.json,
+                                      or with parts merge only those into the notes there.
 GET, PUT and DELETE /api/notes/template  the prompt template: read it, save an edit, go back to the default.
 
 Any device on the home network may paste (owner answer 2026-10-03). A save replaces the game's notes. An
@@ -28,6 +31,7 @@ router = APIRouter(tags=["notes"])
 
 class RunRequest(BaseModel):
     gameId: int | None = Field(default=None, gt=0)
+    parts: list[str] | None = Field(default=None, max_length=10)
 
 
 async def _game(request: Request, game_id: int | None) -> tuple[Game | None, bool]:
@@ -60,7 +64,8 @@ async def notes_start(body: RunRequest, request: Request) -> Any:
     game, ok = await _game(request, body.gameId)
     if game is None:
         return _not_on_schedule(body.gameId, ok)
-    status = await runner.start(_game_dict(game), request.app.state.settings.claude_command)
+    parts = notes_paste.parse_parts(body.parts or [])
+    status = await runner.start(_game_dict(game), request.app.state.settings.claude_command, mode=f"parts:{','.join(parts)}" if parts else "full")
     if status.get("error") and not status.get("running"):
         return envelope(status, source="live", errors=[{"code": "notes_not_started", "message": status["error"]}])
     return envelope(status, source="live")
@@ -70,13 +75,14 @@ async def notes_start(body: RunRequest, request: Request) -> Any:
 
 
 @router.get("/api/notes/prompt")
-async def notes_prompt(request: Request, gameId: int | None = None) -> Any:  # noqa: N803 - the query name the page sends
+async def notes_prompt(request: Request, gameId: int | None = None, parts: str | None = None) -> Any:  # noqa: N803 - the query name the page sends
     game, ok = await _game(request, gameId if gameId and gameId > 0 else None)
     if game is None:
         return _not_on_schedule(gameId, ok)
     runner: NotesRunner = request.app.state.notes
     _template, custom = notes_paste.read_template(request.app.state.settings.data_dir)
-    prompt = runner.build_prompt(_game_dict(game))
+    asked = notes_paste.parse_parts(parts or "")
+    prompt = runner.build_prompt(_game_dict(game), f"parts:{','.join(asked)}" if asked else "full")
     path = notes_path(request.app.state.settings.data_dir, game.id)  # Phase 17 #12: the path chip copies this
     return envelope({**_game_dict(game), "prompt": prompt, "custom": custom, "chars": len(prompt), "path": str(path)}, source="live")
 
@@ -84,6 +90,7 @@ async def notes_prompt(request: Request, gameId: int | None = None) -> Any:  # n
 class PasteRequest(BaseModel):
     gameId: int = Field(gt=0)
     text: str = Field(max_length=notes_paste.MAX_PASTE)
+    parts: list[str] | None = Field(default=None, max_length=10)
 
 
 @router.post("/api/notes/preview")
@@ -102,8 +109,14 @@ async def notes_save(body: PasteRequest, request: Request) -> Any:
     reading = notes_paste.read_answer(body.text, game.id)
     if reading.notes is None:
         return error_response(422, "notes_unreadable", reading.error or "The answer has no usable notes.")
+    parts = notes_paste.parse_parts(body.parts or [])
     try:
+        if parts:  # post-freeze Wave 1: one band's part, merged into the notes already there
+            changed = notes_paste.merge_parts(request.app.state.settings.data_dir, game.id, reading.notes, parts)
+            return envelope({**reading.as_dict(), "saved": True, "parts": parts, "changed": changed}, source="live")
         notes_paste.save_notes(request.app.state.settings.data_dir, game.id, reading.notes)
+    except notes_paste.NotesUnreadable as exc:
+        return error_response(409, "notes_unreadable", f"The notes already saved for this game could not be read, so nothing was merged: {exc}.")
     except OSError as exc:
         return error_response(500, "notes_not_saved", f"The notes could not be saved: {exc}.")
     return envelope({**reading.as_dict(), "saved": True}, source="live")

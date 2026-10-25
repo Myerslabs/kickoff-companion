@@ -43,7 +43,7 @@ export function loadsBand(status, run, onChange) {
     title: "Season loads",
     collapsible: true,
     foldable: true,
-    collapsed: complete, // everything loaded: folded out of the way of the teams (a remembered fold still wins)
+    collapsed: complete, // everything loaded: folded out of the way of the teams (the reader's fold this visit still wins)
     summary: `preseason ${savedTeams} of ${pre.length} teams · coaches ${isNum(s.coachesSaved) ? s.coachesSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0} · costs ${isNum(s.costsSaved) ? s.costsSaved : 0} of ${isNum(s.coachesOf) ? s.coachesOf : 0}`,
     state: { status: "ready" },
     // Freeze wave F3 (one fact, one source): the copy, paste and run of every batch live on the Load data page, where every

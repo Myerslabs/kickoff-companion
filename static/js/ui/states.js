@@ -1,6 +1,8 @@
 // The four states every panel needs: loading, empty, stale, error. Plus the band, which is
 // the section container of the call sheet: a color-coded head, a body, and a state footer.
-// On narrow screens bands collapse to a summary line and remember their state on the device.
+// On narrow screens bands collapse to a summary line. A fold lasts for the visit to the page (post-freeze Wave 1, owner
+// 2026-10-25: "fold once per visit, never remember"): the page's redraws keep it, leaving the page forgets it, and
+// nothing is saved on the device.
 //
 // Phase 16 (stream F) frozen API, added beside the band (its fold logic is unchanged):
 //   band({ ..., bare: true })               no head at all, for a single panel inside a side sheet whose title
@@ -21,7 +23,7 @@
 //                                           bar, one per band of root; a tap unfolds the band and scrolls to it, and
 //                                           the section on screen is outlined. Rebuilt as bands come and go.
 
-import { ageText, append, el, frag, recall, reducedMotion, remember, teamLink, text } from "./dom.js";
+import { ageText, append, el, frag, reducedMotion, teamLink, text } from "./dom.js";
 import { announcer, isBlurb } from "./announcer.js";
 import { icon } from "./icons.js";
 
@@ -54,6 +56,34 @@ function stateFoot(state) {
  */
 const FOLD_MS = 220;
 
+// The folds of this visit, band id -> folded. Before 2026-10-25 they lived in localStorage ("band:<id>") for good, so a
+// band folded once stayed folded on every later visit (the Availability report sat folded on the program); the old keys
+// are cleared once. A page change (any hashchange: a layer, the menu or a sheet never makes one) starts a fresh visit.
+const visitFolds = new Map();
+let foldsWatched = false;
+
+function watchVisits() {
+  if (foldsWatched || typeof window === "undefined" || typeof window.addEventListener !== "function") return;
+  foldsWatched = true;
+  window.addEventListener("hashchange", () => visitFolds.clear());
+  try {
+    const store = globalThis.localStorage;
+    const old = [];
+    for (let i = 0; i < store.length; i += 1) {
+      const key = store.key(i);
+      if (typeof key === "string" && key.startsWith("band:")) old.push(key);
+    }
+    old.forEach((key) => store.removeItem(key));
+  } catch {
+    // storage refused: nothing was kept there either
+  }
+}
+
+/** Forget every fold of this visit (the router's page change does it through hashchange; tests call it). */
+export function forgetFolds() {
+  visitFolds.clear();
+}
+
 export function band(props) {
   const {
     id,
@@ -71,8 +101,9 @@ export function band(props) {
     errorLead = "Could not load this.",
     bare = false,
   } = props;
-  const storageKey = id && !bare ? `band:${id}` : null;
-  const collapsed = storageKey ? recall(storageKey, Boolean(props.collapsed)) : Boolean(props.collapsed);
+  watchVisits();
+  const foldKey = id && !bare ? id : null;
+  const collapsed = foldKey && visitFolds.has(foldKey) ? visitFolds.get(foldKey) : Boolean(props.collapsed);
 
   const folds = !bare && (collapsible || foldable);
   const section = el("section", {
@@ -104,7 +135,7 @@ export function band(props) {
         toggle.setAttribute("aria-expanded", value ? "false" : "true");
         toggle.setAttribute("aria-label", `${value ? "Expand" : "Collapse"} ${title}`);
       }
-      if (storageKey) remember(storageKey, value);
+      if (foldKey) visitFolds.set(foldKey, value);
     };
     // 2026-10-10 (review of "no scroll box"): the long tables show whole now, so folding a band from its pinned head left the
     // page where it was and the reader landed thousands of pixels further down once the body was gone. When the head is pinned

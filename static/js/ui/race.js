@@ -88,11 +88,12 @@ function linesList(race) {
 }
 
 function watchTable(race) {
-  const rows = (Array.isArray(race.watch) ? race.watch : []).filter((r) => r && typeof r === "object").map((r) => ({
+  // post-freeze Wave 3 (ENH-7, tester report 2026-10-24): our own game is not one of the games that help us; it is the game
+  const rows = (Array.isArray(race.watch) ? race.watch : []).filter((r) => r && typeof r === "object" && r.ours !== true).map((r) => ({
     ...r,
     gameText: `${text(r.away)} at ${text(r.home)}`,
     whenText: kickoffText(r.kickoff),
-    pullText: r.ours === true ? "Win it" : text(r.pullFor),
+    pullText: text(r.pullFor),
     whyText: text(r.why),
   }));
   if (!rows.length) return note("No other game this week changes our path.", { kind: "empty" });

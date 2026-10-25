@@ -28,6 +28,7 @@ function usd(value) {
 }
 
 const NOTE = { key: "note", label: "Note", kind: "text", sortable: false, wrap: true }; // press-report prose: the one column that wraps
+const PARTIAL_PLAYERS = 22; // fewer named players than a team's starters: the list is partial and says so
 
 /** Rumored spending by position group, in the report's own order. Exported for the tests. */
 export function groupsTable(positions) {
@@ -70,6 +71,8 @@ export function costsBand(costs, { id = "roster-costs", team, outside = false } 
         str(c.note) ? el("p", { class: "note" }, c.note) : null,
         positions.length ? groupsTable(positions) : null,
         players.length ? playersTable(players) : null,
+        // post-freeze Wave 1 (tester report: "roster costs show 3 starters"): a short list says it is partial and where more comes from
+        players.length && players.length < PARTIAL_PLAYERS ? el("p", { class: "note costs__partial" }, `A rumored figure was reported for ${players.length === 1 ? "1 player" : `${players.length} players`}; the rest of the roster has none. `, el("a", { href: "#prompts" }, "Load more on the Load data page"), ".") : null,
         el("p", { class: "note" }, "Figures are rumored or estimated from press reports and NIL valuation sites; schools don't publish them.", sources.length ? [" Sources: ", sources.map((s, i) => [i ? ", " : null, str(s.url) && /^https?:\/\//.test(s.url) ? el("a", { href: s.url, target: "_blank", rel: "noopener" }, str(s.label) || s.url) : text(s.label)])] : null),
       ),
   });

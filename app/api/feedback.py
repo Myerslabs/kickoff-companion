@@ -43,8 +43,9 @@ def snapshot(request: Request) -> dict[str, Any]:
     leaves a note instead of losing the report."""
     from app.api.health import health
     from app.api.settings import _payload
+    from app.build import build_id
 
-    out: dict[str, Any] = {"version": __version__}
+    out: dict[str, Any] = {"version": __version__, "build": build_id()}  # post-freeze Wave 3 (ENH-9): the server's build beside the page's
     for name, build in (("health", lambda: health(request).get("data")), ("settings", lambda: _payload(request))):
         try:
             out[name] = build()

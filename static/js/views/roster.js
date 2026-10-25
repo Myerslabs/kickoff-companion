@@ -254,7 +254,7 @@ function render(envelope, container, state) {
         summary: `${players.length} players by position and class`,
         state: partState(parts.roster, players.length > 0),
         emptyText: "The roster loads the first time the app opens.",
-        body: () => rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), // the grid's note follows its size (ui/roster-grid.js); the star strip is once, in Recruiting stars on the roster (freeze wave F3)
+        body: () => el("div", {}, rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), typeof data.classesInferred === "string" && data.classesInferred ? el("p", { class: "note" }, data.classesInferred) : null), // post-freeze Wave 1: CFBD's classes not believed; the grid's note follows its size (ui/roster-grid.js); the star strip is once, in Recruiting stars on the roster (freeze wave F3)
       }),
       costsBand(data.costs, { id: "roster-costs" }), // Phase 17 Part 3b: rumored, from the Preseason page's load
       band({

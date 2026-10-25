@@ -2,13 +2,23 @@
 Kickoff Companion in the system tray (Phase 9, owner direction 2026-09-23: always visible, but
 optionally in the tray instead of a taskbar window).
 
-Started by start.ps1 -Tray. Hides its own console window, starts the server as a hidden
-child process, and shows a tray icon with a menu: Open the app, Status page, Show the log, Quit.
-Quit stops the server. The server's own log stays in logs\app.log.
+Started by start.ps1 (Tray mode is the default since 2026-10-23). Starts the server as a child process
+with no window and shows a tray icon with a menu: Open the app, Status page, Show the log, Quit. Quit
+stops the server. The server's own log stays in logs\app.log.
 
 Phase 16 wave 3: the packaged program uses it too. Its Desktop icon and Startup shortcut run this script with
 -Program (the program's .exe) instead of -Python; -Root is then the folder that holds .env, data and logs.
 The address is http:// unless HTTPS=on in .env (plain HTTP has been the default since public release Phase 4b).
+
+Post-freeze Wave 1 (owner 2026-10-25):
+- start.ps1 and the program start this script with no console window at all (CREATE_NO_WINDOW), and this
+  script starts the server the same way, so no window stays open behind the icon. Windows Terminal ignored
+  the old trick of hiding a console after it opened.
+- While the server starts, the icon's hover text counts the seconds ("starting, 12 s"); a notification says
+  when the data is ready and how long it took (/api/health server.ready_seconds).
+- A start that fails opens a window with what happened, Copy the report, Show the log and, when another
+  program holds the port, Use port N (saved in .env with --use-port, then started again). A copy that was
+  already running is opened instead of a second one (exit code 6).
 #>
 param(
     [string]$Python,
@@ -21,10 +31,14 @@ if (-not $Python -and -not $Program) { throw "Give -Python (a checkout) or -Prog
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Net.Http
 Add-Type -Name Win32Window -Namespace Kickoff -MemberDefinition @'
 [DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
 [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 '@
+
+$AlreadyRunning = 6  # app/portcheck.py ALREADY_RUNNING
+$SlowSeconds = 120
 
 function Read-EnvValue($name, $fallback) {
     $envFile = Join-Path $Root ".env"
@@ -36,29 +50,53 @@ function Read-EnvValue($name, $fallback) {
     return $fallback
 }
 
-$port = Read-EnvValue "PORT" "8642"
-$hostName = Read-EnvValue "LAN_HOSTNAME" "localhost"
-if (-not $hostName) { $hostName = "localhost" }
-$scheme = if ((Read-EnvValue "HTTPS" "off") -match "^(on|true|1|yes)$") { "https" } else { "http" }
-$appUrl = "$scheme`://$hostName`:$port/"
-$statusUrl = "$scheme`://$hostName`:$port/status"
+# The addresses come from .env, read again after "Use port N" changes PORT.
+function Set-Address {
+    $script:port = Read-EnvValue "PORT" "8642"
+    $hostName = Read-EnvValue "LAN_HOSTNAME" "localhost"
+    if (-not $hostName) { $hostName = "localhost" }
+    $scheme = if ((Read-EnvValue "HTTPS" "off") -match "^(on|true|1|yes)$") { "https" } else { "http" }
+    $script:appUrl = "$scheme`://$hostName`:$($script:port)/"
+    $script:statusUrl = "$scheme`://$hostName`:$($script:port)/status"
+    $script:healthUrl = "http://127.0.0.1:$($script:port)/api/health"  # the server answers plain HTTP on its own computer
+}
+Set-Address
 $logFile = Join-Path $Root "logs\app.log"
+$reportFile = Join-Path $Root "data\startup-failure.json"
 
-# Hide this console (0 = SW_HIDE). It comes back with "Show the window".
+# A shortcut made before 2026-10-25 still opens a console: hide it when there is one (a start with no window has none).
 $console = [Kickoff.Win32Window]::GetConsoleWindow()
-[Kickoff.Win32Window]::ShowWindow($console, 0) | Out-Null
+if ($console -ne [IntPtr]::Zero) { [Kickoff.Win32Window]::ShowWindow($console, 0) | Out-Null }
 
 $env:KICKOFF_NO_PAUSE = "1"  # the packaged program never waits for Enter in a hidden window
-if ($Program) {
+
+# A child with no window: the server, or the program asked to save a port.
+function New-Child([string[]]$Arguments) {
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $all = @()
+    if ($Program) {
+        $info.FileName = $Program
+        $info.WorkingDirectory = Split-Path -Parent $Program
+    } else {
+        $info.FileName = $Python
+        $info.WorkingDirectory = $Root
+        $all += "-m", "app"
+    }
+    $info.Arguments = (($all + $Arguments) -join " ")
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    return [System.Diagnostics.Process]::Start($info)
+}
+
+function Start-Server([switch]$First) {
+    if (Test-Path -LiteralPath $reportFile) { Remove-Item -LiteralPath $reportFile -Force -ErrorAction SilentlyContinue }
     $serverArgs = @()
-    if ($Login) { $serverArgs += "--login" }  # started at login: no browser unless Settings say Always
-    $startArgs = @{ FilePath = $Program; WorkingDirectory = (Split-Path -Parent $Program); WindowStyle = "Hidden"; PassThru = $true }
-    if ($serverArgs.Count -gt 0) { $startArgs.ArgumentList = $serverArgs }
-    $server = Start-Process @startArgs
-} else {
-    $serverArgs = @("-m", "app")
-    if ($Login) { $serverArgs += "--login" }
-    $server = Start-Process -FilePath $Python -ArgumentList $serverArgs -WorkingDirectory $Root -WindowStyle Hidden -PassThru
+    if ($Login -and $First) { $serverArgs += "--login" }  # started at login: no browser unless Settings say Always
+    $script:server = New-Child $serverArgs
+    $script:startedAt = Get-Date
+    $script:ready = $false
+    $script:slowWarned = $false
+    $script:pending = $null
 }
 
 $icon = New-Object System.Windows.Forms.NotifyIcon
@@ -71,42 +109,213 @@ try {
 } catch {
     $icon.Icon = [System.Drawing.SystemIcons]::Application
 }
-$icon.Text = "Kickoff Companion (port $port)"
+$icon.Text = "Kickoff Companion: starting"
 $icon.Visible = $true
 
+function Show-Note([string]$Message, [System.Windows.Forms.ToolTipIcon]$Kind = [System.Windows.Forms.ToolTipIcon]::Info) {
+    $icon.ShowBalloonTip(5000, "Kickoff Companion", $Message, $Kind)
+}
+
+function Exit-Tray([int]$WaitSeconds = 0) {
+    if ($WaitSeconds -gt 0) { Start-Sleep -Seconds $WaitSeconds }  # the last notification stays long enough to read
+    $icon.Visible = $false
+    [System.Windows.Forms.Application]::Exit()
+}
+
+$script:quitting = $false
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $open = $menu.Items.Add("Open the app")
-$open.add_Click({ Start-Process $appUrl })
+$open.add_Click({ Start-Process $script:appUrl })
 $status = $menu.Items.Add("Status page")
-$status.add_Click({ Start-Process $statusUrl })
+$status.add_Click({ Start-Process $script:statusUrl })
 $log = $menu.Items.Add("Show the log")
 $log.add_Click({ if (Test-Path -LiteralPath $logFile) { Start-Process notepad.exe $logFile } })
-$show = $menu.Items.Add("Show the window")
-$show.add_Click({ [Kickoff.Win32Window]::ShowWindow($console, 5) | Out-Null })
 $menu.Items.Add("-") | Out-Null
 $quit = $menu.Items.Add("Quit (stops the server)")
 $quit.add_Click({
-    try { if (-not $server.HasExited) { Stop-Process -Id $server.Id -Force } } catch {}
-    $icon.Visible = $false
-    [System.Windows.Forms.Application]::Exit()
+    $script:quitting = $true
+    $timer.Stop()
+    try { if (-not $script:server.HasExited) { Stop-Process -Id $script:server.Id -Force } } catch {}
+    Exit-Tray
 })
 $icon.ContextMenuStrip = $menu
-$icon.add_DoubleClick({ Start-Process $appUrl })
-$icon.ShowBalloonTip(4000, "Kickoff Companion", "The server is running. Double-click the icon to open the app.", [System.Windows.Forms.ToolTipIcon]::Info)
+$icon.add_DoubleClick({ Start-Process $script:appUrl })
 
-# Leave the tray if the server dies on its own.
+# --- the clock: seconds while it starts, then one notification -------------------------------------------------
+$http = New-Object System.Net.Http.HttpClient
+$http.Timeout = [TimeSpan]::FromSeconds(3)
+
+# The health answer is read with two patterns, not ConvertFrom-Json: Windows PowerShell refuses a document whose keys differ
+# only in case, and the health page is large and varied. ready_seconds is null until the key check and the team are done.
+function Test-Ready([string]$Body, [int]$Seconds) {
+    $readyAt = $null
+    if ($Body -match '"ready_seconds":\s*(null|[0-9.]+)') {
+        if ($Matches[1] -eq "null") { return }  # listening, but not ready for data yet
+        $readyAt = [double]$Matches[1]
+    }
+    $setup = $Body -match '"setup_needed":\s*true'
+    $script:ready = $true
+    $icon.Text = "Kickoff Companion (port $($script:port))"
+    $took = if ($null -ne $readyAt) { [int][Math]::Round($readyAt) } else { $Seconds }
+    if ($setup) {
+        Show-Note "Running after $took s. Double-click the sun by the clock to finish the setup."
+    } else {
+        Show-Note "Ready after $took s. Double-click the sun by the clock to open the app."
+    }
+}
+
+# --- a start that fails: the window with the report ---------------------------------------------------------------
+function Get-Report([int]$Code) {
+    $report = $null
+    if (Test-Path -LiteralPath $reportFile) {
+        try { $report = Get-Content -LiteralPath $reportFile -Raw -Encoding UTF8 | ConvertFrom-Json } catch { $report = $null }
+    }
+    $lines = @()
+    if ($report -and $report.message) { $lines += ($report.message -split "`n") }
+    else { $lines += "The server stopped with exit code $Code." }
+    $lines += ""
+    $lines += "Kickoff Companion, $(Get-Date -Format 'yyyy-MM-dd HH:mm'), $([Environment]::OSVersion.VersionString)"
+    if (Test-Path -LiteralPath $logFile) {
+        $tail = Get-Content -LiteralPath $logFile -Tail 40 -Encoding UTF8 -ErrorAction SilentlyContinue
+        if ($tail) { $lines += ""; $lines += "The last lines of logs\app.log:"; $lines += $tail }
+    }
+    $next = $null
+    if ($report -and $report.nextPort) { $next = [int]$report.nextPort }
+    return @{ Text = ($lines -join "`r`n"); Next = $next }
+}
+
+function New-Button([string]$Text) {
+    $button = New-Object System.Windows.Forms.Button
+    $button.Text = $Text
+    $button.AutoSize = $true
+    $button.Padding = New-Object System.Windows.Forms.Padding(8, 4, 8, 4)
+    $button.Margin = New-Object System.Windows.Forms.Padding(6, 0, 0, 0)
+    return $button
+}
+
+function Show-Failure([string]$Title, [int]$Code) {
+    $info = Get-Report $Code
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Kickoff Companion"
+    $form.Icon = $icon.Icon
+    $form.StartPosition = "CenterScreen"
+    $form.Size = New-Object System.Drawing.Size(680, 480)
+    $form.MinimumSize = New-Object System.Drawing.Size(480, 320)
+    $form.TopMost = $true
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 10)
+    $form.Tag = "close"
+
+    $box = New-Object System.Windows.Forms.TextBox
+    $box.Multiline = $true
+    $box.ReadOnly = $true
+    $box.ScrollBars = "Vertical"
+    $box.Dock = "Fill"
+    $box.Font = New-Object System.Drawing.Font("Consolas", 9.5)
+    $box.Text = $info.Text
+
+    $head = New-Object System.Windows.Forms.Label
+    $head.Text = $Title
+    $head.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 13)
+    $head.Dock = "Top"
+    $head.Height = 44
+    $head.Padding = New-Object System.Windows.Forms.Padding(10, 10, 10, 0)
+
+    $row = New-Object System.Windows.Forms.FlowLayoutPanel
+    $row.Dock = "Bottom"
+    $row.FlowDirection = "RightToLeft"
+    $row.Height = 56
+    $row.Padding = New-Object System.Windows.Forms.Padding(10)
+
+    $close = New-Button "Close"
+    $close.add_Click({ $form.Tag = "close"; $form.Close() })
+    $copy = New-Button "Copy the report"
+    $copy.add_Click({
+        try { [System.Windows.Forms.Clipboard]::SetText($info.Text); $copy.Text = "Copied" } catch { $copy.Text = "Copy failed" }
+    })
+    $showLog = New-Button "Show the log"
+    $showLog.add_Click({ if (Test-Path -LiteralPath $logFile) { Start-Process notepad.exe $logFile } })
+    $row.Controls.Add($close)
+    $row.Controls.Add($copy)
+    $row.Controls.Add($showLog)
+    if ($info.Next) {
+        $next = $info.Next
+        $use = New-Button "Use port $next"
+        $use.add_Click({
+            $use.Enabled = $false
+            $saver = New-Child @("--use-port", "$next")
+            $saver.WaitForExit(30000) | Out-Null
+            if ($saver.HasExited -and $saver.ExitCode -eq 0) {
+                $form.Tag = "retry"
+                $form.Close()
+            } else {
+                $use.Text = "Could not save port $next"
+            }
+        })
+        $row.Controls.Add($use)
+        $form.AcceptButton = $use
+    }
+    # docked in reverse order of adding: the report takes what the head and the buttons leave
+    $form.Controls.Add($box)
+    $form.Controls.Add($row)
+    $form.Controls.Add($head)
+    [void]$form.ShowDialog()
+    return [string]$form.Tag
+}
+
+function Receive-Exit {
+    if ($script:quitting) { return }
+    $code = $script:server.ExitCode
+    if ($code -eq $AlreadyRunning) {
+        $opened = if ($Login) { "" } else { " Your browser opens it." }  # at login the browser opens only if Settings say Always
+        Show-Note "Kickoff Companion is already running, so this start stepped aside.$opened"
+        Exit-Tray 5
+        return
+    }
+    if ($code -eq 0) {
+        Exit-Tray
+        return
+    }
+    $title = if ($script:ready) { "Kickoff Companion stopped (exit code $code)" } else { "Kickoff Companion could not start" }
+    $icon.Text = "Kickoff Companion: stopped"
+    if ((Show-Failure $title $code) -eq "retry") {
+        Set-Address
+        Start-Server
+        $timer.Start()
+        return
+    }
+    Exit-Tray
+}
+
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 5000
+$timer.Interval = 1000
 $timer.add_Tick({
-    if ($server.HasExited) {
-        $icon.ShowBalloonTip(6000, "Kickoff Companion", "The server stopped (exit code $($server.ExitCode)). See logs\app.log.", [System.Windows.Forms.ToolTipIcon]::Warning)
-        Start-Sleep -Seconds 6
-        $icon.Visible = $false
-        [System.Windows.Forms.Application]::Exit()
+    if ($script:server.HasExited) {
+        $timer.Stop()
+        Receive-Exit
+        return
+    }
+    if ($script:ready) { return }
+    $seconds = [int][Math]::Floor(((Get-Date) - $script:startedAt).TotalSeconds)
+    $icon.Text = "Kickoff Companion: starting, $seconds s"
+    $task = $script:pending
+    if ($task -and $task.IsCompleted) {
+        $script:pending = $null
+        if ($task.Status -eq [System.Threading.Tasks.TaskStatus]::RanToCompletion) { Test-Ready $task.Result $seconds }
+    }
+    if (-not $script:ready -and -not $script:pending) {
+        try { $script:pending = $http.GetStringAsync($script:healthUrl) } catch { $script:pending = $null }
+    }
+    if (-not $script:ready -and $seconds -ge $SlowSeconds -and -not $script:slowWarned) {
+        $script:slowWarned = $true
+        Show-Note "Still starting after 2 minutes. The icon's menu has Show the log." ([System.Windows.Forms.ToolTipIcon]::Warning)
     }
 })
+
+Start-Server -First
 $timer.Start()
 
 [System.Windows.Forms.Application]::Run()
+$timer.Stop()
+$http.Dispose()
 $icon.Dispose()
 exit 0

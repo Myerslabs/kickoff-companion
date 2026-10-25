@@ -122,7 +122,11 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     parser.add_argument("--demo", action="store_true", help="run against the made-up league: no key, no network (--demo --help for its options)")
     parser.add_argument("--no-browser", action="store_true", help="do not open the app in this computer's browser once the server is up")
     parser.add_argument("--login", action="store_true", help="started at login (the start scripts pass it); opens the browser only if Settings say always")
+    parser.add_argument("--use-port", type=int, metavar="N", help="save PORT=N in .env and exit (the tray icon's \"Use port N\" when the port is taken)")
     args = parser.parse_args(argv)
+
+    if args.use_port is not None:
+        return use_port(args.use_port, env_file)
 
     try:
         settings = load_settings(env_file)
@@ -140,7 +144,7 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     configure_logging(settings, to_file=not args.reload)
 
     from app import restart, startmode
-    from app.serving import run_server
+    from app.serving import PORT_CHANGED, run_server
 
     def demo_start(settings: Settings) -> bool:
         return not args.reload and startmode.start_mode(settings) == startmode.DEMO
@@ -158,15 +162,32 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     set_console_title(f"{APP_NAME} server (keep this window open)")
     print(console_banner(settings, demo=demo_start(settings)), flush=True)
     code = serve(settings, first=True)
-    while code == restart.RESTART:  # setup finished, the team changed, or the demo was switched: serve again
+    while code in (restart.RESTART, PORT_CHANGED):  # setup finished, the team changed, the demo was switched, or a new port: serve again
         try:
             settings = load_settings(env_file)
         except SettingsError as exc:
             print(str(exc), file=sys.stderr)
             return 2
         configure_logging(settings)
-        code = serve(settings, first=False)
+        code = serve(settings, first=code == PORT_CHANGED)  # a new port is a new address: the browser opens it as on a first start
     return code
+
+
+def use_port(port: int, env_file: Path | None) -> int:
+    """`--use-port N` (post-freeze Wave 1): save PORT in .env for the tray icon's "Use port N", then exit."""
+    from app.services import envfile
+
+    if not 1024 <= port <= 65535:
+        print(f"{port} is not a port this app can use (1024 to 65535).", file=sys.stderr)
+        return 2
+    path = Path(env_file) if env_file is not None else DEFAULT_ENV_FILE
+    try:
+        envfile.set_values(path, {"PORT": str(port)})
+    except (OSError, ValueError, envfile.EnvFileError) as exc:
+        print(f"PORT could not be saved: {exc}", file=sys.stderr)
+        return 1
+    print(f"PORT={port} saved in {path}.")
+    return 0
 
 
 def console_owners(default: int = 1) -> int:
@@ -196,8 +217,10 @@ def pause_before_closing(
     """The packaged program on Windows, started by a double-click and stopping with a message (a busy port, a bad
     .env): wait for Enter so the message can be read before the window closes (public release Phase 10). A clean
     stop, a shell start, a checkout or another system never waits. Returns True when it waited."""
-    if code == 0 or not (ROOTS.packaged if packaged is None else packaged) or not system.startswith("win"):
-        return False
+    from app.portcheck import ALREADY_RUNNING
+
+    if code in (0, ALREADY_RUNNING) or not (ROOTS.packaged if packaged is None else packaged) or not system.startswith("win"):
+        return False  # a running copy was opened instead: nothing to read
     if (console_owners() if owners is None else owners) != 1:
         return False
     try:

@@ -21,7 +21,7 @@ from app.main import create_app
 from app.services import headlines as H
 from app.services.editions import Editions, key_for, label_for, order_of
 from app.services.lines import PICKEM, short_spread, spread_text
-from app.services.rankedweek import period_of, ranked_order
+from app.services.rankedweek import period_of, ranked_order, upset_of
 from tests.conftest import ROLES, league
 
 ET = ZoneInfo("America/New_York")
@@ -192,7 +192,10 @@ def test_the_top25_page_has_every_ranked_game_and_nothing_else(lclient: TestClie
     ranked = {t for g in games for t in (g["home"]["school"], g["away"]["school"]) if (g["home"]["rank"] if t == g["home"]["school"] else g["away"]["rank"])}
     off = {t["school"] for t in data["offThisWeek"]}
     assert not ranked & off and len(ranked) + len(off) == data["poll"]["teams"]
-    assert sum(data["counts"].values()) == len(games)
+    assert sum(data["counts"][s] for s in ("live", "pre", "final")) == len(games)
+    assert data["counts"]["upset"] == sum(1 for g in games if g["upset"]), "post-freeze Wave 3: the upsets are counted"
+    for g in games:
+        assert g["upset"] == upset_of(g["status"], g["home"]["rank"], g["away"]["rank"], g["home"]["points"], g["away"]["points"])
     for g in games:
         for side in ("home", "away"):
             block = g[side]
@@ -333,3 +336,17 @@ def test_winless_waits_for_three_losses():
     opener = game(9, "final", team("A", 2, points=31), team("B", points=10, wins=0, losses=1))
     assert H.kind_of(opener, us=None, tz=ET) != "winless"
     assert H.kind_of(game(9, "final", team("A", 2, points=31), team("B", points=10, wins=0, losses=3)), us=None, tz=ET) == "winless"
+
+
+def test_an_upset_is_a_ranked_team_beaten_or_trailing_by_a_lower_or_unranked_team():
+    # post-freeze Wave 3 (ENH-5, owner 2026-10-25): the Top 25 page marks them
+    assert upset_of("final", 5, None, 17, 24) == "final", "No. 5 at home beaten by an unranked team"
+    assert upset_of("final", None, 5, 24, 17) == "final", "No. 5 on the road beaten by an unranked team"
+    assert upset_of("live", 3, 12, 10, 14) == "live", "No. 3 trailing No. 12: an upset under way"
+    assert upset_of("final", 12, 3, 21, 14) == "final", "No. 12 at home beat No. 3"
+    assert upset_of("final", 12, 3, 14, 21) is None, "the better-ranked team won"
+    assert upset_of("final", 3, 12, 28, 7) is None
+    assert upset_of("final", None, None, 28, 7) is None, "no ranked team"
+    assert upset_of("live", 4, None, 7, 7) is None, "a tie is no upset yet"
+    assert upset_of("pre", 4, None, None, None) is None and upset_of("final", 4, None, None, 10) is None, "no score, no verdict"
+    assert upset_of("final", "x", None, "21", 14) is None, "damaged ranks and points are no evidence"

@@ -20,6 +20,11 @@
 // Our game follows the spoiler delay, as on every page. The page refreshes every minute; the server's caches decide
 // what that costs (nothing while no game is on).
 //
+// Post-freeze Wave 3 (owner 2026-10-25): an upset (an AP-ranked team beaten, or trailing live, by a lower-ranked or
+// unranked team; the server's `upset`, from the scores the page shows) wears "Upset" or "Upset alert" in its kicker and
+// a marked edge (ENH-5; this page only for now). The live, to come, final and upset counts are filters (ENH-6): a tap shows
+// those games alone, a second tap or All shows every game again; the choice lasts while the page is open.
+//
 //   createTop25View({ onStatus })
 
 import { usSchool } from "../identity.js";
@@ -110,6 +115,14 @@ function card(g) {
   });
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");
+  if (upsetWord(g)) {
+    // the badge leads the kicker; spoiler mode hides it with the scores (components.css), since it gives the result away
+    section.classList.add("top25-card--upset", `top25-card--upset-${g.upset}`);
+    const kicker = section.querySelector(".cover__kicker");
+    const badge = el("span", { class: "top25-upset" }, upsetWord(g));
+    if (kicker) kicker.prepend(badge, el("span", { class: "top25-upset__sep", "aria-hidden": "true" }, " · "));
+    else section.prepend(el("p", { class: "cover__kicker" }, badge));
+  }
   section.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");
   section.style.setProperty("--c-home", typeof home.color === "string" && home.color ? home.color : "var(--rule-strong)");
   // a long name wraps to two balanced lines (board 6), so no name is fitted; the score still keeps to the middle column
@@ -122,7 +135,21 @@ function card(g) {
 
 const realGame = (g) => g.home && typeof g.home === "object" && g.away && typeof g.away === "object";
 
-function header(data) {
+/** "Upset" for a final, "Upset alert" while the ranked team trails live; null otherwise (ENH-5). */
+export function upsetWord(g) {
+  return g?.upset === "final" ? "Upset" : g?.upset === "live" ? "Upset alert" : null;
+}
+
+/** The games a filter keeps (ENH-6): all, or those live, to come, final, or upsets. */
+export function filtered(games, filter) {
+  if (filter === "upset") return games.filter((g) => upsetWord(g));
+  if (["live", "pre", "final"].includes(filter)) return games.filter((g) => (["pre", "live", "final"].includes(g.status) ? g.status : "pre") === filter);
+  return games;
+}
+
+const FILTER_WORDS = { live: "live", pre: "to come", final: "final", upset: "upsets" };
+
+function header(data, state = { filter: null }, onFilter = () => {}) {
   const counts = obj(data.counts);
   const games = records(data.games).filter(realGame);
   const delay = Number(data.delaySeconds);
@@ -131,12 +158,18 @@ function header(data) {
   const title = label === "Bowl season" ? "AP Top 25, bowl season" : `AP Top 25, ${label}`;
   const sub = [isNum(poll.week) ? `AP poll, week ${poll.week}` : null, `${games.length} ${games.length === 1 ? "game" : "games"} with a ranked team`].filter(Boolean).join(" · ");
   const order = games.length > 1 ? el("b", { class: "top25-head__order" }, "In poll order") : null; // board 6: says how the cards run
-  const pill = (n, words, live = false) => el("span", { class: `top25-count${live ? " top25-count--live" : ""}` }, live ? el("i", { class: "top25-live-dot", "aria-hidden": "true" }) : null, `${isNum(n) ? n : 0} ${words}`);
+  // the counts are filters (ENH-6): a pressed count shows its games alone; a count of none cannot be pressed
+  const pill = (id, n, live = false) => {
+    const count = isNum(n) ? n : 0;
+    const on = state.filter === id;
+    return el("button", { class: `top25-count${live ? " top25-count--live" : ""}${id === "upset" ? " top25-count--upset" : ""}${on ? " is-on" : ""}`, type: "button", "aria-pressed": on ? "true" : "false", disabled: count === 0 && !on ? true : null, onclick: () => onFilter(on ? null : id) }, live ? el("i", { class: "top25-live-dot", "aria-hidden": "true" }) : null, `${count} ${FILTER_WORDS[id]}`);
+  };
+  const all = el("button", { class: `top25-count${state.filter ? "" : " is-on"}`, type: "button", "aria-pressed": state.filter ? "false" : "true", onclick: () => onFilter(null) }, "All");
   return el(
     "header",
     { class: "top25-head" },
     el("div", { class: "top25-head__words" }, el("h1", { class: "top25-head__title" }, title), el("p", { class: "top25-head__line" }, order, order ? " · " : null, sub)),
-    el("div", { class: "top25-head__counts" }, pill(counts.live, "live", true), pill(counts.pre, "to come"), pill(counts.final, "final")),
+    el("div", { class: "top25-head__counts", role: "group", "aria-label": "Show games" }, all, pill("live", counts.live, true), pill("pre", counts.pre), pill("final", counts.final), pill("upset", counts.upset)),
     el(
       "p",
       { class: "top25-head__delay" },
@@ -160,15 +193,17 @@ function offLine(teams) {
   );
 }
 
-function render(envelope, container) {
+function render(envelope, container, state = { filter: null }, onFilter = () => {}) {
   const data = obj(envelope?.data);
   const games = records(data.games).filter(realGame);
+  const shown = filtered(games, state.filter);
   const empty = typeof data.note === "string" && data.note ? data.note : "No game this week has an AP Top 25 team.";
+  const none = state.filter ? `No ${FILTER_WORDS[state.filter] === "to come" ? "games to come" : `${FILTER_WORDS[state.filter]}${state.filter === "upset" ? "" : " games"}`} right now. All shows every game.` : empty;
   const page = el(
     "div",
     { class: "page page--wide top25" },
-    header(data),
-    games.length ? el("div", { class: "top25-grid" }, games.map(card)) : band({ id: "top25-empty", title: "This week's games", collapsible: false, state: { status: "ready" }, body: () => note(empty, { kind: "empty" }) }),
+    header(data, state, onFilter),
+    shown.length ? el("div", { class: "top25-grid" }, shown.map(card)) : band({ id: "top25-empty", title: "This week's games", collapsible: false, state: { status: "ready" }, body: () => note(none, { kind: "empty" }) }),
     offLine(data.offThisWeek),
   );
   container.replaceChildren(page);
@@ -177,6 +212,7 @@ function render(envelope, container) {
 
 export function createTop25View({ onStatus } = {}) {
   const delay = Number(getPrefs().delaySeconds);
+  const state = { filter: null }; // the count pressed (ENH-6), kept across the minute's refreshes while the page is open
   let page = null;
   let frame = null;
   let timer = null;
@@ -201,7 +237,14 @@ export function createTop25View({ onStatus } = {}) {
     holdDuringRuns: false, // live scores: never held for a data load (2026-10-16)
     onStatus,
     render: (envelope, container) => {
-      page = render(envelope, container);
+      const draw = () => {
+        page = render(envelope, container, state, (next) => {
+          state.filter = next;
+          draw();
+          schedule();
+        });
+      };
+      draw();
       schedule();
       if (typeof document !== "undefined" && document.fonts?.ready) document.fonts.ready.then(schedule).catch(() => {});
     },

@@ -7,7 +7,8 @@
 //                          daily"), a note at the top of every page with its close button, and a dot on the top bar's
 //                          status pill, whose card lists the same items; only when something is missing, never for a
 //                          guest, never on the board. The card keeps the list (without the dot) for as long as something
-//                          is missing. Every item leads to the Prompts page.
+//                          is missing. Every item has Open (the Load data page) and, where the server finds Claude Code, Run
+//                          (post-freeze Wave 1, owner 2026-10-25); an item is listed only when its data can be had.
 //   readinessBand()        the Settings card: the same list, or "Everything is loaded"
 //   readinessList(items)   the list itself, each item a link to the page with its prompt
 //
@@ -19,6 +20,7 @@ import { el, text } from "./dom.js";
 import { band } from "./states.js";
 import { fetchJson } from "../views/common.js";
 import { addNote, removeNote } from "./page-notes.js";
+import { dataRunActive, watchRun } from "./run-bar.js";
 
 const SEEN_KEY = "kickoff.readiness.seen";
 const NOTE_ID = "readiness";
@@ -50,7 +52,43 @@ function writeSeen(value) {
   }
 }
 
-/** The items as a list of links; `onOpen` runs when one is followed. */
+/** What an item's Run starts (post-freeze Wave 1): this week's notes, or some parts of them, or the Load data run. */
+function runRequest(run) {
+  if (run?.kind === "notes") {
+    const parts = Array.isArray(run.parts) ? run.parts.filter((p) => typeof p === "string") : null;
+    return { path: "/api/notes/run", body: { gameId: Number.isFinite(run.gameId) ? run.gameId : null, ...(parts && parts.length ? { parts } : {}) } };
+  }
+  if (run?.kind === "prompts") return { path: "/api/prompts/run", body: {} };
+  return null;
+}
+
+/** An item's Run button: it starts the load on the server and the loading bar follows it; the pages refresh at its end. */
+function runButton(item) {
+  const request = runRequest(item.run);
+  if (!request || item.canRun !== true) return null;
+  const said = el("span", { class: "readiness__run-status", "aria-live": "polite" });
+  const button = el("button", { class: "btn btn--primary", type: "button", disabled: dataRunActive() ? true : null }, dataRunActive() ? "Loading…" : "Run with Claude");
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    button.textContent = "Loading…";
+    said.textContent = "";
+    try {
+      const response = await fetch(request.path, { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(request.body) });
+      const body = await response.json().catch(() => null);
+      const problem = body?.errors?.[0]?.message;
+      if (!response.ok || problem) throw new Error(text(problem || `The server answered ${response.status}`));
+      said.textContent = "Claude Code is loading it in the background.";
+      watchRun();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Run with Claude";
+      said.textContent = `${text(error?.message || "The run did not start")}.`;
+    }
+  });
+  return el("span", { class: "readiness__run" }, button, said);
+}
+
+/** The items, each with its Run (where Claude Code is found) and its Open; `onOpen` runs when one is followed. */
 export function readinessList(items, onOpen) {
   const rows = list(items);
   if (!rows.length) return el("p", { class: "note" }, "Everything is loaded: the season, the roster costs and this week's notes.");
@@ -63,8 +101,9 @@ export function readinessList(items, onOpen) {
         { class: "readiness__item" },
         el("b", {}, text(item.title)),
         typeof item.detail === "string" ? el("p", { class: "readiness__detail" }, item.detail) : null,
+        runButton(item),
         typeof item.href === "string" && item.href.startsWith("#")
-          ? el("a", { class: "btn btn--quiet", href: item.href, onclick: () => { if (typeof onOpen === "function") onOpen(); } }, "Open Load data")
+          ? el("a", { class: "btn", href: item.href, onclick: () => { if (typeof onOpen === "function") onOpen(); } }, "Open Load data")
           : null,
       ),
     ),

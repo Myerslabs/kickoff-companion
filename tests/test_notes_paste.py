@@ -196,3 +196,18 @@ def test_saved_notes_show_on_the_game_program(notes_app, client: TestClient, fak
     client.post("/api/notes/save", json={"gameId": NEXT_GAME, "text": json.dumps(GOOD)})
     after = client.get(f"/api/program/{NEXT_GAME}").json()["data"]["notes"]
     assert after["present"] is True and after["author"] == "A chat" and after["schemes"]["offense"] == "Spread, 11 personnel"
+
+
+def test_one_part_is_copied_and_pasted_on_its_own(notes_app, client: TestClient):
+    # post-freeze Wave 1 (owner 2026-10-25): a band's own load: the prompt for its part alone, the answer merged into the notes
+    prompt = client.get(f"/api/notes/prompt?gameId={NEXT_GAME}&parts=visitors").json()["data"]["prompt"]
+    assert "This asks only for the recruits on hand" in prompt and '"lineups"' not in prompt
+    data_dir = notes_app.state.settings.data_dir
+    client.post("/api/notes/save", json={"gameId": NEXT_GAME, "text": json.dumps(GOOD)})
+    answer = {"gameId": NEXT_GAME, "visitors": {"home": [{"name": "Big Recruit", "stars": 5}], "source": "A recruiting site"}, "sources": [{"label": "Visitors", "url": "https://example.com/visitors"}]}
+    saved = client.post("/api/notes/save", json={"gameId": NEXT_GAME, "text": json.dumps(answer), "parts": ["visitors"]}).json()["data"]
+    assert saved["saved"] is True and saved["parts"] == ["visitors"] and saved["changed"] is True
+    notes, _error = load_notes(data_dir, NEXT_GAME)
+    assert notes.visitors.home[0].name == "Big Recruit" and [s.heading for s in notes.sections] == ["Coaching matchup", "Key matchups"], "the written notes stay"
+    status = client.post("/api/notes/run", json={"gameId": NEXT_GAME, "parts": ["visitors", "nonsense"]})
+    assert status.status_code == 200, "no Claude Code in the tests: the run is refused with the reason, never a crash"

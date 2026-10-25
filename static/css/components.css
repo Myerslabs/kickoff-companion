@@ -1500,6 +1500,7 @@ button.search__item:focus-visible { background: var(--row-hover); }
 .search__meta { font-family: var(--font-cond); color: var(--fog); font-size: calc(14px * var(--ui-scale)); }
 /* G3-15: the old results dim while a search runs; openable rows end in a chevron; a favorite team's star */
 .search__results.is-pending { opacity: 0.55; transition: opacity 120ms ease-out; }
+.leaders-grades--pending .stat-table-wrap { opacity: 0.55; transition: opacity 120ms ease-out; } /* the old group's table while the new one loads (post-freeze Wave 1) */
 .search__go { color: var(--fog); font-family: var(--font-cond); font-size: calc(22px * var(--ui-scale)); line-height: 1; text-align: right; }
 .search__star { color: var(--team-accent); }
 
@@ -2310,6 +2311,11 @@ body.board-mode .run-bar { display: none !important; }
 .page-note .readiness__item > b, .status-card .readiness__item > b { font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 700; }
 .page-note .readiness__detail, .status-card .readiness__detail { flex-basis: 100%; order: 2; margin: 0; color: var(--fog); }
 .page-note .readiness__item > .btn, .status-card .readiness__item > .btn { order: 1; }
+/* post-freeze Wave 1: an item's Run beside its Open, and a band's own load of one part of the notes (ui/part-load.js) */
+.readiness__run { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); order: 1; }
+.readiness__run-status, .part-load__status { margin: 0; color: var(--fog); }
+.readiness__run-status:empty, .part-load__status:empty { display: none; }
+.part-load { display: grid; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* the dot on the status pill: something new to look at (the card lists it) */
 .pill--notice .pill__notice { position: absolute; top: 1px; right: 2px; width: 8px; height: 8px; border-radius: 50%; background: var(--team-accent); box-shadow: 0 0 0 2px var(--topbar-bg); pointer-events: none; } /* in the pill's own corner: it takes no width from the label */
 .status-card__notice { display: grid; gap: var(--sp-2); margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid var(--rule); }
@@ -3719,6 +3725,17 @@ button.formation__man:active .formation__num { transform: translateY(1px); }
 .top25-head__line { margin: 2px 0 0; color: var(--fog); font-size: var(--text-label); }
 .top25-head__counts { display: flex; flex-wrap: wrap; gap: var(--sp-2); justify-content: flex-end; }
 .top25-count { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 2px 10px; border: 1px solid var(--rule-strong); border-radius: 16px; color: var(--chalk); font-family: var(--font-cond); font-size: calc(17px * var(--ui-scale)); font-weight: 600; white-space: nowrap; }
+/* post-freeze Wave 3: the counts are filters (ENH-6), press targets of 44 px; upsets are marked (ENH-5) and hidden with the
+   scores in spoiler mode, since an upset gives the result away */
+button.top25-count { min-height: 44px; background: none; cursor: pointer; }
+button.top25-count:disabled { opacity: 0.45; cursor: default; }
+button.top25-count.is-on { background: var(--team-primary); border-color: var(--team-primary); color: var(--chalk); }
+.top25-count--upset:not(:disabled) { border-color: var(--stale); }
+.top25-upset { display: inline-block; padding: 0 6px; border-radius: 3px; background: var(--stale); color: var(--ground); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+.top25-card--upset { box-shadow: inset 0 3px 0 var(--stale); }
+.top25-card--upset-live .top25-upset { background: none; color: var(--stale); border: 1px solid currentColor; }
+body.spoiler-on:not(.spoiler-all) :is(.top25-upset, .top25-upset__sep, .top25-count--upset) { display: none; }
+body.spoiler-on:not(.spoiler-all) .top25-card--upset { box-shadow: none; }
 .top25-head__delay { grid-column: 1 / -1; margin: 0; padding-top: var(--sp-2); border-top: 1px solid var(--rule); color: var(--fog); font-size: var(--text-label); }
 .top25-off { margin: 0; padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-radius: 6px; color: var(--fog); font-size: var(--text-label); line-height: 1.8; }
 .top25-off b { color: var(--chalk); font-family: var(--font-cond); font-weight: 600; }

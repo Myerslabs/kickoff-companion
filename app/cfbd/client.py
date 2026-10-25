@@ -69,6 +69,13 @@ PROBE_STUCK_SECONDS = 60.0  # a half-open probe out longer than this is reported
 RECONCILE_TIMEOUT = 45.0
 EMPTY_WARN_AFTER = 6  # an hour of ten-minute refetches of one finished-game answer that stays empty
 ESSENTIAL_KINDS = frozenset({DataKind.TICKER, DataKind.SCHEDULE})  # allowed in RESTRICTED mode beside the live calls (freeze wave F2)
+# Post-freeze Wave 2 (ENH-2, owner 2026-10-24: "the server should keep stable data permanently, serve expired copies while
+# refreshing in the background"). Cache rows are never deleted, so stable data is kept already; an expired copy of these
+# kinds is now served at once while one background call refreshes it, instead of making the page wait for CFBD.
+REVALIDATE_KINDS = frozenset({DataKind.TEAMS, DataKind.ROSTER, DataKind.RECRUITING, DataKind.REFERENCE, DataKind.HISTORY})
+# ENH-3 ("In Game gets server priority during a live window"): inside a live window the page calls that reach CFBD run
+# two at a time, so a burst of page loads never crowds the live poll, and the background refreshes wait for the game.
+LIVE_WINDOW_GENERAL_SLOTS = 2
 EMPTY_WARN_EVERY = 36  # then a reminder every six hours while it still costs a call each time
 
 Source = Literal["live", "cache"]
@@ -285,6 +292,8 @@ class CfbdClient:
         self._locks: dict[str, asyncio.Lock] = {}
         self._endpoint_locks: dict[str, asyncio.Lock] = {}  # CFBD answers 429 to concurrent calls on one endpoint (seen 2026-09-23)
         self._busy_until: dict[str, datetime] = {}  # endpoints resting after CFBD said busy (Phase 13)
+        self._revalidating: dict[str, asyncio.Task[Any]] = {}  # ENH-2: background refreshes of stable data, one per key
+        self._live_gate = asyncio.Semaphore(LIVE_WINDOW_GENERAL_SLOTS)  # ENH-3: page calls inside a live window
         self._empty_answers: dict[str, int] = {}  # cached finished-game keys that answered empty, and how many times in a row
         self._reconcile_lock = asyncio.Lock()
         self._reconcile_task: asyncio.Task[Any] | None = None
@@ -305,6 +314,8 @@ class CfbdClient:
             "session_failures": 0,
             "cache_hits": 0,
             "stale_serves": 0,
+            "revalidations": 0,  # ENH-2: expired stable copies served while a background call refreshed them
+            "gated_in_live_window": 0,  # ENH-3: page calls that waited their turn behind the live poll
             "blocked_by_quota": 0,
             "last_success_at": None,
             "last_failure_at": None,
@@ -350,6 +361,7 @@ class CfbdClient:
         use_cache: bool = True,
         max_age: timedelta | None = None,
         prewarm: bool = False,
+        background: bool = False,
     ) -> Fetched:
         """Fetch one endpoint. Returns fresh data, cached data, or stale data with a reason.
 
@@ -359,6 +371,9 @@ class CfbdClient:
         An endpoint with a publication schedule (app/cfbd/publish.py) is kept until its next slot
         instead of the kind's lifetime. `prewarm` marks the server's own refresh of such a key, which
         does not count as a page asking for it.
+
+        An expired copy of a stable kind (REVALIDATE_KINDS) is served at once while one background call refreshes it
+        (`background` marks that call); inside a live window the refresh waits for a later ask.
 
         Raises QuotaBlocked, CfbdUnavailable, or CfbdRequestError when there is nothing to return.
         """
@@ -371,6 +386,10 @@ class CfbdClient:
             self.stats["cache_hits"] += 1
             if schedule is not None and schedule.prewarm and not prewarm:
                 await self._note_asked(key, now)
+            return self._from_entry(entry, now, stale=False)
+        if entry is not None and not background and not live and max_age is None and schedule is None and kind in REVALIDATE_KINDS and self._may_refresh(now, kind):
+            self._revalidate(key, endpoint, params, kind)
+            self.stats["revalidations"] += 1
             return self._from_entry(entry, now, stale=False)
 
         lock = self._locks.setdefault(key, asyncio.Lock())
@@ -411,7 +430,13 @@ class CfbdClient:
             # Whatever happens to the call, the breaker must resolve: a probe left out would refuse
             # every later call on the lane for good.
             try:
-                result = await self._request(endpoint, canonical, live=live, breaker=breaker, admission=admission)
+                if self.live_window and not live:  # ENH-3: page calls take turns while the game is live
+                    if self._live_gate.locked():
+                        self.stats["gated_in_live_window"] += 1
+                    async with self._live_gate:
+                        result = await self._request(endpoint, canonical, live=live, breaker=breaker, admission=admission)
+                else:
+                    result = await self._request(endpoint, canonical, live=live, breaker=breaker, admission=admission)
             except CfbdRequestError as exc:
                 # CFBD answered: a 4xx is about this request, not about the upstream being down. Only a 4xx
                 # is raised as a refusal; any other status is a failure, should one ever arrive this way.
@@ -461,6 +486,34 @@ class CfbdClient:
                 self.stats["stale_serves"] += 1
                 return self._from_entry(entry, now, stale=True, error=error)
             raise CfbdUnavailable(f"{endpoint}: {error}")
+
+    def _may_refresh(self, now: datetime, kind: DataKind) -> bool:
+        """ENH-2: whether a background refresh could reach CFBD now. When the quota guard or the open breaker would refuse
+        it, the expired copy goes the usual way instead and is labelled stale with the reason."""
+        try:
+            self.quota.check(live=False, now=now, reconciling=False, essential=kind in ESSENTIAL_KINDS)
+        except QuotaBlocked:
+            return False
+        return self.breaker.state(now) == "closed"  # an open lane serves the copy as stale, with its reason, the usual way
+
+    def _revalidate(self, key: str, endpoint: str, params: dict[str, Any] | None, kind: DataKind) -> None:
+        """ENH-2: one background refresh of an expired stable copy; none while one runs for the key, inside a live window
+        (the game has the stage; the next ask after it refreshes) or once the client is closing."""
+        running = self._revalidating.get(key)
+        if (running is not None and not running.done()) or self.live_window or self._closed:
+            return
+
+        async def refresh() -> None:
+            try:
+                await self.get(endpoint, params, kind=kind, background=True)
+            except (CfbdError, QuotaBlocked) as exc:
+                log.info("Background refresh of %s skipped: %s", key, exc)
+            except Exception:  # noqa: BLE001 - a background refresh must never take the server down; logged
+                log.exception("Background refresh of %s failed", key)
+            finally:
+                self._revalidating.pop(key, None)
+
+        self._revalidating[key] = asyncio.create_task(refresh(), name=f"revalidate {key}")
 
     def lane(self, live: bool) -> Breaker:
         """The breaker a call answers to: live=True calls have their own."""
@@ -721,6 +774,11 @@ class CfbdClient:
 
     async def aclose(self) -> None:
         self._closed = True
+        for task in list(self._revalidating.values()):  # ENH-2: background refreshes end with the client
+            task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await task
+        self._revalidating.clear()
         task = self._reconcile_task
         if task is not None and not task.done():
             task.cancel()

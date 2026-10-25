@@ -4,7 +4,10 @@
 // Phase 16 (stream F) frozen API:
 //   poller({ url, refreshMs, staleAfterMs, onStatus, render, renderError, renderLoading }) -> { mount, refresh, unmount, last }
 //       Instant back: the last good envelope of every url is kept for the page's lifetime; a view mounted again
-//       within refreshMs draws it at once (no skeleton) and refreshes in the background. A fetch that brings
+//       draws it at once (no skeleton), whatever its age, and refreshes in the background (post-freeze Wave 2,
+//       BUG-18: before, only a copy younger than refreshMs was drawn and an older one meant the loading sun). The
+//       copies also live in this tab's sessionStorage (ENH-1), so a tab Safari discarded comes back with its
+//       pages; they are dropped when the page's build changes, and kept within a budget. A fetch that brings
 //       the same fetched_at and the same data does not rebuild the page. A rebuild keeps the page's scroll and
 //       every table's scroll. After each draw the document hears "kickoff:rendered" (detail { url }).
 //       refresh() returns a promise (pull to refresh waits on it).
@@ -13,6 +16,7 @@
 //       tries again, and a quiet 'Try now' inside the band.
 
 import { noteBuild, noteRestart } from "../build.js";
+import { pageBuild } from "../client-log.js";
 import { pollMs } from "../prefs.js";
 import { DASH, el, isNum, restoreScroll, scrollState, text } from "../ui/dom.js";
 import { band, loadingSun, stateBlock } from "../ui/states.js";
@@ -161,14 +165,140 @@ export function recordText(record) {
 const CACHE_LIMIT = 24;
 const kept = new Map();
 
+// Post-freeze Wave 2 (ENH-1): the same copies in this tab's sessionStorage, which a tab Safari discarded keeps. One key a
+// page and an index in order of use; a copy over STORE_ONE characters stays in memory only; the oldest go first past
+// STORE_BUDGET or when the browser says the storage is full. A new build forgets them all: its pages may read differently.
+const STORE_PREFIX = "kickoff.page:";
+const STORE_INDEX = "kickoff.page-index";
+const STORE_BUILD = "kickoff.page-build";
+const STORE_ONE = 900_000;
+const STORE_BUDGET = 3_000_000;
+
+function store() {
+  try {
+    return globalThis.sessionStorage || null;
+  } catch {
+    return null; // storage refused: the copies stay in memory only
+  }
+}
+
+function storedIndex(box) {
+  try {
+    const list = JSON.parse(box.getItem(STORE_INDEX) || "[]");
+    return Array.isArray(list) ? list.filter((entry) => entry && typeof entry.url === "string" && Number.isFinite(entry.size)) : [];
+  } catch {
+    return [];
+  }
+}
+
+function forgetStored(box) {
+  for (const entry of storedIndex(box)) {
+    try {
+      box.removeItem(STORE_PREFIX + entry.url);
+    } catch {
+      // nothing to free
+    }
+  }
+  try {
+    box.removeItem(STORE_INDEX);
+  } catch {
+    // nothing to free
+  }
+}
+
+let storeChecked = false;
+function checkedStore() {
+  const box = store();
+  if (!box || storeChecked) return box;
+  storeChecked = true;
+  try {
+    const build = pageBuild() || "plain";
+    if (box.getItem(STORE_BUILD) !== build) {
+      forgetStored(box);
+      box.setItem(STORE_BUILD, build);
+    }
+  } catch {
+    // a refused write: the copies may be from another build; the refresh behind each page corrects them
+  }
+  return box;
+}
+
+function persist(url, envelope, at) {
+  const box = checkedStore();
+  if (!box) return;
+  let body = null;
+  try {
+    body = JSON.stringify({ envelope, at });
+  } catch {
+    return;
+  }
+  let index = storedIndex(box).filter((entry) => entry.url !== url);
+  if (body.length > STORE_ONE) {
+    try {
+      box.removeItem(STORE_PREFIX + url);
+      box.setItem(STORE_INDEX, JSON.stringify(index));
+    } catch {
+      // nothing to free
+    }
+    return;
+  }
+  index.push({ url, size: body.length });
+  const drop = (entry) => {
+    try {
+      box.removeItem(STORE_PREFIX + entry.url);
+    } catch {
+      // nothing to free
+    }
+  };
+  while (index.length > CACHE_LIMIT || index.reduce((sum, entry) => sum + entry.size, 0) > STORE_BUDGET) drop(index.shift());
+  for (let tries = 0; tries < CACHE_LIMIT; tries += 1) {
+    try {
+      box.setItem(STORE_PREFIX + url, body);
+      box.setItem(STORE_INDEX, JSON.stringify(index));
+      return;
+    } catch {
+      // the storage is full: make room from the oldest and try again; with nothing older this copy stays in memory only
+      if (index.length <= 1) break;
+      drop(index.shift());
+    }
+  }
+  try {
+    box.removeItem(STORE_PREFIX + url);
+    box.setItem(STORE_INDEX, JSON.stringify(index.filter((entry) => entry.url !== url)));
+  } catch {
+    // nothing more to do
+  }
+}
+
+function restored(url) {
+  const box = checkedStore();
+  if (!box) return null;
+  try {
+    const raw = box.getItem(STORE_PREFIX + url);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    if (!saved || typeof saved !== "object" || !saved.envelope || typeof saved.envelope !== "object") return null;
+    const copy = { envelope: saved.envelope, at: Number.isFinite(saved.at) ? saved.at : 0 };
+    kept.set(url, copy);
+    return copy;
+  } catch {
+    return null; // a damaged copy is no copy: the page loads as new
+  }
+}
+
 function keep(url, envelope) {
+  const at = Date.now();
   kept.delete(url);
-  kept.set(url, { envelope, at: Date.now() });
+  kept.set(url, { envelope, at });
   while (kept.size > CACHE_LIMIT) kept.delete(kept.keys().next().value);
+  persist(url, envelope, at);
 }
 
 export function clearEnvelopeCache() {
   kept.clear();
+  const box = store();
+  if (box) forgetStored(box);
+  storeChecked = false;
 }
 
 /** What makes two envelopes draw the same page: the fetch time, the stale flag, the data and the errors. */
@@ -295,10 +425,10 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
       drawn = null;
       mounted += 1;
       inFlight = null;
-      const cached = kept.get(url);
-      const fresh = cached && isNum(refreshMs) && Date.now() - cached.at < refreshMs;
-      if (fresh) {
-        // Instant back: the page as it was, then a quiet refresh that rebuilds only if something changed.
+      const cached = kept.get(url) || restored(url);
+      if (cached) {
+        // Instant back (BUG-18: whatever its age): the page as it was, then a quiet refresh that rebuilds only if something
+        // changed. The status pill says how old the copy is until the refresh lands.
         last = cached.envelope;
         lastAt = cached.at;
         draw(cached.envelope);

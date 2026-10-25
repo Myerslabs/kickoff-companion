@@ -11,7 +11,7 @@ uv, an existing .venv made with `py -3.13 -m venv .venv` and pip works the same.
 hand with neither (public release Phase 8, "Kickoff Companion.cmd") installs uv with Astral's official
 installer, for this user only and without admin rights; uv then brings Python and the packages.
 
-  -Tray   hide this window behind a tray icon (Open the app, Status page, Show the log, Quit).
+  -Tray   start behind a tray icon (Open the app, Status page, Show the log, Quit) and close this window.
           The default since 2026-10-23: every start goes behind the tray icon unless "Tray mode" is
           switched off in the app's Settings (Server Settings).
   -Login  started at login (the Startup shortcut passes it): the browser opens only if Settings say
@@ -134,10 +134,24 @@ $appArgs = @()
 if ($Login) { $appArgs += "--login" }
 
 if ($Tray) {
-    $trayArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", (Join-Path $root "tools\tray.ps1"), "-Python", $python, "-Root", $root)
-    if ($Login) { $trayArgs += "-Login" }
-    & powershell.exe @trayArgs
-    exit $LASTEXITCODE
+    # Post-freeze Wave 1 (owner 2026-10-25): the tray icon runs as its own process with no console window at all, and this
+    # window closes. Before, this script waited on the tray in the same window and the tray hid that window, which Windows
+    # Terminal ignores, so the window stayed open behind the icon (and a Desktop icon's -NoExit kept it besides).
+    $trayArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $root 'tools\tray.ps1')`" -Python `"$python`" -Root `"$root`""
+    if ($Login) { $trayArgs += " -Login" }
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = "powershell.exe"
+    $info.Arguments = $trayArgs
+    $info.WorkingDirectory = $root
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    try {
+        [System.Diagnostics.Process]::Start($info) | Out-Null
+    } catch {
+        Stop-WithMessage "The tray icon did not start: $($_.Exception.Message). Switch Tray mode off in Settings (Server Settings) to start in this window."
+    }
+    Write-Step "Started behind the sun icon by the clock. This window closes now."
+    [Environment]::Exit(0)  # ends this window even when an older shortcut opened it with -NoExit
 }
 
 Write-Host ""
@@ -145,8 +159,13 @@ Write-Host "Kickoff Companion is starting. Keep this window open; close it or pr
 Write-Host ""
 & $python -m app @appArgs
 $code = $LASTEXITCODE
+if ($code -eq 6) {
+    Write-Host ""
+    Write-Host "Kickoff Companion was already running, so that copy was opened." -ForegroundColor Green
+    exit 0
+}
 if ($code -eq 4) {
-    Stop-WithMessage "Kickoff Companion is already running (another window, the tray icon, or start at login), or another program uses its port. Stop that copy first, then start again."
+    Stop-WithMessage "Another program uses Kickoff Companion's port (what holds it and the free port are above). Stop it, or set another PORT in .env, then start again."
 }
 if ($code -ne 0) {
     Stop-WithMessage "The server stopped with exit code $code. The log is in logs\app.log; the start steps are in logs\start.log."

@@ -134,6 +134,43 @@ scenarios.top25 = async () => {
   assert.equal(overtimes({}), null);
 };
 
+scenarios.filters = async () => {
+  // post-freeze Wave 3: upsets marked (ENH-5) and the counts as filters (ENH-6)
+  installWindow();
+  const fixture = JSON.parse(readFileSync(process.argv[4], "utf8"));
+  const { setIdentity } = await import(moduleUrl("identity.js"));
+  setIdentity({ school: "Swampwater Tech", mascot: "Mudpuppies", label: "SWT", name: "Mudpuppies" });
+  const { main, view } = await mounted(fixture);
+  const cards = () => main.querySelectorAll(".top25-card");
+  assert.equal(cards().length, 5);
+  const upset = cards().filter((c) => c.className.includes("top25-card--upset"));
+  assert.equal(upset.length, 2, "two upsets marked");
+  assert.equal(text(upset.find((c) => c.className.includes("top25-card--upset-final")).querySelector(".top25-upset")), "Upset");
+  assert.equal(text(upset.find((c) => c.className.includes("top25-card--upset-live")).querySelector(".top25-upset")), "Upset alert");
+  const pills = () => main.querySelectorAll(".top25-head__counts button");
+  assert.deepEqual(pills().map((b) => text(b)), ["All", "2 live", "1 to come", "2 final", "2 upsets"]);
+  assert.equal(pills()[0].getAttribute("aria-pressed"), "true", "every game shows at first");
+  pills().find((b) => text(b) === "2 live").click();
+  await settle();
+  assert.equal(cards().length, 2, "the live games alone");
+  assert.ok(cards().every((c) => c.className.includes("top25-card--live")));
+  assert.equal(pills().find((b) => text(b) === "2 live").getAttribute("aria-pressed"), "true");
+  pills().find((b) => text(b) === "2 upsets").click();
+  await settle();
+  assert.equal(cards().length, 2, "the upsets alone");
+  pills().find((b) => text(b) === "2 upsets").click();
+  await settle();
+  assert.equal(cards().length, 5, "a second tap shows every game again");
+  pills().find((b) => text(b) === "2 final").click();
+  await view.refresh();
+  await settle();
+  assert.equal(cards().length, 2, "the filter lasts across the minute's refresh");
+  pills()[0].click();
+  await settle();
+  assert.equal(cards().length, 5);
+  view.unmount();
+};
+
 scenarios.tabs = async () => {
   const { VIEWS, TABS, MENU } = await import(moduleUrl("ui/shell.js"));
   const { findPath } = await import(moduleUrl("ui/menu-tree.js"));
@@ -161,6 +198,17 @@ def fixture_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
 @needs_node
 def test_the_top25_page_in_a_fake_browser(tmp_path: Path, fixture_path: Path) -> None:
     run_scenario(tmp_path, SCENARIOS, "top25", str(fixture_path))
+
+
+@needs_node
+def test_upsets_and_the_count_filters(tmp_path: Path) -> None:
+    data = json.loads(json.dumps(TOP25))
+    data["games"][0]["upset"] = "final"  # No. 20 beat No. 2 in the fixture's terms: marked as the server would
+    data["games"][1]["upset"] = "live"
+    data["counts"]["upset"] = 2
+    path = tmp_path / "top25-upsets.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    run_scenario(tmp_path, SCENARIOS, "filters", str(path))
 
 
 @needs_node

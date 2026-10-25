@@ -28,7 +28,7 @@ from typing import Any
 import uvicorn
 from uvicorn.config import STARTUP_FAILURE
 
-from app import restart
+from app import APP_NAME, boot, portcheck, restart
 from app import shutdown as shutdown_signal
 from app.config import Settings
 from app.tls import TlsState
@@ -296,6 +296,44 @@ def cannot_listen(host: str, port: int, exc: OSError) -> int:
     return STARTUP_FAILURE
 
 
+PORT_CHANGED = 7  # run_server's return value when the reader took the next free port in the console; cli serves again
+
+
+def port_taken(settings: Settings, *, open_url: str | None = None, restarting: bool = False) -> int:
+    """The port is held (post-freeze Wave 1, owner 2026-10-25). A running copy of the app is opened instead of a second one
+    (ALREADY_RUNNING); another program is named and the next free port offered: in a console the reader is asked, and a yes
+    saves PORT in .env (PORT_CHANGED); without one the startup report waits for the tray icon's window (PORT_IN_USE)."""
+    from app.config import DEFAULT_ENV_FILE
+    from app.services import envfile
+
+    if not restarting and portcheck.running_copy(settings.port) is not None:
+        log.info("%s is already running on port %s; opening that copy instead of starting a second one.", APP_NAME, settings.port)
+        portcheck.clear_report(settings.data_dir)
+        if open_url:
+            open_in_browser(open_url)
+        return portcheck.ALREADY_RUNNING
+    report: dict[str, Any] = {
+        "reason": "port",
+        "port": settings.port,
+        "holder": portcheck.port_holder(settings.port),
+        "nextPort": portcheck.next_free_port(settings.host, settings.port),
+    }
+    report["message"] = portcheck.describe(report)
+    log.error("%s", report["message"].replace("\n", " "))
+    if portcheck.ask_in_console(report):
+        env_path = settings.env_file_used or DEFAULT_ENV_FILE
+        try:
+            envfile.set_values(Path(env_path), {"PORT": str(report["nextPort"])})
+        except (OSError, ValueError, envfile.EnvFileError) as exc:
+            log.error("PORT could not be saved in %s: %s", env_path, exc)
+            portcheck.write_report(settings.data_dir, report)
+            return PORT_IN_USE
+        log.info("PORT=%s saved in %s; starting on it.", report["nextPort"], env_path)
+        return PORT_CHANGED
+    portcheck.write_report(settings.data_dir, report)
+    return PORT_IN_USE
+
+
 def open_in_browser(url: str) -> None:
     """Open url in the default browser without holding up the server; a failure is only logged."""
     import threading
@@ -334,6 +372,8 @@ def run_server(settings: Settings, *, reload: bool = False, open_url: str | None
 
     # The port first, before the app is built: a second copy then stops before it opens the database,
     # renames a file or asks CFBD anything (found 2026-10-02).
+    if restarting:
+        boot.mark()  # the clock of "ready after" starts again with an in-place restart
     deadline = time.monotonic() + (RESTART_BIND_SECONDS if restarting else 0)
     while True:
         try:
@@ -341,8 +381,11 @@ def run_server(settings: Settings, *, reload: bool = False, open_url: str | None
             break
         except OSError as exc:
             if time.monotonic() >= deadline or not port_in_use(exc):
+                if port_in_use(exc):
+                    return port_taken(settings, open_url=open_url, restarting=restarting)
                 return cannot_listen(settings.host, settings.port, exc)
             time.sleep(0.25)
+    portcheck.clear_report(settings.data_dir)  # an old "could not start" no longer applies
 
     if reload:
         from uvicorn.supervisors import ChangeReload

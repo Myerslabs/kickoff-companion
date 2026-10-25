@@ -16,7 +16,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Myers Labs" }]
 keywords = ["college football", "second screen", "game day", "CFBD", "home network"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",
   "Framework :: FastAPI",
   "Intended Audience :: End Users/Desktop",

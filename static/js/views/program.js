@@ -9,7 +9,7 @@ import { weekCell, weekLong } from "../ui/weeks.js";
 import { cover, coverSkeleton } from "../ui/cover.js";
 import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtNum, fmtPct, fmtStat, fmtTime, isNum, replaceWith, snapshotKeys, text } from "../ui/dom.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
-import { hasLineups, lineupSummary } from "../ui/lineups.js";
+import { hasChart, hasLineups, lineupSummary } from "../ui/lineups.js";
 import { lineupBlock } from "../ui/lineups_combined.js";
 import { fullName, matchupCard, venueLine, weatherRow } from "../ui/matchup-card.js";
 import { crewText, teamStaff } from "../ui/game-staff.js";
@@ -35,6 +35,7 @@ import { gameNotesPanel } from "../ui/game-notes.js";
 import { printButton } from "../ui/print.js";
 import { newsDigest, newsSkeleton } from "../ui/news.js";
 import { notesPaste } from "../ui/notes-paste.js";
+import { partLoad } from "../ui/part-load.js";
 import { playValueTable } from "../ui/play-value.js";
 import { errorPanel, fetchJson, fetchPatient, partState, poller } from "./common.js";
 import { dataRunActive, onRunProgress, watchRun } from "../ui/run-bar.js";
@@ -298,27 +299,25 @@ function notesBand(data) {
 }
 
 /**
- * The empty state of a band filled from the game's notes (Phase 17 #13): what is missing, where it comes from,
- * and an "Add notes" button that unfolds the Program notes band and scrolls to it.
+ * The empty or half-filled state of a band filled from the game's notes. Phase 17 #13 sent the reader to the Program notes
+ * band ("Add notes"); post-freeze Wave 1 (owner 2026-10-25: "every empty or partly filled section gets its own Claude
+ * button saying what is missing") loads that part alone, merged into the notes there (ui/part-load.js), and only once it
+ * can be had: a part published later in the week says from when. A finished game's band just says what was not published.
  */
-function notesNeeded(lead, detail) {
-  return stateBlock({
-    lead,
-    detail,
-    action: {
-      label: "Add notes",
-      onClick: (event) => {
-        const page = event?.currentTarget?.closest?.(".page") || document;
-        const notes = page.querySelector("#program-notes");
-        if (notes) revealBand(notes);
-      },
-    },
-  });
+function partNeeded(data, part, lead, detail) {
+  const n = data.notes && typeof data.notes === "object" ? data.notes : {};
+  if (data.game?.completed) return stateBlock({ lead, detail });
+  return partLoad({ gameId: data.game?.gameId, parts: [part], lead, detail, due: n.due && typeof n.due === "object" ? n.due[part] : null });
 }
 
 function availabilityBand(data) {
   const n = data.notes && typeof data.notes === "object" ? data.notes : {};
   const rows = Array.isArray(n.availability) ? n.availability.filter((r) => r && typeof r === "object") : [];
+  const teams = [{ school: data.us?.school || usSchool(), abbreviation: abbrOf(data.us, usLabel()) }, { school: data.them?.school, abbreviation: abbrOf(data.them) }];
+  // post-freeze Wave 1: a report that lists one team only says the other is missing, with its own load
+  const listed = new Set(rows.map((r) => (typeof r.team === "string" ? r.team.trim() : "")).filter(Boolean));
+  const absent = rows.length && listed.size ? teams.filter((t) => typeof t.school === "string" && t.school && !listed.has(t.school)) : [];
+  const where = `the ${confLabel()} availability report when the conference publishes one`;
   return band({
     id: "program-availability",
     title: "Availability report",
@@ -326,7 +325,11 @@ function availabilityBand(data) {
     foldable: true,
     summary: rows.length ? `${rows.length} listed` : "",
     state: { status: "ready" },
-    body: () => (rows.length ? availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt, teams: [{ school: data.us?.school || usSchool(), abbreviation: abbrOf(data.us, usLabel()) }, { school: data.them?.school, abbreviation: abbrOf(data.them) }] }) : notesNeeded("No availability report for this game yet.", `It comes with the game's notes, from the ${confLabel()} availability report when the conference publishes one.`)),
+    body: () => (rows.length
+      ? el("div", {},
+        availabilityTable({ rows, source: n.availabilitySource, updatedAt: n.availabilityUpdatedAt, teams }),
+        absent.length === 1 ? partNeeded(data, "availability", `${text(absent[0].school)} is not listed yet.`, `A new report for both teams, from ${where}, replaces this one.`) : null)
+      : partNeeded(data, "availability", "No availability report for this game yet.", `It comes from ${where}, else the latest injury news.`)),
   });
 }
 
@@ -344,9 +347,22 @@ function lineupsBand(data) {
     summary: lineupSummary(n.lineups) || "",
     state: { status: "ready" },
     body: () => (hasLineups(n.lineups)
-      ? lineupBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, coaches: n.coaches, schemes: n.schemes, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) // freeze wave F4: the coordinators and the schemes head each matchup
-      : notesNeeded("No lineups for this game yet.", "They come with the game's notes, from both teams' published depth charts.")),
+      ? el("div", {},
+        // freeze wave F4: the coordinators and the schemes head each matchup
+        lineupBlock({ lineups: n.lineups, us: data.us, them: data.them, availability: n.availability, coaches: n.coaches, schemes: n.schemes, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }),
+        oneChartMissing(data, n.lineups))
+      : partNeeded(data, "lineups", "No lineups for this game yet.", "They come from both teams' published depth charts.")),
   });
+}
+
+/** Post-freeze Wave 1: one team's depth chart in, the other's not: say which, with the load for both charts. */
+function oneChartMissing(data, lineups) {
+  const l = lineups && typeof lineups === "object" ? lineups : {};
+  const us = hasChart(l.us);
+  const them = hasChart(l.them);
+  if (us === them) return null;
+  const school = us ? data.them?.school : data.us?.school || usSchool();
+  return partNeeded(data, "lineups", `${text(school) || "The other team"}'s depth chart is missing.`, "Loading the lineups again asks for both teams' published charts.");
 }
 
 /** Freeze wave F4: the recruits on hand this week, from the notes, as In Game's Visitors sheet and the Recruiting page draw them. */
@@ -366,7 +382,7 @@ function visitorsBand(data) {
     state: { status: "ready" },
     body: () => (total
       ? el("div", {}, twoCol(el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.us?.school : data.them?.school) || "Home"} visitors`), visitorsTable(home, { caption: "Home side's visitors" })), el("div", {}, subhead(`${text(data.game?.homeIsUs ? data.them?.school : data.us?.school) || "Away"} visitors`), visitorsTable(away, { caption: "Away side's visitors" }))), source ? el("p", { class: "note" }, `From ${source}${typeof v.updatedAt === "string" && v.updatedAt ? `, ${fmtDate(v.updatedAt, "short")}` : ""}. No list is published for every game.`) : null)
-      : notesNeeded("No visitor list for this game yet.", "It comes with the game's notes, from the recruiting sites' visitor lists.")),
+      : partNeeded(data, "visitors", "No visitor list for this game yet.", "It comes from the recruiting sites' visitor lists; not every game has one.")),
   });
 }
 

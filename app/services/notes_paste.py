@@ -306,3 +306,130 @@ def merge_availability(data_dir: Path, game_id: int, update: NotesFile) -> bool:
     after = [a.model_dump(exclude_none=True) for a in merged.availability]
     log.info("Availability saved for game %s: %d rows%s", game_id, len(after), "" if after != before else " (unchanged)")
     return after != before
+
+
+# --- one part of the notes (post-freeze Wave 1, owner 2026-10-25) ---------------------------------------------------------
+# "Every empty or partly filled section gets its own Claude button saying what is missing." A band of the Pre-Game Program
+# that is empty while the rest of the notes are written (Recruits on hand with no visitor list, a depth chart missing) asks
+# for that part alone: a short prompt with only its keys, and the answer merged into the notes already there, never
+# replacing them. The same parts are the To do's gaps (app/services/readiness.py).
+
+PARTS: dict[str, dict[str, Any]] = {
+    "sections": {
+        "label": "the written notes",
+        "keys": ("sections",),
+        "step": '"sections": program notes. A section each for the coaching matchup, key matchups, the betting line and how it moved, and anything notable this week. Plain football language, one or two short paragraphs per section.',
+    },
+    "schemes": {
+        "label": "the schemes",
+        "keys": ("schemes",),
+        "step": '"schemes": one short label each for {team}\'s offense and defense (for example "Spread, 11 personnel, up-tempo" or "4-2-5, quarters coverage"), and under "opponent" the same two labels for {opponent}.',
+    },
+    "availability": {
+        "label": "the injury report",
+        "keys": ("availability", "availabilitySource", "availabilityUpdatedAt"),
+        "step": '"availability": the {conference} availability report where the conference publishes one, else the latest injury news, for both teams. One row per player with team (the school\'s name, {team} or {opponent}), name, position, status (Out, Doubtful, Questionable or Probable) and a short note. Fill "availabilitySource" and "availabilityUpdatedAt".',
+    },
+    "visitors": {
+        "label": "the recruits on hand",
+        "keys": ("visitors",),
+        "step": '"visitors": recruits reported to be visiting for this game, under "home" or "away", with the source.',
+    },
+    "lineups": {
+        "label": "both depth charts",
+        "keys": ("lineups",),
+        "step": '"lineups": both teams\' published depth charts, {team} under "us" and {opponent} under "them". Copy the chart the team released this week (its game notes, or a beat report of it) or a depth-chart site. One entry per slot with the slot label as printed (QB, WR-X, LT, JACK, STAR, NB, PK, P, KR) and the names in the printed order, the starter first, with jersey number and class where printed.',
+    },
+    "broadcast": {
+        "label": "the TV crew",
+        "keys": ("broadcast",),
+        "step": '"broadcast": the TV crew calling this game: the network, the play-by-play voice, the analyst and the sideline reporter(s). TV only, not radio.',
+    },
+    "coaches": {
+        "label": "the coaches",
+        "keys": ("coaches",),
+        "step": '"coaches": each team\'s head coach, offensive coordinator and defensive coordinator by name, {team} under "us" and {opponent} under "them".',
+    },
+}
+
+
+def parse_parts(value: Any) -> list[str]:
+    """Known part names from "visitors,lineups" or a list, in the notes' own order; anything else is dropped."""
+    names = value.split(",") if isinstance(value, str) else value if isinstance(value, (list, tuple)) else []
+    asked = {n.strip().lower() for n in names if isinstance(n, str)}
+    return [name for name in PARTS if name in asked]
+
+
+def parts_words(parts: list[str]) -> str:
+    """"the injury report, the recruits on hand and both depth charts"."""
+    labels = [PARTS[p]["label"] for p in parts if p in PARTS]
+    if len(labels) <= 1:
+        return labels[0] if labels else "nothing"
+    return ", ".join(labels[:-1]) + " and " + labels[-1]
+
+
+def build_parts_prompt(who: Any, game: dict[str, Any], season: int | None, parts: list[str], tz: Any = None) -> str:
+    """The prompt for some parts of one game's notes: the full prompt's opening and rules, only these parts' keys and steps."""
+    parts = parse_parts(parts)
+    values = prompt_values(who, game, season, tz)
+    example = json.loads(values["shape"])
+    keep = {"gameId", "author", "writtenAt", "sources", *(k for p in parts for k in PARTS[p]["keys"])}
+    values["shape"] = json.dumps({k: v for k, v in example.items() if k in keep}, indent=2)
+    steps = [f"{i}. {PARTS[p]['step']}" for i, p in enumerate(parts, start=1)]
+    steps.append(f'{len(steps) + 1}. "sources": every page you used, with its real URL.')
+    text = (
+        "You are filling in part of the pre-game notes for a second-screen app that follows {team} ({team_name}, {conference}).\n\n"
+        "The game: {away} at {home}, kickoff {kickoff} (the app's game id is {game_id}, season {season}). The opponent is {opponent}.\n\n"
+        f"This asks only for {parts_words(parts)}; the rest of the notes are already written. "
+        "Search the web and answer with ONE JSON object in a single ```json code block, nothing else, in exactly this shape "
+        "(every field is optional, so leave out what you cannot find):\n\n"
+        "{shape}\n\nWhat to fill:\n" + "\n".join(steps) + "\n\n"
+        'Rules: never invent a player, a status or a number; leave a list empty when nothing reliable is published. Set "gameId" to {game_id}, '
+        '"author" to the name of the assistant writing it, and "writtenAt" to the current UTC time. Valid JSON only: no comments, no trailing commas.\n'
+    )
+    return fill(text, values)
+
+
+def _filled_value(value: Any) -> bool:
+    if value is None:
+        return False
+    dump = value.model_dump(exclude_none=True) if hasattr(value, "model_dump") else value
+    if isinstance(dump, dict):
+        return any(_filled_value(v) for v in dump.values())
+    if isinstance(dump, list):
+        return any(_filled_value(v) for v in dump)
+    return bool(str(dump).strip())
+
+
+def merge_parts(data_dir: Path, game_id: int, update: NotesFile, parts: list[str]) -> bool:
+    """Put some parts of an answer into the game's notes without touching the rest. A part the answer left empty keeps what
+    was there; a notes file that cannot be read is never replaced (NotesUnreadable); with no file yet a small one is made.
+    Returns True when the notes changed."""
+    parts = parse_parts(parts)
+    path = notes_path(Path(data_dir), game_id)
+    current: NotesFile | None = None
+    if path.exists():
+        try:
+            current = NotesFile.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as error:
+            log.error("Notes part not merged: the notes file for game %s cannot be read (%s); fix or remove %s first", game_id, error, path)
+            raise NotesUnreadable(f"the notes file for game {game_id} could not be read ({error}); fix or remove it, then run again") from error
+    merged = current.model_copy(deep=True) if current is not None else NotesFile(gameId=game_id, author=update.author, writtenAt=update.writtenAt)
+    before = merged.model_dump(exclude_none=True)
+    for part in parts:
+        keys = PARTS[part]["keys"]
+        if not _filled_value(getattr(update, keys[0], None)):
+            continue  # nothing found for this part: what was there stays
+        for key in keys:
+            value = getattr(update, key, None)
+            if value is not None:
+                setattr(merged, key, value)
+    known = {s.url for s in merged.sources if s.url}
+    merged.sources = [*merged.sources, *[s for s in update.sources if s.url and s.url not in known]]
+    after = merged.model_dump(exclude_none=True)
+    if after == before and current is not None:
+        log.info("Notes parts %s for game %s: nothing new", ",".join(parts), game_id)
+        return False
+    _atomic_write(path, json.dumps(after, indent=2, ensure_ascii=False) + "\n")
+    log.info("Notes parts %s saved for game %s", ",".join(parts), game_id)
+    return True

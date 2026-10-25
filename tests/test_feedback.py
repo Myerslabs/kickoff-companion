@@ -280,3 +280,12 @@ def test_the_menu_has_send_feedback_and_profile_the_list() -> None:
     assert "onFeedback: () => openFeedback()" in app_js and "startTrail();" in app_js
     assert 'page: "profile=feedback"' in (root / "ui" / "menu-tree.js").read_text(encoding="utf-8")
     assert '{ id: "feedback", title: "Feedback"' in (root / "views" / "settings.js").read_text(encoding="utf-8")
+
+
+def test_a_report_names_the_build_the_page_ran(tmp_path: Path):
+    # post-freeze Wave 3 (ENH-9): the build the tablet's page was loaded from, in the mail's signature line
+    store = FeedbackStore(tmp_path / "data", tmp_path / "logs", clock=lambda: NOW)
+    mail = store.mail({"id": "r1", "kind": "bug", "text": "It broke", "device": {"build": "0123abcd4567"}}, "9.9.9", "dev@example.com", "Kickoff Companion")
+    assert "Kickoff Companion 9.9.9 (build 0123abcd4567), a bug report (r1)" in mail["full"]
+    plain = store.mail({"id": "r2", "kind": "bug", "text": "It broke", "device": {"build": 7}}, "9.9.9", "dev@example.com", "Kickoff Companion")
+    assert "Kickoff Companion 9.9.9, a bug report (r2)" in plain["full"], "a damaged build is left out"

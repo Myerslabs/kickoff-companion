@@ -133,19 +133,38 @@ scenarios.programBands = async () => {
   clean("program without lineups", bare.root);
   assert.ok(text(bare.root.querySelector("#program-lineups")).includes("No lineups for this game yet."));
   assert.ok(!bare.root.querySelector("#program-lineups .band__summary"));
-  // Phase 17 #13: each empty band says what it is missing and offers "Add notes", which unfolds the notes band
+  // post-freeze Wave 1 (owner 2026-10-25): each empty band says what it is missing and loads that part alone: Run with
+  // Claude where the server finds it, Copy the prompt and Paste the answer, never a trip to the notes band
   assert.ok(text(bare.root.querySelector("#program-availability")).includes("No availability report for this game yet."));
-  for (const id of ["program-availability", "program-lineups"]) {
-    const add = bare.root.querySelector(`#${id} .state-block__action`);
-    assert.equal(text(add), "Add notes", `${id} offers Add notes`);
+  for (const id of ["program-availability", "program-lineups", "program-visitors"]) {
+    const labels = [...bare.root.querySelectorAll(`#${id} .part-load button`)].map((b) => text(b));
+    assert.ok(labels.includes("Copy the prompt") && labels.includes("Paste the answer") && labels.includes("Run with Claude"), `${id} loads its own part: ${labels.join(", ")}`);
+    assert.ok(!text(bare.root.querySelector(`#${id}`)).includes("Add notes"), `${id} no longer sends the reader to the notes`);
   }
-  const notesBand = bare.root.querySelector("#program-notes");
-  notesBand.setCollapsed(true);
-  bare.root.querySelector("#program-lineups .state-block__action").click();
-  assert.equal(notesBand.getAttribute("data-collapsed"), "false", "Add notes unfolds the notes band");
+  const posted = [];
+  route("/api/notes/run", (url) => { posted.push(String(url)); return envelope({ running: true, commandFound: true }); });
+  const runs = [...bare.root.querySelectorAll("#program-visitors .part-load button")].find((b) => text(b) === "Run with Claude");
+  runs.click();
+  await settle();
+  assert.ok(posted.length >= 1 && text(bare.root.querySelector("#program-visitors")).includes("in the background"), "the run starts and goes on behind the page");
   assert.ok(!text(bare.root).includes("pre-game notes task") && !text(bare.root).includes("by hand;"));
   bare.view.unmount();
   bare.root.remove();
+  // a part published later in the week says from when and offers nothing yet; one team's chart says the other is missing
+  const early = JSON.parse(JSON.stringify(FIXTURE));
+  early.notes = { ...(early.notes || {}), due: { availability: { due: false, from: "2026-10-29T19:00:00Z" }, lineups: { due: true, from: null } } };
+  const soon = await mountProgram(early);
+  const avail = soon.root.querySelector("#program-availability");
+  assert.ok(text(avail).includes("It is published from") && !avail.querySelector(".part-load"), text(avail));
+  soon.view.unmount();
+  soon.root.remove();
+  const half = JSON.parse(JSON.stringify(FIXTURE));
+  half.notes = { ...(half.notes || {}), present: true, lineups: { us: { team: half.us?.school, slots: [{ unit: "Offense", slot: "QB", players: [{ name: "Mason Hamilton", number: 12 }] }] }, them: { slots: [] } } };
+  const one = await mountProgram(half);
+  const chartBand = one.root.querySelector("#program-lineups");
+  assert.ok(text(chartBand).includes("depth chart is missing") && chartBand.querySelector(".part-load"), "one chart in: the other is named as missing");
+  one.view.unmount();
+  one.root.remove();
 };
 """
 

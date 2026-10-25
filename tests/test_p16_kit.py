@@ -355,12 +355,15 @@ scenarios.poller = async () => {
   assert.deepEqual(drawn.slice(-1), ["Swampwater Tech,Georgia"]);
   second.p.unmount();
   assert.equal(timers.size, 0, "unmount leaves no timer");
-  // a cached page older than the refresh interval is not reused
+  // post-freeze Wave 2 (BUG-18): a kept page older than the refresh interval is drawn at once too, then refreshed
   await advance(61000);
+  const calls1 = callsTo("/api/ratings");
   const third = make();
   third.p.mount(main);
-  assert.equal(third.loading(), 1, "stale cache: the skeleton, then a fresh fetch");
+  assert.equal(third.loading(), 0, "an old copy: still no loading sun");
+  assert.equal(text(main), "Swampwater Tech,Georgia", "the old copy at once");
   await settle();
+  assert.equal(callsTo("/api/ratings"), calls1 + 1, "and the refresh behind it");
   third.p.unmount();
   // a render that throws shows the error through renderError, never a blank page
   clearEnvelopeCache();
@@ -369,6 +372,59 @@ scenarios.poller = async () => {
   await settle();
   assert.ok(text(main).startsWith("error The page could not be drawn"), text(main));
   broken.unmount();
+};
+
+scenarios.pollerSession = async () => {
+  // post-freeze Wave 2 (ENH-1): the kept copies live in this tab's sessionStorage, so a tab Safari discarded (a fresh
+  // module, the same session) draws its pages at once; another build forgets them; a damaged copy is no copy
+  const box = new Map();
+  globalThis.sessionStorage = { getItem: (k) => (box.has(k) ? box.get(k) : null), setItem: (k, v) => box.set(k, String(v)), removeItem: (k) => box.delete(k) };
+  const at = "2026-09-28T12:00:00Z";
+  route("/api/season/overview", () => ({ status: 200, body: { data: { line: "kept" }, errors: [], meta: { fetched_at: at, stale: false } } }));
+  const common = await import(moduleUrl("views/common.js"));
+  common.clearEnvelopeCache();
+  const make = (mod) => {
+    let loading = 0;
+    const p = mod.poller({ url: "/api/season/overview", refreshMs: 60000, render: (env, c) => c.replaceChildren(document.createTextNode(env.data.line)), renderError: (m, c) => c.replaceChildren(document.createTextNode(`error ${m}`)), renderLoading: () => { loading += 1; return document.createTextNode("loading"); } });
+    return { p, loading: () => loading };
+  };
+  const main = document.createElement("main");
+  document.body.append(main);
+  const first = make(common);
+  first.p.mount(main);
+  await settle();
+  first.p.unmount();
+  assert.ok(box.has("kickoff.page:/api/season/overview"), "the copy is in sessionStorage");
+  assert.equal(box.get("kickoff.page-build"), "plain", "stamped with the page's build (the plain folder here)");
+  // the tab comes back after a discard: the module starts over, the session's copy remains
+  const fresh = await import(moduleUrl("views/common.js") + "?after-discard");
+  const again = make(fresh);
+  main.replaceChildren();
+  again.p.mount(main);
+  assert.equal(again.loading(), 0, "no loading sun after a discard");
+  assert.equal(text(main), "kept", "drawn from the session's copy");
+  await settle();
+  again.p.unmount();
+  // another build forgets the copies
+  box.set("kickoff.page-build", "0123abcd4567");
+  const rebuilt = await import(moduleUrl("views/common.js") + "?new-build");
+  const third = make(rebuilt);
+  main.replaceChildren();
+  third.p.mount(main);
+  assert.equal(third.loading(), 1, "a copy from another build is not drawn");
+  await settle();
+  third.p.unmount();
+  // a damaged copy loads the page as new
+  box.set("kickoff.page:/api/season/overview", "{not json");
+  const damaged = await import(moduleUrl("views/common.js") + "?damaged");
+  const fourth = make(damaged);
+  main.replaceChildren();
+  fourth.p.mount(main);
+  assert.equal(fourth.loading(), 1);
+  await settle();
+  assert.equal(text(main), "kept");
+  fourth.p.unmount();
+  delete globalThis.sessionStorage;
 };
 
 scenarios.prefsTimeout = async () => {
@@ -657,7 +713,7 @@ scenarios.domKit = async () => {
 };
 """
 
-NAMES = ["chips", "rows", "hooks", "states", "errorPanel", "poller", "prefsTimeout", "sheets", "pull", "textSize", "domKit"]
+NAMES = ["chips", "rows", "hooks", "states", "errorPanel", "poller", "pollerSession", "prefsTimeout", "sheets", "pull", "textSize", "domKit"]
 
 
 @needs_node

@@ -156,7 +156,7 @@ scenarios.players = async () => {
   assert.equal(tbodies.length, 3, "top 100, the gap, the Mudpuppies");
   assert.equal(rowsIn(tbodies[0]).length, 100);
   assert.ok(tbodies[1].className.includes("nat-gap"));
-  assert.equal(text(tbodies[1]), "Top 100 of 358 shown · Swampwater Tech below the cut");
+  assert.equal(text(tbodies[1]), "Top 100 of 358 shown", "ENH-8: how many are shown; the rows below are marked as ours already");
   assert.ok(tbodies[2].className.includes("nat-beyond"));
   const ours = rowsIn(tbodies[2]);
   assert.equal(ours.length, 3);
@@ -611,16 +611,25 @@ scenarios.glossary = async () => {
   Object.getPrototypeOf(document.body).scrollIntoView = function () { this.scrolled = true; };
   const { GLOSSARY } = await import(moduleUrl("glossary-data.js"));
   const { createGlossaryView, groupId } = await import(moduleUrl("views/glossary.js"));
-  localStorage.setItem(`band:${groupId("Defense")}`, "true"); // the reader folded Defense earlier
+  localStorage.setItem(`band:${groupId("Defense")}`, "true"); // a fold kept by a build before 2026-10-25
   const host = document.createElement("main");
   document.body.append(host);
   let view = createGlossaryView({});
   view.mount(host);
   clean("glossary", host);
+  assert.equal(localStorage.getItem(`band:${groupId("Defense")}`), null, "the folds an older build kept on the device are cleared");
   const groups = host.querySelectorAll(".gloss-groups section.band");
   assert.ok(groups.length >= 9 && groups.every((b) => b.className.includes("band--foldable")), "every group band folds");
-  const defense = host.querySelector(`#${groupId("Defense")}`);
-  assert.equal(folded(defense), "true", "the remembered fold holds");
+  let defense = host.querySelector(`#${groupId("Defense")}`);
+  assert.equal(folded(defense), "false", "a fold kept on the device no longer holds (post-freeze Wave 1)");
+  defense.querySelector(".band__toggle").click();
+  await advance(300); // the fold slides shut first (the virtual clock)
+  assert.equal(folded(defense), "true");
+  view.unmount();
+  view = createGlossaryView({});
+  view.mount(host);
+  defense = host.querySelector(`#${groupId("Defense")}`);
+  assert.equal(folded(defense), "true", "the fold holds for the visit: a redraw keeps it");
   const intro = host.querySelector("#glossary-search");
   const jumps = intro.querySelectorAll(".band__body .gloss__jump a");
   assert.ok(jumps.length >= 9 && intro.querySelector(".band__head .gloss__jump") === null, "jump links in the body, not the head");
@@ -632,20 +641,31 @@ scenarios.glossary = async () => {
   const sp = host.querySelector("#gloss-sp-plus a.national-link");
   assert.equal(sp.getAttribute("href"), "#national=rating%3Asp");
   view.unmount();
-  // a search marks the matches and never hides one inside a folded group
-  localStorage.setItem(`band:${groupId("Defense")}`, "true");
+  // a search marks the matches and never hides one inside a folded group, and leaves the reader's fold alone
   view = createGlossaryView({});
   view.mount(host);
+  assert.equal(folded(host.querySelector(`#${groupId("Defense")}`)), "false", "the jump opened the group for the visit");
+  host.querySelector(`#${groupId("Defense")}`).querySelector(".band__toggle").click();
+  await advance(300);
   const input = host.querySelector(".gloss__search");
   input.value = "havoc";
   input.dispatchEvent(makeEvent("input"));
   const found = host.querySelector(`#${groupId("Defense")}`);
   assert.equal(folded(found), "false");
-  assert.equal(localStorage.getItem(`band:${groupId("Defense")}`), "true", "the search does not change the remembered fold");
+  assert.equal(localStorage.getItem(`band:${groupId("Defense")}`), null, "nothing is written to the device");
   assert.ok(host.querySelectorAll(".gloss mark").length >= 3);
   input.value = "zzzz";
   input.dispatchEvent(makeEvent("input"));
   assert.ok(clean("no match", host).includes('Nothing matches "zzzz"'));
+  view.unmount();
+  view = createGlossaryView({});
+  view.mount(host);
+  assert.equal(folded(host.querySelector(`#${groupId("Defense")}`)), "true", "the search left the reader's fold of the visit alone");
+  view.unmount();
+  window.dispatchEvent(makeEvent("hashchange")); // another page: a new visit
+  view = createGlossaryView({});
+  view.mount(host);
+  assert.equal(folded(host.querySelector(`#${groupId("Defense")}`)), "false", "a new visit starts with every band open");
   view.unmount();
   // #glossary=<id> opens the entry's group even when folded
   view = createGlossaryView({ focusId: "havoc" });

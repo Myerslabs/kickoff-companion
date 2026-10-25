@@ -137,3 +137,32 @@ def test_a_dropped_device_is_one_info_line():
     assert record.getMessage() == "A device dropped its connection (ConnectionResetError)"
     other = logging.LogRecord("asyncio", logging.ERROR, __file__, 1, "boom", (), None)
     assert DroppedConnectionFilter().filter(other) and other.levelno == logging.ERROR
+
+
+BUILD_NODE = """import assert from "node:assert/strict";
+const { pageBuild, report } = await import(process.argv[2]);
+assert.equal(pageBuild("http://kickoff.local:8642/static/v/0123abcd4567/js/client-log.js"), "0123abcd4567");
+assert.equal(pageBuild("http://kickoff.local:8642/static/js/client-log.js"), null, "a page from the plain folder names no build");
+assert.equal(pageBuild(undefined), null);
+const sent = [];
+globalThis.fetch = async (url, options) => { sent.push(JSON.parse(options.body)); return { ok: true }; };
+globalThis.location = { hash: "#top25", origin: "http://x" };
+report("error", "error", ["ResizeObserver loop completed with undelivered notifications."], null);
+report("error", "error", ["ResizeObserver loop limit exceeded"], null);
+assert.equal(sent.length, 0, "the browser's harmless ResizeObserver notice is never sent");
+report("error", "console", ["A real problem"], null);
+assert.equal(sent.length, 1);
+assert.ok("build" in sent[0], "every client log line names the build (null outside a versioned page)");
+console.log("ok");
+"""
+
+
+def test_client_lines_name_the_build_and_leave_the_resize_notice_out(tmp_path):
+    # post-freeze Wave 3 (ENH-9)
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    script = tmp_path / "build.mjs"
+    script.write_text(BUILD_NODE, encoding="utf-8")
+    result = subprocess.run([node, str(script), (PROJECT_ROOT / "static" / "js" / "client-log.js").as_uri()], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+    assert result.returncode == 0 and "ok" in result.stdout, result.stdout[-800:] + result.stderr[-800:]

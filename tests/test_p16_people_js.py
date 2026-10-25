@@ -253,6 +253,37 @@ scenarios.leadersArrival = async () => {
   assert.equal(localStorage.getItem("leaders:scope"), JSON.stringify("conference"));
 };
 
+scenarios.leadersGrades = async () => {
+  // post-freeze Wave 1 (tester report 2026-10-24): a position chip keeps the table on screen until the new group is in,
+  // so the page never grows shorter under the reader and jumps up
+  await useTeam();
+  clearCache();
+  route("/api/season/leaders", () => envelope(leadersData()));
+  const graded = (group, names) => envelope({ group, groupName: group === "QB" ? "quarterbacks" : "defensive backs", of: 140, basis: "efficiency", rows: names.map((name, i) => ({ playerId: `${group}${i}`, name, position: group, team: "Diner Tech", teamAbbr: "DT", grade: 90 - i, rank: i + 1, of: 140 })), beyond: [] });
+  let release = null;
+  route("/api/grades", (url) => (String(url).includes("group=DB")
+    ? new Promise((resolve) => { release = () => resolve(graded("DB", ["Ball Hawk", "Cover Man"])); })
+    : graded("QB", ["Avery Passer", "Diner Arm", "Late Bloomer"])));
+  localStorage.setItem("leaders:gradeGroup", JSON.stringify("QB"));
+  const { createLeadersView } = await import(moduleUrl("views/leaders.js"));
+  const { main } = await mountView(createLeadersView);
+  const grades = () => main.querySelector("#leaders-grades");
+  assert.ok(text(grades()).includes("Avery Passer"), "the QB table");
+  const db = [...grades().querySelectorAll(".seg button")].find((b) => text(b) === "DB");
+  click(db);
+  await settle();
+  assert.ok(text(grades()).includes("Avery Passer"), "the QB table stays while the DB grades load");
+  assert.equal(grades().querySelector(".skel"), null, "no loading rows in its place");
+  assert.equal(grades().querySelector('.seg button[aria-pressed="true"]').textContent, "DB", "the tapped chip is pressed at once");
+  assert.ok(grades().querySelector(".leaders-grades--pending")?.getAttribute("aria-busy") === "true", "the old table is marked as waiting");
+  assert.ok(text(grades().querySelector(".band__summary")).includes("Getting the DB grades"));
+  release();
+  await settle();
+  assert.ok(text(grades()).includes("Ball Hawk") && !text(grades()).includes("Avery Passer"), "the DB table replaces it once in");
+  assert.equal(grades().querySelector(".leaders-grades--pending"), null);
+  clean("grades", main);
+};
+
 scenarios.leadersGap = async () => {
   await useTeam();
   clearCache();
@@ -267,6 +298,8 @@ scenarios.leadersGap = async () => {
   assert.equal(bodies[0].querySelectorAll("tr.is-window").length, 0);
   const tail = bodies[1].querySelectorAll("tr");
   assert.ok(tail[0].className.includes("gap-row"), "the gap row leads the second tbody");
+  assert.equal(text(tail[0]), "⋯", "ENH-8: no sentence repeating what the marked rows show");
+  assert.equal(tail[0].querySelector("td").getAttribute("aria-label"), "Below the top 10", "its meaning for a screen reader");
   assert.equal(tail.length, 3, "gap row plus both Mudpuppies");
   assert.ok(tail[1].className.includes("is-us"));
   // wave 3 (decision 2): the list's own order is its chip at large and medium, a plain number at small
@@ -828,7 +861,7 @@ const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
 const clearCache = () => clearEnvelopeCache();
 """
 
-NAMES = ["labels", "leadersChips", "leadersArrival", "leadersGap", "leadersVersusPpa", "rosterTable", "depthRows", "cardLoading", "gameLog", "cardSizes", "recruiting", "damaged"]
+NAMES = ["labels", "leadersChips", "leadersArrival", "leadersGrades", "leadersGap", "leadersVersusPpa", "rosterTable", "depthRows", "cardLoading", "gameLog", "cardSizes", "recruiting", "damaged"]
 
 
 @needs_node

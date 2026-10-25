@@ -111,6 +111,19 @@ def period_of(detail: Any) -> tuple[int | None, str | None]:
     return 4 + extra, match.group("clock")
 
 
+def upset_of(status: Any, home_rank: Any, away_rank: Any, home_points: Any, away_points: Any) -> str | None:
+    """Post-freeze Wave 3 (ENH-5, owner 2026-10-25): an AP-ranked team beaten, or trailing in a live game, by a lower-ranked
+    or unranked team. "final" for an upset, "live" for an upset under way, else None (a game to come, a tie, a missing
+    score, the better-ranked team ahead). The points are the ones the page shows, so our game keeps its spoiler delay."""
+    hp, ap, hr, ar = _int(home_points), _int(away_points), _int(home_rank), _int(away_rank)
+    if status not in ("live", "final") or hp is None or ap is None or hp == ap:
+        return None
+    leader, trailer = (hr, ar) if hp > ap else (ar, hr)
+    if trailer is None or (leader is not None and leader <= trailer):
+        return None
+    return "final" if status == "final" else "live"
+
+
 def ranked_order(games: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """AP poll order (the layout pass, owner 2026-10-22): each game at its better AP rank, so the No. 1 team's game comes
     first and No. 2 against No. 20 sits second. Live, to come and final stay mixed. A game id breaks any tie (a bad rank
@@ -279,10 +292,12 @@ class RankedWeekService:
                 "homeWinProbability": _num(wp.home_win_probability) if wp is not None else None,
                 "weather": self._weather(weather.get(g.id)),
                 "helps": helps.get(g.id),  # {pullFor, why, ours} when the game changes our path to the title game
+                "upset": upset_of(status, ap.get(g.home_team), ap.get(g.away_team), home_points, away_points),  # post-freeze Wave 3 (ENH-5)
             })
         games = ranked_order(out)
         data["games"] = games
         data["counts"] = {s: sum(1 for g in games if g["status"] == s) for s in ("live", "pre", "final")}
+        data["counts"]["upset"] = sum(1 for g in games if g.get("upset"))
         if parts["weekGames"].ok or ("slate" in parts and parts["slate"].ok):
             playing = {t for g in week_games if isinstance(g, Game) for t in (g.home_team, g.away_team) if t}
             off = sorted((school for school in ap if school not in playing), key=lambda s: ap[s])

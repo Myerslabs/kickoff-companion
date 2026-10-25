@@ -70,7 +70,7 @@ def full_notes() -> NotesFile:
 
 def test_nothing_is_missing_when_everything_is_loaded():
     result = readiness.readiness(status_with(), full_notes(), {"opponent": "Beta"}, date(2026, 10, 8))
-    assert result == {"items": [], "ready": True}
+    assert result == {"items": [], "ready": True, "commandFound": False}
 
 
 def test_the_list_names_each_gap_with_a_link():
@@ -85,7 +85,7 @@ def test_the_list_names_each_gap_with_a_link():
 def test_half_written_notes_list_exactly_what_is_missing():
     notes = NotesFile.model_validate({"sections": [{"heading": "H", "paragraphs": ["p"]}], "availability": [{"name": "A"}]})
     detail = readiness.readiness(status_with(), notes, {"opponent": "Beta"})["items"][0]["detail"]
-    assert detail == "Missing: both depth charts, the TV crew, the coaches."
+    assert detail == "Missing: both depth charts, the TV crew and the coaches."
 
 
 def test_no_game_means_no_notes_item_and_bad_status_does_not_raise():

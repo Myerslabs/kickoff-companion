@@ -41,7 +41,8 @@ def tray_handoff(
         return False
     command = ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(tray), "-Program", str(roots.program), "-Root", str(roots.install)]
     try:
-        popen(command, cwd=str(roots.install) if Path(roots.install).is_dir() else None, creationflags=getattr(subprocess, "CREATE_NEW_CONSOLE", 0))
+        # post-freeze Wave 1: no console window at all (a new console opened in Windows Terminal stayed behind the icon)
+        popen(command, cwd=str(roots.install) if Path(roots.install).is_dir() else None, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except OSError as exc:
         print(f"The tray icon did not start ({exc}); starting in this window instead.", file=sys.stderr)
         return False

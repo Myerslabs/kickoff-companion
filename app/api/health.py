@@ -272,6 +272,10 @@ def health(request: Request) -> dict[str, Any]:
         "server": {
             "started_at": started_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
             "uptime_seconds": round(uptime, 1),
+            # post-freeze Wave 1: when the data requests were first served and the first data answered, in seconds from the
+            # start (None until then); the tray icon's clock waits for ready_seconds
+            "ready_seconds": getattr(request.app.state, "ready_seconds", None),
+            "first_data_seconds": getattr(request.app.state, "first_data_seconds", None),
             "host": settings.host,
             "port": settings.port,
             "hostname": machine_name() or None,

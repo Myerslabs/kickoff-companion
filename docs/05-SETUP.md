@@ -32,7 +32,7 @@ Settings, About, shows the folder with an **Open the folder** button (on the ser
 uvx kickoff-companion
 ```
 
-The first start downloads the package and keeps it; `uvx kickoff-companion@latest` takes the newest version. Your files live in the app-data folder of the table above, as for the download, and the first start opens the demo the same way. Start at login (section 8) is not offered this way; the download and the code have it.
+The first start downloads the package and keeps it; `uvx kickoff-companion@latest` takes the newest version. Your files live in the app-data folder of the table above, as for the download, and the first start opens the demo the same way. A computer that ran the download before shares that folder with `uvx`, so `uvx` opens where the download left off: the setup page if **Use my own team** was chosen there, your team once the key is in. Start at login (section 8), the tray icon and the Desktop icon are not offered this way; the download and the code have them, and Settings says so.
 
 **The code.** Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
 
@@ -140,7 +140,7 @@ In the app, open Settings:
 
 - **Start at login** starts the server when you log in. On Windows that is a shortcut in the Startup folder, on Linux a systemd user service (`~/.config/systemd/user/kickoff-companion.service`), on macOS a LaunchAgent (`~/Library/LaunchAgents/com.kickoff-companion.server.plist`). It takes effect at the next login.
 - **Desktop icon** makes a double-click launcher. On Linux it also goes in the app menu.
-- **Tray mode** (Windows only) is on by default since 0.25.0: the server window hides behind a tray icon by the clock (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
+- **Tray mode** (Windows only) is on by default since 0.25.0: the server runs behind a tray icon by the clock with no window (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too, and since 1.0.0 the start window closes by itself. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
 
 With the download, the login item and the icon start the program itself; with the code, the start script.
 
@@ -171,6 +171,8 @@ With the download, the login item and the icon start the program itself; with th
 | `kickoff.local` does not open | Use the number address the server prints. Then check the UDP 5353 firewall rule (section 5) and the "network name" line on the status page. |
 | A viewer cannot reach the host at all | The TCP firewall rule (section 5), the same Wi-Fi, the host awake. |
 | Certificate warning | Open the `http://` address, not `https://`. With `HTTPS=on`, trust the certificate on that device (section 7). |
-| The server will not start | The window says why; `logs/app.log` has the details. `uv run python -m app --check` (the code) or `KickoffCompanion --check` (the download) checks `.env` without starting. |
+| The server will not start | The window says why; behind the sun icon a window opens with what happened, **Copy the report** and **Show the log**. `logs/app.log` has the details. `uv run python -m app --check` (the code) or `KickoffCompanion --check` (the download) checks `.env` without starting. |
+| "Port 8642 is taken" | A copy of Kickoff Companion already running is opened instead of a second one. Another program on the port is named, with the next free port offered: **Use port 8643** (behind the sun icon) or Enter (in a window) saves it in `.env`, and each device scans the new QR code on the status page once. `--use-port N` saves a port by hand. |
+| How long does a start take? | The sun icon's hover text counts the seconds while it starts, and a notification says when the data is ready. `logs/app.log` has "Ready for data after" and "First data after" lines. |
 | Windows says it protected your PC | The download is not signed. **More info**, then **Run anyway**; Windows asks once per download. |
 | Where are my files? | Settings, About, shows the folder and opens it; `--check` prints it too. Section 1 lists the app-data folder for each system. |

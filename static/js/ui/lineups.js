@@ -67,7 +67,8 @@ export function availabilityFor(rows, name) {
   return records(rows).find((row) => nameKey(row.name) === key) || null;
 }
 
-function hasChart(lineup) {
+/** Whether one team's chart has anyone on it (post-freeze Wave 1: a band with one chart says the other is missing). */
+export function hasChart(lineup) {
   return lineupSlots(lineup).some((slot) => slot.players.length);
 }
 

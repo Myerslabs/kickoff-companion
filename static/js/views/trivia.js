@@ -153,7 +153,7 @@ export function rulesBand() {
     title: "How it plays",
     collapsible: false,
     foldable: true,
-    collapsed: true, // folded until opened (the layout pass, 2026-10-22); the band remembers the reader's choice
+    collapsed: true, // folded until opened (the layout pass, 2026-10-22); the reader's choice lasts for the visit
     state: { status: "ready" },
     body: () =>
       el(

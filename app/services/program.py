@@ -53,7 +53,7 @@ from app.config import Settings
 from app.feeds import FeedStore, SeasonArchive, merge_headlines
 from app.services import context16, gamekeys
 from app.services.analytics import player_rows, season_average, team_game_rows
-from app.services.classes import class_fields
+from app.services.classes import INFERRED_NOTE, class_fields, degenerate, inferred_year
 from app.services.coaches import ROLES as COACH_ROLES
 from app.services.coaches import resolve as resolve_coaches
 from app.services.depth2 import adjusted_matchup, advanced_box, portal_index, tendencies, transfer_for
@@ -73,6 +73,7 @@ from app.services.playoff import picture
 from app.services.profiles import PROFILE_ROWS, advanced_rows, profiles_for
 from app.services.race import compact, race, stamp_of
 from app.services.ratings import fbs_set
+from app.services.readiness import notes_due
 from app.services.season import standings_rows
 from app.services.season_notes import SeasonNotes
 from app.services.stats_extra import RankTable, blue_chip, ppa_season_rows, recruit_sides, returning_block, sp_tables, star_counts, talent_lookup, usage_rows
@@ -445,7 +446,7 @@ class ProgramService:
             "advancedBox": advanced_box(parts["advancedBox"].fetched.payload if parts["advancedBox"].fetched else None, self._player_ids(parts, game)) if "advancedBox" in parts else None,
             "leaders": side_by_side,
             "series": series,
-            "notes": self._with_preseason_injuries(self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent), opponent),
+            "notes": {**self._with_preseason_injuries(self._with_season_coaches(self._notes_block(notes, notes_error, us_lines, opp_lines), opponent), opponent), "due": notes_due(game.start_date, self.client._clock()) if not game.completed else None},  # post-freeze Wave 1: which parts can be had yet
             "final": final,
             "ppa": self._ppa_block(parts, opponent, us_week, them_week, us_last, them_last, abbreviations),
             "commonOpponents": common_opponents(parts["games"].records, self.team, opponent, abbreviations),  # Phase 15; wave 2: the abbreviations for a small table
@@ -528,6 +529,25 @@ class ProgramService:
             "seasonLeaders": {"us": ppa_season_rows(parts["ppaSeason_us"].records, self.team, 10)[:8] if "ppaSeason_us" in parts else [], "them": ppa_season_rows(parts["ppaSeason_them"].records, opponent, 10)[:8] if opponent and "ppaSeason_them" in parts else []},
             "usage": {"us": usage_rows(parts["usage_us"].records, self.team)[:8] if "usage_us" in parts else [], "them": usage_rows(parts["usage_them"].records, opponent)[:8] if opponent and "usage_them" in parts else []},
         }
+
+    async def _roster_classes(self, parts: dict[str, Part], school: str) -> Any:
+        """Post-freeze Wave 1: when the team's roster puts nearly every player in one class (CFBD's 2026 roster of the owner's team, all
+        117 as year 1), a function giving each player his inferred class (classes.inferred_year: the recruiting class, else
+        last season's roster, one more call); None while the roster's own classes stand."""
+        roster = parts.get("teamRoster")
+        if roster is None or not degenerate([p.year for p in roster.records]):
+            return None
+        log.warning("CFBD's %s roster for %s lists nearly every player in one class; inferring the classes", self.year, school)
+        last = await self._f(f"teamRoster_{self.year - 1}", "/roster", {"team": school, "year": self.year - 1}, RosterPlayer, DataKind.ROSTER)
+        parts[last.name] = last
+        prior = {p.id: p.year for p in last.records if p.id}
+        recruited: dict[str, Any] = {}
+        for y in range(self.year - 3, self.year + 1):
+            part = parts.get(f"recruits_team_{y}")
+            for r in part.records if part is not None else []:
+                if r.id:
+                    recruited[r.id] = r.year
+        return lambda p: inferred_year(prior.get(p.id), next((recruited[r] for r in (p.recruit_ids or []) if r in recruited), None), self.year)
 
     def _recruiting_fetches(self, school: str, prefix: str) -> list[Any]:
         """The parts behind the blue-chip ratio, returning production, season PPA and usage of one team."""
@@ -1070,6 +1090,7 @@ class ProgramService:
                 result = "W" if us > them else "L" if us < them else "T"
             schedule.append({"gameId": g.id, "week": g.week, "postseason": gamekeys.label(g), "date": g.start_date, "startTimeTbd": bool(g.start_time_tbd), "opponent": {**teams.get(opponent or "", {}), "school": opponent, "apRank": ranks.get("AP", {}).get(opponent or "")}, "homeAway": "neutral" if g.neutral_site else ("home" if home else "away"), "completed": bool(g.completed), "result": result, "usPoints": us, "themPoints": them, "tv": tv.get(g.id), "venue": g.venue})
         roster = []
+        class_of = await self._roster_classes(parts, school)  # post-freeze Wave 1: None while CFBD's own classes stand
         transfers = portal_index(parts["portal"].records, school) if "portal" in parts else {}
         today = self.client._clock().astimezone(self.settings.tzinfo).date()
         cost_players = cost_players_of(self.season_notes.costs_for(school))  # freeze wave F4: the rumored figure beside each player
@@ -1079,7 +1100,7 @@ class ProgramService:
             full_name = " ".join(x for x in (p.first_name, p.last_name) if x)
             age, born = self.season_notes.age(school, full_name, today)  # Phase 17 #38
             cost = cost_players.get(name_key(full_name))
-            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": full_name or None, "firstName": p.first_name or None, "lastName": p.last_name or None, "position": p.position, **class_fields(p.year, None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "height": int(p.height) if isinstance(p.height, (int, float)) and p.height > 0 else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}", "costUsd": cost[0] if cost else None, "costNote": cost[1] if cost else None})
+            roster.append({"age": age, "born": born, "transfer": transfer_for(transfers, p.first_name, p.last_name), "isUs": school == self.team, "playerId": p.id, "number": p.jersey, "name": full_name or None, "firstName": p.first_name or None, "lastName": p.last_name or None, "position": p.position, **class_fields(p.year if class_of is None else class_of(p), None, self.year), "heightText": f"{int(p.height) // 12}-{int(p.height) % 12}" if p.height else None, "height": int(p.height) if isinstance(p.height, (int, float)) and p.height > 0 else None, "weight": p.weight, "hometown": ", ".join(x for x in (p.home_city, p.home_state) if x) or None, "headshotUrl": f"/media/headshot/{p.id}", "costUsd": cost[0] if cost else None, "costNote": cost[1] if cost else None})
         roster.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["name"] or ""))
         coaches = []
         for c in parts["coaches"].records:
@@ -1096,6 +1117,7 @@ class ProgramService:
             "advanced": {"rows": advanced_rows(parts["advanced"].records, school)},
             "schedule": schedule,
             "roster": roster,
+            "classesInferred": INFERRED_NOTE if class_of is not None else None,  # post-freeze Wave 1
             "coaches": coaches,
             "standings": self._team_standings(parts, teams, ranks, school),
             "staff": self._staff(school, coaches),  # Phase 17 Part 3a; freeze wave F3: one Staff band, CFBD's rows inside it

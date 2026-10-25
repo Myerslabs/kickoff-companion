@@ -210,9 +210,10 @@ async def readiness(request: Request) -> Any:
     if game is not None and not game.completed:
         team = state.settings.team
         opponent = game.away_team if game.home_team == team else game.home_team
-        game_info = {"gameId": game.id, "opponent": opponent}
+        game_info = {"gameId": game.id, "opponent": opponent, "kickoff": game.start_date}
         notes, _problem = load_notes(state.settings.data_dir, game.id)
-    result = readiness_service.readiness(status, notes, game_info, _today(request))
+    found = state.notes.resolve_command(state.settings.claude_command) is not None  # post-freeze Wave 1: the To do's Run
+    result = readiness_service.readiness(status, notes, game_info, state.cfbd._clock(), command_found=found, tz=state.settings.tzinfo)
     started = state.started_at.isoformat(timespec="seconds").replace("+00:00", "Z")
     return envelope({**result, "serverStartedAt": started}, source="live", errors=errors)
 

@@ -262,6 +262,8 @@ class FeedbackStore:
         steps = [s for s in (report.get("trail") or []) if isinstance(s, dict)]
         log_text = report.get("serverLog") if isinstance(report.get("serverLog"), str) else ""
         trouble = [line for line in log_text.splitlines() if " WARNING " in line or " ERROR " in line or " CRITICAL " in line]
+        page_build = device.get("build") if isinstance(device.get("build"), str) and device.get("build") else None  # post-freeze Wave 3 (ENH-9)
+        built = f" (build {page_build})" if page_build else ""
 
         def step_line(s: dict[str, Any]) -> str:
             at = str(s.get("at") or "")[11:19]
@@ -271,7 +273,7 @@ class FeedbackStore:
             parts = [
                 words,
                 "",
-                f"-- {app_name} {version}, a {kind.lower()} report ({report.get('id')})",
+                f"-- {app_name} {version}{built}, a {kind.lower()} report ({report.get('id')})",
                 f"Page {report.get('route') or 'not recorded'}, screen {screen}, sent {str(report.get('submittedAt') or '')[:16].replace('T', ' ')}",
             ]
             if step_count and steps:

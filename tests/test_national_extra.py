@@ -23,7 +23,7 @@ from app.cfbd.quota import QuotaBlocked
 from app.services import national_extra
 from app.services.national import FAMILIES, METRICS, resolve, validate
 from app.services.stats_extra import blue_chip
-from tests.conftest import FakeCfbd, fixture_payload, load_fixture
+from tests.conftest import FakeCfbd, fixture_payload, load_fixture, settle_refreshes
 from tests.test_national import route_all
 
 SEASON = 2026
@@ -216,10 +216,12 @@ def test_cold_calls_then_warm_for_a_week(app, client: TestClient, fake_cfbd: Fak
     app.state.cfbd._clock = lambda: base + timedelta(days=8)
     for key in EXTRA_KEYS:
         get(client, f"/api/national/{key}")
+    settle_refreshes(app, client)  # Wave 2: an expired class is served at once and refreshed behind the page
     assert national_calls(fake_cfbd) == 7  # only the open class (2027) is asked again
     app.state.cfbd._clock = lambda: base + timedelta(days=31)
     get(client, "/api/national/bluechip:ratio")
     get(client, "/api/national/returning:percentPPA")
+    settle_refreshes(app, client)
     assert national_calls(fake_cfbd) == 12  # a month on, the signed classes and returning production once each
 
 
@@ -442,6 +444,7 @@ def test_page_chips_cost_five_calls_cold_and_none_warm(app, client: TestClient, 
     assert national_calls(fake_cfbd) == 5  # warm for the week (the signed classes and returning are kept a month)
     app.state.cfbd._clock = lambda: base + timedelta(days=31)
     get(client, "/api/program/next")
+    settle_refreshes(app, client)
     assert national_calls(fake_cfbd) == 10  # a month on: the five keys once more
 
 

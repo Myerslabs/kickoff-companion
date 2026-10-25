@@ -101,10 +101,30 @@ scenarios.settings = async () => {
   assert.ok(text(document.querySelector(".profile-sheet")).includes("Start at login"), "the old Start and the server is Server Settings");
   start.view.unmount();
 };
+
+scenarios.uvx = async () => {
+  // post-freeze Wave 1: a uvx install has no start script; one sentence instead of three switches that do nothing
+  installWindow();
+  route("/api/settings", () => envelope({ prefs: PREFS, ...META, autoStart: { supported: false, installed: true, tray: false, system: "windows", enabled: false } }));
+  route("/api/host", () => envelope({ pinSet: true, isHost: true, serverComputer: true }));
+  route("/api/invite", () => envelope({ url: "http://kickoff.local:8642/", copyUrl: null, warnings: [] }));
+  route("/api/readiness", () => envelope({ ready: true, items: [] }));
+  route("/api/board/screens", () => envelope({ screens: [], serverComputer: true, browser: true }));
+  route("/api/claude-schedule", () => envelope({ enabled: false, commandFound: false, next: [], recent: [] }));
+  route("/api/updates", () => envelope({ enabled: true, current: "0.24.0", latest: "0.24.0", newer: false }));
+  const { main, view } = await mounted("server");
+  assert.ok(text(main.querySelector('.profile-tile[data-section="server"] small')).includes("Started with uvx"));
+  const sheet = document.querySelector(".profile-sheet");
+  const labels = sheet.querySelectorAll(".setting__label").map((l) => text(l.childNodes[0]));
+  assert.ok(labels.includes("How it starts"), labels.join(", "));
+  for (const gone of ["Start at login", "Tray mode", "Desktop icon"]) assert.ok(!labels.includes(gone), `${gone} is not offered on uvx`);
+  assert.ok(text(sheet).includes("uvx kickoff-companion@latest"));
+  view.unmount();
+};
 """
 
 
 @needs_node
-@pytest.mark.parametrize("scenario", ["settings"])
+@pytest.mark.parametrize("scenario", ["settings", "uvx"])
 def test_settings_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)

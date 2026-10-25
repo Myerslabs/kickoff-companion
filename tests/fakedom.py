@@ -428,7 +428,7 @@ globalThis.CustomEvent = class {
   }
 };
 const storage = new Map();
-globalThis.localStorage = { getItem: (k) => (storage.has(k) ? storage.get(k) : null), setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k) };
+globalThis.localStorage = { getItem: (k) => (storage.has(k) ? storage.get(k) : null), setItem: (k, v) => storage.set(k, String(v)), removeItem: (k) => storage.delete(k), get length() { return storage.size; }, key: (i) => [...storage.keys()][i] ?? null };
 globalThis.requestAnimationFrame = (fn) => setTimeout(() => fn(now), 16);
 globalThis.cancelAnimationFrame = (id) => clearTimeout(id);
 
@@ -512,7 +512,7 @@ globalThis.fetch = async (url) => {
   calls.push(String(url));
   const hit = routes.find(([prefix]) => String(url).startsWith(prefix));
   if (!hit) return { ok: false, status: 404, json: async () => ({ errors: [{ message: `harness: no route for ${url}` }] }) };
-  const answer = typeof hit[1] === "function" ? hit[1](url) : hit[1];
+  const answer = await (typeof hit[1] === "function" ? hit[1](url) : hit[1]); // a handler may hold its answer (a promise)
   if (answer instanceof Error) throw answer;
   return { ok: answer.status >= 200 && answer.status < 300, status: answer.status, json: async () => answer.body };
 };

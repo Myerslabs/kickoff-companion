@@ -48,22 +48,28 @@ function gradesBand(state) {
   const host = el("div", {});
   const draw = () => {
     const group = state.gradeGroup;
-    const got = state.grades[group];
-    const seg = el("div", { class: "seg", role: "group", "aria-label": "Position" }, GRADE_GROUPS.map(([id, label]) => el("button", { type: "button", "aria-pressed": id === group ? "true" : "false", onclick: () => { state.gradeGroup = id; remember(GRADE_KEY, id); draw(); load(); } }, label)));
+    // post-freeze Wave 1 (tester report 2026-10-24): a chip tap drew the loading rows at once, the page grew shorter under
+    // the reader and jumped up. The table on screen stays, dimmed, with the new chip pressed, until the new group is in.
+    const shown = state.grades[group] ? null : state.grades[state.gradeShown]?.data ? state.gradeShown : null;
+    const got = state.grades[shown || group];
+    const label = (GRADE_GROUPS.find(([id]) => id === group) || [group, group])[1];
+    const seg = el("div", { class: "seg", role: "group", "aria-label": "Position" }, GRADE_GROUPS.map(([id, label]) => el("button", { type: "button", "aria-pressed": id === group ? "true" : "false", onclick: () => { if (id === state.gradeGroup) return; state.gradeGroup = id; remember(GRADE_KEY, id); draw(); load(); } }, label)));
     const data = got?.data || null;
+    if (data && !shown) state.gradeShown = group;
     const rows = Array.isArray(data?.rows) ? data.rows : [];
     const beyond = Array.isArray(data?.beyond) ? data.beyond : [];
     const status = got?.error ? { status: "error", message: `${got.error}.` } : !got ? { status: "loading" } : rows.length ? { status: "ready" } : { status: "empty" };
     const basis = data?.basis === "production" ? "Production only: CFBD has no targets or snaps for this position." : data?.basis === "efficiency" ? "Efficiency and production." : "";
+    const graded = data && typeof data.groupName === "string" ? `${isNum(data.of) ? data.of : 0} FBS ${data.groupName} graded` : "";
     host.replaceChildren(band({
       id: "leaders-grades",
       title: "Top graded",
       collapsible: false,
       foldable: true,
-      summary: data && typeof data.groupName === "string" ? `${isNum(data.of) ? data.of : 0} FBS ${data.groupName} graded` : "",
+      summary: shown ? `Getting the ${label} grades…` : graded,
       state: status,
       emptyText: "No player at this position has enough plays to grade yet.",
-      body: () => el("div", {},
+      body: () => el("div", { class: shown ? "leaders-grades--pending" : null, "aria-busy": shown ? "true" : null },
         el("div", { class: "leaders__scope" }, seg),
         gradedTable([...rows, ...beyond], { us: usSchool(), onTap: (row) => openPlayer(row.playerId, row), caption: "Top graded" }),
         el("p", { class: "note" }, GRADE_NOTE, basis ? ` ${basis}` : ""),
@@ -172,8 +178,10 @@ export function windowRows(board, scope) {
     .map((r) => ({ ...r, isUs: true, rank: r[rankKey], windowRow: true }));
 }
 
-/** Move the window rows under a gap row in their own tbody (after the first draw and after every sort). */
-function splitWindow(wrap, gapText, span) {
+/** Move the window rows under a gap row in their own tbody (after the first draw and after every sort). Post-freeze Wave 3
+ *  (ENH-8, tester report 2026-10-24): the row says nothing in words ("Swampwater Tech below the top 10" repeated what the
+ *  marked rows show); it is a quiet break with its meaning for a screen reader. */
+function splitWindow(wrap, label, span) {
   const table = wrap?.querySelector?.("table");
   const main = table?.querySelector?.("tbody");
   if (!table || !main) return;
@@ -184,7 +192,7 @@ function splitWindow(wrap, gapText, span) {
     tail = el("tbody", { class: "stat-table__window" });
     table.append(tail);
   }
-  tail.replaceChildren(el("tr", { class: "gap-row" }, el("td", { class: "txt gap-row__cell", colspan: String(span) }, gapText)), ...moved);
+  tail.replaceChildren(el("tr", { class: "gap-row" }, el("td", { class: "txt gap-row__cell", colspan: String(span), "aria-label": label, title: label }, "⋯")), ...moved);
 }
 
 /** A name with its 28 px face (our scope and vs opponent); the position has a column of its own (wave 3, decision 1: a
@@ -251,7 +259,7 @@ function leagueTable(board, scope, ctx) {
     if (row.windowRow) classes.push("is-window");
     return classes.join(" ") || null;
   };
-  const gapText = `${text(ctx.us)} below the top ${top.length}`;
+  const gapLabel = `Below the top ${top.length}`;
   const span = ownColumns(columns).length; // every column the table draws (the position its own), whichever size shows
   let wrap = null;
   wrap = statTable({
@@ -260,11 +268,11 @@ function leagueTable(board, scope, ctx) {
     columns,
     rows,
     rowClass,
-    onSort: () => splitWindow(wrap, gapText, span),
+    onSort: () => splitWindow(wrap, gapLabel, span),
     onRowTap: (row) => openPlayer(row.playerId, row),
     caption: `${text(board.label)}, ${scope}`,
   });
-  splitWindow(wrap, gapText, span);
+  splitWindow(wrap, gapLabel, span);
   return el("div", { class: `leaders-table leaders-table--${scope}` }, wrap);
 }
 

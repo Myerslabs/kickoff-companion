@@ -38,7 +38,7 @@ from app.cfbd.models import (  # Phase 10
 )
 from app.config import Settings
 from app.services import context16, gamekeys
-from app.services.classes import class_fields, class_label
+from app.services.classes import INFERRED_NOTE, class_fields, class_label, degenerate, inferred_year
 from app.services.depth2 import class_rank, player_boards, portal_index, shared_ranks, transfer_for
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches, recruit_metric  # Phase 16 NV: the extra-call lists' keys and ranks
@@ -381,6 +381,17 @@ class PlayerService:
         # The same endpoint and parameters as season.py and program.py, so one cache entry serves all three.
         return await self.fetcher.fetch("games", "/games", {"year": self.year}, Game, DataKind.SCHEDULE)
 
+    async def _prior_classes(self, roster_part: Part, parts: dict[str, Part]) -> dict[str, Any] | None:
+        """Last season's listed class by player id, fetched only when this season's roster puts nearly every player in one
+        class (post-freeze Wave 1: CFBD's 2026 roster of the owner's team, all 117 as year 1). None when the roster's own classes stand;
+        the recruiting class comes first (classes.inferred_year)."""
+        if not degenerate([p.year for p in roster_part.records]):
+            return None
+        log.warning("CFBD's %s roster for %s lists nearly every player in one class; inferring the classes", self.year, self.team)
+        last = await self._roster(self.team, self.year - 1, f"roster_{self.year - 1}")
+        parts[last.name] = last
+        return {p.id: p.year for p in last.records if p.id}
+
     async def _roster(self, team: str, year: int, name: str) -> Part:
         return await self.fetcher.fetch(name, "/roster", {"team": team, "year": year}, RosterPlayer, DataKind.ROSTER)
 
@@ -607,8 +618,10 @@ class PlayerService:
                     out[recruit.id] = recruit
         return out
 
-    def _player_row(self, player: RosterPlayer, recruits: dict[str, Recruit]) -> dict[str, Any]:
+    def _player_row(self, player: RosterPlayer, recruits: dict[str, Recruit], prior: dict[str, Any] | None = None) -> dict[str, Any]:
+        """`prior` (last season's class by player id) is given only when this roster's classes cannot be believed."""
         recruit = next((recruits[r] for r in (player.recruit_ids or []) if r in recruits), None)
+        year = player.year if prior is None else inferred_year(prior.get(player.id), recruit.year if recruit else None, self.year)
         return {
             "playerId": player.id,
             "number": player.jersey,
@@ -617,7 +630,7 @@ class PlayerService:
             "lastName": player.last_name,
             "team": player.team,
             "position": player.position,
-            **class_fields(player.year, recruit.year if recruit else None, self.year),
+            **class_fields(year, recruit.year if recruit else None, self.year),
             "height": player.height,
             "heightText": _height_text(player.height),
             "weight": player.weight,
@@ -656,7 +669,8 @@ class PlayerService:
         for part in recruit_parts:  # the team's classes, then the nationwide classes behind the blue-chip rank
             parts[part.name] = part
         recruits = self._recruit_lookup(parts)
-        players = [self._player_row(p, recruits) for p in roster_part.records]
+        prior = await self._prior_classes(roster_part, parts)
+        players = [self._player_row(p, recruits, prior) for p in roster_part.records]
         ppa_by_id = {r["playerId"]: r for r in ppa_season_rows(ppa_part.records, self.team)}
         usage_by_id = {r["playerId"]: r for r in usage_rows(usage_part.records, self.team)}
         transfers = portal_index(portal_part.records, self.team)
@@ -690,6 +704,7 @@ class PlayerService:
             "team": {**teams.get(self.team, {}), "school": self.team},
             "players": players,
             "costs": self.season_notes.costs_for(self.team),  # Phase 17 Part 3b: rumored roster costs
+            "classesInferred": INFERRED_NOTE if prior is not None else None,  # post-freeze Wave 1: CFBD's classes were not believed
             "starCounts": counts,
             "average": round(sum(rated) / len(rated), 2) if rated else None,
             "rated": len(rated),
@@ -856,7 +871,14 @@ class PlayerService:
             parts[part.name] = part
 
         recruits = self._recruit_lookup(parts)
-        row = self._player_row(found, recruits)
+        # post-freeze Wave 1: a roster whose classes cannot be believed gives the card the same inferred class as the Roster page
+        source = roster_part if is_us else parts.get("opponentRoster")
+        prior: dict[str, Any] | None = None
+        if source is not None and degenerate([p.year for p in source.records]):
+            last = parts.get(f"roster_{self.year - 1}") if is_us else None
+            prior = {p.id: p.year for p in last.records if p.id} if last is not None else {}
+        row = self._player_row(found, recruits, prior)
+        found_recruit = next((recruits[r] for r in (found.recruit_ids or []) if r in recruits), None)
         row["recruit"] = recruit_block(next((recruits[r] for r in (found.recruit_ids or []) if r in recruits), None))
         if row["recruit"] is not None:  # Phase 16 NV: the class's recruit list behind the rank
             row["recruit"]["metric"] = recruit_metric(row["recruit"]["year"], self.year) if row["recruit"]["nationalRank"] is not None else None
@@ -885,7 +907,8 @@ class PlayerService:
             hit = next((p for p in part.records if p.id == player_id), None)
             if hit is not None:
                 school = hit.team or team
-                history.append({"year": year, "team": school, "teamAbbr": teams.get(school, {}).get("abbreviation"), "classYear": hit.year, "position": hit.position, "number": hit.jersey})
+                listed = inferred_year(prior.get(found.id), found_recruit.year if found_recruit else None, self.year) if prior is not None and year == self.year else hit.year
+                history.append({"year": year, "team": school, "teamAbbr": teams.get(school, {}).get("abbreviation"), "classYear": listed, "position": hit.position, "number": hit.jersey})
         history = history_classes(history)
         # wave 3 review (fail loud): an earlier roster that did not load leaves its year out of the History, and so out of the
         # past seasons asked for below; the card says which years, since the career rows may be missing a season

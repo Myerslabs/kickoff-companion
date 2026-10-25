@@ -93,8 +93,12 @@ fi
 printf '\nKickoff Companion is starting. Keep this window open; close it or press Ctrl+C to stop.\n\n'
 "$PYTHON" -m app
 code=$?
+if [ "$code" -eq 6 ]; then
+  printf '\nKickoff Companion was already running, so that copy was opened.\n'
+  exit 0
+fi
 if [ "$code" -eq 4 ]; then
-  stop_with "Kickoff Companion is already running (another window or the login service), or another program uses its port. Stop that copy first, then start again."
+  stop_with "Another program uses Kickoff Companion's port (what holds it and the free port are above). Stop it, or set another PORT in .env, then start again."
 fi
 if [ "$code" -ne 0 ] && [ "$code" -ne 130 ]; then
   stop_with "The server stopped with exit code $code. The log is in logs/app.log; the start steps are in logs/start.log."

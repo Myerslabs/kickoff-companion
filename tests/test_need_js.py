@@ -57,9 +57,9 @@ scenarios.race = async () => {
   assert.ok(tables[0].querySelector(".race-badge--tiebreaker"), "a tiebreaker is said so");
   assert.ok(words.includes("4 more teams, 4 of them out"), "the rest of the table is counted");
   const watch = tables[1].querySelectorAll("tbody tr");
-  assert.equal(watch.length, 3);
-  assert.ok(text(watch[0]).includes("Win it") && text(watch[0]).includes("Swampwater Tech at Diner Tech"), "our game first, and it says Win it");
-  assert.ok(text(watch[1]).includes("Bass Boat") && text(watch[1]).includes("takes a team we could tie with"));
+  assert.equal(watch.length, 2, "ENH-7: our own game is not one of the games that help us");
+  assert.ok(!text(tables[1]).includes("Win it") && !text(tables[1]).includes("Swampwater Tech at Diner Tech"), "no row for our own game");
+  assert.ok(text(watch[0]).includes("Bass Boat") && text(watch[0]).includes("takes a team we could tie with"));
   assert.ok(words.includes("The playoff:") && words.includes("the 10th seed") && section.querySelectorAll(".race__seed").length === 12 && section.querySelector(".race__seed--us"), "the twelve seeds with ours marked");
   assert.ok(words.includes("First four out: CED") && words.includes("By the AP poll, week 9"));
   assert.ok(!RAW.test(words), words);

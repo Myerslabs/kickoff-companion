@@ -125,17 +125,20 @@ function roster(data, state, { id = "team-roster", collapsed = false } = {}) {
     state: partState(data.parts?.teamRoster, players.length > 0),
     emptyText: "No roster yet.",
     body: () =>
-      statTable({
-        columns,
-        rows: players.map((p) => ({ ...p, transferFrom: p?.transfer && typeof p.transfer.from === "string" ? p.transfer.from : null })),
-        sort: state.sorts.roster || { key: "number", dir: "ascending" },
-        onSort: (sort) => {
-          state.sorts.roster = sort; // the reader's order survives a refresh (G3-06)
-        },
-        compact: true,
-        sizes: true,
-        onRowTap: (p) => openPlayer(p.playerId, { ...p, isUs: Boolean(data.team?.isUs) }),
-      }),
+      el("div", {},
+        statTable({
+          columns,
+          rows: players.map((p) => ({ ...p, transferFrom: p?.transfer && typeof p.transfer.from === "string" ? p.transfer.from : null })),
+          sort: state.sorts.roster || { key: "number", dir: "ascending" },
+          onSort: (sort) => {
+            state.sorts.roster = sort; // the reader's order survives a refresh (G3-06)
+          },
+          compact: true,
+          sizes: true,
+          onRowTap: (p) => openPlayer(p.playerId, { ...p, isUs: Boolean(data.team?.isUs) }),
+        }),
+        typeof data.classesInferred === "string" && data.classesInferred ? el("p", { class: "note" }, data.classesInferred) : null, // post-freeze Wave 1
+      ),
   });
 }
 

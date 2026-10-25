@@ -225,8 +225,9 @@ def test_the_package_install_offers_no_login_start(tmp_path: Path):
     launcher = Launcher(tmp_path, platform="win32", appdata=str(tmp_path / "Roaming"), installed=True)
     assert not launcher.supported and launcher.status()["installed"] is True
     assert "package install" in launcher.set_enabled(True)["error"]
+    assert not launcher.tray_supported and launcher.status()["tray"] is False, "post-freeze Wave 1: uvx has no tray script"
     usual = Launcher(tmp_path, platform="win32", appdata=str(tmp_path / "Roaming"))
-    assert usual.supported and usual.status()["installed"] is False
+    assert usual.supported and usual.status()["installed"] is False and usual.tray_supported
 
 
 def test_the_build_tool_archives_a_program_already_in_place(tmp_path: Path, capsys):

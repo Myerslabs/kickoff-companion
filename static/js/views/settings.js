@@ -169,10 +169,13 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("First time setup", el("a", { class: "btn", href: "/setup" }, "Open"), "Connect a phone, a tablet or a TV: the QR code and the address to open, and, with HTTPS on, trusting the certificate once. Nothing to install."),
       ],
       start: [
-        row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
+        // post-freeze Wave 1: a uvx install has no start script, so start at login, the tray and the Desktop icon cannot
+        // work there; one sentence instead of three switches that do nothing
+        auto.installed ? row("How it starts", el("span", { class: "setting__value" }, "uvx"), "Started with uvx: start it again with uvx kickoff-companion@latest, which also takes the newest version. Start at login, the tray icon and the Desktop icon come with the download from GitHub.") : null,
+        auto.installed ? null : row("Start at login", toggle(p.autoStart, (value) => change({ autoStart: value }, "Start at login"), "Start at login"), loginText(auto)),
         row("Open the app on start", select([{ value: "manual", label: "When started by hand (default)" }, { value: "always", label: "Always, at login too" }, { value: "never", label: "Never" }], p.openBrowser || "manual", (value) => change({ openBrowser: value }, "Open the app on start"), "Open the app on start"), "Opens this app in the server computer's browser once the server is up. Phones and tablets connect from the QR code on the status page."),
         auto.tray ? row("Tray mode", toggle(p.trayMode !== "off", (value) => change({ trayMode: value ? "on" : "off" }, "Tray mode"), "Tray mode"), "On by default: the server's window hides behind a tray icon by the clock (double-click it to open the app; its menu has Status, Log and Quit). Off keeps the window on the taskbar. Takes effect on the next start.") : null, // on by default (owner 2026-10-23)
-        row("Desktop icon", shortcutButton, iconText(auto)),
+        auto.installed ? null : row("Desktop icon", shortcutButton, iconText(auto)),
         row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
         row("HTTPS for my devices", httpsControl(meta.network), `${meta.network?.https ? "On: this server also answers https://." : "Off: plain HTTP only."} On, your own devices trust the certificate once on First time setup and then get the screen lock without the video, one-tap paste of the answer and the home-screen app; guests keep http:// and need nothing. Switching restarts the server.`),
         row("Restart the server", restartControl(), "Starts the server over in the same window, for a changed setting or an update pulled while it runs. The page reloads when it's back, usually 10 to 20 seconds."),
@@ -745,7 +748,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         const missing = Array.isArray(extras.readiness?.items) ? extras.readiness.items.length : null;
         return `Claude Code ${meta.notes?.commandFound ? "found" : "not found"} · schedule ${onOff(p.scheduledRuns !== false && meta.notes?.commandFound === true)}${missing ? ` · ${missing} ${missing === 1 ? "load" : "loads"} missing` : missing === 0 ? " · everything loaded" : ""}`;
       }
-      case "server": return `Start at login ${onOff(p.autoStart === true && auto.supported !== false)} · backups ${onOff(p.backups !== false)} · ${meta.network?.https ? "HTTPS" : "HTTP"} · restart, updates`;
+      case "server": return `${auto.installed ? "Started with uvx" : `Start at login ${onOff(p.autoStart === true && auto.supported !== false)}`} · backups ${onOff(p.backups !== false)} · ${meta.network?.https ? "HTTPS" : "HTTP"} · restart, updates`;
       case "about": return `${text(plan.tierName || meta.quota?.tierName)} key · ${isNum(plan.used) ? fmtNum(plan.used) : DASH} of ${isNum(plan.monthlyLimit) ? fmtNum(plan.monthlyLimit) : DASH} calls · version ${text(meta.about?.version)}`;
       case "setup": return "First time setup · the demo · the Archive · the Season in review";
       case "feedback": return typeof document !== "undefined" && document.body?.dataset?.role === "guest" ? "Send it from the menu; it goes to the host" : "The reports sent from the menu, each with its logs";

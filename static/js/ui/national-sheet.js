@@ -243,11 +243,12 @@ function listScale(d) {
   return barScale(rowsOf(d).map((r) => r.value), { higher: d.higherIsBetter !== false, zero: d.family === "board" || d.family === "poll" }); // recruit ratings (0.87 to 1.00) run worst to best shown
 }
 
+/** The break between the top N and ours below the cut. Post-freeze Wave 3 (ENH-8): how many are shown, not who is below:
+ *  the rows under it are marked as ours already. */
 function gapRow(d, beyond, span) {
   const shown = list(d.rows).length;
-  const who = [...new Set(beyond.map((r) => (r.isUs === true ? text(obj(d.us).team || usSchool()) : text(r.team))))].join(" and ");
   const total = isNum(d.of) ? ` of ${fmtNum(d.of)}` : "";
-  return el("tbody", { class: "nat-gap" }, el("tr", {}, el("td", { class: "txt", colspan: String(span) }, `Top ${fmtNum(shown)}${total} shown · ${who} below the cut`)));
+  return el("tbody", { class: "nat-gap" }, el("tr", {}, el("td", { class: "txt", colspan: String(span) }, `Top ${fmtNum(shown)}${total} shown`)));
 }
 
 function partErrors(d) {

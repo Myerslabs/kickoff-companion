@@ -272,3 +272,15 @@ def route_depth2(fake: FakeCfbd) -> None:
     fake.fixture("/rushing/plays", "rushing_plays_opponent")
     fake.fixture("/passing/plays", "passing_plays_opponent")
     fake.fixture("/game/box/advanced", "game_box_advanced")
+
+
+def settle_refreshes(app: Any, client: Any) -> None:
+    """Post-freeze Wave 2 (ENH-2): wait for the background refreshes of expired stable copies, so a test that counts
+    upstream calls counts the ones made behind the pages too."""
+    import asyncio
+
+    async def drain() -> None:
+        while app.state.cfbd._revalidating:
+            await asyncio.gather(*list(app.state.cfbd._revalidating.values()), return_exceptions=True)
+
+    client.portal.call(drain)

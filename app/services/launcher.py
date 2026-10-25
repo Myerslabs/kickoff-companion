@@ -183,6 +183,8 @@ class Launcher:
 
     @property
     def tray_supported(self) -> bool:
+        if self.installed:  # uvx runs in its own console; the wheel carries no tray script (post-freeze Wave 1)
+            return False
         return self.system == "windows" and (self.program is None or self.tray_script.is_file())
 
     @property
@@ -318,7 +320,8 @@ class Launcher:
             exe, arguments, workdir = str(self.program), ("--login" if login else ""), str(self.program.parent)
         else:
             exe = "powershell.exe"
-            arguments = f"-NoExit -ExecutionPolicy Bypass -File \"{self.script_path}\"" + (" -Tray" if tray else "") + (" -Login" if login else "")
+            # post-freeze Wave 1: no -NoExit, which kept the window open behind the tray icon; start.ps1 pauses on a problem itself
+            arguments = f"-ExecutionPolicy Bypass -File \"{self.script_path}\"" + (" -Tray" if tray else "") + (" -Login" if login else "")
             workdir = str(self.project_root)
         icon = self.windows_icon()
         return (

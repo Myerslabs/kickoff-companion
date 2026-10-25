@@ -7,5 +7,7 @@ REPO_URL = "https://github.com/Myerslabs/kickoff-companion"
 REPO_IS_PUBLIC = True  # public again since 0.13.0 (2026-10-09): the invite page offers friends a copy
 DATA_CREDIT = "Data provided by CollegeFootballData.com"
 DATA_URL = "https://collegefootballdata.com"
-__version__ = "0.25.2"  # the release number; tools/release_public.py refuses a release message that names another
+__version__ = "1.0.0"  # the release number; tools/release_public.py refuses a release message that names another
 BUILD_PHASE = 15
+
+from app import boot as _boot  # noqa: E402, F401 - the start's clock begins with the first import of the app

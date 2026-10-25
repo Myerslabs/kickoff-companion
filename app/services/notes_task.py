@@ -80,6 +80,8 @@ class NotesRunner:
         who = self.who() if callable(self.who) else None
         if mode == "injuries":
             return notes_paste.build_injury_prompt(who, game, self.season, self.tz)
+        if mode.startswith("parts:"):  # post-freeze Wave 1: one band's part of the notes, merged into the rest
+            return notes_paste.build_parts_prompt(who, game, self.season, notes_paste.parse_parts(mode.removeprefix("parts:")), self.tz)
         return notes_paste.build_prompt(self.data_dir, who, game, self.season, self.tz)
 
     # --- the command ------------------------------------------------------------------------------------
@@ -223,16 +225,22 @@ class NotesRunner:
             return
         reading = notes_paste.read_answer(text.removeprefix(header), game_id)
         self.warnings = reading.warnings
+        parts = notes_paste.parse_parts(self.mode.removeprefix("parts:")) if self.mode.startswith("parts:") else []
         if reading.notes is None:
+            if parts and (reading.error or "").startswith("The answer has no notes"):
+                self.error = f"nothing is published yet for {notes_paste.parts_words(parts)}"
+                return
             self.error = f"the tool finished but its answer had no usable notes: {reading.error} See the log."
             return
         try:
             if self.mode == "injuries":
                 self.changed = notes_paste.merge_availability(self.data_dir, game_id, reading.notes)
+            elif parts:
+                self.changed = notes_paste.merge_parts(self.data_dir, game_id, reading.notes, parts)
             else:
                 notes_paste.save_notes(self.data_dir, game_id, reading.notes)
         except notes_paste.NotesUnreadable as exc:
-            self.error = f"the injury report was not merged: {exc}"
+            self.error = f"{'the injury report' if self.mode == 'injuries' else notes_paste.parts_words(parts)} was not merged: {exc}"
             return
         except OSError as exc:
             self.error = f"the notes could not be saved: {exc}"

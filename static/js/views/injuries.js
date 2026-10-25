@@ -1,6 +1,6 @@
 // The Injury Report (owner 2026-10-10): our team's injuries through the season, newest week first, from the availability
 // reports the game notes already hold (/api/injuries, no CFBD call). One band per game: the next game first and open, then
-// the games played, the older ones folded until opened (each band remembers its fold). A game with no report says so and
+// the games played, the older ones folded until opened (a fold lasts for the visit). A game with no report says so and
 // leads to its program, where the notes that bring one are added (spec R2: missing data shows where to get it). The layout
 // pass (owner 2026-10-22, "This is good" to the picks): no strip of week chips over the page, and the played games with no
 // report fold into one line, each game in it a way to its program.

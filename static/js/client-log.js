@@ -9,6 +9,15 @@ import { note } from "./ui/trail.js";
 const ENDPOINT = "/api/client-log";
 const MAX_PER_MINUTE = 20;
 const REPEAT_MS = 60 * 1000;
+// Post-freeze Wave 3 (ENH-9): the browser's own "ResizeObserver loop completed with undelivered notifications" is harmless
+// (a size that settles a frame later) and filled the trail and the error list; it is left out of both.
+const BENIGN = /ResizeObserver loop (completed with undelivered notifications|limit exceeded)/i;
+
+/** The build this page was loaded from: the folder its scripts come from (/static/v/<build>/, app/build.py), else null. */
+export function pageBuild(url = import.meta.url) {
+  const found = /\/static\/v\/([0-9a-f]{6,40})\//.exec(String(url || ""));
+  return found ? found[1] : null;
+}
 
 let installed = false;
 let sending = false;
@@ -40,9 +49,9 @@ export function admit(message, now = Date.now()) {
 export function report(level, kind, parts, stack) {
   if (sending) return; // a report about a failing report would loop
   const message = parts.map(describe).join(" ").slice(0, 2000);
-  if (!message || !admit(`${kind}|${message}`)) return;
+  if (!message || BENIGN.test(message) || !admit(`${kind}|${message}`)) return;
   if (level === "error") note("error", message); // the feedback trail (2026-10-23): what went wrong, in order with the taps
-  const body = { level, kind, message, stack: typeof stack === "string" ? stack.slice(0, 4000) : null, page: (typeof location !== "undefined" ? location.hash || "/" : null), agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null };
+  const body = { level, kind, message, stack: typeof stack === "string" ? stack.slice(0, 4000) : null, page: (typeof location !== "undefined" ? location.hash || "/" : null), build: pageBuild(), agent: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 300) : null };
   sending = true;
   try {
     fetch(ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true }).catch(() => {});

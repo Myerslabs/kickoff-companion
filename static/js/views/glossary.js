@@ -1,7 +1,7 @@
 // The Glossary (owner request 2026-09-26): every stat and term the app shows, grouped the way the
 // app uses them and searchable. The same entries answer a tap on the question mark after a term anywhere
 // (static/js/ui/hints.js). "#glossary=<id>" opens the page at one entry.
-// Phase 16 (G3-15, stream NV): the group bands fold (remembered on the device) with jump links to each
+// Phase 16 (G3-15, stream NV): the group bands fold (for the visit, post-freeze Wave 1) with jump links to each
 // group in the intro band's body, never its head; search matches are marked; an entry whose stat has a
 // national list links to it ('National list ›', opened in a side sheet, no fetch until tapped).
 
@@ -38,7 +38,7 @@ function entryEl(entry, focused, query) {
   );
 }
 
-/** Unfold a band for a search or a jump without changing the fold the reader chose (not remembered). */
+/** Unfold a band for a search or a jump without changing the fold the reader chose this visit. */
 function openQuietly(section) {
   if (!section || (section.dataset?.collapsed ?? section.getAttribute?.("data-collapsed")) !== "true") return;
   section.setAttribute("data-collapsed", "false");

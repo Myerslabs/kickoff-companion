@@ -39,3 +39,35 @@ def is_redshirt(year: Any, recruit_year: Any = None, season: Any = None) -> bool
 
 def class_fields(year: Any, recruit_year: Any = None, season: Any = None) -> dict[str, Any]:
     return {"classYear": class_label(year), "redshirt": is_redshirt(year, recruit_year, season)}
+
+
+# --- a roster whose classes are unusable (post-freeze Wave 1, 2026-10-25) ------------------------------------------------
+# CFBD's 2026 roster for the owner's team lists all 117 players as year 1, so the Roster breakdown called every one a freshman. A roster
+# that puts nearly every player in one class is not believed. Each player's class then comes from his recruiting class (the
+# season minus the class, plus one: the class of 2023 is in its fourth season in 2026), else from last season's roster as
+# CFBD lists it there (its older rosters carry the player's current class, see players.history_classes; on that team's data the
+# two agreed for 35 of 36 players), else it is unknown and the player sits outside the grid's classes.
+
+DEGENERATE_MINIMUM = 40  # players; a short roster (a new program, a partial list) is too small to judge
+DEGENERATE_SHARE = 0.9  # of the classed players in one class
+
+INFERRED_NOTE = "CFBD lists nearly every player in one class this season, so each class here comes from the player's recruiting class, or from last season's roster."
+
+
+def degenerate(years: list[Any]) -> bool:
+    """True when the roster's class field cannot be believed: nearly every player in one class."""
+    values = [n for n in (_whole(y) for y in years) if n is not None and n >= 1]
+    if len(values) < DEGENERATE_MINIMUM:
+        return False
+    top = max(values.count(v) for v in set(values))
+    return top / len(values) >= DEGENERATE_SHARE
+
+
+def inferred_year(prior: Any = None, recruit_year: Any = None, season: Any = None) -> int | None:
+    """A player's class number when CFBD's is unusable: from the recruiting class, else last season's roster as listed, else None."""
+    last, recruited, now = _whole(prior), _whole(recruit_year), _whole(season)
+    if recruited is not None and now is not None and recruited <= now:
+        return now - recruited + 1
+    if last is not None and last >= 1:
+        return last
+    return None

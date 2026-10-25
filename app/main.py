@@ -23,7 +23,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from app import APP_NAME, BUILD_PHASE, __version__, restart
+from app import APP_NAME, BUILD_PHASE, __version__, boot, restart
 from app import shutdown as shutdown_signal
 from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, players, program, radio, ratings, season, setup, ticker, welcome
 from app.api import demo as demo_api
@@ -183,10 +183,27 @@ class StartupGate:
         if scope["type"] in ("http", "websocket"):
             path = scope.get("path", "")
             if path.startswith("/api/") and not path.startswith(self.OPEN):
-                checks = getattr(scope["app"].state, "startup_checks", None)
+                state = scope["app"].state
+                checks = getattr(state, "startup_checks", None)
                 if checks is not None and not checks.done():
                     await asyncio.wait({checks}, timeout=STARTUP_QUOTA_TIMEOUT * 2 + 5)
+                if scope["type"] == "http" and getattr(state, "first_data_seconds", None) is None:
+                    await self.app(scope, receive, self._first_data(state, path, send))
+                    return
         await self.app(scope, receive, send)
+
+    @staticmethod
+    def _first_data(state: Any, path: str, send: Send) -> Send:
+        """Post-freeze Wave 1: the first data answer of this start goes in the log and in health ("first data after"), the
+        number the owner's startup-wait test needs."""
+
+        async def watched(message: Any) -> None:
+            if message.get("type") == "http.response.start" and getattr(state, "first_data_seconds", None) is None and int(message.get("status", 500)) < 400:
+                state.first_data_seconds = boot.seconds()
+                log.info("First data after %.1f s: %s", state.first_data_seconds, path)
+            await send(message)
+
+        return watched
 
 
 VERSIONED = re.compile(r"^/static/v/([0-9a-f]{6,40})/(.+)$")
@@ -329,6 +346,7 @@ async def lifespan(app: FastAPI):
         print_qr(welcome)
         mdns: Announcer = app.state.mdns
         mdns.start()  # so a phone can finish the setup at kickoff.local
+        app.state.ready_seconds = boot.seconds()  # nothing to check before the setup page answers
         try:
             yield {"tls": tls, "https": settings.https}
         finally:
@@ -373,6 +391,8 @@ async def lifespan(app: FastAPI):
             log.exception("Team identity at startup failed; using TEAM as written")
         mdns.title = app.state.identity.current.title  # "Mudpuppies Kickoff Companion" in a network browser
         mdns.start()
+        app.state.ready_seconds = boot.seconds()  # post-freeze Wave 1: the data requests are served from here on
+        log.info("Ready for data after %.1f s (the key check and the team)", app.state.ready_seconds)
 
     checks = asyncio.create_task(startup_checks())
     app.state.startup_checks = checks
