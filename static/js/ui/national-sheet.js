@@ -18,7 +18,7 @@
 //       its glossary hint works) with the summary line, the All FBS / conference and this season / last season
 //       switches, the table, and for player lists the top 100, a gap row and every one of ours below the cut in a
 //       second tbody.
-//   The table sizes itself by its own box (tables wave 3, owner 2026-10-10; docs/03-DESIGN.md "Table sizes"). The rank is
+//   The table sizes itself by its own box (tables wave 3, owner 2026-10-10; the design rules "Table sizes"). The rank is
 //       the list's own order (decision 2): its chip (T for ties; a poll's badge) at large and medium, a plain number at
 //       small, headed "FBS rank", "<conference> rank" or "<poll> rank" at large and the population alone below. A team is
 //       its link (the abbreviation at small) with its conference in a column of its own at large and medium (decision 1:
@@ -26,12 +26,14 @@
 //       position and team in columns of their own at large and medium. The value keeps its bar at every size under its
 //       label's three forms; the stars, a poll's first-place votes and a conference list's FBS rank from medium, the
 //       percentile at large.
-//   summaryText(data), listTitle(data), centerRow(root, { scroller })   exported for the view and the tests.
+//   summaryText(data), listTitle(data), centerRow(root, { scroller, team })   exported for the view and the tests.
+//   ENH-17: a team list carries the whole field above it (ui/field-chart.js); a tap on a dot centers that team's row.
 
 import { usSchool } from "../identity.js";
 import { ageSeconds, fetchPatient } from "../views/common.js";
 import { DASH, el, fmtNum, isNum, obj, personName, teamLink, text } from "./dom.js";
-import { barCell, barScale, distributionStrip, pctlText, percentile } from "./national-bars.js"; // GX-04 (owner look)
+import { barCell, barScale, pctlText, percentile } from "./national-bars.js"; // GX-04 (owner look)
+import { fieldChart } from "./field-chart.js"; // ENH-17: the whole field above the list
 import { isListHref, isMetric, nationalHref, nationalRoute, parseRoute, pollName, pollsPageHref } from "./national-link.js";
 import { openSheet } from "./remote.js";
 import { labelForms } from "./sizes.js";
@@ -77,7 +79,7 @@ function rankText(rank, tied, of) {
   return `${tied ? "T" : "#"}${rank}${isNum(of) ? ` of ${fmtNum(of)}` : ""}`;
 }
 
-/** 'Swampwater Tech #41 of 136 · ties share a rank · FBS teams' (the list's own facts, dashes never words like null). */
+/** 'Florida #41 of 136 · ties share a rank · FBS teams' (the list's own facts, dashes never words like null). */
 export function summaryText(data) {
   const d = obj(data);
   const us = obj(d.us);
@@ -289,7 +291,12 @@ export function nationalListBody(envelope, { onScope, onYear, onRetry } = {}) {
       table.append(gapRow(d, beyond, ownColumns(columns).length), second);
     }
   }
-  return el("div", { class: "nat" }, head, distributionStrip(d, scale), wrap, notes(d));
+  const root = el("div", { class: "nat" }, head);
+  // ENH-17 (the owner's board of 2026-10-30, "Build it as drawn"): every team as a dot above the list, a tap on one goes to
+  // its row; it takes the place of GX-04's one-line strip on team lists
+  const chart = fieldChart(d, scale, { onPick: (team) => centerRow(root, { team }) });
+  root.append(...[chart, wrap, notes(d)].filter(Boolean));
+  return root;
 }
 
 /** The band state of an envelope: stale with its age when the server served an old list. */
@@ -310,10 +317,21 @@ function scrollerOf(root) {
   return null;
 }
 
-/** Scroll the marked row (the tapped team's, else ours) to the middle of its scroller and flash it. */
-export function centerRow(root, { scroller } = {}) {
+/** The row of one team in a list: the row whose team link names it. */
+function rowOfTeam(root, team) {
+  if (typeof team !== "string" || !team) return null;
+  const links = root.querySelectorAll("tbody tr .team-link");
+  const link = (Array.isArray(links) ? links : [...links]).find((b) => b.dataset?.team === team || (typeof b.getAttribute === "function" && b.getAttribute("data-team") === team));
+  let node = link || null;
+  while (node && node.tagName && node.tagName.toLowerCase() !== "tr") node = node.parentNode;
+  return node && node.tagName ? node : null;
+}
+
+/** Scroll the marked row (the tapped team's, else ours; with team, that team's: a dot of the field chart, ENH-17) to the
+    middle of its scroller and flash it. */
+export function centerRow(root, { scroller, team } = {}) {
   if (!root || typeof root.querySelector !== "function") return null;
-  const row = root.querySelector("tbody tr.is-focus") || root.querySelector("tbody tr.is-us");
+  const row = (team ? rowOfTeam(root, team) : null) || (team ? null : root.querySelector("tbody tr.is-focus") || root.querySelector("tbody tr.is-us"));
   if (!row) return null;
   try {
     const box = scroller || scrollerOf(row);
@@ -326,6 +344,8 @@ export function centerRow(root, { scroller } = {}) {
       const height = isNum(window.innerHeight) ? window.innerHeight : 0;
       window.scrollTo(0, Math.max(0, (window.scrollY || 0) + r.top - Math.max(0, (height - r.height) / 2)));
     }
+    for (const done of root.querySelectorAll("tbody tr.nat-arrived")) done.classList.remove("nat-arrived"); // one row flashed at a time
+    void row.offsetWidth; // a second tap on the same dot flashes the row again
     row.classList.add("nat-arrived");
   } catch (error) {
     console.error("The national list could not scroll to the team's row.", error);

@@ -1,6 +1,6 @@
 """Public release Phase 4: one set of pins everywhere. pyproject.toml (what uv reads) and the plain-pip
-files carry the same versions, uv.lock locks those versions, and the start scripts exist for every
-system with the line endings their shells need."""
+files carry the same versions, uv.lock locks those versions, and the start script (Windows only since ENH-26) syncs
+them."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def test_the_lock_holds_every_pinned_version():
     lock = tomllib.loads((ROOT / "uv.lock").read_text(encoding="utf-8"))
     locked = {p["name"].lower(): p.get("version") for p in lock["package"]}
     groups = project()["dependency-groups"]
-    wanted = {**listed(project()["project"]["dependencies"]), **listed(groups["dev"]), **listed(groups["build"])}
+    wanted = {**listed(project()["project"]["dependencies"]), **listed(groups["dev"])}
     for name, version in wanted.items():
         assert locked.get(name) == version, f"uv.lock has {name} {locked.get(name)}, pyproject pins {version}: run `uv lock`"
 
@@ -56,18 +56,10 @@ def test_python_version_is_supported():
     assert (major, minor) >= (3, 12) and project()["project"]["requires-python"] == ">=3.12"
 
 
-def test_start_scripts_for_every_system():
-    shell = (ROOT / "start.sh").read_bytes()
-    assert shell.startswith(b"#!/usr/bin/env bash\n") and b"\r\n" not in shell, "start.sh needs LF line endings for bash"
-    text = shell.decode("utf-8")
-    assert "--service" in text and "uv\" sync --frozen" in text.replace("$UV", "uv") and "exec \"$PYTHON\" -m app" in text
+def test_the_start_script_syncs_and_offers_the_tray():
+    assert not (ROOT / "start.sh").exists(), "ENH-26: Windows only"
     ps = (ROOT / "start.ps1").read_text(encoding="utf-8")
     assert "sync --frozen" in ps and "-Tray" in ps and "tools\\tray.ps1" in ps
     assert not (ROOT / "start-gameday.ps1").exists()
 
 
-def test_the_build_group_matches_its_requirements_file():
-    """Public release Phase 10: PyInstaller lives in its own group, so neither users nor the test runs install it."""
-    build = listed(project()["dependency-groups"]["build"])
-    assert "pyinstaller" in build and pins(ROOT / "requirements-build.txt") == build
-    assert "pyinstaller" not in listed(project()["project"]["dependencies"]) and "pyinstaller" not in listed(project()["dependency-groups"]["dev"])

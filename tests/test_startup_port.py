@@ -112,7 +112,7 @@ def test_a_server_with_no_console_never_waits_on_the_question():
 
 def _settings(tmp_path: Path, port: int):
     env = tmp_path / ".env"
-    env.write_text(f"TEAM=Swampwater Tech\nPORT={port}\n", encoding="utf-8")
+    env.write_text(f"TEAM=Florida\nPORT={port}\n", encoding="utf-8")
     return load_settings(env, cfbd_api_key=TEST_KEY, data_dir=tmp_path / "data", log_dir=tmp_path / "logs")
 
 
@@ -146,7 +146,7 @@ def test_a_yes_in_the_console_saves_the_port_and_serves_again(tmp_path: Path, mo
     settings = _settings(tmp_path, 8642)
     assert serving.port_taken(settings) == serving.PORT_CHANGED
     text = (tmp_path / ".env").read_text(encoding="utf-8")
-    assert "PORT=8643" in text and "PORT=8642" not in text and "TEAM=Swampwater Tech" in text
+    assert "PORT=8643" in text and "PORT=8642" not in text and "TEAM=Florida" in text
 
 
 def test_a_restart_never_mistakes_the_old_server_for_a_running_copy(tmp_path: Path, monkeypatch):
@@ -159,17 +159,11 @@ def test_a_restart_never_mistakes_the_old_server_for_a_running_copy(tmp_path: Pa
 
 def test_use_port_saves_the_port_and_refuses_a_bad_one(tmp_path: Path, capsys):
     env = tmp_path / ".env"
-    env.write_text("TEAM=Swampwater Tech\nPORT=8642\n", encoding="utf-8")
+    env.write_text("TEAM=Florida\nPORT=8642\n", encoding="utf-8")
     assert cli.main(["--use-port", "8643"], env_file=env) == 0
     assert "PORT=8643" in env.read_text(encoding="utf-8") and "saved" in capsys.readouterr().out
     assert cli.main(["--use-port", "80"], env_file=env) == 2
     assert "PORT=8643" in env.read_text(encoding="utf-8")
-
-
-def test_a_running_copy_opened_is_no_reason_to_pause():
-    asked: list[str] = []
-    assert cli.pause_before_closing(portcheck.ALREADY_RUNNING, packaged=True, system="win32", owners=1, ask=asked.append) is False
-    assert cli.pause_before_closing(portcheck.ALREADY_RUNNING - 2, packaged=True, system="win32", owners=1, ask=asked.append) is True
 
 
 def test_health_says_when_the_data_was_ready_and_the_log_says_the_first_data(app, client: TestClient, caplog):
@@ -196,14 +190,13 @@ def test_the_start_clock_starts_again_at_a_restart():
 def test_the_tray_and_the_start_script_start_with_no_window():
     tray = (ROOT / "tools" / "tray.ps1").read_text(encoding="utf-8")
     assert "CreateNoWindow = $true" in tray and "-WindowStyle Hidden" not in tray, "the server starts with no window"
-    assert '"ready_seconds"' in tray and "starting, $seconds s" in tray and "Ready after $took s" in tray
+    assert '"open_seconds"' in tray and "starting, $seconds s" in tray and "Ready after $took s" in tray
+    assert '"browser_opened"' in tray and "The app is open in your browser." in tray, "BUG-17: the note says what the start did"
     assert "Copy the report" in tray and '"--use-port"' in tray and "startup-failure.json" in tray
     assert "$AlreadyRunning = 6" in tray and "Show the window" not in tray
     start = (ROOT / "start.ps1").read_text(encoding="utf-8")
     assert "CreateNoWindow = $true" in start and "[Environment]::Exit(0)" in start and "& powershell.exe @trayArgs" not in start
     assert "$code -eq 6" in start
-    kickoff = (ROOT / "tools" / "package" / "kickoff.py").read_text(encoding="utf-8")
-    assert "CREATE_NO_WINDOW" in kickoff and "CREATE_NEW_CONSOLE" not in kickoff
 
 
 def test_a_desktop_icon_no_longer_keeps_its_window(tmp_path: Path):
@@ -224,3 +217,64 @@ def test_the_windows_console_check_never_breaks_off_windows(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "msvcrt", None)  # importing it fails, as on Linux and macOS
     assert portcheck.interactive(Tty(""), system="win32", environ={}) is False
+
+
+# BUG-17, ENH-18 (owner 2026-10-27): the start said READY and opened the page while its data was still held back. Now the
+# window's READY and the browser wait for the opening pages' data, 30 s at most, and health tells the tray which happened.
+
+
+def _ready_run(monkeypatch, *, cap: float, url: str | None = "http://localhost:8642/"):
+    opened: list[str] = []
+    printed: list[str] = []
+    monkeypatch.setattr(serving, "open_in_browser", opened.append)
+    monkeypatch.setattr("builtins.print", lambda *args, **kwargs: printed.append(" ".join(str(a) for a in args)))
+    boot.mark()
+    thread = serving.when_ready(url, "READY note", cap=cap)
+    return thread, opened, printed
+
+
+def test_the_browser_waits_for_the_opening_pages(monkeypatch, caplog):
+    caplog.set_level("INFO", logger="kickoff.serving")
+    thread, opened, printed = _ready_run(monkeypatch, cap=10)
+    thread.join(0.3)
+    assert thread.is_alive() and opened == [] and printed == [], "nothing said or opened while the data is held back"
+    assert boot.open_seconds() is None and boot.browser_opened() is False
+    boot.pages_ready()
+    thread.join(5)
+    assert opened == ["http://localhost:8642/"] and printed == ["READY note"]
+    assert isinstance(boot.open_seconds(), float) and boot.browser_opened() is True
+    assert any("opening pages are ready" in r.getMessage() for r in caplog.records)
+
+
+def test_the_browser_opens_anyway_after_the_cap(monkeypatch, caplog):
+    caplog.set_level("INFO", logger="kickoff.serving")
+    thread, opened, printed = _ready_run(monkeypatch, cap=0.2)
+    thread.join(5)
+    assert opened == ["http://localhost:8642/"] and printed == ["READY note"]
+    assert any("still loading after" in r.getMessage() and r.levelname == "WARNING" for r in caplog.records)
+    assert serving.OPEN_CAP_SECONDS == 30, "the owner's cap"
+
+
+def test_a_start_without_the_browser_still_says_ready(monkeypatch):
+    thread, opened, printed = _ready_run(monkeypatch, cap=10, url=None)
+    boot.pages_ready()
+    thread.join(5)
+    assert opened == [] and printed == ["READY note"] and boot.open_seconds() is not None and boot.browser_opened() is False
+
+
+def test_a_restart_meanwhile_leaves_the_old_wait_silent(monkeypatch):
+    thread, opened, printed = _ready_run(monkeypatch, cap=10)
+    boot.mark()  # an in-place restart before the pages were warm
+    boot.pages_ready()
+    thread.join(5)
+    assert opened == [] and printed == [] and boot.open_seconds() is None, "the new start says READY for itself"
+
+
+def test_health_tells_the_tray_when_the_start_said_ready(app, client: TestClient):
+    boot.mark()
+    server = client.get("/api/health").json()["data"]["server"]
+    assert server["open_seconds"] is None and server["browser_opened"] is False
+    boot.opened(browser=True)
+    server = client.get("/api/health").json()["data"]["server"]
+    assert isinstance(server["open_seconds"], float) and server["browser_opened"] is True
+    boot.mark()

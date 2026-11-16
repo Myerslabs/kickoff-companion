@@ -108,6 +108,9 @@ def summary(client: Any, now: datetime | None = None) -> dict[str, Any]:
         "resetAt": caps.reset_at or quota.get("reset_at"),
         "checkedAt": caps.checked_at.isoformat(timespec="seconds") if caps.checked_at else None,
         "forecast": forecast(used, budget, now),
+        "target": quota.get("target"),  # ENH-27: what the background loads may spend this month
+        "paceAllowed": quota.get("pace_allowed"),
+        "pacedOpen": quota.get("paced_open"),
         "warning": warning,
         "features": features,
         "likedAllowed": allows_liked(caps),

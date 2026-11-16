@@ -67,7 +67,7 @@
 
 import { append, DASH, el, fmtStat, isNum, nameSteps, personName, rating100, ratingTier, replaceWith, settleNames, teamLink, text } from "./dom.js";
 import { parseRoute } from "./national-link.js";
-import { applyNames, DROPPED, fitSize, labelForms, personSteps, SIZES, sizeNote, splitStep, watchSize } from "./sizes.js";
+import { applyNames, DROPPED, fits, fitSize, labelForms, personSteps, SIZES, sizeNote, splitStep, watchSize } from "./sizes.js";
 
 // Sizes (owner 2026-10-10, ui/sizes.js): statTable({ sizes: true }) draws at large, medium or small by its own box like
 // the two-team table. A column's `size` ("medium" or "large") names the smallest size that still shows it; a head's
@@ -630,8 +630,13 @@ export function statTable({ columns = [], rows = [], sort, onSort, onRowTap, can
     watchSize(wrap, () => {
       const size = fitSize(wrap, table, (step) => applyStatSize(wrap, step), people ? personSteps(SIZES, nameSteps(table)) : SIZES);
       if (size === null) return;
-      if (size === DROPPED) wrap.classList.remove("stat-table-wrap--fits");
-      else wrap.classList.add("stat-table-wrap--fits"); // never a scroll box: the header sticks
+      // the floor (owner 2026-10-10: "I would rather always show the minimal table"): a table that fits nowhere stays at
+      // small and, since the one-column page (wave 2, 2026-11-01: the full lists on a phone), scrolls sideways in its
+      // wrap instead of being clipped at the band's edge; a table that fits never scrolls, so its header sticks
+      const floor = size !== DROPPED && !fits(wrap, table);
+      if (size === DROPPED || floor) wrap.classList.remove("stat-table-wrap--fits");
+      else wrap.classList.add("stat-table-wrap--fits");
+      wrap.classList.toggle("stat-table-wrap--scrolls", floor);
     });
   } else watchWidth(wrap, table, { flow, stuck });
   return wrap;

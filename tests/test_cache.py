@@ -22,10 +22,10 @@ def cache(tmp_path):
 
 
 def test_canonical_params_are_sorted_stringified_and_skip_none():
-    assert canonical_params({"week": 3, "year": 2026, "team": "Swampwater Tech", "extra": None, "flag": True, "off": False}) == {
+    assert canonical_params({"week": 3, "year": 2026, "team": "Florida", "extra": None, "flag": True, "off": False}) == {
         "flag": "true",
         "off": "false",
-        "team": "Swampwater Tech",
+        "team": "Florida",
         "week": "3",
         "year": "2026",
     }
@@ -33,9 +33,9 @@ def test_canonical_params_are_sorted_stringified_and_skip_none():
 
 
 def test_cache_key_is_order_independent():
-    assert cache_key("/games", {"year": 2026, "team": "Swampwater Tech"}) == cache_key("/games", {"team": "Swampwater Tech", "year": 2026})
+    assert cache_key("/games", {"year": 2026, "team": "Florida"}) == cache_key("/games", {"team": "Florida", "year": 2026})
     assert cache_key("/games", None) == "/games"
-    assert cache_key("/games", {"team": "Swampwater Tech"}) == "/games?team=Swampwater+Tech"
+    assert cache_key("/games", {"team": "Florida"}) == "/games?team=Florida"
 
 
 @pytest.mark.parametrize(
@@ -46,15 +46,15 @@ def test_cache_key_is_order_independent():
         (DataKind.RECRUITING, MONDAY, False, timedelta(days=7)),
         (DataKind.REFERENCE, MONDAY, False, timedelta(days=7)),
         (DataKind.HISTORY, MONDAY, False, timedelta(days=30)),
-        (DataKind.SCHEDULE, MONDAY, False, timedelta(hours=12)),
+        (DataKind.SCHEDULE, MONDAY, False, timedelta(hours=1)),  # ENH-27: the target spent, not rationed
         (DataKind.SCHEDULE, SATURDAY, False, timedelta(minutes=15)),
-        (DataKind.SCHEDULE, SUNDAY, False, timedelta(hours=12)),
-        (DataKind.SEASON_STATS, MONDAY, False, timedelta(hours=6)),
+        (DataKind.SCHEDULE, SUNDAY, False, timedelta(hours=1)),
+        (DataKind.SEASON_STATS, MONDAY, False, timedelta(hours=1)),
         (DataKind.SEASON_STATS, SATURDAY, False, timedelta(hours=1)),
         (DataKind.SEASON_STATS, SUNDAY, False, timedelta(hours=1)),
-        (DataKind.LINES, MONDAY, False, timedelta(hours=3)),
-        (DataKind.LINES, MONDAY, True, timedelta(minutes=30)),
-        (DataKind.WEATHER, SATURDAY, True, timedelta(minutes=30)),
+        (DataKind.LINES, MONDAY, False, timedelta(hours=1)),
+        (DataKind.LINES, MONDAY, True, timedelta(minutes=15)),
+        (DataKind.WEATHER, SATURDAY, True, timedelta(minutes=15)),
         (DataKind.FINISHED_GAME, MONDAY, False, None),
         (DataKind.SCOREBOARD, MONDAY, False, timedelta(seconds=15)),
         (DataKind.LIVE, SATURDAY, True, NO_CACHE),

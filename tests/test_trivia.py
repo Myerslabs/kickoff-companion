@@ -36,7 +36,7 @@ def rows(league) -> dict:
 
 
 def service(tmp_path: Path, rows: dict, now: list[datetime], state=None, pace="15", trivia=True, board=True) -> TriviaService:
-    window = NS(game_id=1, home=TEAM, away="Diner Tech", kickoff=KICKOFF)
+    window = NS(game_id=1, home=TEAM, away="Texas State", kickoff=KICKOFF)
     live = NS(window=window, state=state or (lambda delay: None))
     prefs = NS(prefs=NS(trivia=trivia, triviaBoard=board, triviaPace=pace, delaySeconds=0))
     return TriviaService(tmp_path, 2026, TZ, lambda: now[0], prefs, lambda: rows, live, TEAM)
@@ -71,7 +71,7 @@ def test_the_demo_league_facts_pass_the_apps_parser_and_build_every_kind(rows):
 def test_a_question_has_three_distinct_choices_one_right_and_no_future_year(rows):
     asked: list[dict] = []
     for i in range(30):
-        q = pick_question(rows, [TEAM, "Diner Tech"], asked, random.Random(i), f"q{i}", date(2026, 10, 24))
+        q = pick_question(rows, [TEAM, "Texas State"], asked, random.Random(i), f"q{i}", date(2026, 10, 24))
         if q is None:
             break
         asked.append(q.as_dict())
@@ -138,6 +138,7 @@ def test_the_pace_outside_our_game_and_one_at_each_break_inside_it(tmp_path, row
     state = {"status": "pre"}
     svc = service(tmp_path, rows, now, state=lambda d: state)
     svc.join("A", now[0])
+    svc.join("B", now[0])  # a question needs two teams joined (owner 2026-11-01)
     tick(svc, now[0], answer_as="A")
     day = svc.data["days"]["2026-10-24"]
     assert len(day["questions"]) == 1 and day["questions"][0]["context"] == "pre"
@@ -155,7 +156,7 @@ def test_the_pace_outside_our_game_and_one_at_each_break_inside_it(tmp_path, row
     state["clock"] = {"minutes": 0, "seconds": 0}
     tick(svc, t + timedelta(minutes=10), answer_as="A")
     assert len(day["questions"]) == 3 and day["questions"][-1]["context"] == "game" and day["questions"][-1]["period"] == 1 and day["periods"] == [1]
-    assert day["questions"][-1]["school"] in (TEAM, "Diner Tech"), "during the game, the two schools playing"
+    assert day["questions"][-1]["school"] in (TEAM, "Texas State"), "during the game, the two schools playing"
     state.update({"period": 2, "clock": {"minutes": 14, "seconds": 30}})
     tick(svc, t + timedelta(minutes=13))
     assert len(day["questions"]) == 3, "one a break: the start of the 2nd does not ask the 1st again"
@@ -188,6 +189,7 @@ def test_the_final_asks_the_end_of_the_game_once(tmp_path, rows):
     state = {"status": "in_progress", "period": 4, "clock": {"minutes": 1, "seconds": 0}}
     svc = service(tmp_path, rows, now, state=lambda d: state)
     svc.join("A", now[0])
+    svc.join("B", now[0])  # a question needs two teams joined (owner 2026-11-01)
     tick(svc, now[0])
     day = svc.data["days"]["2026-10-24"]
     assert day["questions"] == []
@@ -208,6 +210,7 @@ def test_the_game_only_pace_and_the_switches(tmp_path, rows):
     now = [KICKOFF - timedelta(hours=2)]
     svc = service(tmp_path, rows, now, pace="game")
     svc.join("A", now[0])
+    svc.join("B", now[0])  # a question needs two teams joined (owner 2026-11-01)
     tick(svc, now[0] + timedelta(minutes=30))
     assert not svc.data["days"]["2026-10-24"]["questions"] and svc.now_for("A", now[0])["day"]["next"] == "Next during our game"
     off = service(tmp_path, rows, now, trivia=False)
@@ -221,6 +224,7 @@ def test_three_unanswered_questions_end_the_day_and_a_join_starts_it_again(tmp_p
     now = [KICKOFF - timedelta(hours=4)]
     svc = service(tmp_path, rows, now)
     svc.join("A", now[0])
+    svc.join("B", now[0])  # a question needs two teams joined (owner 2026-11-01)
     at = now[0]
     for _ in range(QUIET_AFTER):
         tick(svc, at)
@@ -258,7 +262,7 @@ def test_leave_rename_mark_and_the_page(tmp_path, rows):
     assert page["isHost"] and page["team"]["name"] == "Couch Coordinators II" and page["team"]["today"] == [0, 1]
     assert [b["name"] for b in page["board"]] == ["Nana's Nachos", "Couch Coordinators II"] and page["board"][0]["today"] == [1, 1]
     assert page["questions"][0]["answer"] is not None and page["questions"][0]["fact"] and page["questions"][0]["answered"] == 1
-    assert page["seasonTable"][0]["span"].startswith("since ") and page["seasonTable"][0]["our"]["opponent"] == "Diner Tech"
+    assert page["seasonTable"][0]["span"].startswith("since ") and page["seasonTable"][0]["our"]["opponent"] == "Texas State"
     assert page["best"]["asked"] == 1 and page["teamsThisSeason"] == 2
     mark = svc.mark(q["id"], "The year is wrong", later)
     assert mark["school"] == q["school"] and marks and marks[0][0] == q["school"] and marks[0][2] == "The year is wrong"
@@ -295,13 +299,14 @@ def demo_facts_for(app, league) -> None:
 
 def test_the_routes_let_a_guest_join_and_answer_and_the_host_end(client: TestClient, app, league):
     demo_facts_for(app, league)
-    app.state.live.window = NS(game_id=1, home=TEAM, away="Diner Tech", kickoff=app.state.cfbd._clock())
+    app.state.live.window = NS(game_id=1, home=TEAM, away="Texas State", kickoff=app.state.cfbd._clock())
     app.state.live.state = lambda delay: None
     app.state.host_access.set_pin("1234")
     guest = client  # no cookie, not the server computer in the test client: a guest
     assert guest.get("/api/trivia/now").json()["data"]["gameDay"] is True
     joined = guest.post("/api/trivia/join", json={"name": "Section 12"}).json()["data"]
     assert joined["name"] == "Section 12" and joined["new"]
+    assert guest.post("/api/trivia/join", json={"name": "Section 14"}).status_code == 200  # the second team: a question needs two (owner 2026-11-01)
     assert guest.post("/api/trivia/join", json={"name": " "}).status_code == 400
     now = guest.get("/api/trivia/now?name=Section%2012").json()["data"]
     assert now["question"] and now["team"]["joined"] and "answer" not in now["question"]
@@ -337,3 +342,19 @@ def test_the_demo_facts_file_is_written_once(tmp_path, league):
     data = json.loads(path.read_text(encoding="utf-8"))
     assert TEAM in data["teams"] and data["teams"][TEAM]["conference"] == CONFERENCE and data["batches"][CONFERENCE]["author"] == "the demo"
     assert write_demo_facts(tmp_path, league, 2026) is None, "an install's own facts are kept"
+
+
+def test_no_question_until_two_teams_have_joined(tmp_path, rows):
+    """Owner 2026-11-01: "The game shouldnt start unless there are at least 2 teams." One team joined: the pace comes and goes
+    with no question; the second join opens the first."""
+    now = [KICKOFF - timedelta(hours=2)]
+    state = {"status": "pre"}
+    svc = service(tmp_path, rows, now, state=lambda d: state)
+    svc.join("A", now[0])
+    tick(svc, now[0])
+    assert svc.data["days"]["2026-10-24"].get("questions", []) == [], "one team: nothing opens"
+    tick(svc, now[0] + timedelta(minutes=15))
+    assert svc.data["days"]["2026-10-24"].get("questions", []) == [], "still one team: nothing"
+    svc.join("B", now[0] + timedelta(minutes=16))
+    tick(svc, now[0] + timedelta(minutes=16))
+    assert len(svc.data["days"]["2026-10-24"]["questions"]) == 1, "the second team: the first question opens"

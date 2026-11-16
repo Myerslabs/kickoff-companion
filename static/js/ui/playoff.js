@@ -138,7 +138,7 @@ export function playoffSummary(p, teamName = usSchool()) {
   const ours = rounds.flatMap((r) => records(r.games).filter((g) => g.isUs === true).map(() => text(r.round)));
   if (ours.length) return `${text(teamName)}: ${ours.join(", ")}`;
   const line = p.picture && typeof p.picture === "object" && p.picture.us && typeof p.picture.us.line === "string" ? p.picture.us.line : "";
-  if (line) return line; // the picture's one line: "Swampwater Tech: the 7th seed, hosting (10) Red Clay"
+  if (line) return line; // the picture's one line: "Florida: the 7th seed, hosting (10) Texas A&M"
   return isNum(p.usRank) ? `${text(teamName)} #${p.usRank} in the committee's rankings` : `${text(teamName)} unranked by the committee`;
 }
 

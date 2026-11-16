@@ -1,8 +1,10 @@
 /* Status page (index.html) and device setup page (setup.html). Tokens and shared
    components come from tokens.css and components.css. */
 
-.sheet--status { grid-template-columns: 1fr 1fr; padding: 16px 20px; }
-@media (max-width: 899px) { .sheet--status { grid-template-columns: 1fr; padding: 16px; } }
+/* ENH-20 (P5): two columns from the iPad held upright (it was one up to 899 px, each short panel a strip of empty space):
+   the fact panels in pairs, the three tables across the page */
+.sheet--status { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 16px 20px; }
+@media (max-width: 699px) { .sheet--status { grid-template-columns: minmax(0, 1fr); padding: 16px; } }
 .sheet-narrow { max-width: 960px; width: 100%; margin: 0 auto; }
 
 .panel {
@@ -91,7 +93,17 @@
 .welcome__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid var(--rule-strong); }
 .welcome__meta { color: var(--fog); margin-left: auto; font-size: 14px; }
 .welcome__more { margin: 0; padding: 8px 10px; color: var(--fog); font-size: 14px; }
-.welcome__chosen { font-size: 18px; font-weight: 700; }
+/* ENH-12 (owner 2026-10-23): the one primary-teams picker; #1 is the home team, the order is the My Teams order */
+.welcome__order { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.welcome__order:empty { display: none; }
+.welcome__pick { display: grid; grid-template-columns: 2.2em auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: var(--tap); padding: 4px 4px 4px 10px; background: var(--panel-raised); border-radius: 4px; }
+.welcome__pick:first-child { box-shadow: inset 3px 0 0 var(--team-accent); }
+.welcome__pick-num { font-weight: 700; color: var(--fog); }
+.welcome__pick-name { font-weight: 700; min-width: 0; }
+.welcome__pick-name .welcome__meta { margin-left: 6px; font-weight: 400; }
+.welcome__pick-home { display: block; color: var(--team-accent); font-size: 14px; font-weight: 600; }
+.welcome__pick-moves { display: flex; gap: 4px; }
+.welcome__pick-moves .btn { min-height: var(--tap); min-width: var(--tap); }
 .welcome__optional { font-weight: 400; color: var(--fog); font-size: 14px; }
 .welcome__liked { display: grid; gap: 16px; }
 .welcome__chips { display: flex; flex-wrap: wrap; gap: 6px; }

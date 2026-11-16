@@ -7,7 +7,7 @@ import { el } from "../ui/dom.js";
 import { band } from "../ui/states.js";
 
 export const SETUP_LINKS = [
-  { label: "Demo", href: "/demo", note: "The whole app against a made-up league, with a game under way. Your key and your team stay as they are." },
+  { label: "Demo", href: "/demo", note: "A sample season that follows one team, with invented games and a game under way. Your key and your team stay as they are." },
   { label: "Archive", href: "#archive", note: "Every game the app watched: the box score, the win probability and your notes." },
   { label: "Season in review", href: "#review", note: "The season so far told from the schedule: the record, the streaks, the best win." },
   { label: "Radio", href: "#radio", note: "The station that carries the game and the player at the bottom of every page." },

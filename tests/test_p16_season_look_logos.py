@@ -19,10 +19,10 @@ const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 scenarios.logos = async () => {
   installWindow();
   const { logoLink } = await import(moduleUrl("ui/team-page.js"));
-  const withLogo = logoLink("Silver Dollar", { logo: "/media/logo/2", logoDark: "/media/logo/2?v=dark", abbreviation: "GRID" });
+  const withLogo = logoLink("Fresno State", { logo: "/media/logo/2", logoDark: "/media/logo/2?v=dark", abbreviation: "FRES" });
   assert.equal(withLogo.className, "tl");
   assert.equal(withLogo.querySelector("img").getAttribute("src"), "/media/logo/2?v=dark", "the dark variant on navy");
-  assert.equal(withLogo.querySelector("button.team-link").dataset.team, "Silver Dollar");
+  assert.equal(withLogo.querySelector("button.team-link").dataset.team, "Fresno State");
   const bare = logoLink("Kent State", { logo: "javascript:alert(1)" });
   assert.equal(bare.className, "tl tl--bare");
   assert.equal(bare.querySelectorAll("img, .team-logo").length, 0, "no URL, no mark");
@@ -42,6 +42,8 @@ scenarios.logos = async () => {
   assert.ok(main.querySelectorAll("#season-schedule .sched__opp img.tl__logo").length === 3, "every schedule row");
   assert.ok(main.querySelectorAll("#season-standings .tl img").length === 3, "every standings row");
   assert.ok(main.querySelectorAll("#season-road .tl img").length === 1, "road ahead borrows the schedule's logos");
+  const { pollsBand } = await import(moduleUrl("ui/polls-band.js")); // the Polls band is the Newspaper's now (wave 3, 2026-11-01): drawn here from the same answer
+  main.append(pollsBand(overview, { ui: { poll: null, sorts: {} } }));
   assert.equal(main.querySelectorAll("#season-polls .tl--bare").length, 3, "poll rows without logo URLs keep the name alone");
   assert.ok(!RAW.test(text(main)));
   season.unmount();

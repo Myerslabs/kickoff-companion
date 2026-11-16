@@ -54,7 +54,7 @@ function device() {
     browser: typeof navigator !== "undefined" ? String(navigator.userAgent || "").slice(0, 300) : null,
     role: typeof document !== "undefined" ? document.body?.dataset?.role || "host" : null,
     delaySeconds: Number.isFinite(Number(p.delaySeconds)) ? Number(p.delaySeconds) : null,
-    theme: typeof p.theme === "string" ? p.theme : null,
+    theme: typeof document !== "undefined" && document.documentElement?.dataset?.theme ? document.documentElement.dataset.theme : null, // ENH-35: this device's own
     build: pageBuild(), // post-freeze Wave 3 (ENH-9): the build this page was loaded from, in every report
   };
 }

@@ -69,7 +69,7 @@ def _payload(request: Request) -> dict[str, Any]:
             "tierName": quota.get("tier_name"),
             "reconciledAt": quota.get("reconciled_at"),
         },
-        "housekeeping": request.app.state.maintenance.status(),
+        "housekeeping": {**request.app.state.maintenance.status(), "warm": request.app.state.warm.status(), "jobs": request.app.state.jobs.status()},  # ENH-27: the nightly warm; Feature Set v2: the weekly jobs
         "capabilities": cfbd["capabilities"],
         "server": {"team": settings.team, "season": settings.season, "conference": settings.conference, "timezone": settings.timezone, "port": settings.port, "livePollSeconds": settings.live_poll_seconds, "dataDir": str(settings.data_dir), "logDir": str(settings.log_dir)},
         "autoStart": launcher.status(),

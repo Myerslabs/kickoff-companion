@@ -62,6 +62,7 @@ RECORDINGS: dict[str, tuple[str, dict[str, str], int]] = {
     "metrics_wp_pregame_week": ("/metrics/wp/pregame", {"year": "{S}", "week": "{NEXTWEEK}"}, 2),
     "passing_plays_opponent": ("/passing/plays", {"year": "{S}", "team": "{OPP}"}, 2),
     "player_portal": ("/player/portal", {"year": "{S}"}, 2),
+    "playoffs_cfp_participants": ("/playoffs/cfp/participants", {"year": "{S-1}"}, 2),  # FEAT-17: the last finished playoff's field
     "player_returning": ("/player/returning", {"year": "{S}", "team": "{US}"}, 2),
     "player_returning_national": ("/player/returning", {"year": "{S}"}, 2),
     "player_returning_opponent": ("/player/returning", {"year": "{S}", "team": "{OPP}"}, 2),

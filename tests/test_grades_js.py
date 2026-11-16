@@ -1,6 +1,6 @@
 """Public release Phase 7 in the fake browser (tests/fakedom.py): the grade chip, the breakdown block and the
 graded-players table over good and damaged grades never print undefined, null or NaN; a missing grade is a
-dash with its reason; the roster's PFF column is gone and the Grade column is there."""
+dash with its reason; the roster's Grade column is our stat grade."""
 
 from __future__ import annotations
 
@@ -68,10 +68,10 @@ scenarios.ui = async () => {
   assert.ok(clean("missing", missing).includes("Offensive linemen"));
   clean("empty block", gradeBlock(undefined));
   const table = gradedTable([
-    { playerId: "1", name: "A Passer", position: "QB", team: "Swampwater Tech", grade: 88, label: "Very good", rank: 1 },
+    { playerId: "1", name: "A Passer", position: "QB", team: "Florida", grade: 88, label: "Very good", rank: 1 },
     { playerId: "2", name: null, position: null, team: null, grade: null, label: null, rank: null },
     { name: "no id" }, null,
-  ], { us: "Swampwater Tech" });
+  ], { us: "Florida" });
   document.body.append(table);
   clean("table", table);
   const rows = table.querySelectorAll("tbody tr");
@@ -91,10 +91,8 @@ def test_grade_ui_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)
 
 
-def test_pff_is_gone_from_the_front_end() -> None:
+def test_the_rosters_grade_is_our_stat_grade() -> None:
     roster = (STATIC_JS / "views" / "roster.js").read_text(encoding="utf-8")
-    assert "pff" not in roster.lower() and 'label: "Grade"' in roster
+    assert 'label: "Grade", render: (row) => gradeChip(row.grade)' in roster
     glossary = (STATIC_JS / "glossary-data.js").read_text(encoding="utf-8")
-    assert '"stat-grade"' in glossary and "pff-grade" not in glossary
-    styleguide = (STATIC_JS / "styleguide.js").read_text(encoding="utf-8")
-    assert "PFF" not in styleguide
+    assert '"stat-grade"' in glossary

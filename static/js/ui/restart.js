@@ -6,6 +6,7 @@
 //   requestRestart({ force })   -> Promise of { ok, status, message }
 //   waitForServer(oldStart, { timeoutMs, everyMs })  -> Promise of true once /api/health answers with another start time
 //   restartFlow({ say, confirmDuringGame })  the whole sequence; say(text) reports progress; reloads at the end
+//   requestUpdate({ force }), updateFlow({ say, confirmDuringGame })  the same for an update from GitHub (FEAT-13)
 //   serverAnswers({ fetchImpl, timeoutMs })  -> Promise of true when /api/health answers within the time
 //   reloadWhenServerAnswers({ waits, fetchImpl, reload, onWait })  -> Promise of true once it reloaded (item 6, step E)
 
@@ -126,6 +127,52 @@ export async function waitForServer(oldBuild, { timeoutMs = 90000, everyMs = 150
     await new Promise((resolve) => setTimeout(resolve, everyMs));
   }
   return false;
+}
+
+/** FEAT-13: bring GitHub's new commits in (POST /api/updates/apply), then the server restarts with them. */
+export async function requestUpdate({ force = false } = {}) {
+  try {
+    const response = await fetch("/api/updates/apply", { method: "POST", cache: "no-store", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true, force }) });
+    const body = await readBody(response);
+    const message = body?.errors?.[0]?.message || null;
+    return { ok: response.ok, status: response.status, message, data: body?.data && typeof body.data === "object" ? body.data : null };
+  } catch (error) {
+    return { ok: false, status: 0, message: `The server didn't answer (${error?.message || "no connection"}).` };
+  }
+}
+
+/** FEAT-13: the update from GitHub, then the restart with the new code, then the reload; say(text) reports progress. */
+export async function updateFlow({ say = () => {}, confirmDuringGame = () => false } = {}) {
+  const before = await currentBuild();
+  say("Bringing the update in from GitHub…");
+  let result = await requestUpdate();
+  if (result.status === 409 && /under way/i.test(result.message || "")) {
+    if (!(await confirmDuringGame(result.message))) {
+      say("Not updated.");
+      return false;
+    }
+    result = await requestUpdate({ force: true });
+  }
+  if (!result.ok) {
+    say(`Not updated: ${result.message || `the server answered ${result.status}`}`);
+    return false;
+  }
+  const packages = result.data?.syncNeeded === true;
+  say(packages
+    ? "Updated. The server restarts and brings the new packages in first, which can take a few minutes; the page reloads when it's back."
+    : "Updated. The server restarts with the new code; the page reloads when it's back (usually 10 to 20 seconds).");
+  const back = await waitForServer(before, { timeoutMs: packages ? 600000 : 120000 });
+  if (!back) {
+    say("The server hasn't come back yet. Look at the sun icon on the server computer, then reload this page.");
+    return false;
+  }
+  say("Back. Reloading…");
+  try {
+    window.location.reload();
+  } catch {
+    // no window (a test): nothing to reload
+  }
+  return true;
 }
 
 export async function restartFlow({ say = () => {}, confirmDuringGame = () => false } = {}) {

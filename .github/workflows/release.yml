@@ -1,13 +1,10 @@
-# The packaged program (public release Phase 10) and the package on PyPI (freeze wave F6, 2026-10-21): one archive per
-# system attached to each GitHub release, the wheel attached too and published to PyPI, the Windows program signed
-# through SignPath when the repository is set up for it. Runs only in the public repository (kickoff-companion), when a
-# release is published or by hand (then the archives and the wheel are workflow artifacts and nothing is published).
-# tools/package/build.py does the program: PyInstaller, a smoke test of the built program, the archive with its SHA-256.
+# The packaged program (public release Phase 10; Windows only since Kickoff Companion 2.0): one Windows archive attached
+# to each GitHub release, the program signed through SignPath when the repository is set up for it. Runs only in the
+# public repository (kickoff-companion), when a release is published or by hand (then the archive is a workflow
+# artifact and nothing is published). tools/package/build.py does the program: PyInstaller, a smoke test of the built
+# program, the archive with its SHA-256. The package on PyPI stays at 1.0.1 (the last release for macOS and Linux).
 #
-# Dormant until the repository is set up for them (README, "Code signing policy"; the owner's steps in the private docs):
-#   PyPI      the repository variable PYPI_PUBLISH = true, once pypi.org holds the pending publisher for this workflow
-#             (owner Myerslabs, repository kickoff-companion, workflow release.yml, environment pypi) and the repository
-#             has an environment named pypi.
+# Dormant until the repository is set up for it (README, "Code signing policy"):
 #   SignPath  the repository variable SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN, once SignPath
 #             Foundation has approved the project (slug kickoff-companion; policies test-signing and release-signing).
 name: release
@@ -23,16 +20,10 @@ permissions:
 jobs:
   build:
     if: github.event.repository.name == 'kickoff-companion'
-    strategy:
-      fail-fast: false
-      matrix:
-        # ubuntu-22.04 is the oldest Ubuntu GitHub runs: the Linux program then runs on any distribution of that age or
-        # newer (glibc 2.35), not only the newest (freeze wave F6)
-        os: [windows-latest, ubuntu-22.04, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
       - name: The release tag must carry the app's version
         if: github.event_name == 'release'
@@ -56,7 +47,7 @@ jobs:
       - name: Build and smoke-test the program
         run: uv run --frozen --no-dev --group build python tools/package/build.py --dist dist --no-archive
       - name: Keep the unsigned Windows program for signing
-        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
         id: unsigned
         uses: actions/upload-artifact@v4
         with:
@@ -64,7 +55,7 @@ jobs:
           path: dist/KickoffCompanion
           if-no-files-found: error
       - name: Sign the Windows program through SignPath
-        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
         uses: signpath/github-action-submit-signing-request@v1.1
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
@@ -75,7 +66,7 @@ jobs:
           wait-for-completion: true
           output-artifact-directory: signed
       - name: Put the signed program in place
-        if: runner.os == 'Windows' && vars.SIGNPATH_ORGANIZATION_ID != ''
+        if: vars.SIGNPATH_ORGANIZATION_ID != ''
         shell: pwsh
         run: |
           Remove-Item -Recurse -Force dist/KickoffCompanion
@@ -90,68 +81,12 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: |
           shopt -s nullglob
-          gh release upload "$TAG" dist/KickoffCompanion-*.zip dist/KickoffCompanion-*.tar.gz dist/*.sha256 --clobber
+          gh release upload "$TAG" dist/KickoffCompanion-*.zip dist/*.sha256 --clobber
       - name: Keep the archive as an artifact
         if: github.event_name != 'release'
         uses: actions/upload-artifact@v4
         with:
-          name: KickoffCompanion-${{ matrix.os }}
+          name: KickoffCompanion-windows
           path: |
             dist/KickoffCompanion-*
 
-  wheel:
-    # The package for `uvx kickoff-companion` (freeze wave F6): built once per system to prove it runs from the wheel
-    # alone, attached to the release, and handed to the pypi job.
-    if: github.event.repository.name == 'kickoff-companion'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: Build the wheel and the source distribution
-        run: uv build --out-dir dist
-      - name: The app runs from the wheel alone
-        shell: bash
-        env:
-          DATA_DIR: ${{ runner.temp }}/kickoff-check/data
-          LOG_DIR: ${{ runner.temp }}/kickoff-check/logs
-        run: |
-          uvx --from dist/kickoff_companion-*.whl kickoff-companion --check
-      - name: Attach the wheel to the release
-        if: github.event_name == 'release' && runner.os == 'Linux'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" dist/*.whl dist/*.tar.gz --clobber
-      - name: Keep the wheel for publishing
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheel
-          path: dist/*
-          if-no-files-found: error
-
-  pypi:
-    # Trusted publishing: PyPI accepts this job's identity token, no password or API token anywhere.
-    needs: wheel
-    if: github.event_name == 'release' && vars.PYPI_PUBLISH == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: pypi
-    permissions:
-      id-token: write
-      contents: read
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: wheel
-          path: dist
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist

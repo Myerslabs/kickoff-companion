@@ -24,16 +24,25 @@ script error the page throws while it does. Since item 6 (owner 2026-10-11) --in
     the board's way out: #board, from In Game and opened straight at it, fails unless its "Leave big screen" chip hides at
         rest, shows (44 px, on screen, nothing over it, the pointer back) after a mouse move, and leads back to #live;
     a file that does not arrive: one of the app's script files fails (DevTools' Fetch), and the check fails unless the loading
-        screen says so beside a Reload within 12 s, and unless the app starts once the file arrives again.
+        screen says so beside a Reload within 12 s, and unless the app starts once the file arrives again;
+    every band its own flyout and page (owner 2026-10-28): on each page of the catalog, a band the page draws that the
+        catalog (static/js/ui/band-catalog.js) does not name fails, since nothing would open it by itself;
+    every band opens by itself from its page (ENH-46, owner 2026-11-10: the menu lists pages, never the bands on them): on
+        the same pages every band the catalog names has the button in its own head (static/js/ui/band-open.js), and each
+        button is tapped: the band must open wide under its own name, with Own page in the head and previous and next
+        through the page's bands, and close again.
 --layout (Phase 19) fails on a row whose content is split apart by a large empty gap.
 --rules (Phase 19) reports text under 13 px and, at tablet widths, press targets under 44 px (never on the board, a display
 nobody touches, whose one control is checked by --interact); since item 6 it also fails on a
 player's name on two lines (a name never wraps: it shortens), and with --anchors the phone is held to the names too.
 --scroll (owner 2026-10-10) fails on anything on a page that scrolls up and down inside itself.
+--clip (owner 2026-11-15, his iPhone: "I just want to avoid cutting anything off, and instead shortening the data") fails on
+anything that runs past the edge of the box that clips it, and lists text shortened with "…" beside it; with --anchors the
+phone runs it too.
 --anchors (the tablet lock, owner 2026-10-13) runs the whole check at the screens the app is made for and no other: an iPad both
 ways (1180x820, 820x1180), then a phone (390x844: the words, the scroll rule and a name on one line, never the press targets or
 the sheets), then the board alone on a 1080p screen (1920x1080, --board: its words, and with --interact its way out). Any other
-page in a wider browser is the iPad's layout with wider columns (ui/flow.js), so nothing else runs wide.
+page is one column at every width (ui/flow.js, owner 2026-11-01), a band's content capped at the iPad's long side, so nothing else runs wide.
 --labels (Phase 17 #20) lists every label with no glossary entry.
 The routes include the ones the item 6 menu sweep found missing: an archived game (#archive=<id>: the first game the server's
 archive holds, else a finished game the archive does not hold, its designed "not watched" page), one glossary entry, #radio and
@@ -75,16 +84,17 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     # --- SEASON: Season, team pages, Ratings ---
     "SEASON": ["season", "season=polls:Coaches", "team={US}", "team={OPP}", "ratings", "ratings=sp", "ratings=elo?team={OPP}", "preseason"],
     # --- PROGRAM: Game program (the simulator's game under way, a finished one, an upcoming one) ---
-    "PROGRAM": ["program", "program={LIVE}", "program={LAST}", "program={NEXT}", "box={LAST}", "box={OTHER}", "season?band=standings", "team={OPP}?band=standings"],  # program={LAST}: the results band (wave B)
+    "PROGRAM": ["program", "program={LIVE}", "program={LAST}", "program={LAST}?tab=pre", "postgame={LAST}", "program={NEXT}", "box={LAST}", "box={OTHER}", "season?band=standings", "team={OPP}?band=standings"],  # program={LAST}: the results band (wave B); ?tab=pre and postgame=: the line's two stops of a finished game (2026-10-30)
     # --- PEOPLE: Leaders, Roster, Recruiting, the player card ---
     "PEOPLE": [
         "leaders", "leaders=passing:YDS:national", "leaders=defensive:TOT:conference", "leaders=ppa:all:opponent",
         "leaders=usage:overall:national", "roster", "recruiting", "recruiting=national", "recruiting={S+1}:where",
+        "stats=passing", "stats=defense", "stats=rushing?view=teams", "stats=defense?view=teams",  # ENH-10: the full lists
     ],
     # --- PROFILES: configure, profiles ---
     "PROFILES": [],
     # --- SCORES: Newspaper, ticker; items 10-12: the Top 25 page and an earlier week's edition of the paper ---
-    "SCORES": ["top25", "newspaper=week-7", "newspaper=week-1"],
+    "SCORES": ["top25", "newspaper=week-7", "newspaper=week-1", "imperialism", "blame", "conference", "conference=Big 12", "conference=nope"],  # FEAT-17: the Imperialism Map; FEAT-18: the Circle of Blame; the conference page (2026-11-02): ours, another, a wrong name
     # --- LIVE: Live sheet, Archive ---
     # item 6: an archived game ({ARCHIVED}: filled from the server's /api/archive once it answers, else {LAST})
     "LIVE": ["archive={ARCHIVED}"],
@@ -96,12 +106,40 @@ ROUTE_GROUPS: dict[str, list[str]] = {
     # --- Phase 18.6: Invite friends and the game-day board ---
     "FRIENDS": ["invite", "board", "review", "trivia"],  # the trivia page (2026-10-21)
     "MYTEAMS": ["season?team={OPP}", "injuries", "national=rating:sp?scope=opponents", "national=profile:ypp?scope=mine", "national=board:passing:YDS?scope=opponents"],
+    # --- every band its own flyout and page (owner 2026-10-28): a band alone across the page, from each kind of page ---
+    "BANDS": [
+        "band=season:season-polls", "band=program:program-matchup", "band=program:program-week", "band=stats=passing:stats-teams?view=teams",  # the boxes (the line, Wave 2)
+        "band=live:box", "band=live:chart", "band=newspaper:np-page-1", "band=preseason:preseason-home", "band=leaders:leaders-grades",
+        "band=ratings:ratings-side", "band=roster:roster-costs", "band=team={US}:team-numbers", "band=archive:archive-list", "band=nonsense",
+        # the owner's test (2026-10-28): National's polls, Advanced's SP+ and Elo, Usage open their bands' own pages; the team
+        # page's other tabs; this season's class list by name
+        "band=season=polls:Coaches:season-polls", "band=ratings=elo:ratings-side", "band=leaders=usage:overall:national:leaders-usage-overall",
+        "band=newspaper:np-polls?poll=AP", "band=ratings=sp:ratings-sp",  # ENH-46 (2026-11-10): the menu's rows for these went; the addresses still open
+        "band=team={US}:team-history?tab=history", "national=class:current",
+        "band=imperialism:imp-land",  # FEAT-17
+        "band=conference:conf-standings", "band=conference:conf-against-numbers?view=numbers",  # the conference page (2026-11-02)
+        "band=blame:blame-season",  # FEAT-18
+    ],
 }
 ROUTES = list(dict.fromkeys(route for group in ROUTE_GROUPS.values() for route in group))
+SPEED_TARGET_MS = 1500  # batch 1 (owner 2026-11-15, "Every page in ~1.5 s"): every band's data in, from the tap
+SPEED_JS = """(() => {
+  const api = performance.getEntriesByType("resource").filter((e) => e.name.includes("/api/"));
+  const end = api.length ? Math.max(...api.map((e) => e.responseEnd)) : 0;
+  const count = {};
+  for (const e of api) { const k = e.name.replace(location.origin, ""); count[k] = (count[k] || 0) + 1; }
+  return {
+    requests: api.length,
+    doneMs: Math.round(end),
+    kb: Math.round(api.reduce((s, e) => s + (e.transferSize || 0), 0) / 1024),
+    repeated: Object.entries(count).filter(([, n]) => n > 1).map(([k, n]) => `${k.split("?")[0]} x${n}`),
+    slowest: api.map((e) => [Math.round(e.duration), e.name.replace(location.origin, "").split("?")[0]]).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([ms, k]) => `${k} ${ms} ms`),
+  };
+})()"""
 DEFAULT_SIZE = (820, 1180)  # the iPad held upright: the anchor (Design rules, owner 2026-10-21); sideways must not break
 # Phase 19 (owner 2026-10-08): the app is arranged and tested around two screens, a tablet and a full-screen monitor.
 # The screens (owner 2026-10-13, the tablet lock): an iPad both ways and a phone for every page; the big screen for the board
-# only, since any other page in a wider browser is the iPad's layout with wider columns (ui/flow.js).
+# only, since any other page is one column at every width (ui/flow.js, owner 2026-11-01), its bands' content capped at 1180 px.
 ANCHOR_SIZES = [(820, 1180), (1180, 820)]  # an iPad (Air or plain): upright first, the anchor, then sideways
 PHONE_SIZE = (390, 844)  # an iPhone held upright
 BIG_SCREEN = (1920, 1080)  # a 1080p screen: the board's own layout
@@ -132,6 +170,7 @@ LABEL_SELECTOR = "td.txt:first-child, th[scope=row], thead th, .success__source,
 STAT_HEADS = ["statistic", "stat", "metric", "measure", "split", "situation", "matchup", "part", "rating", "this season", "last season", "category", "rate"]
 # Headers and labels a new fan already understands: names of things, places, dates and the table's own furniture.
 PLAIN_LABELS = {
+    "games",  # ENH-10: the full lists' team tables
     "#", "±", "away", "change", "choice", "class", "coach", "conference", "date", "game", "high school", "hired", "home",
     "hometown", "ht", "wt", "last game", "last three", "last 5", "matchup", "measure", "metric", "next", "no", "no.", "note",
     "opp", "opponent", "overall", "player", "pos", "rank", "rating", "record", "recruit", "result", "season", "score",
@@ -181,6 +220,28 @@ UNEXPLAINED_JS = r"""
 # Run on every page at every anchor size with --layout. A row counts when it is wider than 700 px and two of its children's
 # text sits on one line with more than STRETCH_GAP px of nothing between them.
 STRETCH_GAP = 300
+# The owner's phone (2026-11-07): the Program's cover took the rail's full content width, the page grew to 1,130 px and the
+# phone zoomed the whole page out. A headless window at 390 px never widened, it scrolled sideways, so nothing caught it:
+# --layout now fails any page whose document is wider than the window, naming the widest elements that start inside it.
+WIDE_JS = r"""
+(() => {
+  const W = window.innerWidth;
+  const over = document.documentElement.scrollWidth - W;
+  if (over <= 2) return [];
+  const name = (n) => n.tagName.toLowerCase() + (typeof n.className === "string" && n.className.trim() ? "." + n.className.trim().split(/\s+/).slice(0, 2).join(".") : "") + (n.id ? "#" + n.id : "");
+  const culprits = [];
+  for (const n of document.querySelectorAll("body *")) {
+    const r = n.getBoundingClientRect();
+    if (r.width <= W + 2 || r.left > W) continue; // a scroller's own children run past the edge by design; a box wider than the window is the fault
+    const cs = getComputedStyle(n);
+    if (cs.overflowX === "auto" || cs.overflowX === "scroll") continue;
+    culprits.push(name(n) + " " + Math.round(r.width) + " px");
+    if (culprits.length >= 6) break;
+  }
+  return [{ over: Math.round(over), width: Math.round(document.documentElement.scrollWidth), window: W, culprits }];
+})()
+"""
+
 STRETCH_JS = r"""
 (() => {
   const GAP = STRETCH_GAP;
@@ -228,7 +289,7 @@ STRETCH_JS = r"""
 
 
 # Phase 19: the written rules, measured. Text under 13 px (the floor since wave 3; chart axes and small print inside a drawing
-# are exempt) and, on a touch screen, anything you press that is under 44 px tall or wide (docs/03-DESIGN.md, "Touch and
+# are exempt) and, on a touch screen, anything you press that is under 44 px tall or wide (the design rules, "Touch and
 # accessibility"). Run with --rules; the touch rule is only checked at tablet widths.
 RULES_JS = r"""
 (() => {
@@ -303,8 +364,64 @@ SCROLL_JS = r"""
 """.replace("OVERLAYS", OVERLAYS)
 
 
+# The owner's phone (2026-11-15, after a weekend on his iPhone: "some sections and bands did not shrink down, even though they
+# had room on the screen to do it", then "I just want to avoid cutting anything off, and instead shortening the data"): nothing
+# on a page is cut off at an edge. A band clips what runs past it, so a table, a note or a name wider than its box was simply
+# lost past the right edge, and a name in too small a box ended in "…" while the row had room elsewhere. --clip fails on any
+# element that runs more than 2 px past the box of the nearest ancestor that clips it sideways (a sideways scroller between
+# them lets it scroll instead and is left alone), naming the outermost one cut; and on text its own box cuts, with "…" or
+# without. The screen reader's copies, drawings (svg, canvas), the reader's own layers, the chips and the rail (rows that
+# scroll sideways by design) and a band head's summary (one line that ends in "…" by design) are left out.
+CLIP_JS = r"""
+(() => {
+  const found = new Map();
+  const visible = (el) => { const s = getComputedStyle(el); const b = el.getBoundingClientRect(); return s.display !== 'none' && s.visibility !== 'hidden' && b.width > 0 && b.height > 0; };
+  const label = (el) => (el.tagName || '').toLowerCase() + (typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\s+/).slice(0, 2).join('.') : '');
+  const where = (el) => { const band = el.closest('[id]'); return band ? '#' + band.id : 'page'; };
+  const sideways = (el) => getComputedStyle(el).overflowX;
+  const SKIP = 'svg, canvas, .sr-only, OVERLAYS, .chips-row, .rail__row, .band__summary, .ticker, .np-legbox, .np-textbox'; // .ticker: In Game's scores scroll across by design; .np-legbox, .np-textbox: the Newspaper's teasers, cut to their box under a fade by design (a tap opens the whole story)
+  const note = (kind, el, over) => {
+    const key = kind + '|' + where(el) + '|' + label(el);
+    const entry = found.get(key) || { kind, where: where(el), element: label(el), count: 0, over: 0, sample: (el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) };
+    entry.count += 1;
+    entry.over = Math.max(entry.over, Math.round(over));
+    found.set(key, entry);
+  };
+  for (const el of document.querySelectorAll('main *')) {
+    if (el.closest(SKIP) || !visible(el)) continue;
+    const own = sideways(el);
+    // text its own box cuts: words in a box too narrow for them
+    if ((own === 'hidden' || own === 'clip') && el.scrollWidth > el.clientWidth + 2 && [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+      note(getComputedStyle(el).textOverflow === 'ellipsis' ? 'shortened' : 'cut off', el, el.scrollWidth - el.clientWidth);
+    }
+    // a box the nearest ancestor that clips sideways cuts (a scroller on the way lets it scroll instead)
+    let up = el.parentElement;
+    let clipper = null;
+    while (up && up !== document.body) {
+      const v = sideways(up);
+      if (v === 'auto' || v === 'scroll') break;
+      if (v === 'hidden' || v === 'clip') { clipper = up; break; }
+      up = up.parentElement;
+    }
+    if (!clipper) continue;
+    const box = el.getBoundingClientRect();
+    const edge = clipper.getBoundingClientRect();
+    const over = Math.max(box.right - edge.right, edge.left - box.left);
+    if (over <= 2) continue;
+    const parent = el.parentElement;
+    if (parent !== clipper) {
+      const p = parent.getBoundingClientRect();
+      if (Math.max(p.right - edge.right, edge.left - p.left) > 2) continue; // its parent is cut too: the outermost one is named
+    }
+    note(getComputedStyle(clipper).textOverflow === 'ellipsis' ? 'shortened' : 'cut off', el, over);
+  }
+  return [...found.values()].sort((a, b) => (a.kind === b.kind ? b.over - a.over : a.kind === 'cut off' ? -1 : 1));
+})()
+""".replace("OVERLAYS", OVERLAYS)
+
+
 # Item 6 (owner 2026-10-11, "One line only, reduce the name"): a player's name never wraps onto a second line; a table steps
-# down through "K. Crawford", the surname and "Brackwater-M." instead, and only last cuts it with "…" (docs/03-DESIGN.md, "The
+# down through "K. Crawford", the surname and "Brackwater-M." instead, and only last cuts it with "…" (the design rules, "The
 # menu, the big screen and player names"). Every name is drawn by ui/dom.js personName as a .pn with its four forms, one shown;
 # a name counts the lines its shown words sit on (the screen reader's copy left out). Run with --rules, on the page and (with
 # --interact) inside the sheet the Menu check opens; with --anchors the phone too.
@@ -494,6 +611,13 @@ class Edge:
         result = self.call("Runtime.evaluate", expression="document.body ? document.body.innerText : ''", returnByValue=True)
         return str(result.get("result", {}).get("value") or "")
 
+    def speed(self) -> dict:
+        """Batch 1 (owner 2026-11-15, "Every page in ~1.5 s"): the page just loaded, from the browser's own timings: its /api/
+        requests, when the last of them ended (ms from the navigation's start), their size on the wire, the addresses asked
+        for more than once, the three slowest."""
+        value = self.run(SPEED_JS)
+        return value if isinstance(value, dict) else {"requests": 0, "doneMs": 0, "kb": 0, "repeated": [], "slowest": []}
+
     def run(self, expression: str) -> object:
         """Evaluate an async expression in the page and give back its JSON value (None when it threw)."""
         result = self.call("Runtime.evaluate", expression=expression, returnByValue=True, awaitPromise=True)
@@ -508,6 +632,16 @@ class Edge:
     def stretched(self) -> list[dict]:
         """Rows with a large empty gap inside them on the page now loaded (--layout)."""
         value = self.run(STRETCH_JS)
+        return [v for v in value if isinstance(v, dict)] if isinstance(value, list) else []
+
+    def too_wide(self) -> list[dict]:
+        """The page now loaded wider than the window, with the boxes that make it so (--layout; the owner's phone, 2026-11-07)."""
+        value = self.run(WIDE_JS)
+        return [v for v in value if isinstance(v, dict)] if isinstance(value, list) else []
+
+    def clipped(self) -> list[dict]:
+        """Content cut off at the edge of the box that clips it, or shortened with "…", on the page now loaded (--clip)."""
+        value = self.run(CLIP_JS)
         return [v for v in value if isinstance(v, dict)] if isinstance(value, list) else []
 
     def scroll_boxes(self) -> list[dict]:
@@ -584,6 +718,126 @@ FLOWS: list[tuple[str, str]] = [
       return sheet ? '' : 'the list did not open';
     })()"""),
 ]
+
+
+# The pages whose bands the catalog names (static/js/ui/band-catalog.js), with the bands each draws on purpose without an
+# entry of its own: the program's radio is a control, not a table (the Radio tile opens the stations).
+BAND_ROUTES = {
+    "season": "season", "roster": "roster", "recruiting": "recruiting", "preseason": "preseason", "archive": "archive",
+    "program": "program", "program={LAST}": "program", "program={LAST}?tab=pre": "program", "postgame={LAST}": "program", "newspaper": "newspaper", "leaders": "leaders", "stats=passing": "stats-passing",
+    "stats=passing?view=teams": "stats-passing", "ratings": "ratings", "team={US}": "season", "imperialism": "imperialism", "blame": "season", "top25": "top25", "picks": "top25", "conference": "conference", "conference=Big 12": "conference",  # wave 3 (2026-11-01): a team's page and #blame are My Team's, #picks the Top 25's
+}
+BAND_SKIP = ["program-radio"]
+BAND_COVER_JS = r"""(async () => {""" + WAIT_JS + r"""
+  await until(() => document.querySelector('main section.band[id]'), 8000);
+  await wait(1500);
+  const app = [...document.querySelectorAll('script[type="module"]')].map((s) => s.src).find((src) => /\/js\/app\.js/.test(src));
+  if (!app) return JSON.stringify({ error: 'the app script was not found' });
+  const cat = await import(app.replace(/app\.js.*$/, 'ui/band-catalog.js'));
+  const bands = cat.bandsOf(PAGE);
+  const ids = new Set(bands.map((b) => b.id));
+  const selects = bands.filter((b) => b.select).map((b) => b.select);
+  const drawn = [...document.querySelectorAll('main section.band[id]')].filter((s) => !s.parentElement.closest('section.band'));
+  const extra = drawn.filter((s) => !ids.has(s.id) && !selects.some((sel) => s.matches(sel)) && !SKIP.includes(s.id)).map((s) => s.id);
+  return JSON.stringify({ extra, drawn: drawn.length });
+})()"""
+
+
+# ENH-46 (owner 2026-11-10): the menu lists pages, so the band's own button is the way to it from its page. Every band the
+# catalog names on the page on screen has one, and each is tapped: the flyout opens under the band's name with Own page and,
+# on a page with more than one band, a foot that counts the page's bands; then it closes. Three failures end a page's run.
+BAND_OPEN_JS = r"""(async () => {""" + WAIT_JS + r"""
+  const app = [...document.querySelectorAll('script[type="module"]')].map((s) => s.src).find((src) => /\/js\/app\.js/.test(src));
+  if (!app) return JSON.stringify({ error: 'the app script was not found' });
+  const marks = await import(app.replace(/app\.js.*$/, 'ui/band-open.js'));
+  const main = document.querySelector('main');
+  const expected = marks.bandsOnPage(main, location.hash);
+  const buttonOf = (item) => item.node.querySelector(':scope > .band__head > .band__open');
+  await until(() => expected.every(buttonOf), 2000);
+  const problems = [];
+  const without = expected.filter((item) => !buttonOf(item)).map((item) => item.band.id);
+  if (without.length) problems.push('no button to open ' + without.join(', ') + ' by itself');
+  const open = () => document.querySelector('.sheet-layer[data-modal] .side-sheet--wide');
+  let opened = 0;
+  const tight = [];
+  for (const item of expected) {
+    if (problems.length >= 3) break;
+    const button = buttonOf(item);
+    if (!button) continue;
+    const id = item.band.id;
+    const head = button.parentElement;
+    if (head.classList.contains('band__head--tight')) {
+      // the head has no room at this width and gave the button up: it must then be a head that is full without it
+      head.classList.remove('band__head--tight');
+      const full = head.scrollWidth > head.clientWidth + 1;
+      head.classList.add('band__head--tight');
+      if (!full) problems.push(id + ': its head has room for the button, yet it is hidden');
+      else tight.push(id);
+      continue;
+    }
+    const box = button.getBoundingClientRect();
+    if (box.width < 1 || box.height < 1) { problems.push(id + ': its button is not shown'); continue; }
+    if (box.width < 40 || box.height < 40) problems.push(id + ': its button is ' + Math.round(box.width) + ' by ' + Math.round(box.height) + ', smaller than a finger');
+    const label = String(typeof item.band.label === 'function' ? item.band.label() : item.band.label).trim();
+    button.click();
+    const sheet = await until(() => { const s = open(); return s && (s.querySelector('.side-sheet__title')?.textContent || '').trim() === label ? s : null; }, 4000);
+    if (!sheet) {
+      problems.push(id + ': the button did not open "' + label + '" wide');
+      """ + ESCAPE_JS + r"""
+      await wait(400);
+      continue;
+    }
+    if (!sheet.querySelector('.flyout-own')) problems.push(id + ': no Own page in the flyout\'s head');
+    const count = sheet.querySelector('.flyout-pager__count')?.textContent || '';
+    if (expected.length > 1 && !count.includes(' of ' + expected.length + ' ')) problems.push(id + ': previous and next do not walk the page\'s ' + expected.length + ' bands ("' + count + '")');
+    if (sheet.querySelector('.band__open')) { const inner = sheet.querySelector('.band__open').getBoundingClientRect(); if (inner.width > 0) problems.push(id + ': the button shows again inside the flyout'); }
+    opened += 1;
+    (sheet.querySelector('.side-sheet__close') || sheet.closest('.sheet-layer').querySelector('.side-sheet__close')).click();
+    if (!(await until(() => !document.querySelector('.sheet-layer[data-modal]'), 3000))) { problems.push(id + ': the flyout did not close'); break; }
+  }
+  return JSON.stringify({ problems, opened, tight, expected: expected.length });
+})()"""
+
+
+def check_band_cover(edge: Edge, base: str, budget_ms: int, values: dict[str, str]) -> tuple[list[str], str, list[str], str]:
+    """Every band a listed page draws is in the catalog, so it has its flyout and its own page (owner 2026-10-28), and every
+    band of the catalog on the page opens by itself from the button in its own head (ENH-46, owner 2026-11-10). Gives back
+    the first check's problems and line, then the second's."""
+    problems: list[str] = []
+    stuck: list[str] = []
+    seen = 0
+    opened = 0
+    tight: list[str] = []  # heads with no room for the button at this width (a phone, a switch already in the head)
+    for route, page in BAND_ROUTES.items():
+        filled = fill(route, values) if "{" in route else route
+        if "{" in filled:
+            continue
+        edge.text_of(f"{base}/#{filled}", budget_ms)
+        said = edge.run(BAND_COVER_JS.replace("PAGE", json.dumps(page)).replace("SKIP", json.dumps(BAND_SKIP)))
+        try:
+            answer = json.loads(said) if isinstance(said, str) else {}
+        except ValueError:
+            answer = {}
+        if answer.get("error") or "extra" not in answer:
+            problems.append(f"#{filled}: {answer.get('error') or 'the check could not run'}")
+            continue
+        seen += int(answer.get("drawn") or 0)
+        problems += [f"#{filled}: the band {band} has no entry in the catalog (add it to ui/band-catalog.js)" for band in answer["extra"]]
+        said = edge.run(BAND_OPEN_JS)
+        try:
+            taps = json.loads(said) if isinstance(said, str) else {}
+        except ValueError:
+            taps = {}
+        if taps.get("error") or "problems" not in taps:
+            stuck.append(f"#{filled}: {taps.get('error') or 'the check could not run'}")
+            continue
+        opened += int(taps.get("opened") or 0)
+        stuck += [f"#{filled}: {problem}" for problem in taps["problems"]]
+        tight += [f"#{filled} {band}" for band in taps.get("tight") or [] if isinstance(band, str)]
+    line = f"{opened} bands opened wide from their own button"
+    if tight:
+        line += f"; {len(tight)} had no room for it at this width ({', '.join(tight[:6])}{', ...' if len(tight) > 6 else ''})"
+    return problems, f"{seen} bands on {len(BAND_ROUTES)} pages each have their flyout and page", stuck, line
 
 
 def run_flows(edge: Edge, base: str, budget_ms: int) -> int:
@@ -1033,6 +1287,9 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
     parser.add_argument("--interact", action="store_true", help="also click through the menu, search, the tabs and a rank-chip sheet (Phase 18.5); and (item 6) open a sheet on every page and check the Menu over it, the board's way out, and a file that does not arrive")
     parser.add_argument("--labels", action="store_true", help="also list every label with no glossary entry, and fail on any (Phase 17 #20)")
     parser.add_argument("--scroll", action="store_true", help="also fail on anything on a page that scrolls up and down inside itself; with --anchors the phone runs too (owner 2026-10-10)")
+    parser.add_argument("--clip", action="store_true", help="also fail on anything cut off at the edge of the box that clips it, or shortened with '…' (shorten the data instead; owner 2026-11-15); with --anchors the phone runs too")
+    parser.add_argument("--speed", action="store_true", help="also time each page: its /api/ requests, when the last ended, their size, the addresses asked twice, the slowest (batch 1, owner 2026-11-15; a report, never a failure)")
+    parser.add_argument("--speed-json", metavar="FILE", help="with --speed, write every page's timings to FILE as JSON (a before and after)")
     parser.add_argument("--no-sandbox", action="store_true", help="start the browser without its sandbox (a Linux CI machine that forbids user namespaces; freeze wave F6)")
     args = parser.parse_args(argv)
     if args.anchors:
@@ -1047,7 +1304,7 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
         worst = max(worst, main([*phone, "--size", f"{PHONE_SIZE[0]}x{PHONE_SIZE[1]}"], names=args.rules))
         # the big screen: the board only, its words and (with --interact) its way out
         print(f"== {ANCHOR_NAMES[BIG_SCREEN]} ==")
-        big = [a for a in rest if a not in ("--layout", "--labels", "--scroll")]
+        big = [a for a in rest if a not in ("--layout", "--labels", "--scroll", "--clip")]  # the board is drawn at a zoom
         worst = max(worst, main([*big, "--board", "--size", f"{BIG_SCREEN[0]}x{BIG_SCREEN[1]}"]))
         return worst
     check_names = args.rules if names is None else names
@@ -1086,25 +1343,37 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
             print(f"Viewport {args.size[0]}x{args.size[1]}, {len(args.routes)} route(s).")
             unexplained: dict[str, list[str]] = {}
             stretches: list[tuple[str, dict]] = []
+            wides: list[tuple[str, dict]] = []  # pages wider than the screen (--layout)
             breaks: list[tuple[str, dict]] = []
             boxes: list[tuple[str, dict]] = []
+            cuts: list[tuple[str, dict]] = []  # content cut off or shortened with "…" (--clip)
             wraps: list[tuple[str, dict]] = []
             sheets: list[tuple[str, dict]] = []
             used: dict[str, int] = {}  # the sheet check's trigger kinds opened so far
+            speeds: list[tuple[str, dict]] = []  # batch 1: each page's timings (--speed)
             menu_spot = args.interact and args.size[0] >= SHEET_MIN_WIDTH
             try:
                 results = []
                 for route in args.routes:
                     results.append((route, *check_page(browser, f"{base}/#{route}", args.budget)))
+                    if args.speed:
+                        row = browser.speed()
+                        speeds.append((route, row))
+                        print(f"  speed #{route:<34} {row.get('requests', 0):>3} req {row.get('doneMs', 0):>6} ms {row.get('kb', 0):>5} KB  twice: {row.get('repeated') or '-'}  slowest: {row.get('slowest') or '-'}", flush=True)
                     if args.scroll:
                         for row in browser.scroll_boxes():
                             boxes.append((route, row))
+                    if args.clip:
+                        for row in browser.clipped():
+                            cuts.append((route, row))
                     if args.rules:
                         for row in browser.rule_breaks():
                             breaks.append((route, row))
                     if args.layout:
                         for row in browser.stretched():
                             stretches.append((route, row))
+                        for row in browser.too_wide():
+                            wides.append((route, row))
                     if args.labels:
                         for label in browser.labels(UNEXPLAINED_JS):
                             unexplained.setdefault(label, []).append(route)
@@ -1127,10 +1396,19 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
                     failures += report_sheets(sheets, args.size[0])
                     failures += report("the board's way out", *check_board(browser, base, args.budget))
                     failures += report("a file that does not arrive", *check_boot(browser, base, args.budget))
+                    cover, cover_line, taps, taps_line = check_band_cover(browser, base, args.budget, values or league_values())
+                    failures += report("every band its own flyout and page", cover, cover_line)
+                    failures += report("every band opens by itself from its page", taps, taps_line)
                 team_names = league_names() if args.labels and args.url is None else set()
                 unexplained = {k: v for k, v in unexplained.items() if k.strip().rstrip(":.").lower() not in PLAIN_LABELS | team_names}
             finally:
                 browser.close()
+            if args.speed and args.speed_json:
+                Path(args.speed_json).write_text(json.dumps({"size": list(args.size), "base": base, "pages": {route: row for route, row in speeds}}, indent=1), encoding="utf-8")
+                print(f"  speed: written to {args.speed_json}")
+            if args.speed and speeds:
+                over = [(route, row) for route, row in speeds if row.get("doneMs", 0) > SPEED_TARGET_MS]
+                print(f"  speed: {len(speeds)} pages, {len(over)} over {SPEED_TARGET_MS} ms" + (": " + ", ".join(f"#{r} {row.get('doneMs')} ms" for r, row in over) if over else ""))
             for route, hits, size in results:
                 if size < 120:  # the shell alone is about 100 characters; an empty-state page is more
                     print(f"  ?  #{route}: the page came back nearly empty ({size} characters)")
@@ -1150,6 +1428,16 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
                     print(f"       #{route}  {row['where']} {row['element']} x{row['count']}  {row['over']} px more than its {row['box']} px box")
             else:
                 print("No scroll boxes.")
+        if args.clip:
+            if cuts:
+                failures += 1
+                hard = [(route, row) for route, row in cuts if row.get("kind") == "cut off"]
+                soft = [(route, row) for route, row in cuts if row.get("kind") != "cut off"]
+                print(f"{len(hard)} cut off, {len(soft)} shortened with an ellipsis (nothing is cut: shorten the data instead, owner 2026-11-15):")
+                for route, row in [*hard, *soft]:
+                    print(f"       {row['kind']}: #{route}  {row['where']} {row['element']} x{row['count']}  {row['over']} px  e.g. {row['sample']!r}")
+            else:
+                print("Nothing cut off.")
         if args.rules:
             merged: dict[str, dict] = {}
             for route, row in breaks:
@@ -1168,7 +1456,7 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
         if check_names:
             if wraps:
                 failures += 1
-                print(f"{len(wraps)} player name(s) on two lines (a name never wraps: its table shortens it, docs/03-DESIGN.md):")
+                print(f"{len(wraps)} player name(s) on two lines (a name never wraps: its table shortens it, the design rules):")
                 for route, row in wraps:
                     print(f"       #{route}  {row['where']} {row['element']} x{row['count']}  {row['sample']!r} on {row['lines']} lines")
             else:
@@ -1181,6 +1469,13 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
                     print(f"       #{route}  {row['where']} {row['element']}  gap {row['gap']} px in {row['width']} px  e.g. {row['sample'][0] if row['sample'] else ''}")
             else:
                 print("No stretched rows.")
+            if wides:
+                failures += 1
+                print(f"{len(wides)} page(s) wider than the screen (a phone zooms the whole page out):")
+                for route, row in wides:
+                    print(f"       #{route}  {row.get('width')} px in a {row.get('window')} px window, {row.get('over')} px over: {', '.join(row.get('culprits') or []) or 'no single box named'}")
+            else:
+                print("No page wider than the screen.")
         if args.labels:
             if unexplained:
                 failures += 1

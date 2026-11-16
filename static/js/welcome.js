@@ -1,8 +1,9 @@
 // Kickoff Companion, the first-run setup (/welcome; public release Phases 5a and 5b).
-// Step 1 checks a CFBD key and shows the plan it brings; step 2 picks the home team (primary #1, the only
-// one whose colors theme the app) from CFBD's FBS list. With a Tier 2 key, step 3 adds up to four more
-// primary teams, step 4 the secondary teams (schools, conferences, states) and step 5 sets the ticker to
-// every game or my teams. "Save and open the app" writes the setup on the server, which restarts in place
+// Step 1 checks a CFBD key and shows the plan it brings; step 2 picks the primary teams from CFBD's FBS list in
+// one picker (ENH-12, owner 2026-10-23: "Use the step 3 as the only step and use the multi-select there"): the first
+// is the home team (primary #1, the only one whose colors theme the app), up to four more follow, and the order picked
+// is the My Teams order; step 3 adds the secondary teams (schools, conferences, states) and step 4 sets the ticker to
+// every game or my teams. Settings' "Change my teams" opens this same page. "Save and open the app" writes the setup on the server, which restarts in place
 // when the key or the home team changed; the page waits for it and opens the app.
 // Every value from the server is guarded and written with textContent; the key is never shown back.
 
@@ -26,15 +27,12 @@ const els = {
   getKey: $("get-key"),
   teamSearch: $("team-search"),
   teamList: $("team-list"),
-  teamChosen: $("team-chosen"),
+  teamOrder: $("team-order"),
   teamNote: $("team-note"),
-  primaryLocked: $("primary-locked"),
-  primarySearch: $("primary-search"),
-  primaryList: $("primary-list"),
-  primaryChips: $("primary-chips"),
   tickerNational: $("ticker-national"),
   tickerMine: $("ticker-mine"),
   tickerLocked: $("ticker-locked"),
+  primaryLocked: $("primary-locked"),
   likedLocked: $("liked-locked"),
   likedSearch: $("liked-search"),
   likedList: $("liked-list"),
@@ -46,10 +44,15 @@ const els = {
   finishError: $("finish-error"),
   status: $("welcome-status"),
   backToApp: $("back-to-app"),
+  importPanel: $("import-panel"),
+  importFound: $("import-found"),
+  importGo: $("import-go"),
+  importStatus: $("import-status"),
+  importError: $("import-error"),
   demoLine: $("demo-line"),
 };
 
-const MAX_PRIMARIES = 4;
+const MAX_PRIMARIES = 4; // after the home team: five primary teams in all
 // A list of schools shows this many matches whole and says how many more typing would find: never a scroll box
 // inside the page, which keeps a finger on a phone (owner 2026-10-10).
 const SHOWN = 8;
@@ -170,7 +173,7 @@ async function checkKey() {
   }
 }
 
-// --- step 2: the team -------------------------------------------------------------------------------
+// --- step 2: the primary teams, the home team first ------------------------------------------------------
 
 function teamItem(team, { selected, onPick }) {
   const color = hex(team.color) || "#888888";
@@ -195,29 +198,65 @@ function shortList(items, draw) {
   return [...items.slice(0, SHOWN).map(draw), more > 0 ? el("p", { class: "welcome__more", role: "none" }, `${more} more: type a school, mascot or conference to find them.`) : null].filter(Boolean);
 }
 
+/** The primary teams in the My Teams order: the home team, then #2 to #5. */
+function primaryOrder() {
+  return [state.team, ...state.primaries].filter((school) => str(school));
+}
+
+function setOrder(list) {
+  const schools = list.filter((school) => str(school));
+  state.team = schools[0] || null;
+  state.primaries = schools.slice(1, MAX_PRIMARIES + 1);
+  state.liked.teams = state.liked.teams.filter((t) => !schools.includes(t)); // a team is primary or secondary, not both
+  renderTeams();
+  renderLiked();
+}
+
+/** One picked team: its place, its name, and Move up (the order is the My Teams order; up to #1 makes it the home team). */
+function pickRow(school, index, list) {
+  const team = state.teams.find((t) => t.school === school) || { school };
+  const color = hex(team.color) || "#888888";
+  const move = index > 0 ? el("button", { class: "btn btn--quiet", type: "button", "aria-label": `Move ${school} up to #${index}`, title: "Move up", onclick: () => setOrder([...list.slice(0, index - 1), school, list[index - 1], ...list.slice(index + 1)]) }, "↑") : null;
+  const remove = el("button", { class: "btn btn--quiet", type: "button", "aria-label": `Remove ${school}`, title: "Remove", onclick: () => setOrder(list.filter((t) => t !== school)) }, "×");
+  return el(
+    "li",
+    { class: "welcome__pick" },
+    el("span", { class: "welcome__pick-num" }, `#${index + 1}`),
+    el("span", { class: "welcome__swatch", style: `background:${color}` }),
+    el(
+      "span",
+      { class: "welcome__pick-name" },
+      school,
+      str(team.mascot) ? ` ${team.mascot}` : "",
+      str(team.conference) ? el("span", { class: "welcome__meta" }, team.conference) : null,
+      index === 0 ? el("span", { class: "welcome__pick-home" }, "Home team: its colors and mascot theme the app") : null,
+    ),
+    el("span", { class: "welcome__pick-moves" }, move, remove),
+  );
+}
+
 function renderTeams() {
+  const list = primaryOrder();
+  const allowed = likedAllowed();
+  lockNote(els.primaryLocked, "More primary teams show with a Tier 2 key.");
+  const capped = !allowed && list.length >= 1; // below Tier 2 the home team is the one primary team
+  const full = list.length > MAX_PRIMARIES || capped;
+  els.teamSearch.disabled = !state.teams.length || full;
+  els.teamSearch.placeholder = capped ? "More primary teams show with a Tier 2 key" : full ? "Five is the most; remove one to add another" : list.length ? "Add another school (optional)" : "Type a school, mascot or conference";
   const query = els.teamSearch.value.trim();
-  const found = state.teams.filter((t) => matches(t, query));
-  els.teamList.replaceChildren(...shortList(found, (team) => teamItem(team, { selected: state.team === team.school, onPick: pickTeam })));
-  if (state.team) {
-    const team = state.teams.find((t) => t.school === state.team);
-    show(els.teamChosen, team ? `${team.school}${str(team.mascot) ? ` ${team.mascot}` : ""}, ${str(team.conference) || "conference unknown"}` : state.team);
-  } else {
-    show(els.teamChosen, null);
-  }
+  // with no team yet the whole list shows; after the first, only what is typed
+  const found = full || (list.length && !query) ? [] : state.teams.filter((t) => !list.includes(t.school) && matches(t, query));
+  els.teamList.replaceChildren(...shortList(found, (team) => teamItem(team, { selected: false, onPick: pickTeam })));
+  els.teamOrder.replaceChildren(...list.map((school, index) => pickRow(school, index, list)));
   renderFinish();
 }
 
 function pickTeam(team) {
-  state.team = team.school;
-  state.primaries = state.primaries.filter((t) => t !== team.school);
-  state.liked.teams = state.liked.teams.filter((t) => t !== team.school);
-  renderTeams();
-  renderPrimaries();
-  renderLiked();
+  els.teamSearch.value = "";
+  setOrder([...primaryOrder(), team.school]);
 }
 
-// --- steps 3 to 5: more primary teams, secondary teams, the ticker (a Tier 2 key) --------------------
+// --- steps 3 and 4: the secondary teams, the ticker (a Tier 2 key) --------------------------------------
 
 function likedAllowed() {
   return state.info?.plan?.likedAllowed === true;
@@ -231,24 +270,6 @@ function lockNote(node, words) {
   }
   node.replaceChildren(`${words} Everything else works on your plan. `, el("a", { href: plansUrl, target: "_blank", rel: "noopener" }, "See CFBD's plans"));
   node.hidden = false;
-}
-
-function renderPrimaries() {
-  const allowed = likedAllowed();
-  lockNote(els.primaryLocked, "More primary teams show with a Tier 2 key.");
-  const full = state.primaries.length >= MAX_PRIMARIES;
-  els.primarySearch.disabled = !allowed || !state.teams.length || full;
-  els.primarySearch.placeholder = full ? `${MAX_PRIMARIES} more is the most; remove one to add another` : "Add a school";
-  const query = els.primarySearch.value.trim();
-  const candidates = query && !full ? state.teams.filter((t) => t.school !== state.team && !state.primaries.includes(t.school) && matches(t, query)) : [];
-  els.primaryList.replaceChildren(...shortList(candidates, (team) => teamItem(team, { selected: false, onPick: (t) => {
-    state.primaries.push(t.school);
-    state.liked.teams = state.liked.teams.filter((v) => v !== t.school); // a team is primary or secondary, not both
-    els.primarySearch.value = "";
-    renderPrimaries();
-    renderLiked();
-  } })));
-  els.primaryChips.replaceChildren(...state.primaries.map((school, index) => el("button", { class: "chip", type: "button", disabled: !allowed, "aria-label": `Remove ${school}`, onclick: () => { state.primaries = state.primaries.filter((t) => t !== school); renderPrimaries(); } }, `#${index + 2} ${school}`, " ×")));
 }
 
 function renderTicker() {
@@ -286,7 +307,6 @@ async function loadTeams() {
     els.teamNote.textContent = `The team list did not load: ${error.message}`;
   }
   renderTeams();
-  renderPrimaries();
   renderLiked();
   renderTicker();
 }
@@ -297,7 +317,7 @@ function renderFinish() {
   const info = state.info || {};
   const ready = (info.keyConfigured === true || info.keyChecked === true) && Boolean(state.team);
   els.finish.disabled = !ready;
-  els.finishNote.textContent = ready ? "The server restarts with the new setup and the app opens." : "Check a key and pick a team first.";
+  els.finishNote.textContent = ready ? "The server restarts with the new setup and the app opens." : "Check a key and pick your home team first.";
   if (info.envWritable === false) els.finishNote.textContent = "This server reads its settings from environment variables; set CFBD_API_KEY, TEAM and CONFERENCE there.";
 }
 
@@ -356,6 +376,42 @@ function renderWayBack() {
   if (els.demoLine) els.demoLine.hidden = done;
 }
 
+// --- bring over the packaged install (FEAT-13) ----------------------------------------------------------------------
+
+/** "12 games in the archive, notes for 9 games": what the packaged install holds, in words. */
+function importWords(found) {
+  const bits = [];
+  if (typeof found.team === "string" && found.team) bits.push(`${found.team} as the team`);
+  if (found.hasKey === true) bits.push("its CFBD key");
+  if (Number.isFinite(found.archive) && found.archive > 0) bits.push(`${found.archive} ${found.archive === 1 ? "game" : "games"} in the archive`);
+  if (Number.isFinite(found.notes) && found.notes > 0) bits.push(`notes for ${found.notes} ${found.notes === 1 ? "game" : "games"}`);
+  const size = Number.isFinite(found.bytes) && found.bytes > 0 ? ` (${found.files} files, ${(found.bytes / 1e6).toFixed(1)} MB)` : "";
+  return `Kickoff Companion is installed on this computer, in ${found.path}. Bring over its settings and data${bits.length ? `: ${bits.join(", ")}` : ""}${size}? It is copied, not moved, and the steps below are filled in for you.`;
+}
+
+function renderImport() {
+  const found = state.info?.publicInstall;
+  const shown = Boolean(found && typeof found === "object" && typeof found.path === "string" && state.info?.setupNeeded === true);
+  els.importPanel.hidden = !shown;
+  if (shown) els.importFound.textContent = importWords(found);
+}
+
+async function bringOver() {
+  show(els.importError, null);
+  els.importGo.disabled = true;
+  els.importStatus.textContent = "Copying…";
+  try {
+    const before = await startedAt();
+    const data = await call("/api/welcome/import", { method: "POST", body: JSON.stringify({ confirm: true }) });
+    els.importStatus.textContent = `Copied ${data.copied} files. Starting the app with them…`;
+    await waitForRestart("Copied. Starting the app with Kickoff Companion's settings", before);
+  } catch (error) {
+    els.importStatus.textContent = "";
+    show(els.importError, error.message);
+    els.importGo.disabled = false;
+  }
+}
+
 // --- start ------------------------------------------------------------------------------------------
 
 async function load() {
@@ -367,9 +423,9 @@ async function load() {
     state.primaries = (Array.isArray(state.info.primaryTeams) ? state.info.primaryTeams : []).filter((v) => str(v)).slice(0, MAX_PRIMARIES);
     state.tickerMode = state.info.tickerMode === "mine" ? "mine" : "national";
     renderWayBack();
+    renderImport();
     renderKey();
-    renderFinish();
-    renderPrimaries();
+    renderTeams();
     renderLiked();
     renderTicker();
     els.status.textContent = state.info.setupNeeded === false ? "Set up. Change anything below." : "Waiting for a key and a team.";
@@ -389,9 +445,9 @@ els.keyShow.addEventListener("click", () => {
 });
 els.teamSearch.addEventListener("input", renderTeams);
 els.likedSearch.addEventListener("input", renderLiked);
-els.primarySearch.addEventListener("input", renderPrimaries);
 for (const radio of [els.tickerNational, els.tickerMine]) radio.addEventListener("change", (event) => { if (event.target.checked) state.tickerMode = event.target.value === "mine" ? "mine" : "national"; });
 els.finish.addEventListener("click", finish);
+els.importGo.addEventListener("click", bringOver);
 
 /** A key pasted on the demo page (static/js/demo-page.js HANDED_KEY) is checked here at once, then forgotten. */
 async function pickUpHandedKey() {

@@ -115,7 +115,7 @@ function abbrOf(team) {
   return text(obj(team).abbreviation || name(obj(team).school));
 }
 
-/** A team's school and mascot for the large head ("Diner Tech Rebels"); the school alone without a mascot. */
+/** A team's school and mascot for the large head ("Texas State Rebels"); the school alone without a mascot. */
 function fullName(team) {
   const school = name(obj(team).school);
   const mascot = typeof obj(team).mascot === "string" && obj(team).mascot.trim() ? obj(team).mascot.trim() : null;

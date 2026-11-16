@@ -183,7 +183,13 @@ def test_the_browser_opens_by_the_settings_choice(tmp_path: Path, choice: str, l
     assert local_address(make_settings(tmp_path, https=True)) == "https://localhost:8642/"
 
 
-def test_a_server_opens_its_address_once_it_listens(tmp_path: Path, monkeypatch):
+def test_a_server_opens_its_address_once_its_first_data_is_ready(tmp_path: Path, monkeypatch):
+    """BUG-17, ENH-18 (owner 2026-10-27): once the opening pages are warm, not as soon as it listens."""
+    from app import boot
+
+    boot.mark()
+    monkeypatch.setattr("app.main.WARM_PATHS", ("/api/identity",))  # one quick opening page: the fake CFBD has no schedule
+    monkeypatch.setattr("app.main.WARM_DELAY_SECONDS", 0)
     opened: list[str] = []
     monkeypatch.setattr("app.serving.open_in_browser", lambda url: opened.append(url))
     settings = make_settings(tmp_path)
@@ -200,6 +206,8 @@ def test_a_server_opens_its_address_once_it_listens(tmp_path: Path, monkeypatch)
     thread.join(10)
     shutdown_logging()
     assert opened == ["http://localhost:8642/"] and server.started
+    assert boot.open_seconds() is not None and boot.browser_opened() is True
+    boot.mark()
 
 
 def test_the_setting_is_validated(tmp_path: Path):

@@ -27,9 +27,11 @@ import { mountFlow, stopFlow } from "../ui/flow.js";
 import { spScatter } from "../ui/scatter.js";
 import { conferenceColumn, logoLink, teamAbbrLink } from "../ui/team-page.js";
 import { statTable, statTableSkeleton } from "../ui/stat-table.js";
-import { pollMs } from "../prefs.js";
 import { errorPanel, fetchJson, partState, poller } from "./common.js";
-import { NEXT_OPPONENT_KEY, jumpToBand, nextOpponent } from "./season.js";
+import { lateBands, NEXT_OPPONENT_KEY, jumpToBand, nextOpponent, ratingsBand } from "./season.js";
+import { ppaByGameBand } from "./program.js"; // wave 3 (2026-11-01, his inventory): Play value by game is this page's
+import { advancedPaired } from "../ui/depth2.js";
+import { usSchool as ourSchool } from "../identity.js";
 
 /** Where a ratings key lives: [band id, rank column]. The metric form ('rating:sp', 'adjusted:epa') works too. */
 export const RATING_KEYS = {
@@ -149,7 +151,7 @@ function render(envelope, container, state) {
   const rating = (key, label, digits = 1) => ({ key, label, format: `${digits}f`, sortable: true });
   const group = (column) => ({ ...column, divider: true }); // a thin rule where a new rating starts (Phase 14)
   // the team's link, and a small "Next" tag on the next opponent's row (G3-04)
-  // 2026-10-10 (owner: "size them now"): every Ratings table sizes itself by its own box (docs/03-DESIGN.md, Table sizes), so it
+  // 2026-10-10 (owner: "size them now"): every Ratings table sizes itself by its own box (the design rules, Table sizes), so it
   // never scrolls sideways and its head pins under the band's on the page; a column's size is the smallest that still shows it
   // wave 3: the conference has its own column (decision 1); at small the team is its abbreviation, still its link
   const teamCol = { key: "team", label: "Team", kind: "text", render: (row) => el("span", {}, logoLink(row.team, logos.get(row.team)), !row.isUs && row.team === next ? el("span", { class: "next-tag" }, "Next") : null), renderShort: (row) => teamAbbrLink(row.team, row.abbreviation) };
@@ -161,7 +163,7 @@ function render(envelope, container, state) {
   const published = data.published && typeof data.published === "object" ? data.published : {};
   const moreColumns = [teamCol, confCol, group(rating("core", "CORE")), rankCol("coreRank", "Rk", "core", { size: "medium" }), group({ ...rating("coreOff", "Off"), size: "medium" }), rankCol("coreOffRank", "Rk", "coreOffense", { size: "large" }), group({ ...rating("coreDef", "Def"), size: "medium" }), rankCol("coreDefRank", "Rk", "coreDefense", { size: "large" }), group(rating("srs", "SRS")), rankCol("srsRank", "Rk", "srs", { size: "large" }), group({ key: "adj", label: "Adj EPA", format: "+2f" }), rankCol("adjRank", "Rk", "adjEpa", { size: "large" }), group({ key: "adjAllowed", label: "Adj EPA allowed", format: "+2f", size: "large" }), rankCol("adjAllowedRank", "Rk", "adjEpaAllowed", { size: "large" })].filter(Boolean);
   const conferences = Array.isArray(data.conferences) ? data.conferences.filter((c) => c && typeof c === "object") : [];
-  const confColumns = [{ key: "rank", label: "Rank", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text" }, rating("rating", "SP+"), { ...rating("offense", "Offense"), size: "medium" }, { ...rating("defense", "Defense"), size: "medium" }, { key: "specialTeams", label: "Special", format: "2f", size: "medium" }];
+  const confColumns = [{ key: "rank", label: "Rank", kind: "rank", of: conferences.length || null, sortable: true }, { key: "conference", label: "Conference", kind: "text", render: (r) => (typeof r.conference === "string" && r.conference.trim() ? el("a", { class: "conf-link", href: `#conference=${encodeURIComponent(r.conference.trim())}` }, r.conference.trim()) : DASH) }, rating("rating", "SP+"), { ...rating("offense", "Offense"), size: "medium" }, { ...rating("defense", "Defense"), size: "medium" }, { key: "specialTeams", label: "Special", format: "2f", size: "medium" }]; // the conference page (2026-11-02): each row leads there
   const unpublished = [published.core === false ? "CORE" : null, published.srs === false ? "SRS" : null, published.adjusted === false ? "the opponent-adjusted EPA" : null].filter(Boolean);
   const sideColumns = [teamCol, confCol, group(rating("spRating", "SP+")), rankCol("spRank", "Rk", "sp", { size: "medium" }), group(rating("eloRating", "Elo", 0)), rankCol("eloRank", "Rk", "elo", { size: "medium" }), group(rating("fpiRating", "FPI")), rankCol("fpiRank", "Rk", "fpi", { size: "large" }), group(rating("talent", "Talent", 0)), rankCol("talentRank", "Rk", "talent", { size: "large" })].filter(Boolean);
   const rowClass = (r) => [r.isUs ? "is-us" : null, !r.isUs && r.team === next ? "is-next" : null, !r.isUs && r.team === focus ? "is-focus" : null].filter(Boolean).join(" ") || null;
@@ -225,6 +227,15 @@ function render(envelope, container, state) {
       body: () => el("div", {}, table("ratings-side", sideColumns, sideRows(scoped), { key: "spRank", dir: "ascending" }, "Ratings side by side"), el("p", { class: "note" }, `Elo is a results-only rating, FPI is ESPN's projection, talent is the 247Sports composite of the roster. ${isNum(counts.talent) ? `${fmtNum(counts.talent)} teams have a talent figure.` : ""}`)),
     }),
   );
+  // wave 3 (owner 2026-11-01, his inventory): our own Ratings and Advanced from the season overview, Play value by game from the
+  // next program, each loading its own answer, at the bottom until he reorders them
+  page.append(
+    ...lateBands("/api/season/overview", [["ours", "Our ratings", "ratings-ours"], ["advanced", "Advanced", "ratings-advanced"]], (d) => ({
+      ours: ratingsBand(d, ourSchool(), { id: "ratings-ours" }),
+      advanced: band({ id: "ratings-advanced", title: "Advanced", collapsible: false, foldable: true, state: partState(d.parts?.advanced, (Array.isArray(d.advanced?.rows) ? d.advanced.rows : []).some((r) => r && isNum(r.value))), emptyText: "Advanced stats appear after the first game.", body: () => advancedPaired(Array.isArray(d.advanced?.rows) ? d.advanced.rows : [], { team: ourSchool() }) }),
+    })),
+    ...lateBands("/api/program/next", [["ppa", "Play value by game", "ratings-ppa"]], (d) => ({ ppa: ppaByGameBand(d, { id: "ratings-ppa" }) })),
+  );
   state.ui ??= {};
   mountFlow(state.ui, container, page, { wide: RATINGS_WIDE }); // final pass: the flowing page with its section chips
   if (state.target) {
@@ -284,7 +295,6 @@ export function createRatingsView({ onStatus, arg, params } = {}) {
   if (target) state.sorts[target.band] = { key: target.column, dir: "ascending" };
   const view = poller({
     url: "/api/ratings",
-    refreshMs: pollMs(),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Advanced Team Ratings", message, retry)),

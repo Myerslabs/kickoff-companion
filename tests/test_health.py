@@ -42,7 +42,7 @@ def test_envelope_shape(client: TestClient):
     assert response.status_code == 200
     body = response.json()
     assert set(body) == {"data", "meta", "errors"}
-    assert set(body["meta"]) == {"fetched_at", "stale", "source", "build", "restartNeeded"}  # restartNeeded: Phase 16 wave 3
+    assert set(body["meta"]) == {"fetched_at", "stale", "source", "build", "restartNeeded", "claudeSignedOut", "seasonSwitch"}  # restartNeeded: Phase 16 wave 3; claudeSignedOut: 2026-11-15; seasonSwitch: rollover R2
     assert isinstance(body["meta"]["build"], str) and len(body["meta"]["build"]) == 12
     assert body["meta"]["stale"] is False
     assert body["meta"]["source"] == "live"
@@ -60,7 +60,7 @@ def test_health_reports_server_config_logging_and_tls(client: TestClient):
     assert data["server"]["tablet_url"].startswith("https://")
     assert data["server"]["setup_url"].startswith("http://") and data["server"]["setup_url"].endswith("/setup")
     assert data["server"]["uptime_seconds"] >= 0
-    assert data["config"]["team"] == "Swampwater Tech"
+    assert data["config"]["team"] == "Florida"
     assert data["config"]["api_key_configured"] is True
     assert data["logging"]["writable"] is True
     assert data["logging"]["file"].endswith("app.log")
@@ -68,7 +68,7 @@ def test_health_reports_server_config_logging_and_tls(client: TestClient):
     assert FINGERPRINT.match(data["tls"]["ca"]["fingerprint_sha256"])
     assert "127.0.0.1" in data["tls"]["server"]["ip_addresses"]
     names = [check["name"] for check in data["checks"]]
-    assert names == ["server", "config", "logging", "tls", "upstream", "quota", "cache", "live"]
+    assert names == ["server", "config", "logging", "tls", "keep awake", "weekly jobs", "upstream", "quota", "cache", "live"]  # ENH-32: keep awake; Feature Set v2: the weekly jobs
     assert all(check["status"] == "ok" for check in data["checks"]), data["checks"]
     # The fake /info answered at startup: Free tier, 1,000 calls, gated features off.
     assert data["quota"]["reconciled"] is True and data["quota"]["budget"] == 1000

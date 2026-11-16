@@ -364,18 +364,30 @@ export function loadingSun({ lead = "Getting the latest", detail = null } = {}) 
   );
 }
 
-/** Short chip names for long band titles ("Bluegrass Bottoms tendencies" -> "Tendencies"). */
+/** Short chip names for long band titles ("Texas tendencies" -> "Tendencies"). */
 function chipName(title) {
   const t = text(title);
   const trimmed = t.replace(/^.+'s opponent$/i, "Opponent").replace(/^.+ tendencies$/i, "Tendencies").replace(/^.+ players to watch$/i, "Players to watch");
   return trimmed.length > 22 ? `${trimmed.slice(0, 21)}…` : trimmed;
 }
 
+/**
+ * The pinned section chips (Phase 17 #5): one per band with an id and a title, a tap scrolls to the band and unfolds it.
+ *
+ * The band a chip opens is looked up on the page at the tap, never kept from when the row was built (owner 2026-11-15:
+ * "sometimes when I tap the section in the browser, it doesnt go to that section"). A band that loads its own answer (What
+ * decided it, Leaders side by side, the Circle of Blame and most of My Team's) first draws a
+ * loading copy and then swaps in a new one with the same id and title inside its host, so a chip that kept the first copy
+ * scrolled to a band no longer on the page and nothing moved: 5 of 21 chips on a Post-Game, 8 of 19 on the Pre-Game Program
+ * and 17 of 28 on My Team in the test league. The row also follows the whole page, not only its top level, rebuilt at most
+ * every quarter second, so a band that leaves the page takes its chip with it.
+ */
 export function sectionChips(root, { label = "Sections on this page" } = {}) {
   const row = el("div", { class: "chips-row__list" });
   const nav = el("nav", { class: "chips-row", "aria-label": text(label) }, row); // placed before the page, not in it
   let current = null;
   let seen = "";
+  const live = (id) => bandsIn(root).find((b) => b.id === id)?.section || null;
   const mark = (id) => {
     if (id === current) return;
     current = id;
@@ -404,13 +416,26 @@ export function sectionChips(root, { label = "Sections on this page" } = {}) {
           title: b.title,
           onclick: (event) => {
             event.preventDefault(); // a band id is not a route: scroll there, never navigate
-            revealBand(b.section);
+            const section = live(b.id); // the band as the page has it now, not the copy the row was built from
+            if (!section) {
+              build(); // the band left the page: the row catches up, and the chip goes
+              return;
+            }
+            revealBand(section);
             mark(b.id);
           },
         }, chipName(b.title)),
       ),
     );
     current = null;
+  };
+  let queued = null;
+  const soon = () => {
+    if (queued !== null) return;
+    queued = setTimeout(() => {
+      queued = null;
+      build();
+    }, 250);
   };
   // the section on screen: the last band whose top has passed the pinned bars
   const onScroll = () => {
@@ -420,10 +445,15 @@ export function sectionChips(root, { label = "Sections on this page" } = {}) {
     if (id) mark(id);
   };
   build();
-  if (typeof MutationObserver === "function") new MutationObserver(build).observe(root, { childList: true });
+  // the page's own children at once (as before); a band swapped or added deeper, inside its host, a moment later
+  const watch = typeof MutationObserver === "function" ? new MutationObserver((records) => (records.some((r) => r.target === root) ? build() : soon())) : null;
+  if (watch) watch.observe(root, { childList: true, subtree: true });
   if (typeof window !== "undefined" && typeof window.addEventListener === "function") window.addEventListener("scroll", onScroll, { passive: true });
   nav.stop = () => {
     if (typeof window !== "undefined" && typeof window.removeEventListener === "function") window.removeEventListener("scroll", onScroll);
+    if (watch) watch.disconnect();
+    if (queued !== null) clearTimeout(queued);
+    queued = null;
   };
   nav.refresh = build;
   return nav;

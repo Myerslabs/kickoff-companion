@@ -17,11 +17,11 @@ from app import wiki
 from app.wiki import WikiClient, lead_link, page_url, search_url
 
 PAGES = {
-    "Mudtown Mudpuppies football": "The '''Mudtown Mudpuppies football''' team represents the [[University of Mudtown|Mudtown]] in college football.",
+    "Mudtown Gators football": "The '''Mudtown Gators football''' team represents the [[University of Mudtown|Mudtown]] in college football.",
     "Riverbend Otters": "The '''Riverbend Otters''' are the athletic teams that represent [[Riverbend State University]].",
     "Riverbend Otters football": "{{Infobox college football team|institution=[[Wrong Place]]}} The '''Riverbend Otters''' play football.",
 }
-REDIRECTS = {"Old Field Stadium": "New Field Stadium", "Mudtown Mudpuppies football": "Mudtown Mudpuppies football", "Riverbend Otters football": "Riverbend Otters football", "Riverbend Otters": "Riverbend Otters", "New Field Stadium": "New Field Stadium"}
+REDIRECTS = {"Old Field Stadium": "New Field Stadium", "Mudtown Gators football": "Mudtown Gators football", "Riverbend Otters football": "Riverbend Otters football", "Riverbend Otters": "Riverbend Otters", "New Field Stadium": "New Field Stadium"}
 
 
 class FakeWikipedia:
@@ -67,12 +67,12 @@ def test_lead_link_skips_templates_and_references():
 
 def test_a_team_from_its_football_page(tmp_path):
     fake = FakeWikipedia()
-    got = asyncio.run(client(tmp_path, fake).team("Mudtown", "Mudpuppies"))
-    assert got == {"football": page_url("Mudtown Mudpuppies football"), "school": page_url("University of Mudtown"), "resolved": True}
-    assert got["football"] == "https://en.wikipedia.org/wiki/Mudtown_Mudpuppies_football"
+    got = asyncio.run(client(tmp_path, fake).team("Mudtown", "Gators"))
+    assert got == {"football": page_url("Mudtown Gators football"), "school": page_url("University of Mudtown"), "resolved": True}
+    assert got["football"] == "https://en.wikipedia.org/wiki/Mudtown_Gators_football"
     # kept on disk: a new client answers without a call
     fake2 = FakeWikipedia()
-    assert asyncio.run(client(tmp_path, fake2).team("Mudtown", "Mudpuppies")) == got and fake2.calls == []
+    assert asyncio.run(client(tmp_path, fake2).team("Mudtown", "Gators")) == got and fake2.calls == []
 
 
 def test_the_school_from_the_athletics_page_when_the_football_page_has_none(tmp_path):
@@ -111,7 +111,7 @@ def test_failures_fall_back_to_searches_pause_and_retry_later(tmp_path):
     fake.down = True
     now = [datetime(2026, 10, 7, tzinfo=timezone.utc)]
     c = client(tmp_path, fake, clock=lambda: now[0])
-    got = asyncio.run(c.team("Mudtown", "Mudpuppies"))
+    got = asyncio.run(c.team("Mudtown", "Gators"))
     assert got == {"football": search_url("Mudtown football"), "school": search_url("Mudtown university"), "resolved": False}
     calls = len(fake.calls)
     assert calls <= wiki.PAUSE_AFTER_FAILURES
@@ -120,13 +120,13 @@ def test_failures_fall_back_to_searches_pause_and_retry_later(tmp_path):
     fake.down = False
     c._paused_until = 0
     now[0] += timedelta(seconds=wiki.RETRY_SECONDS + 1)
-    assert asyncio.run(c.team("Mudtown", "Mudpuppies"))["resolved"] is True
+    assert asyncio.run(c.team("Mudtown", "Gators"))["resolved"] is True
 
 
 def test_a_damaged_store_starts_over(tmp_path):
     (tmp_path / "wiki").mkdir()
     (tmp_path / "wiki" / "links.json").write_text("{nope", encoding="utf-8")
-    assert asyncio.run(client(tmp_path, FakeWikipedia()).team("Mudtown", "Mudpuppies"))["resolved"] is True
+    assert asyncio.run(client(tmp_path, FakeWikipedia()).team("Mudtown", "Gators"))["resolved"] is True
     stored = json.loads((tmp_path / "wiki" / "links.json").read_text(encoding="utf-8"))
     assert "team:Mudtown" in stored
 
@@ -134,7 +134,7 @@ def test_a_damaged_store_starts_over(tmp_path):
 def test_no_lookups_means_searches_and_no_calls(tmp_path):
     fake = FakeWikipedia()
     c = client(tmp_path, fake, lookups=False)
-    assert asyncio.run(c.team("Mudtown", "Mudpuppies"))["football"] == search_url("Mudtown football")
+    assert asyncio.run(c.team("Mudtown", "Gators"))["football"] == search_url("Mudtown football")
     assert asyncio.run(c.venue("Old Field Stadium"))["stadium"] == search_url("Old Field Stadium")
     assert fake.calls == []
 
@@ -152,12 +152,24 @@ def test_the_route(settings, fake_cfbd):
     try:
         with TestClient(application, base_url="https://testserver") as tc:
             tc.portal.call(application.state.live.stop_background)
-            body = tc.get("/api/wiki", params=[("team", "Swampwater Tech"), ("team", " "), ("venue", "Old Field Stadium")]).json()
+
+            async def behind() -> None:  # batch 1: the lookups that run behind an answer
+                while application.state.wiki._pending:
+                    await asyncio.gather(*list(application.state.wiki._pending.values()), return_exceptions=True)
+
+            asked = [("team", "Florida"), ("team", " "), ("venue", "Old Field Stadium")]
+            first = tc.get("/api/wiki", params=asked).json()
+            assert first["data"]["venues"]["Old Field Stadium"] == {"stadium": search_url("Old Field Stadium"), "resolved": False}, "answered at once: a search until the page is found"
+            tc.portal.call(behind)
+            body = tc.get("/api/wiki", params=asked).json()
             assert body["errors"] == []
-            assert list(body["data"]["teams"]) == ["Swampwater Tech"]
-            assert body["data"]["venues"]["Old Field Stadium"]["stadium"] == page_url("New Field Stadium")
+            assert list(body["data"]["teams"]) == ["Florida"]
+            assert body["data"]["venues"]["Old Field Stadium"]["stadium"] == page_url("New Field Stadium"), "found behind the first answer"
             assert tc.get("/api/wiki").json()["data"] == {"teams": {}, "venues": {}, "coaches": {}}
-            coaches = tc.get("/api/wiki", params=[("coach", "Pat Mudd|Mudtown"), ("coach", "|x"), ("coach", "Nobody Known|Mudtown")]).json()["data"]["coaches"]
+            people = [("coach", "Pat Mudd|Mudtown"), ("coach", "|x"), ("coach", "Nobody Known|Mudtown")]
+            tc.get("/api/wiki", params=people)
+            tc.portal.call(behind)
+            coaches = tc.get("/api/wiki", params=people).json()["data"]["coaches"]
             assert list(coaches) == ["Pat Mudd|Mudtown", "Nobody Known|Mudtown"] and coaches["Pat Mudd|Mudtown"]["resolved"] is True
     finally:
         shutdown_logging()

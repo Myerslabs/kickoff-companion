@@ -1,6 +1,6 @@
 """Pydantic models for CFBD payloads, one per endpoint the app uses.
 
-Tolerance rules (docs/CLAUDE.md, defensive coding):
+Tolerance rules (defensive coding):
 - Unknown fields are ignored. Everything except an identity field is optional with a safe
   default, so one odd value never kills a record.
 - Lists are parsed record by record with parse_records(): a bad record is skipped, counted,
@@ -209,6 +209,25 @@ class GamePlayoff(CfbdModel):
     home_seed: int | None = None
     away_seed: int | None = None
     bowl_name: str | None = None
+
+
+class PlayoffTeamRef(CfbdModel):
+    id: int | None = None
+    school: str  # the record's identity: a participant with no school is skipped
+    conference: str | None = None
+
+
+class PlayoffParticipant(LenientModel):
+    """/playoffs/cfp/participants?year= (spec v5.33.2, recorded for 2025 on 2026-10-30): the twelve with their seeds and
+    committee ranks; FEAT-17's Selection Sunday reads the school and the seed."""
+
+    team: PlayoffTeamRef
+    seed: int | None = None
+    committee_rank: int | None = None
+    bid_type: str | None = None
+    conference_champion: bool | None = None
+    first_round_bye: bool | None = None
+    outcome: str | None = None
 
 
 class Game(CfbdModel):
@@ -1303,6 +1322,7 @@ ENDPOINTS: dict[str, Endpoint] = {
         Endpoint("/recruiting/players", Recruit, True, DataKind.RECRUITING),
         Endpoint("/teams/matchup", Matchup, False, DataKind.HISTORY, ("team1", "team2")),
         Endpoint("/games", Game, True, DataKind.SCHEDULE),
+        Endpoint("/playoffs/cfp/participants", PlayoffParticipant, True, DataKind.SCHEDULE, ("year",)),  # FEAT-17
         Endpoint("/records", TeamRecords, True, DataKind.SCHEDULE),
         Endpoint("/rankings", PollWeek, True, DataKind.SCHEDULE, ("year",)),
         Endpoint("/games/media", GameMedia, True, DataKind.SCHEDULE, ("year",)),

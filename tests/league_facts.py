@@ -8,7 +8,7 @@ from typing import Any
 
 from tests.conftest import ROLES, fixture_payload
 
-US = "Swampwater Tech"
+US = "Florida"
 
 
 def game(game_id: int | str, name: str = "games_team") -> dict[str, Any]:

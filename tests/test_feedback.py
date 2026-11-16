@@ -72,14 +72,14 @@ def test_a_report_keeps_its_damaged_steps_out_and_its_words_in():
 
 def test_any_device_sends_and_only_the_host_reads(app, client: TestClient):
     logging.getLogger("kickoff.test").warning("a line the report should carry")
-    logging.getLogger("kickoff.test").error("the feed at 192.168.1.20 failed")
+    logging.getLogger("kickoff.test").error("the feed at 192.168.0.20 failed")
     sent = client.post("/api/feedback", json={"kind": "bug", "text": "The menu covered the score.", "name": "Pat", "route": "#live", "device": {"width": 820}, "trail": [{"at": "2026-10-24T19:29:00Z", "kind": "page", "what": "#live", "route": "#live"}]})
     assert sent.status_code == 200, sent.text
     summary = sent.json()["data"]
     mail = summary["mail"]
     assert mail["to"] == SUPPORT_EMAIL and "bug: The menu covered the score." in mail["subject"]
     assert "The menu covered the score." in mail["body"] and "page: #live" in mail["body"] and len(mail["body"]) <= MAIL_SHORT
-    assert "the feed at [a home address] failed" in mail["full"] and "192.168.1.20" not in mail["full"], "the log's errors go, the home address does not"
+    assert "the feed at [a home address] failed" in mail["full"] and "192.168.0.20" not in mail["full"], "the log's errors go, the home address does not"
     assert summary["canDownload"] is True
     assert summary["kind"] == "bug" and summary["first"] == "The menu covered the score." and summary["trailSteps"] == 1
     folder = app.state.feedback.folder / summary["id"]
@@ -109,7 +109,7 @@ def test_any_device_sends_and_only_the_host_reads(app, client: TestClient):
 
 
 def test_the_mail_is_share_safe_and_fits_a_mail_link(tmp_path: Path):
-    text = r"GET http://192.168.1.77:8642/x from kitchen.localdomain C:\Users\pat\app /home/kim/x 10.0.0.5 api_key=abc 8.8.8.8"
+    text = r"GET http://192.168.0.77:8642/x from kitchen.localdomain C:\Users\pat\app /home/kim/x 10.0.0.5 api_key=abc 8.8.8.8"
     assert share_safe(text) == r"GET http://[a home address]:8642/x from [a computer] C:\Users\[user]\app /home/[user]/x [a home address] api_key=[redacted] 8.8.8.8"
     store = FeedbackStore(tmp_path / "data", tmp_path / "logs", clock=lambda: NOW)
     long_trail = [{"at": "2026-10-24T19:29:00Z", "kind": "tap", "what": "x" * 250} for _ in range(60)]
@@ -278,8 +278,11 @@ def test_the_menu_has_send_feedback_and_profile_the_list() -> None:
     assert "feedbackRow()" in shell and '"Send feedback"' in shell
     app_js = (root / "app.js").read_text(encoding="utf-8")
     assert "onFeedback: () => openFeedback()" in app_js and "startTrail();" in app_js
-    assert 'page: "profile=feedback"' in (root / "ui" / "menu-tree.js").read_text(encoding="utf-8")
-    assert '{ id: "feedback", title: "Feedback"' in (root / "views" / "settings.js").read_text(encoding="utf-8")
+    tree = (root / "ui" / "menu-tree.js").read_text(encoding="utf-8")
+    assert 'page: "profile"' in tree and 'page: "profile=feedback"' not in tree, "ENH-46 (owner 2026-11-10): the Profile page has the section as a tile, the menu has the page"
+    settings = (root / "views" / "settings.js").read_text(encoding="utf-8")
+    assert '{ id: "feedback", title: "Feedback"' in settings
+    assert "SECTIONS.map(tile)" in settings and "onclick: () => openSection(sec.id)" in settings, "every section, Feedback too, is a tile of the Profile page that opens it"
 
 
 def test_a_report_names_the_build_the_page_ran(tmp_path: Path):

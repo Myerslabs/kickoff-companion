@@ -3,18 +3,31 @@
 // it, when, and from which sources, and both have an honest "not written yet" state.
 
 import { el, fmtDateTime, text } from "./dom.js";
+import { prose } from "./prose.js";
 import { statTable } from "./stat-table.js";
+import { fillWiki } from "./wiki-links.js";
 
 /**
- * editorial({ byline: {author, writtenAt}, sources: [{label, url}], sections: [{heading, paragraphs}] })
+ * editorial({ byline: {author, writtenAt}, sources: [{label, url}], sections: [{heading, paragraphs}], names, onName, top })
+ *   Not a wall of text (owner 2026-11-07): each section a block with a short head, two across on a wide band, its
+ *   paragraphs through ui/prose.js (split, listed, led, the names it knows as taps: `names` from nameIndex(), onName(entry)).
+ *   `top` (Wave 5, 2026-11-15): a node drawn under the byline and over the sections, the notes' layout (ui/notes-layout.js).
  */
 /** Only the object rows of a list (a hand-written notes file can hold anything). */
 function list(value) {
   return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
 }
 
-export function editorial({ byline = {}, sources = [], sections = [] } = {}) {
-  return el(
+export function editorial({ byline = {}, sources = [], sections = [], names = null, onName = null, top = null } = {}) {
+  const blocks = list(sections).map((section) =>
+    el(
+      "section",
+      { class: "editorial__block" },
+      typeof section.heading === "string" && section.heading.trim() ? el("h3", { class: "editorial__head" }, section.heading.trim()) : null,
+      ...prose(section.paragraphs, { names, onName, lead: true }),
+    ),
+  );
+  const root = el(
     "div",
     { class: "editorial" },
     el(
@@ -23,14 +36,8 @@ export function editorial({ byline = {}, sources = [], sections = [] } = {}) {
       el("span", {}, `Written by ${text(byline?.author)}`),
       el("span", {}, byline?.writtenAt ? fmtDateTime(byline.writtenAt) : "–"),
     ),
-    list(sections).map((section) =>
-      el(
-        "div",
-        {},
-        typeof section.heading === "string" && section.heading.trim() ? el("h3", {}, section.heading.trim()) : null,
-        (Array.isArray(section.paragraphs) ? section.paragraphs : []).filter((para) => typeof para === "string" && para.trim()).map((para) => el("p", {}, para)),
-      ),
-    ),
+    top && typeof top === "object" && typeof top.nodeType === "number" ? top : null,
+    blocks.length ? el("div", { class: "editorial__grid" }, blocks) : null,
     list(sources).length
       ? el(
           "ul",
@@ -39,6 +46,8 @@ export function editorial({ byline = {}, sources = [], sections = [] } = {}) {
         )
       : null,
   );
+  fillWiki(root); // a coach's name in the text is his page (ui/prose.js)
+  return root;
 }
 
 export function editorialSkeleton() {
@@ -57,7 +66,7 @@ const STATUS_SHORT = { questionable: "Quest.", "game-time decision": "GTD" };
 function statusCell(row, { short = false } = {}) {
   const key = String(row.status || "").trim().toLowerCase();
   const cls = STATUS_CLASS[key];
-  return el("span", { class: cls ? `avail avail--${cls}` : null, title: short && STATUS_SHORT[key] ? row.statusText : null }, short ? STATUS_SHORT[key] || row.statusText : row.statusText);
+  return el("span", { class: cls ? `avail-cell avail avail--${cls}` : "avail-cell", title: short && STATUS_SHORT[key] ? row.statusText : null }, short ? STATUS_SHORT[key] || row.statusText : row.statusText);
 }
 
 /**
@@ -105,7 +114,7 @@ export function availabilityTable({ rows = [], source, updatedAt, showTeam = tru
     { key: "name", label: "Player", kind: "text", person: { notes: true } }, // the notes' words: shortened only when they read cleanly
     teamColumn ? { key: "team", label: "Team", kind: "text", ...(teamAtSmall ? { shortKey: "teamShort" } : { size: "medium" }) } : null,
     shaped.some((row) => row.position) ? { key: "position", label: "Pos", kind: "text", size: "medium" } : null,
-    { key: "statusText", label: "Status", kind: "text", sortKey: "statusWeight", render: (row) => statusCell(row), renderShort: (row) => statusCell(row, { short: true }) },
+    { key: "statusText", label: "Status", kind: "text", sortKey: "statusWeight", render: (row) => statusCell(row), renderShort: (row) => statusCell(row, { short: true }) }, // at small the status wraps (components.css, wave 2, 2026-11-01): "Dismissed from the program" takes two lines on a phone instead of pushing the table past its band
     { key: "note", label: "Note", kind: "text", sortable: false, wrap: true },
   ].filter(Boolean);
   const table = statTable({

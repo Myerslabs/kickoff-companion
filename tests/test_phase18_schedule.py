@@ -240,7 +240,7 @@ def test_the_runner_runs_an_injury_pass_and_merges(client, app, tmp_path: Path):
     notes_paste.save_notes(app.state.settings.data_dir, 526001015, existing)
 
     async def go():
-        info = {"gameId": 526001015, "home": "Swampwater Tech", "away": "Other", "kickoff": "2026-10-10T19:30:00Z"}
+        info = {"gameId": 526001015, "home": "Florida", "away": "Other", "kickoff": "2026-10-10T19:30:00Z"}
         await runner.start(info, str(tool), "injuries", "haiku")
         for _ in range(100):
             if not runner.running:

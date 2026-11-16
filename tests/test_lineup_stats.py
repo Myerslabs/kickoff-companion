@@ -9,7 +9,7 @@ from app.services.players import Line
 
 
 def line(player_id: str, name: str, category: str, **stats: float) -> tuple[tuple[str, str], Line]:
-    return (player_id, category), Line(player_id, name, None, "Swampwater Tech", "Biscuit Belt", category, dict(stats))
+    return (player_id, category), Line(player_id, name, None, "Florida", "SEC", category, dict(stats))
 
 
 LINES = dict([
@@ -64,14 +64,14 @@ def test_chips_lead_with_what_the_player_does():
 def test_attach_matches_names_and_leaves_the_rest_alone():
     lineups = {
         "source": "x",
-        "us": {"team": "Swampwater Tech", "slots": [
+        "us": {"team": "Florida", "slots": [
             {"unit": "Offense", "slot": "QB", "players": [{"name": "Mason Hamilton", "number": 12}, {"name": "Nobody Here"}]},
             {"unit": "Offense", "slot": "RG", "players": [{"name": "T.J. Whitfield", "number": 67}]},
             {"unit": "Defense", "slot": "S", "players": [{"name": "D.J. Pruitt"}, None, "junk"]},
             {"unit": "Special teams", "slot": "PK", "players": "not a list"},
             "junk",
         ]},
-        "them": {"team": "Sweet Tea State", "slots": [{"slot": "QB", "players": [{"name": "Austin Pell"}]}]},
+        "them": {"team": "Ole Miss", "slots": [{"slot": "QB", "players": [{"name": "Austin Pell"}]}]},
     }
     out = attach_lineup_stats(lineups, LINES, {})
     assert out is lineups

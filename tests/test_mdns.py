@@ -49,7 +49,7 @@ def announcer(*, ip: str | None = "192.0.2.10", fail: Exception | None = None, o
     async def clash(zc: Any, host: str, address: str) -> str | None:
         return other
 
-    return Announcer("kickoff.local", 8642, title="Mudpuppies Kickoff Companion", ip_provider=lambda: ip, factory=factory, conflict_check=clash), made
+    return Announcer("kickoff.local", 8642, title="Gators Kickoff Companion", ip_provider=lambda: ip, factory=factory, conflict_check=clash), made
 
 
 def run(job: Announcer, then_stop: bool = True) -> None:
@@ -69,7 +69,7 @@ def test_the_name_is_announced_for_the_lan_address_and_withdrawn_at_stop():
     assert job.status()["state"] == "announced" and job.status()["address"] == "192.0.2.10" and job.since
     info, renames = made[0].registered[0]
     assert made[0].ip == "192.0.2.10" and renames is True
-    assert info.server == "kickoff.local." and info.port == 8642 and info.type == SERVICE_TYPE and info.name.startswith("Mudpuppies Kickoff Companion.")
+    assert info.server == "kickoff.local." and info.port == 8642 and info.type == SERVICE_TYPE and info.name.startswith("Gators Kickoff Companion.")
     assert info.parsed_addresses() == ["192.0.2.10"]
     asyncio.run(job.stop())
     assert made[0].unregistered == [info] and made[0].closed and job.status()["state"] == "stopped"

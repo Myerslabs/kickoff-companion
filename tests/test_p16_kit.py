@@ -42,7 +42,7 @@ scenarios.chips = async () => {
   assert.equal(text(plain.querySelector(".rank-chip__hash")), "#");
   assert.equal(plain.getAttribute("title"), "41 of 138");
   // linked chip: an anchor with the href and a spoken name that says what opens
-  const href = nationalHref("advanced:defense_explosiveness", { team: "Diner Tech" });
+  const href = nationalHref("advanced:defense_explosiveness", { team: "Texas State" });
   const chip = rankChip(12, 138, { href, label: "Explosiveness allowed" });
   assert.equal(chip.tagName, "A");
   assert.equal(chip.getAttribute("href"), href);
@@ -60,7 +60,7 @@ scenarios.chips = async () => {
   assert.equal(ghost.getAttribute("aria-hidden"), "true");
   assert.ok(ghost.className.includes("rank-chip--placeholder"));
   // poll badge: its own square style, never a quartile tone
-  const ap = pollBadge(12, "AP", { href: pollHref("AP", { team: "Diner Tech" }) });
+  const ap = pollBadge(12, "AP", { href: pollHref("AP", { team: "Texas State" }) });
   assert.equal(ap.tagName, "A");
   assert.equal(ap.className, "poll-badge poll-badge--link");
   assert.equal(text(ap), "AP12");
@@ -93,13 +93,13 @@ scenarios.rows = async () => {
   const { teamLink } = await import(moduleUrl("ui/dom.js"));
   const taps = [];
   const rows = [
-    { label: "Explosiveness allowed", value: 1.19, nationalRank: 41, nationalOf: 138, metric: "advanced:defense_explosiveness", rank: 41, of: 138, team: "Silver Dollar" },
-    { label: "Havoc", value: 0.18, nationalRank: 9, nationalOf: 138, rank: 9, of: 138, team: "Diner Tech" },
+    { label: "Explosiveness allowed", value: 1.19, nationalRank: 41, nationalOf: 138, metric: "advanced:defense_explosiveness", rank: 41, of: 138, team: "Fresno State" },
+    { label: "Havoc", value: 0.18, nationalRank: 9, nationalOf: 138, rank: 9, of: 138, team: "Texas State" },
   ];
   const table = statTable({
     columns: [
       { key: "label", label: "Stat", kind: "text" },
-      { key: "value", label: "Value", format: "2f", rank: { key: "nationalRank", of: "nationalOf", link: metricLink({ team: "Swampwater Tech" }) } },
+      { key: "value", label: "Value", format: "2f", rank: { key: "nationalRank", of: "nationalOf", link: metricLink({ team: "Florida" }) } },
       { key: "rank", label: "Rk", kind: "rank", of: "of", link: metricLink() },
       { key: "team", label: "Team", kind: "text", render: (row) => teamLink(row.team) },
     ],
@@ -111,7 +111,7 @@ scenarios.rows = async () => {
   // the linked chip and the plain chip; a row with no metric gets no link
   const links = trs[0].querySelectorAll("a.rank-chip--link");
   assert.equal(links.length, 2);
-  assert.equal(links[0].getAttribute("href"), "#national=advanced%3Adefense_explosiveness?team=Swampwater%20Tech");
+  assert.equal(links[0].getAttribute("href"), "#national=advanced%3Adefense_explosiveness?team=Florida");
   assert.equal(links[0].getAttribute("aria-label"), "Explosiveness allowed: 41 of 138. Open the national list");
   assert.equal(trs[1].querySelectorAll("a").length, 0, "no metric, no link");
   assert.equal(trs[1].querySelectorAll(".rank-chip").length, 2);
@@ -134,19 +134,19 @@ scenarios.rows = async () => {
 scenarios.hooks = async () => {
   const { statTable, statTableSkeleton } = await import(moduleUrl("ui/stat-table.js"));
   const errors0 = errors.length;
-  const rows = [{ name: "Swampwater Tech", rk: 1, v: 0.9379, st: 4, x: 3 }, null, "junk", { name: "Silver Dollar", rk: 2, v: "0.9", st: "4", x: 5 }];
+  const rows = [{ name: "Florida", rk: 1, v: 0.9379, st: 4, x: 3 }, null, "junk", { name: "Fresno State", rk: 2, v: "0.9", st: "4", x: 5 }];
   const table = statTable({
     columns: [
       { key: "rk", label: "Rk", kind: "rank", of: 138, stick: true },
       { key: "name", label: "Team", kind: "text", stick: true },
       { key: "v", label: "Rating", format: "rating100" },
       { key: "st", label: "Stars", format: "stars" },
-      { key: "x", label: "Custom", render: (row) => (row.name === "Swampwater Tech" ? document.createTextNode("custom") : null) },
+      { key: "x", label: "Custom", render: (row) => (row.name === "Florida" ? document.createTextNode("custom") : null) },
       { key: "x", label: "Broken", render: () => { throw new Error("boom"); } },
       { key: "x", label: "Placeholder", rank: { key: "missing", of: 138, placeholder: true } },
     ],
     rows,
-    rowClass: (row) => (row.name === "Silver Dollar" ? "is-next" : null),
+    rowClass: (row) => (row.name === "Fresno State" ? "is-next" : null),
   });
   const trs = table.querySelectorAll("tbody tr");
   assert.equal(trs.length, 2, "null and junk rows are skipped, never drawn");
@@ -193,7 +193,7 @@ scenarios.hooks = async () => {
 scenarios.states = async () => {
   const { band, subhead, stateBlock, backRow, jumpList, sectionChips, loadingSun } = await import(moduleUrl("ui/states.js"));
   installWindow();
-  window.location = { hash: "#team=Diner%20Tech" };
+  window.location = { hash: "#team=Texas%20State" };
   // stateBlock: designed, never raw values, whatever it is handed
   for (const bad of BAD) {
     clean(`stateBlock(${String(bad)})`, stateBlock({ lead: bad, detail: bad, action: bad, kind: bad }));
@@ -215,10 +215,10 @@ scenarios.states = async () => {
   const plain = subhead("Series history");
   assert.equal(plain.tagName, "H3");
   assert.equal(plain.className, "subhead");
-  const team = subhead("Diner Tech", { team: "Diner Tech", side: "them" });
+  const team = subhead("Texas State", { team: "Texas State", side: "them" });
   assert.equal(team.className, "subhead subhead--them");
-  assert.equal(team.querySelector(".team-link").dataset.team, "Diner Tech");
-  assert.equal(subhead("Swampwater Tech", { level: 4 }).tagName, "H4");
+  assert.equal(team.querySelector(".team-link").dataset.team, "Texas State");
+  assert.equal(subhead("Florida", { level: 4 }).tagName, "H4");
   // backRow: back when the app came here itself, else the fallback page; never out of the app
   const row = backRow();
   const link = row.querySelector("a");
@@ -227,10 +227,10 @@ scenarios.states = async () => {
   link.click();
   assert.equal(window.location.hash, "#season", "no in-app history: the fallback");
   history.replaceState({ depth: 2 });
-  window.location.hash = "#team=Diner%20Tech";
+  window.location.hash = "#team=Texas%20State";
   backRow({ fallback: "program" }).querySelector("a").click();
   assert.equal(window.backs, 1, "in-app history: back");
-  assert.equal(window.location.hash, "#team=Diner%20Tech");
+  assert.equal(window.location.hash, "#team=Texas%20State");
   // bare band: no head, still named
   const bare = band({ id: "live-drives", title: "Drives", bare: true, body: () => document.createTextNode("body") });
   assert.equal(bare.querySelector(".band__head"), null);
@@ -262,20 +262,40 @@ scenarios.states = async () => {
   assert.equal(text(none.querySelector(".jump__empty")), "No sections on this page yet.");
   // Phase 17 #5: the section chips: one per band with an id and a title, short names, a tap unfolds and scrolls
   const holder = document.createElement("div");
-  const c1 = band({ id: "program-tendencies", title: "Diner Tech tendencies", foldable: true, body: () => "x" });
+  const c1 = band({ id: "program-tendencies", title: "Texas State tendencies", foldable: true, body: () => "x" });
   const c2 = band({ id: "program-series", title: "Series", foldable: true, collapsed: true, body: () => "y" });
   holder.append(c1, c2, band({ title: "No id", body: () => "z" }));
   const chips = sectionChips(holder);
   const chipEls = chips.querySelectorAll(".chips-row__chip");
   assert.deepEqual(chipEls.map(text), ["Tendencies", "Series"]);
-  assert.equal(chipEls[0].getAttribute("title"), "Diner Tech tendencies");
+  assert.equal(chipEls[0].getAttribute("title"), "Texas State tendencies");
   const tap = makeEvent("click", { bubbles: true });
   chipEls[1].dispatchEvent(tap);
   assert.equal(tap.defaultPrevented, true, "a band id is not a route");
   assert.equal(folded(c2), "false", "unfolded");
   assert.ok(c2.scrolledInto && chipEls[1].className.includes("is-current"));
+  // owner 2026-11-15 ("sometimes when I tap the section in the browser, it doesnt go to that section"): a band that loads its
+  // own answer swaps its copy inside its host; the chip finds the band the page has now, never the copy it was built from
+  const host = document.createElement("div");
+  const loading = band({ id: "program-recap", title: "What decided it", state: { status: "loading" } });
+  host.append(loading);
+  holder.append(host);
+  chips.refresh();
+  const lateChip = chips.querySelectorAll(".chips-row__chip").find((c) => c.dataset.band === "program-recap");
+  assert.ok(lateChip, "a band inside a host has its chip");
+  const loaded = band({ id: "program-recap", title: "What decided it", body: () => "written" });
+  host.replaceChildren(loaded);
+  lateChip.click();
+  assert.ok(loaded.scrolledInto, "the tap goes to the band on the page");
+  assert.ok(!loading.scrolledInto, "never to the copy it replaced");
+  assert.ok(lateChip.className.includes("is-current"));
+  // a band that left the page: the tap rebuilds the row and its chip goes
+  host.remove();
+  lateChip.click();
+  assert.deepEqual(chips.querySelectorAll(".chips-row__chip").map(text), ["Tendencies", "Series"], "the chip went with its band");
   clean("section chips", chips);
   chips.stop();
+  chips.stop(); // twice is harmless
   assert.equal(sectionChips(document.createElement("div")).querySelectorAll(".chips-row__chip").length, 0);
   // Phase 17 #1: the loading sun says what is coming, as a polite status
   const sun = loadingSun({ detail: "  The game: stats  " });
@@ -297,7 +317,7 @@ scenarios.errorPanel = async () => {
   assert.equal(text(retry), "Try now");
   assert.equal(text(bands[0].querySelector(".band__title")), "Ratings");
   assert.equal(text(panel.querySelector(".state-block__lead")), "Could not load Ratings.");
-  assert.equal(text(panel.querySelector(".state-block__detail")), "HTTP 503. The app tries again every 15 min.");
+  assert.equal(text(panel.querySelector(".state-block__detail")), "HTTP 503. Try now, or tap Refresh beside the status pill.");
   retry.click();
   assert.equal(retried, 1);
   for (const bad of [null, undefined, NaN, {}]) clean(`errorPanel(${String(bad)})`, errorPanel(bad, bad, bad));
@@ -307,7 +327,7 @@ scenarios.errorPanel = async () => {
 scenarios.poller = async () => {
   const { poller, clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
   clearEnvelopeCache();
-  let data = { teams: ["Swampwater Tech", "Silver Dollar"] };
+  let data = { teams: ["Florida", "Fresno State"] };
   const at = "2026-09-28T12:00:00Z";
   route("/api/ratings", () => ({ status: 200, body: { data, errors: [], meta: { fetched_at: at, stale: false } } }));
   const drawn = [];
@@ -332,11 +352,11 @@ scenarios.poller = async () => {
   first.p.mount(main);
   assert.equal(first.loading(), 1, "a first visit shows the skeleton");
   await settle();
-  assert.deepEqual(drawn, ["Swampwater Tech,Silver Dollar"]);
+  assert.deepEqual(drawn, ["Florida,Fresno State"]);
   assert.equal(rendered.length, 1);
   // the same data again: no rebuild
   await first.p.refresh();
-  assert.deepEqual(drawn, ["Swampwater Tech,Silver Dollar"], "identical fetched_at and data: the page is not rebuilt");
+  assert.deepEqual(drawn, ["Florida,Fresno State"], "identical fetched_at and data: the page is not rebuilt");
   first.p.unmount();
   // instant back: the cached page at once, no skeleton, then a quiet refresh that changes nothing
   const calls0 = callsTo("/api/ratings");
@@ -344,15 +364,15 @@ scenarios.poller = async () => {
   main.replaceChildren();
   second.p.mount(main);
   assert.equal(second.loading(), 0, "no skeleton on the way back");
-  assert.equal(text(main), "Swampwater Tech,Silver Dollar", "drawn before any fetch answered");
-  assert.deepEqual(drawn, ["Swampwater Tech,Silver Dollar", "Swampwater Tech,Silver Dollar"]);
+  assert.equal(text(main), "Florida,Fresno State", "drawn before any fetch answered");
+  assert.deepEqual(drawn, ["Florida,Fresno State", "Florida,Fresno State"]);
   await settle();
   assert.equal(callsTo("/api/ratings"), calls0 + 1, "still refreshed in the background");
   assert.equal(drawn.length, 2, "the background answer was the same: no second rebuild");
   // new data: drawn
-  data = { teams: ["Swampwater Tech", "Georgia"] };
+  data = { teams: ["Florida", "Georgia"] };
   await second.p.refresh();
-  assert.deepEqual(drawn.slice(-1), ["Swampwater Tech,Georgia"]);
+  assert.deepEqual(drawn.slice(-1), ["Florida,Georgia"]);
   second.p.unmount();
   assert.equal(timers.size, 0, "unmount leaves no timer");
   // post-freeze Wave 2 (BUG-18): a kept page older than the refresh interval is drawn at once too, then refreshed
@@ -361,7 +381,7 @@ scenarios.poller = async () => {
   const third = make();
   third.p.mount(main);
   assert.equal(third.loading(), 0, "an old copy: still no loading sun");
-  assert.equal(text(main), "Swampwater Tech,Georgia", "the old copy at once");
+  assert.equal(text(main), "Florida,Georgia", "the old copy at once");
   await settle();
   assert.equal(callsTo("/api/ratings"), calls1 + 1, "and the refresh behind it");
   third.p.unmount();
@@ -486,7 +506,7 @@ scenarios.sheets = async () => {
   assert.equal(layers()[0], layer);
   // a route change closes every sheet unless it asked to stay
   const kept = openSheet({ title: "Stays", body: "x", persist: true });
-  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "team", arg: "Swampwater Tech" } }));
+  document.dispatchEvent(new CustomEvent("kickoff:route", { detail: { id: "team", arg: "Florida" } }));
   assert.deepEqual(closedWith, ["one"]);
   assert.equal(layers().length, 1, "the persistent one stays");
   kept.close();
@@ -634,19 +654,19 @@ scenarios.domKit = async () => {
   assert.deepEqual(after.querySelectorAll(".is-changed").map((n) => n.dataset.k), ["us-pts"]);
   assert.equal(dom.flashChanges(before, frame([["them-pts", "10"]]), { className: "flash" }), 1);
   // teamLogo: the dark variant on navy, the light one on the light theme, a tile when there is none
-  const team = { school: "Diner Tech", abbreviation: "MISS", logo: "/media/logo/145?v=light", logoDark: "/media/logo/145?v=dark", color: "#14213D" };
+  const team = { school: "Texas State", abbreviation: "MISS", logo: "/media/logo/145?v=light", logoDark: "/media/logo/145?v=dark", color: "#14213D" };
   assert.equal(dom.teamLogo(team).getAttribute("src"), "/media/logo/145?v=dark");
   document.documentElement.dataset.theme = "light";
   assert.equal(dom.teamLogo(team, { size: 40 }).getAttribute("src"), "/media/logo/145?v=light");
   document.documentElement.dataset.theme = "dark";
   assert.equal(dom.teamLogo({ ...team, logoDark: null }).getAttribute("src"), "/media/logo/145?v=light", "the other variant before a tile");
-  const tile = dom.teamLogo({ school: "Diner Tech", abbreviation: "MISS", color: "#14213D" });
+  const tile = dom.teamLogo({ school: "Texas State", abbreviation: "MISS", color: "#14213D" });
   assert.equal(tile.tagName, "SPAN");
   assert.equal(text(tile), "MISS");
   assert.equal(tile.style["--logo-bg"], "#14213D");
   assert.equal(text(dom.teamLogo({ school: "Texas A&M" })), "TA");
   assert.equal(dom.teamLogo({ logo: "javascript:x" }).tagName, "SPAN", "only real image URLs");
-  assert.equal(dom.teamLogo({ school: "Swampwater Tech", color: "red; x" }).style["--logo-bg"], undefined, "only a hex color");
+  assert.equal(dom.teamLogo({ school: "Florida", color: "red; x" }).style["--logo-bg"], undefined, "only a hex color");
   const img = dom.teamLogo(team, { lazy: false });
   assert.equal(img.getAttribute("loading"), null);
   const holder = document.createElement("div");
@@ -819,7 +839,7 @@ def test_each_stream_has_its_anchor_at_the_end_of_components_css() -> None:
 def test_page_check_groups_and_size_flag() -> None:
     from tools import page_check
 
-    assert list(page_check.ROUTE_GROUPS) == ["F", "NV", "SEASON", "PROGRAM", "PEOPLE", "PROFILES", "SCORES", "LIVE", "DS", "FRIENDS", "MYTEAMS"]  # MYTEAMS: public release Phase 5b
+    assert list(page_check.ROUTE_GROUPS) == ["F", "NV", "SEASON", "PROGRAM", "PEOPLE", "PROFILES", "SCORES", "LIVE", "DS", "FRIENDS", "MYTEAMS", "BANDS"]  # MYTEAMS: public release Phase 5b; BANDS: every band its own page (2026-10-28)
     assert page_check.ROUTES == list(dict.fromkeys(r for g in page_check.ROUTE_GROUPS.values() for r in g))
     assert {"season", "program", "live", "ratings", "team={US}"} <= set(page_check.ROUTES)
     # public release Phase 2: routes name the made-up league's teams and games through placeholders

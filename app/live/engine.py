@@ -1,7 +1,7 @@
 """The live engine: the poller inside a game window, the replay of a finished game on a
 simulated clock, the raw recorder, the feed health, and the subscriber list the stream feeds from.
 
-Rules from docs/02-ARCHITECTURE.md, "Live engine" and "Quota guard":
+The rules, "Live engine" and "Quota guard":
 - Poll only inside the game window (30 minutes before kickoff until the final) and only while
   at least one client is connected. Halftime and long delays slow the poll to 30 seconds.
 - Every raw upstream answer during a real game is written to data/live/<game_id>/ so that
@@ -315,6 +315,8 @@ class LiveEngine:
         self.archive_dir = settings.data_dir / "archive"
         self.recorder = Recorder(settings.data_dir / "live", settings.live_poll_seconds)
         self.held_path = settings.data_dir / "live" / "held.json"
+        self.follow_path = settings.data_dir / "live" / "follow.json"  # FEAT-1: another game the host chose to watch
+        self.followed: dict[str, Any] | None = self._read_follow()
         self.held: dict[str, Any] | None = self._load_held()  # our last final, kept across restarts until its time
         if (held := self.held_final()) is not None:
             # review 2026-10-10: after a restart a device still mid-game reconnects and its stream must carry it to the
@@ -408,7 +410,7 @@ class LiveEngine:
         if built is None:
             built = derive_state(events, game_id=gid, home=self.home, away=self.away, mode=self.mode, rosters=self._rosters if self._rosters_for == gid else None, ep_tables=self._ep_tables)
             built["delaySeconds"] = delay_seconds
-            built["team"] = self.settings.team  # the side the sheet follows (TEAM in .env), so it never assumes a team
+            built["team"] = self.side_for(gid)  # the side the sheet follows: ours, or the side of a game the host chose (FEAT-1)
             with self._state_lock:
                 if len(self._state_memo) >= self.STATE_MEMO_LIMIT:
                     self._state_memo.pop(next(iter(self._state_memo)))
@@ -429,7 +431,10 @@ class LiveEngine:
         return max(datetime.combine(day, HOLD_UNTIL, tzinfo=tz), final_at + HOLD_AT_LEAST)
 
     def _hold_final(self, window: GameWindow, final_at: datetime) -> None:
-        """Remember the game just finished so every device, a reload and a restart can show its final until its time."""
+        """Remember the game just finished so every device, a reload and a restart can show its final until its time.
+        Only our games: another game the host followed (FEAT-1) never replaces our last final."""
+        if self.settings.team and self.settings.team not in (window.home, window.away):
+            return
         record = {
             "gameId": window.game_id,
             "home": window.home,
@@ -665,6 +670,7 @@ class LiveEngine:
             "pollSeconds": self.settings.live_poll_seconds,
             "projectedCallsPerGame": round(3.5 * 3600 / self.settings.live_poll_seconds),
             "replay": self.replay.as_dict(),
+            "followed": dict(self.followed) if self.followed else None,  # FEAT-1: the game the host chose instead of ours
             # owner 2026-10-10: our last final, held on In Game until its time; released says whether this device has shown it
             "held": {**held, "released": (now - (_when(held.get("finalAt")) or now)).total_seconds() >= delay_seconds} if held else None,
             "stats": {**self.stats.__dict__, "eventsStored": self.store.count(self.store_key(self.current_game_id)) if self.current_game_id else 0},
@@ -783,7 +789,15 @@ class LiveEngine:
     async def find_window(self, max_age: timedelta | None = None) -> GameWindow | None:
         """Our next game whose window is open now or opens later, from the cached schedule
         (no older than `max_age` when given). Also sets the client's settle time from the most
-        recent kickoff within the past day, so it survives a restart (contract C4)."""
+        recent kickoff within the past day, so it survives a restart (contract C4). A game the host
+        chose to watch instead (FEAT-1) comes first while its window is still ahead or open."""
+        followed = await self._followed_window(max_age)
+        if followed is not None:
+            await self._our_window(max_age)  # still read: it sets game day and the settle time for our games
+            return followed
+        return await self._our_window(max_age)
+
+    async def _our_window(self, max_age: timedelta | None = None) -> GameWindow | None:
         try:
             fetched = await self.client.get("/games", {"year": self.settings.season, "team": self.settings.team}, kind=DataKind.SCHEDULE, max_age=max_age)
         except (QuotaBlocked, CfbdError) as exc:
@@ -819,6 +833,76 @@ class LiveEngine:
             self._set_settle_until(recent + SETTLE_AFTER, game_id=recent_game.id, week=recent_game.week, season_type=recent_game.season_type)
         candidates.sort(key=lambda w: w.kickoff)
         return candidates[0] if candidates else None
+
+    # --- another game the host chose to watch (FEAT-1) ------------------------------------------------------------
+
+    def side_for(self, game_id: int | None) -> str:
+        """The side the sheet follows in a game: ours, or the side the host chose for a game he follows."""
+        followed = self.followed
+        if followed and game_id is not None and followed.get("gameId") == game_id and isinstance(followed.get("team"), str):
+            return followed["team"]
+        return self.settings.team
+
+    def _read_follow(self) -> dict[str, Any] | None:
+        try:
+            raw = json.loads(self.follow_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return None
+        except (OSError, ValueError) as exc:
+            log.warning("The followed game in %s could not be read (%s); following ours", self.follow_path, exc)
+            return None
+        if not isinstance(raw, dict) or not isinstance(raw.get("gameId"), int) or isinstance(raw.get("gameId"), bool) or not isinstance(raw.get("team"), str):
+            return None
+        return {"gameId": raw["gameId"], "team": raw["team"], "home": raw.get("home"), "away": raw.get("away")}
+
+    def _write_follow(self) -> None:
+        try:
+            if self.followed is None:
+                self.follow_path.unlink(missing_ok=True)
+                return
+            self.follow_path.parent.mkdir(parents=True, exist_ok=True)
+            temp = self.follow_path.with_suffix(".json.tmp")
+            temp.write_text(json.dumps(self.followed), encoding="utf-8")
+            os.replace(temp, self.follow_path)
+        except OSError as exc:
+            log.warning("Could not keep the followed game: %s", exc)
+
+    async def _followed_window(self, max_age: timedelta | None = None) -> GameWindow | None:
+        followed = self.followed
+        if not followed:
+            return None
+        try:
+            fetched = await self.client.get("/games", {"year": self.settings.season}, kind=DataKind.SCHEDULE, max_age=max_age)
+        except (QuotaBlocked, CfbdError) as exc:
+            log.warning("Live window check could not read the season's games for the followed game: %s", exc)
+            return self.window if self.window is not None and self.window.game_id == followed.get("gameId") else None
+        game = next((g for g in parse_records(Game, fetched.payload, context="live/followed").records if g.id == followed.get("gameId")), None)
+        kickoff = self._local(game.start_date) if game is not None else None
+        now = self._clock()
+        if game is None or kickoff is None or game.id in self._done_games or (game.completed and now > kickoff + WINDOW_AFTER):
+            log.info("The followed game %s is over or gone; In Game follows ours again", followed.get("gameId"))
+            self.followed = None
+            self._write_follow()
+            return None
+        window = GameWindow(game.id, game.home_team, game.away_team, game.week, kickoff, kickoff - WINDOW_BEFORE, kickoff + WINDOW_AFTER, game.season_type)
+        return window if window.closes_at >= now else None
+
+    async def follow(self, game_id: int | None, team: str | None = None, home: str | None = None, away: str | None = None) -> dict[str, Any]:
+        """Follow another game (None: ours again). The window moves at once: the one open now closes without a final,
+        and the chosen game's opens when its time has come. Returns the status."""
+        self.followed = {"gameId": game_id, "team": team, "home": home, "away": away} if game_id is not None and team else None
+        self._write_follow()
+        log.info("In Game follows %s", f"game {game_id} from {team}'s side" if self.followed else "our games again")
+        current = self.window
+        window = await self.find_window()
+        now = self._clock()
+        if current is not None and (window is None or window.game_id != current.game_id) and self.mode == "live":
+            self.mode = "idle"
+            self.client.live_window = False
+        self.window = window
+        if window is not None and window.contains(now) and self.mode != "replay" and (current is None or window.game_id != current.game_id or self.mode != "live"):
+            self._open_window(window)
+        return self.status()
 
     def _open_window(self, window: GameWindow) -> None:
         self._replay_key_for = None  # a real game: the store keys are the real ids again
@@ -1096,7 +1180,7 @@ class LiveEngine:
             return []
         self._last_box_poll = self._clock()
         # A bowl is asked for by id: CFBD's postseason is one "week 1" that holds every bowl (Phase 15).
-        params: dict[str, Any] = {"id": window.game_id} if window.season_type == gamekeys.POSTSEASON else {"year": self.settings.season, "week": window.week, "team": self.settings.team}
+        params: dict[str, Any] = {"id": window.game_id} if window.season_type == gamekeys.POSTSEASON else {"year": self.settings.season, "week": window.week, "team": self.side_for(window.game_id)}
         teams_payload = await self._box_answer(window, "/games/teams", "box-teams", params, final)
         players_payload = await self._box_answer(window, "/games/players", "box-players", params, final)
         teams = parse_records(GameTeamStats, teams_payload, context="live/box").records if teams_payload is not None else []
@@ -1144,7 +1228,8 @@ class LiveEngine:
 
     def write_archive(self, window: GameWindow, win_probability: list[dict[str, Any]] | None = None, *, partial: bool = False, partial_reason: str | None = None) -> Path | None:
         """X5: the final state of a game this app watched, saved for the Archive. Only games the
-        app recorded itself land here; nothing is back-filled. `partial` marks a game whose window
+        app recorded itself land here from the engine (FEAT-3: the archive service rebuilds the season's earlier games from
+        CFBD's play-by-play, app/services/archive.py backfill). `partial` marks a game whose window
         closed before CFBD posted a final; it never replaces the complete archive of the same game.
         Written to a temporary file first, then moved into place."""
         try:

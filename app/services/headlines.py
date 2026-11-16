@@ -128,7 +128,7 @@ def _side(game: dict[str, Any], key: str) -> dict[str, Any]:
 
 
 def ranked_name(team: dict[str, Any]) -> str:
-    """'No. 12 Bluegrass Bottoms' for a ranked team (the number never breaks from 'No.'), else the school."""
+    """'No. 12 Texas' for a ranked team (the number never breaks from 'No.'), else the school."""
     school = _word(team.get("school")) or "TBD"
     rank = _int(team.get("rank"))
     return f"No.{NBSP}{rank} {school}" if rank is not None else school

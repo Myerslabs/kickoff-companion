@@ -1,7 +1,7 @@
 // The situational table (L4): third down, fourth down, red zone, turnovers, penalties, time of possession, yards per play
 // and yards, both teams, the better side in chalk.
 //
-// Table sizes, wave 2 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes, rule 9): every row is already a Team stats row, so
+// Table sizes, wave 2 (owner 2026-10-10; the design rules, Table sizes, rule 9): every row is already a Team stats row, so
 // the panel is the Team stats table (ui/team-stats.js) with these eight rows under the head "Situation": the two-team kit
 // with the tug-of-war bar, sized by its own box (the school and mascot at large, the school at medium, the abbreviation and
 // the short names at small), with the Team stats flash keys and the count-only penalties before the box score posts. It

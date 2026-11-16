@@ -104,7 +104,7 @@ const round = (metric, opts) => {
   assert.equal(route.arg, metric);
   return { href, route, read: nl.nationalRoute(route) };
 };
-for (const team of ["Texas A&M", "Miami (OH)", "Hawai'i", "Diner Tech", "San José State", "William & Mary?"]) {
+for (const team of ["Texas A&M", "Miami (OH)", "Hawai'i", "Texas State", "San José State", "William & Mary?"]) {
   const { href, route, read } = round("profile:ypp_d", { team, scope: "conference" });
   assert.equal(route.params.team, team, `team ${team} through ${href}`);
   assert.equal(read.team, team);
@@ -112,18 +112,18 @@ for (const team of ["Texas A&M", "Miami (OH)", "Hawai'i", "Diner Tech", "San Jos
   assert.ok(!/[ &]/.test(href.split("?")[1].replace(/&(year|scope)=/g, "")), `the team in ${href} is encoded`);
 }
 {
-  const { href, route, read } = round("board:passing:YDS", { team: "Swampwater Tech", year: 2025 });
-  assert.equal(href, "#national=board%3Apassing%3AYDS?team=Swampwater%20Tech&year=2025");
+  const { href, route, read } = round("board:passing:YDS", { team: "Florida", year: 2025 });
+  assert.equal(href, "#national=board%3Apassing%3AYDS?team=Florida&year=2025");
   assert.equal(route.params.year, "2025");
-  assert.deepEqual(read, { metric: "board:passing:YDS", team: "Swampwater Tech", year: 2025, scope: "national" });
-  assert.equal(route.key, "national=board:passing:YDS?team=Swampwater%20Tech&year=2025");
+  assert.deepEqual(read, { metric: "board:passing:YDS", team: "Florida", year: 2025, scope: "national" });
+  assert.equal(route.key, "national=board:passing:YDS?team=Florida&year=2025");
 }
 assert.equal(round("advanced:defense_explosiveness").href, "#national=advanced%3Adefense_explosiveness");
 // the same list with the query in another order is the same page; another team is another page
-const k1 = nl.parseRoute("#national=rating%3Asp?year=2025&team=Swampwater Tech").key;
-assert.equal(nl.parseRoute("#national=rating%3Asp?team=Swampwater Tech&year=2025").key, k1);
-assert.notEqual(nl.parseRoute("#national=rating%3Asp?team=Silver Dollar&year=2025").key, k1);
-assert.equal(nl.parseRoute("national=rating%3Asp?team=Diner+Tech").params.team, "Diner Tech");
+const k1 = nl.parseRoute("#national=rating%3Asp?year=2025&team=Florida").key;
+assert.equal(nl.parseRoute("#national=rating%3Asp?team=Florida&year=2025").key, k1);
+assert.notEqual(nl.parseRoute("#national=rating%3Asp?team=Fresno State&year=2025").key, k1);
+assert.equal(nl.parseRoute("national=rating%3Asp?team=Texas+State").params.team, "Texas State");
 // unknown ids, bad encoding and bad metrics are refused, never thrown
 for (const bad of ["#bogus=1", "#", "", "#national=%E0%A4%A", "#=x", null, undefined, 42, {}]) assert.equal(nl.parseRoute(bad), null, String(bad));
 for (const bad of [null, undefined, "", "ypp", "profile:", "Profile:ypp", "profile:ypp d", "profile:" + "x".repeat(60), 7, {}]) assert.equal(nl.nationalHref(bad), null, String(bad));
@@ -132,7 +132,7 @@ assert.equal(nl.nationalRoute(nl.parseRoute("#national=profile%3Aypp?scope=sec&y
 assert.equal(nl.nationalRoute(nl.parseRoute("#national=not%20a%20metric")).metric, null);
 assert.equal(nl.nationalRoute(null).metric, null);
 // existing routes read as before
-assert.deepEqual([nl.parseRoute("#team=Diner%20Tech").arg, nl.parseRoute("#team=Diner%20Tech").query], ["Diner Tech", ""]);
+assert.deepEqual([nl.parseRoute("#team=Texas%20State").arg, nl.parseRoute("#team=Texas%20State").query], ["Texas State", ""]);
 assert.equal(nl.parseRoute("#program=526001015").arg, "526001015");
 assert.equal(nl.parseRoute("season").arg, null);
 assert.equal(nl.parseRoute("#season").key, "season=");
@@ -142,17 +142,17 @@ assert.equal(nl.pollName("AP Top 25"), "AP");
 assert.equal(nl.pollName("Coaches Poll"), "Coaches");
 assert.equal(nl.pollName("Playoff Committee Rankings"), "CFP");
 assert.equal(nl.pollName(null), null);
-assert.equal(nl.pollHref("AP Top 25", { team: "Swampwater Tech" }), "#national=poll%3AAP?team=Swampwater%20Tech");
+assert.equal(nl.pollHref("AP Top 25", { team: "Florida" }), "#national=poll%3AAP?team=Florida");
 assert.equal(nl.pollHref("junk"), null);
-assert.equal(nl.pollsPageHref("Coaches Poll"), "#season=polls%3ACoaches");
-assert.equal(nl.parseRoute(nl.pollsPageHref("CFP")).arg, "polls:CFP");
-assert.equal(nl.pollsPageHref(undefined), "#season");
+assert.equal(nl.pollsPageHref("Coaches Poll"), "#band=newspaper:np-polls?poll=Coaches", "wave 3 (2026-11-01): the Polls band is the Newspaper's");
+assert.equal(nl.pollsPageHref("CFP"), "#band=newspaper:np-polls?poll=CFP");
+assert.equal(nl.pollsPageHref(undefined), "#band=newspaper:np-polls");
 // the statTable link hook: a row without a metric gets no link
-const link = nl.metricLink({ team: "Swampwater Tech" });
-assert.equal(link({ metric: "advanced:defense_explosiveness" }), "#national=advanced%3Adefense_explosiveness?team=Swampwater%20Tech");
+const link = nl.metricLink({ team: "Florida" });
+assert.equal(link({ metric: "advanced:defense_explosiveness" }), "#national=advanced%3Adefense_explosiveness?team=Florida");
 assert.equal(link({ label: "Explosiveness allowed" }), null);
 assert.equal(link(null), null);
-assert.equal(nl.metricLink({ team: (row) => row.team, scope: "conference" })({ metric: "profile:ppg", team: "Silver Dollar" }), "#national=profile%3Appg?team=Silver%20Dollar&scope=conference");
+assert.equal(nl.metricLink({ team: (row) => row.team, scope: "conference" })({ metric: "profile:ppg", team: "Fresno State" }), "#national=profile%3Appg?team=Fresno%20State&scope=conference");
 assert.ok(nl.isListHref("#national=x%3Ay") && !nl.isListHref("#season") && !nl.isListHref(null));
 console.log("ok");
 """

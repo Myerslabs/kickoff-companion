@@ -38,7 +38,7 @@ from app.cfbd.models import (  # Phase 10
 )
 from app.config import Settings
 from app.services import context16, gamekeys
-from app.services.classes import INFERRED_NOTE, class_fields, class_label, degenerate, inferred_year
+from app.services.classes import INFERRED_NOTE, class_fields, class_label, degenerate, inferred_year, say_inferred
 from app.services.depth2 import class_rank, player_boards, portal_index, shared_ranks, transfer_for
 from app.services.logos import logo_fields
 from app.services.national_extra import PageRanks, page_fetches, recruit_metric  # Phase 16 NV: the extra-call lists' keys and ranks
@@ -244,7 +244,7 @@ class Line:
 
 
 _LINES_MEMO: dict[int, tuple[list[PlayerStat], dict[tuple[str, str], Line]]] = {}
-LINES_MEMO_LIMIT = 8
+LINES_MEMO_LIMIT = 32  # batch 1 (2026-11-15): Leaders reads nine lists a request; with eight kept each pushed out the next (240 ms)
 
 
 def lines_from(records: list[PlayerStat]) -> dict[tuple[str, str], Line]:
@@ -374,6 +374,19 @@ class PlayerService:
     async def _teams(self) -> Part:
         return await self.fetcher.fetch("teams", "/teams/fbs", {"year": self.year}, Team, DataKind.TEAMS)
 
+    async def scoped(self, team: str | None) -> PlayerService | None:
+        """FEAT-5: this service from another FBS team's side (a settings copy over the same cache), self for our team or
+        none, None for a name CFBD's FBS list does not have. With the list unreadable the name is taken as given."""
+        name = team.strip() if isinstance(team, str) else ""
+        if not name or name == self.team:
+            return self
+        teams = await self._teams()
+        match = next((t for t in teams.records if t.school == name), None)
+        if match is None and teams.ok:
+            return None
+        conference = match.conference if match is not None and isinstance(match.conference, str) else ""
+        return PlayerService(self.client, self.settings.model_copy(update={"team": name, "conference": conference}))
+
     async def _schedule(self) -> Part:
         return await self.fetcher.fetch("schedule", "/games", {"year": self.year, "team": self.team}, Game, DataKind.SCHEDULE)
 
@@ -387,7 +400,7 @@ class PlayerService:
         the recruiting class comes first (classes.inferred_year)."""
         if not degenerate([p.year for p in roster_part.records]):
             return None
-        log.warning("CFBD's %s roster for %s lists nearly every player in one class; inferring the classes", self.year, self.team)
+        say_inferred(log, self.year, self.team)
         last = await self._roster(self.team, self.year - 1, f"roster_{self.year - 1}")
         parts[last.name] = last
         return {p.id: p.year for p in last.records if p.id}
@@ -436,6 +449,35 @@ class PlayerService:
             seen.add(g.id)
             out.append(g)
         return sorted(out, key=gamekeys.order)
+
+    # --- the season in review's players (Wave 7) ---------------------------------------------------------------
+
+    async def season_players(self) -> Assembled:
+        """Every player of ours with a stat line, a table a category, and every starter of the latest depth chart the game
+        notes hold (owner 2026-11-15: "at least every starter"). The team's season lines are the part Leaders reads (no call
+        of its own); the chart is the newest of our games whose notes have our lineup."""
+        import asyncio
+
+        from app.services.season_players import season_tables, starters_from
+
+        schedule_part, team_part = await asyncio.gather(self._schedule(), self._player_stats("team", {"team": self.team}))
+        parts: dict[str, Part] = {"schedule": schedule_part, "team": team_part}
+        lines = lines_from(team_part.records)
+        starters: list[dict[str, Any]] = []
+        chart: dict[str, Any] | None = None
+        ours = [g for g in schedule_part.records if isinstance(g, Game) and self.team in (g.home_team, g.away_team) and isinstance(g.start_date, str)]
+        for game in sorted(ours, key=lambda g: g.start_date, reverse=True):
+            notes, _error = load_notes(self.settings.data_dir, game.id)
+            us = notes.lineups.us if notes is not None and notes.lineups is not None else None
+            if us is None or not us.slots:
+                continue
+            starters = starters_from(us.model_dump(), lines)
+            if starters:
+                opponent = game.away_team if game.home_team == self.team else game.home_team
+                chart = {"gameId": game.id, "week": game.week, "opponent": opponent, "source": us.source}
+                break
+        data = {"season": self.year, "team": self.team, "categories": season_tables(lines), "starters": starters, "chart": chart, "parts": statuses(parts, self.client._clock())}
+        return assemble(data, parts)
 
     # --- leaders --------------------------------------------------------------------------------
 
@@ -819,6 +861,42 @@ class PlayerService:
 
     # --- player card ---------------------------------------------------------------------------------
 
+    async def card_parts(self, team: str, schedule_part: Part | None = None) -> tuple[dict[str, Part], list[Game]]:
+        """Every answer a player card of `team` reads, and its finished games: the season lines, each finished game's box and
+        play value (one CFBD call a game), usage, recruits, our past rosters. Batch 1 (owner 2026-11-15, "Fetch overnight"):
+        the nightly warm loads these ahead for our team and the next opponent, so a card opens at once (Grant Godfrey's,
+        Kentucky's, waited minutes on 2026-11-15)."""
+        import asyncio
+
+        parts: dict[str, Part] = {}
+        is_us = team == self.team
+        if is_us and schedule_part is None:
+            schedule_part = await self._schedule()
+        if is_us:
+            completed = self._completed(schedule_part.records, team)
+        else:
+            # The opponent's own games, never ours: the league-wide answer holds every team's schedule.
+            games_part = await self._league_games()
+            parts["games"] = games_part
+            completed = self._completed(games_part.records, team)
+        stats_params = {"team": team}
+        gather = [self._player_stats("stats", stats_params), *(self._box(g, team) for g in completed)]
+        gather += [
+            self.fetcher.fetch("ppaSeason", "/ppa/players/season", {"year": self.year, "team": team}, PlayerSeasonPpa, DataKind.SEASON_STATS),
+            self.fetcher.fetch("usage", "/player/usage", {"year": self.year, "team": team}, PlayerUsage, DataKind.SEASON_STATS),
+            *(self.fetcher.fetch(f"ppaGames_{gamekeys.tag(g)}", "/ppa/players/games", gamekeys.week_params(g, self.year, team), PlayerGamePpa, DataKind.SEASON_STATS) for g in completed if g.week is not None),
+        ]
+        if is_us:
+            gather += [self._recruits(y) for y in range(self.year - 4, self.year + 1)]
+            gather += [self._roster(self.team, y, f"roster_{y}") for y in range(self.year - 4, self.year)]
+        else:
+            gather += [self.fetcher.fetch(f"recruits_{y}", "/recruiting/players", {"year": y, "team": team}, Recruit, DataKind.RECRUITING) for y in range(self.year - 3, self.year + 1)]
+        results = await asyncio.gather(*gather)
+        for part in results:
+            parts[part.name] = part
+
+        return parts, completed
+
     async def player(self, player_id: str, team_hint: str | None = None) -> Assembled | None:
         """Our players, the next opponent's, or (Phase 15, from search) a player of any FBS team
         named by `team_hint`, which costs that team's roster, stats and box scores the first time."""
@@ -846,29 +924,8 @@ class PlayerService:
                 return assemble({"playerId": player_id, "parts": statuses(parts, self.client._clock())}, parts)
             team = opponent
         is_us = team == self.team
-
-        if is_us:
-            completed = self._completed(schedule_part.records, team)
-        else:
-            # The opponent's own games, never ours: the league-wide answer holds every team's schedule.
-            games_part = await self._league_games()
-            parts["games"] = games_part
-            completed = self._completed(games_part.records, team)
-        stats_params = {"team": team}
-        gather = [self._player_stats("stats", stats_params), *(self._box(g, team) for g in completed)]
-        gather += [
-            self.fetcher.fetch("ppaSeason", "/ppa/players/season", {"year": self.year, "team": team}, PlayerSeasonPpa, DataKind.SEASON_STATS),
-            self.fetcher.fetch("usage", "/player/usage", {"year": self.year, "team": team}, PlayerUsage, DataKind.SEASON_STATS),
-            *(self.fetcher.fetch(f"ppaGames_{gamekeys.tag(g)}", "/ppa/players/games", gamekeys.week_params(g, self.year, team), PlayerGamePpa, DataKind.SEASON_STATS) for g in completed if g.week is not None),
-        ]
-        if is_us:
-            gather += [self._recruits(y) for y in range(self.year - 4, self.year + 1)]
-            gather += [self._roster(self.team, y, f"roster_{y}") for y in range(self.year - 4, self.year)]
-        else:
-            gather += [self.fetcher.fetch(f"recruits_{y}", "/recruiting/players", {"year": y, "team": team}, Recruit, DataKind.RECRUITING) for y in range(self.year - 3, self.year + 1)]
-        results = await asyncio.gather(*gather)
-        for part in results:
-            parts[part.name] = part
+        card, completed = await self.card_parts(team, schedule_part)
+        parts.update(card)
 
         recruits = self._recruit_lookup(parts)
         # post-freeze Wave 1: a roster whose classes cannot be believed gives the card the same inferred class as the Roster page

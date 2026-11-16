@@ -28,17 +28,20 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.cache import DataKind
 from app.cfbd.models import BettingGame, CalendarWeek, Coach, Game, GameMedia, GameWeather, PregameWinProbability
-from app.services import gamekeys, headlines
+from app.services import gamekeys, headlines, paper_articles
 from app.services.coaches import resolve as resolve_coaches
 from app.services.context16 import form_for, form_table
-from app.services.editions import Editions, key_for, label_for, order_of
+from app.services.editions import Editions, is_sunday, key_for, label_for, offseason_key, order_of
 from app.services.lines import line_block
 from app.services.notes import load_notes
+from app.services.paper import game_week_start, sunday_end
+from app.services.paper_art import ArtStore
+from app.services.paper_layout import LayoutStore, folded_weeks, layout, lead_title
 from app.services.parts import Assembled, Part, assemble, calendar_slot, statuses
 from app.services.program import POLL_NAMES, ProgramService, compass
 from app.services.race import race, stamp_of
@@ -145,10 +148,32 @@ class RankedWeekService:
         self.ticker = ticker
         self.editions = editions
         self._collected: dict[float, tuple[float, Any]] = {}  # delay -> (when, the ticker's week)
+        self._layouts: LayoutStore | None = None  # FEAT-14: each week's order, for the reader (made on first use)
+        self._art: ArtStore | None = None  # FEAT-14 wave 4: Claude's drawings
 
     @property
     def year(self) -> int:
         return self.program.year
+
+    @property
+    def art(self) -> ArtStore:
+        if self._art is None:
+            self._art = ArtStore(self.program.settings.data_dir, self.program.year)
+        return self._art
+
+    def editor_answer(self, key: Any) -> dict[str, Any] | None:
+        """Claude's latest layout of a week (wave 4), or None."""
+        if not isinstance(key, str) or not key:
+            return None
+        from app.services.writing import WritingStore
+
+        return WritingStore(self.program.settings.data_dir, self.program.year).load("editor", key)
+
+    @property
+    def layouts(self) -> LayoutStore:
+        if self._layouts is None:
+            self._layouts = LayoutStore(self.program.settings.data_dir, self.program.year)
+        return self._layouts
 
     @property
     def team(self) -> str:
@@ -390,13 +415,52 @@ class RankedWeekService:
 
     async def paper(self, data: dict[str, Any], parts: dict[str, Part], delay: float, edition: str | None = None) -> dict[str, Part]:
         """Add this week's edition (or a saved one), the edition list and the week's facts to the newspaper's answer.
-        Returns the parts to assemble the answer from (the newspaper's and the week's)."""
+        Returns the parts to assemble the answer from (the newspaper's and the week's). FEAT-14: each of the edition's
+        headlines carries its id and what the server copied of it (the article store, read at answer time, so a kept
+        edition shows the stories copied after it was saved)."""
+        merged = await self._paper(data, parts, delay, edition)
+        copier = getattr(self.program, "copier", None)
+        shown = data.get("edition")
+        if copier is not None and isinstance(shown, dict):
+            rows = copier.store.annotate(shown.get("headlines"))
+            coach = (self.program.season_notes.coaches_for(self.team) or {}).get("headCoach")
+            # Wave 6, second half (owner 2026-11-15): the paper's own article, By the numbers, leads page 2 of a week's paper;
+            # a Sunday paper has none of its own
+            key = shown.get("key")
+            own = None if is_sunday(key) else paper_articles.row(copier.store, "numbers", key)
+            # FEAT-14: Claude's layout of the week when it has run (wave 4), the app's rule for the rest; Claude's drawings
+            built = layout(rows + ([own] if own else []), coach=coach if isinstance(coach, str) else None, editor=self.editor_answer(key), art=self.art.drawn(), page2_lead=own["id"] if own else None)
+            data["edition"] = {**shown, "headlines": rows, "layout": built}
+            self.layouts.save(shown.get("key"), built)
+            if not edition:  # the earlier weeks, folded under this week's paper (owner 2026-10-27)
+                schedule = parts.get("schedule")
+                games = schedule.records if schedule is not None and schedule.ok else []
+                leads = {}
+                for e in data.get("editions") or []:
+                    if isinstance(e, dict) and e.get("saved") and not e.get("current") and isinstance(e.get("key"), str):
+                        saved = self.editions.load(e["key"]) or {}
+                        title = lead_title(copier.store.annotate(saved.get("headlines")))
+                        if title:
+                            leads[e["key"]] = title
+                data["folded"] = folded_weeks(data.get("editions"), games, self.team, shown.get("key"), tz=self.program.settings.tzinfo, leads=leads)
+        return merged
+
+    async def _paper(self, data: dict[str, Any], parts: dict[str, Part], delay: float, edition: str | None = None) -> dict[str, Part]:
         sections = [s for s in data.get("weeks") or [] if isinstance(s, dict)]
         now = self.program.client._clock()
+        # Wave 6 (owner 2026-11-15): from our final to 6 AM on the second morning the paper is that game's Sunday paper,
+        # whatever week the calendar has moved to
+        schedule = parts.get("schedule")
+        sunday = self._sunday_now(schedule.records if schedule is not None and schedule.ok else [], now)
+        sunday_key = key_for(sunday.week if isinstance(sunday.week, int) else None, sunday.season_type, sunday=True) if sunday is not None else None
+        # rollover R3 (owner 2026-11-15): with no game of ours to come this season, or before the opener's week, the paper is the
+        # off-season's, a week of stories turning over every Monday at 6 AM, never kept
+        off = None if sunday is not None else self.offseason_window(schedule.records if schedule is not None and schedule.ok else [], now)
+        off_key = offseason_key(off[2]) if off is not None else None
         if edition:
             # an earlier edition is read from its file: the week's key from the cached calendar, never the live week
             slot, slot_parts = await self._slot()
-            current = key_for(*slot) if slot else None
+            current = off_key or sunday_key or (key_for(*slot) if slot else None)
             if edition != current:
                 merged = {**parts, **slot_parts}
                 if "games" in slot_parts and slot_parts["games"].ok:
@@ -405,9 +469,11 @@ class RankedWeekService:
                 data["editions"] = self._edition_list(sections, current, now)
                 data["edition"] = self._earlier(edition, sections)
                 return merged
+        if off is not None and off_key is not None:
+            return await self._offseason(data, parts, sections, off, off_key, now)
         week, week_parts = await self.week(delay)
         merged = {**parts, **week_parts}
-        current = key_for(week.get("week"), week.get("seasonType"))
+        current = sunday_key or key_for(week.get("week"), week.get("seasonType"))
         if current and "games" in week_parts and week_parts["games"].ok:
             self._settle(current, week_parts["games"].records, now)
         data["rankedWeek"] = {k: week.get(k) for k in ("season", "week", "seasonType", "label", "poll", "counts", "ourGame", "note", "delaySeconds")}
@@ -416,8 +482,113 @@ class RankedWeekService:
         if saved is not None and saved.get("frozen") is True:
             data["edition"] = {**saved, "current": True}  # the season is over and this week's paper is kept as printed
             return merged
-        data["edition"] = self._current(week, week_parts, sections, current)
+        data["edition"] = self._current(week, week_parts, sections, current, sunday)
         return merged
+
+    def offseason_window(self, games: list[Any], now: datetime | None) -> tuple[datetime, datetime, datetime] | None:
+        """Rollover R3: (from, to, turn) when the paper is the off-season's, else None. The off-season: no game of ours to come
+        this season (once its last game's Sunday paper is over), or none played yet before the opener's week. The stories are
+        last week's, Monday 6 AM to Monday 6 AM, the paper turning over at `turn`; in the first week after the season, the
+        stories since its Sunday paper ended, until the first Monday."""
+        if now is None:
+            return None
+        tz = self.program.settings.tzinfo
+        ours = sorted((g for g in games if isinstance(g, Game) and self.team in (g.home_team, g.away_team) and _when(g.start_date) is not None), key=lambda g: _when(g.start_date))
+        upcoming = [g for g in ours if not g.completed]
+        played = [g for g in ours if g.completed]
+        if upcoming and played:
+            return None  # the season under way, its byes too
+        if upcoming and now >= game_week_start(_when(upcoming[0].start_date), tz):
+            return None  # the opener's week: Week 1's paper
+        if self._sunday_now(games, now) is not None:
+            return None
+        turn = game_week_start(now, tz)
+        if now < turn:
+            turn -= timedelta(days=7)
+        start, end = turn - timedelta(days=7), turn
+        if played and not upcoming:
+            over = sunday_end(_when(played[-1].start_date), tz)
+            if over > start:
+                start = over
+                if start >= end:
+                    end = now  # the first days after the season: its stories so far, until Monday turns the paper
+        return start, end, turn
+
+    def _offseason_rows(self, sections: list[dict[str, Any]], start: datetime, end: datetime) -> list[dict[str, Any]]:
+        """The week's stories from every section of the season, and from last season's archive (the week of the switch)."""
+        from app.feeds import headline_key
+        from app.services.paper import topic_of
+
+        pool = [h for s in sections for h in s.get("headlines") or [] if isinstance(h, dict) and isinstance(h.get("title"), str)]
+        try:
+            last = self.program.archive.load(self.year - 1)
+        except Exception:  # noqa: BLE001 - last season's archive is a courtesy for the switch's week; logged
+            log.warning("Last season's headline archive could not be read for the off-season paper", exc_info=True)
+            last = []
+        pool += [{**h, "topic": topic_of(h["title"]), "players": []} for h in last if isinstance(h, dict) and isinstance(h.get("title"), str)]
+        seen: set[str] = set()
+        rows = []
+        for h in pool:
+            when = _when(h.get("publishedAt"))
+            key = headline_key(h["title"])
+            if when is None or not (start <= when < end) or not key or key in seen:
+                continue
+            seen.add(key)
+            rows.append(h)
+        rows.sort(key=lambda r: r.get("publishedAt") or "", reverse=True)
+        return rows
+
+    async def _offseason(self, data: dict[str, Any], parts: dict[str, Part], sections: list[dict[str, Any]], off: tuple[datetime, datetime, datetime], key: str, now: datetime) -> dict[str, Part]:
+        start, end, turn = off
+        tz = self.program.settings.tzinfo
+        core = await self.program._core()
+        games = core.get("games")
+        if games is not None and games.ok:
+            self._settle(key, games.records, now)  # the season's papers frozen once it is over
+        first, last = start.astimezone(tz), (end - timedelta(minutes=1)).astimezone(tz)
+        span = f"since {first:%b} {first.day}" if end == now else f"{first:%b} {first.day} to {last:%b} {last.day}"
+        data["rankedWeek"] = {"season": self.year, "week": None, "seasonType": None, "label": "The off-season", "note": "The off-season paper: the week's stories about the team, every Monday morning."}
+        data["editions"] = self._edition_list(sections, None, now)
+        data["edition"] = {
+            "key": key,
+            "season": self.year,
+            "label": f"The off-season · {span}",
+            "week": None,
+            "seasonType": None,
+            "gameId": None,
+            "opponent": None,
+            "homeAway": None,
+            "date": None,
+            "headlines": self._offseason_rows(sections, start, end),
+            "matchups": [],
+            "offThisWeek": [],
+            "poll": None,
+            "weekEnd": (turn + timedelta(days=7)).isoformat(),
+            "frozen": False,
+            "offseason": {"from": start.isoformat(), "to": end.isoformat(), "next": (turn + timedelta(days=7)).isoformat()},
+            "current": True,
+        }
+        past = self.year - 1
+        try:
+            data["pastPapers"] = past if Editions(self.program.settings.data_dir, past).keys() else None  # last season's papers, from the Seasons list
+        except Exception:  # noqa: BLE001 - a link, nothing more
+            data["pastPapers"] = None
+        return parts
+
+    def _sunday_now(self, games: list[Any], now: datetime | None) -> Game | None:
+        """Our latest game CFBD calls completed, when its Sunday paper still leads now: before 6 AM on the second morning
+        after kickoff. None otherwise (a bye week, a game not yet final, the paper past its time)."""
+        if now is None:
+            return None
+        tz = self.program.settings.tzinfo
+        done = [g for g in games if isinstance(g, Game) and g.completed and self.team in (g.home_team, g.away_team) and _when(g.start_date) is not None]
+        if not done:
+            return None
+        game = max(done, key=lambda g: _when(g.start_date))
+        kickoff = _when(game.start_date)
+        if now < kickoff:
+            return None
+        return game if now < sunday_end(kickoff, tz) else None
 
     async def _slot(self) -> tuple[tuple[int, str] | None, dict[str, Part]]:
         """This week's (week, seasonType) from the cached calendar, else our week; the parts it read."""
@@ -432,7 +603,7 @@ class RankedWeekService:
         if not isinstance(section.get("gameId"), int):
             return None
         post = str(section.get("label") or "").startswith("Bowl")
-        return key_for(section.get("week"), gamekeys.POSTSEASON if post else "regular")
+        return key_for(section.get("week"), gamekeys.POSTSEASON if post else "regular", sunday=section.get("sunday") is True)
 
     def _edition_list(self, sections: list[dict[str, Any]], current: str | None, now: datetime | None = None) -> list[dict[str, Any]]:
         listed: dict[str, dict[str, Any]] = {e["key"]: {**e, "saved": True} for e in self.editions.keys()}
@@ -468,7 +639,7 @@ class RankedWeekService:
             "season": self.year,
             "label": label_for(key),
             "week": section.get("week"),
-            "seasonType": gamekeys.POSTSEASON if key == "postseason" else "regular",
+            "seasonType": gamekeys.POSTSEASON if key.startswith("postseason") else "regular",
             "gameId": section.get("gameId"),
             "opponent": section.get("opponent"),
             "homeAway": section.get("homeAway"),
@@ -481,10 +652,20 @@ class RankedWeekService:
             "current": False,
         }
 
-    def _current(self, week: dict[str, Any], week_parts: dict[str, Part], sections: list[dict[str, Any]], key: str | None) -> dict[str, Any]:
+    def _current(self, week: dict[str, Any], week_parts: dict[str, Part], sections: list[dict[str, Any]], key: str | None, sunday: Game | None = None) -> dict[str, Any]:
         tz = self.program.settings.tzinfo
-        # this week's headlines; before any of them is published, the newest week's (the paper is never blank)
-        section = self._section_for(sections, key) or (sections[0] if sections else None)
+        if is_sunday(key):
+            # Wave 6: the Sunday paper holds only the game's stories, none borrowed from another week while it has none
+            section = self._section_for(sections, key)
+            week_of_game = sunday is not None and week.get("week") == sunday.week and str(week.get("seasonType") or "regular") == str(sunday.season_type or "regular")
+            if not week_of_game:
+                # the calendar already on the next week: the paper as it was kept, its stories as they stand; never the next
+                # week's games
+                saved = self.editions.load(key) or self._sunday_shell(key, sunday)
+                return {**saved, "headlines": (section.get("headlines") if section else None) or saved.get("headlines") or [], "current": True}
+        else:
+            # this week's headlines; before any of them is published, the newest week's (the paper is never blank)
+            section = self._section_for(sections, key) or (sections[0] if sections else None)
         ours = week.get("ourGame") if isinstance(week.get("ourGame"), dict) else None  # the masthead names this week's game
         games = [dict(g) for g in week.get("games") or []]
         frozen_lines = self.editions.frozen_headlines(key) if key else {}
@@ -508,12 +689,38 @@ class RankedWeekService:
             "weekEnd": week.get("weekEnd"),
             "frozen": False,
         }
+        if is_sunday(key) and sunday is not None:
+            edition["label"] = label_for(key)  # "Week 11 · Sunday paper"
+            kickoff = _when(sunday.start_date)
+            edition["weekEnd"] = sunday_end(kickoff, tz).isoformat() if kickoff else edition["weekEnd"]
         if key is None:
             return {**edition, "current": True}
         # a week read in full is kept; one with its games, its teams or their records missing never overwrites a good file
         if all(name in week_parts and week_parts[name].ok for name in ("weekGames", "teams", "records")):
             self._keep(edition)
         return {**edition, "current": True}
+
+    def _sunday_shell(self, key: str, game: Game | None) -> dict[str, Any]:
+        """A Sunday paper never kept before the calendar moved on: its game named, no week's games of its own."""
+        home = game is not None and game.home_team == self.team
+        kickoff = _when(game.start_date) if game is not None else None
+        return {
+            "key": key,
+            "season": self.year,
+            "label": label_for(key),
+            "week": game.week if game is not None and isinstance(game.week, int) else None,
+            "seasonType": (game.season_type or "regular") if game is not None else "regular",
+            "gameId": game.id if game is not None else None,
+            "opponent": (game.away_team if home else game.home_team) if game is not None else None,
+            "homeAway": ("neutral" if game.neutral_site else "home" if home else "away") if game is not None else None,
+            "date": game.start_date if game is not None else None,
+            "headlines": [],
+            "matchups": [],
+            "offThisWeek": [],
+            "poll": None,
+            "weekEnd": sunday_end(kickoff, self.program.settings.tzinfo).isoformat() if kickoff else None,
+            "frozen": False,
+        }
 
     def _keep(self, edition: dict[str, Any]) -> None:
         """Save this week's edition. A final already saved is never written back to an earlier state (a reader with a
@@ -546,7 +753,6 @@ class RankedWeekService:
             return  # freeze wave F7: once a day is enough for a week to end (it was every poll of every device: 151 file stats a minute)
         self._settled = stamp
         games = {g.id: g for g in season_games if isinstance(g, Game)}
-        tz = self.program.settings.tzinfo
         for entry in self.editions.keys():
             if entry.get("frozen") or entry["key"] == current:
                 continue
@@ -557,26 +763,44 @@ class RankedWeekService:
             earlier = current is not None and order_of(entry["key"]) < order_of(current)
             if not (earlier or (end is not None and now is not None and now > end)):
                 continue
-            matchups = []
-            for game in saved.get("matchups") or []:
-                if not _game_ok(game):
-                    continue
-                done = games.get(game["gameId"])
-                if game.get("status") != "final" and not (done is not None and done.completed):
-                    game = {**game, "status": "unplayed", "detail": "Not played", "period": None, "clock": None, "headline": None}
-                elif game.get("status") != "final" and done is not None and done.completed and _int(done.home_points) is not None and _int(done.away_points) is not None:
-                    game = {
-                        **game,
-                        "status": "final",
-                        "detail": "Final",
-                        "period": None,
-                        "clock": None,
-                        "home": {**game["home"], "points": done.home_points, "lineScores": [s for s in done.home_line_scores or [] if _int(s) is not None] or None},
-                        "away": {**game["away"], "points": done.away_points, "lineScores": [s for s in done.away_line_scores or [] if _int(s) is not None] or None},
-                    }
-                    game["headline"] = headlines.write(game, us=self.team, tz=tz)
-                matchups.append(game)
-            try:
-                self.editions.save({**saved, "matchups": matchups, "frozen": True}, force=True)
-            except Exception:  # noqa: BLE001 - the keepsake never breaks the paper; logged
-                log.exception("The paper's edition %s could not be frozen", entry["key"])
+            self._freeze(entry["key"], saved, games)
+
+    def freeze_season(self, season_games: list[Any]) -> list[str]:
+        """Rollover R3: at the switch every kept edition of the season is frozen, the last ones too (the bowl's paper and its
+        Sunday paper, which _settle never reaches once the app is on the next season). Returns the keys frozen."""
+        games = {g.id: g for g in season_games if isinstance(g, Game)}
+        frozen = []
+        for entry in self.editions.keys():
+            if entry.get("frozen"):
+                continue
+            saved = self.editions.load(entry["key"])
+            if saved is not None:
+                self._freeze(entry["key"], saved, games)
+                frozen.append(entry["key"])
+        return frozen
+
+    def _freeze(self, key: str, saved: dict[str, Any], games: dict[int, Any]) -> None:
+        tz = self.program.settings.tzinfo
+        matchups = []
+        for game in saved.get("matchups") or []:
+            if not _game_ok(game):
+                continue
+            done = games.get(game["gameId"])
+            if game.get("status") != "final" and not (done is not None and done.completed):
+                game = {**game, "status": "unplayed", "detail": "Not played", "period": None, "clock": None, "headline": None}
+            elif game.get("status") != "final" and done is not None and done.completed and _int(done.home_points) is not None and _int(done.away_points) is not None:
+                game = {
+                    **game,
+                    "status": "final",
+                    "detail": "Final",
+                    "period": None,
+                    "clock": None,
+                    "home": {**game["home"], "points": done.home_points, "lineScores": [s for s in done.home_line_scores or [] if _int(s) is not None] or None},
+                    "away": {**game["away"], "points": done.away_points, "lineScores": [s for s in done.away_line_scores or [] if _int(s) is not None] or None},
+                }
+                game["headline"] = headlines.write(game, us=self.team, tz=tz)
+            matchups.append(game)
+        try:
+            self.editions.save({**saved, "matchups": matchups, "frozen": True}, force=True)
+        except Exception:  # noqa: BLE001 - the keepsake never breaks the paper; logged
+            log.exception("The paper's edition %s could not be frozen", key)

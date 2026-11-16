@@ -1,6 +1,6 @@
 """The server's housekeeping (Phase 18.2): the jobs that keep a season of game days safe without anyone watching.
 
-    KeepAwake       the PC does not go to sleep while a game window is open (Windows and macOS)
+    KeepAwake       the PC does not go to sleep while it is plugged in (ENH-32), or during a game window only (Windows)
     backup_data     one zip of what cannot be fetched again (archive, notes, season notes, settings), newest N kept
     tidy_recordings raw live recordings of archived games, packed into one zip each once they are old
     Maintenance     one loop that runs all of the above, plus the archive refresh, on their own schedules
@@ -13,11 +13,10 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import os
 import shutil
-import signal
-import subprocess
 import sys
 import tempfile
 import zipfile
@@ -32,52 +31,48 @@ log = logging.getLogger("kickoff.maintenance")
 
 ES_CONTINUOUS = 0x80000000
 ES_SYSTEM_REQUIRED = 0x00000001
+AWAKE_MODES = ("plugged", "games", "off")  # ENH-32 (owner 2026-10-27): Server Settings, "plugged" by default
+
+
+def windows_plugged_in() -> bool | None:
+    """True on mains power, False on battery, None when Windows cannot say (GetSystemPowerStatus)."""
+    import ctypes
+
+    class SystemPowerStatus(ctypes.Structure):
+        _fields_ = [
+            ("ACLineStatus", ctypes.c_ubyte),
+            ("BatteryFlag", ctypes.c_ubyte),
+            ("BatteryLifePercent", ctypes.c_ubyte),
+            ("SystemStatusFlag", ctypes.c_ubyte),
+            ("BatteryLifeTime", ctypes.c_ulong),
+            ("BatteryFullLifeTime", ctypes.c_ulong),
+        ]
+
+    status = SystemPowerStatus()
+    if not ctypes.windll.kernel32.GetSystemPowerStatus(ctypes.byref(status)):  # type: ignore[attr-defined]
+        return None
+    return {0: False, 1: True}.get(status.ACLineStatus)  # 255 is "unknown"
 
 
 class KeepAwake:
-    """Holds the computer awake while `active` is true. On Windows the request belongs to the calling thread, so
-    every call comes from the server's event-loop thread; on macOS a `caffeinate` child holds it; on Linux with
-    systemd (the Steam Deck's desktop included; freeze wave F6) a `systemd-inhibit` child holds the idle and sleep
-    locks. Elsewhere it says once that it cannot and does nothing."""
+    """Holds the computer awake while `active` is true. The request belongs to the calling thread, so every call comes
+    from the server's event-loop thread. Windows only since ENH-26 (owner 2026-10-25); elsewhere it says once that it
+    cannot and does nothing.
 
-    def __init__(
-        self,
-        platform: str | None = None,
-        state_call: Callable[[int], Any] | None = None,
-        spawn: Callable[[], Any] | None = None,
-        has_inhibit: Callable[[], bool] | None = None,
-        end: Callable[[Any], None] | None = None,
-    ) -> None:
+    ENH-32 (owner 2026-10-27): `wanted(mode, window_open)` says whether to hold. "plugged" holds whenever the computer is
+    on mains power and never on battery, even on game day (his answer); "games" holds during a game window only, the
+    behavior before; "off" never holds. A computer that cannot say how it is powered (a desktop without a battery
+    reports it as plugged in) counts as plugged in."""
+
+    def __init__(self, platform: str | None = None, state_call: Callable[[int], Any] | None = None, power_call: Callable[[], bool | None] | None = None) -> None:
         self.platform = platform or sys.platform
         self._state_call = state_call
-        self._has_inhibit = has_inhibit or (lambda: shutil.which("systemd-inhibit") is not None)
-        self._spawn = spawn or (self._spawn_inhibit if self.platform.startswith("linux") else self._spawn_caffeinate)
-        self._end = end or self._end_child
+        self._power_call = power_call
         self.held = False
-        self._child: Any = None
         self._said = False
-
-    @staticmethod
-    def _spawn_caffeinate() -> Any:
-        return subprocess.Popen(["caffeinate", "-i"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)  # noqa: S603, S607 - a fixed system tool, no input
-
-    @staticmethod
-    def _spawn_inhibit() -> Any:
-        """systemd-inhibit holds the locks while its command runs; in its own session, so ending it ends the sleep too."""
-        command = ["systemd-inhibit", "--what=idle:sleep", "--who=Kickoff Companion", "--why=A game is on", "--mode=block", "sleep", "infinity"]
-        return subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)  # noqa: S603, S607 - a fixed system tool, no input
-
-    def _end_child(self, child: Any) -> None:
-        """End the child: its whole session on Linux (systemd-inhibit and the sleep it holds), the one process elsewhere."""
-        killpg = getattr(os, "killpg", None)
-        pid = getattr(child, "pid", None)
-        if self.platform.startswith("linux") and callable(killpg) and isinstance(pid, int):
-            try:
-                killpg(pid, signal.SIGTERM)
-                return
-            except (ProcessLookupError, PermissionError, OSError):
-                pass
-        child.terminate()
+        self.mode = "games"
+        self.plugged: bool | None = None
+        self.reason = "not checked yet"
 
     def _windows_call(self, flags: int) -> Any:
         if self._state_call is not None:
@@ -88,9 +83,31 @@ class KeepAwake:
 
     @property
     def supported(self) -> bool:
-        if self.platform.startswith("win") or self.platform == "darwin":
-            return True
-        return self.platform.startswith("linux") and bool(self._has_inhibit())
+        return self.platform.startswith("win")
+
+    def plugged_in(self) -> bool | None:
+        if not self.supported:
+            return None
+        try:
+            return (self._power_call or windows_plugged_in)()
+        except (OSError, AttributeError, ValueError) as exc:
+            log.warning("Could not read how the computer is powered: %s", exc)
+            return None
+
+    def wanted(self, mode: Any, window_open: bool) -> bool:
+        self.mode = mode if mode in AWAKE_MODES else "plugged"
+        if self.mode == "off":
+            self.reason = "off in Server Settings"
+            return False
+        if self.mode == "games":
+            self.reason = "a game window is open" if window_open else "no game window open"
+            return window_open
+        self.plugged = self.plugged_in()
+        if self.plugged is False:
+            self.reason = "on battery"
+            return False
+        self.reason = "plugged in"
+        return True
 
     def set(self, active: bool) -> None:
         if active == self.held:
@@ -98,37 +115,27 @@ class KeepAwake:
         if not self.supported:
             if active and not self._said:
                 self._said = True
-                why = "without systemd-inhibit" if self.platform.startswith("linux") else ""
-                log.info("Keeping the computer awake during a game is not supported on %s%s; turn off its sleep timer on game days.", self.platform, f" {why}" if why else "")
+                log.info("Keeping the computer awake is not supported on %s; turn off its sleep timer.", self.platform)
             return
         try:
-            if self.platform.startswith("win"):
-                self._windows_call(ES_CONTINUOUS | ES_SYSTEM_REQUIRED if active else ES_CONTINUOUS)
-            elif active:
-                self._child = self._spawn()
-            elif self._child is not None:
-                child, self._child = self._child, None
-                self._end(child)
-                wait = getattr(child, "wait", None)
-                if callable(wait):
-                    try:
-                        wait(timeout=2)  # reaped, so no zombie entry stays behind (freeze wave F1, B17)
-                    except (subprocess.TimeoutExpired, OSError):
-                        pass
+            self._windows_call(ES_CONTINUOUS | ES_SYSTEM_REQUIRED if active else ES_CONTINUOUS)
         except (OSError, AttributeError, ValueError) as exc:
             log.warning("Could not %s the computer's sleep hold: %s", "set" if active else "clear", exc)
             return
         self.held = active
-        log.info("Computer %s while a game is on.", "is being kept awake" if active else "may sleep again")
+        log.info("Computer %s (%s).", "is being kept awake" if active else "may sleep again", self.reason)
 
     def release(self) -> None:
         self.set(False)
 
+    def status(self) -> dict[str, Any]:
+        return {"supported": self.supported, "holding": self.held, "mode": self.mode, "pluggedIn": self.plugged, "reason": self.reason}
+
 
 # --- backup --------------------------------------------------------------------------------------------------
 
-BACKUP_DIRS = ("archive", "notes", "season", "wiki", "gamenotes")  # folders of data/ that nothing can fetch again
-BACKUP_FILES = ("settings.json", "startup.json")
+BACKUP_DIRS = ("archive", "notes", "season", "wiki", "gamenotes", "claude")  # folders of data/ that nothing can fetch again (rollover R1: Claude's lessons and ledger)
+BACKUP_FILES = ("settings.json", "startup.json", "facts.json", "jobs.json", "trivia.json")  # rollover R1: the facts, the jobs' runs and the trivia too
 BACKUP_PREFIX = "kickoff-data-"
 
 
@@ -142,6 +149,7 @@ def _backup_members(data_dir: Path) -> list[Path]:
     feeds = data_dir / "feeds"
     if feeds.is_dir():
         members += [p for p in feeds.glob("season-*.json") if p.is_file()]  # the Newspaper's season of headlines
+    members += [p for p in data_dir.glob("trivia-*.json") if p.is_file()]  # rollover R1: a past season's trivia, set aside
     return members
 
 
@@ -239,6 +247,10 @@ class Maintenance:
         awake: KeepAwake | None = None,
         lock_program: Callable[[datetime], Any] | None = None,
         lock_postgame: Callable[[datetime], Any] | None = None,
+        warm: Callable[[datetime], Any] | None = None,
+        awake_mode: Callable[[], Any] | None = None,
+        weekly: Callable[[datetime], Any] | None = None,
+        rollover: Callable[[datetime], Any] | None = None,
     ) -> None:
         self.data_dir = Path(data_dir)
         self.backup_dir = Path(backup_dir)
@@ -248,8 +260,12 @@ class Maintenance:
         self.refresh_archive = refresh_archive
         self.lock_program = lock_program  # wave B: the Pre-Game Program locked at kickoff, checked every tick
         self.lock_postgame = lock_postgame  # F8 feature 1: the Post-Game Program locked once the poll after the game is out
+        self.warm = warm  # ENH-27: the nightly warm, paced to the month's target; it decides itself when it is due
+        self.weekly = weekly  # Feature Set v2: the weekly jobs (Talent Edge first), Sundays from 6 AM; they decide when they are due
+        self.rollover = rollover  # rollover R2: the season's switch, checked once a day; a due switch tries each hour until it is made
         self._clock = clock or (lambda: datetime.now().astimezone())
         self.awake = awake or KeepAwake()
+        self.awake_mode = awake_mode or (lambda: "games")  # ENH-32: the Server Settings switch, read every tick
         self.backup_error: str | None = None
         self._last_slow: float | None = None
         self._task: asyncio.Task[Any] | None = None
@@ -271,7 +287,7 @@ class Maintenance:
             "last": latest[1].isoformat(timespec="minutes") if latest else None,
             "lastFile": latest[0].name if latest else None,
             "error": self.backup_error,
-            "keepAwake": {"supported": self.awake.supported, "holding": self.awake.held},
+            "keepAwake": self.awake.status(),
         }
 
     async def run_backup(self) -> Path | None:
@@ -288,7 +304,7 @@ class Maintenance:
         return path
 
     async def tick(self) -> None:
-        self.awake.set(bool(self.window_open()))
+        self.awake.set(self.awake.wanted(self.awake_mode(), bool(self.window_open())))
         if self.lock_program is not None:
             try:
                 await self.lock_program(self._clock())
@@ -315,6 +331,27 @@ class Maintenance:
                 await self.refresh_archive(now)
             except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
                 log.exception("Archive refresh failed")
+        if self.warm is not None and not self.window_open():
+            try:
+                pending = self.warm(now)
+                if pending is not None:
+                    await pending
+            except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
+                log.exception("The nightly warm failed")
+        if self.weekly is not None and not self.window_open():
+            try:
+                pending = self.weekly(now)
+                if inspect.isawaitable(pending):  # the server starts the run in the background and hands back its record
+                    await pending
+            except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
+                log.exception("The weekly jobs failed")
+        if self.rollover is not None and not self.window_open():
+            try:
+                pending = self.rollover(now)
+                if inspect.isawaitable(pending):
+                    await pending
+            except Exception:  # noqa: BLE001 - the loop must survive; logged with the traceback
+                log.exception("The season's switch failed")
 
     async def _loop(self) -> None:
         await asyncio.sleep(START_DELAY_SECONDS)  # let the server finish starting before the first housekeeping

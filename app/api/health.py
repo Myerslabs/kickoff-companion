@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from app import APP_NAME, BUILD_PHASE, __version__
+from app import APP_NAME, BUILD_PHASE, __version__, boot
 from app.api.envelope import envelope
 from app.cfbd.client import CfbdClient
 from app.cfbd.quota import QuotaMode
@@ -71,6 +71,27 @@ def _mdns_check(state: dict[str, Any]) -> dict[str, str]:
     if state.get("state") == "starting":
         return _check("network name", "ok", f"announcing {host}")
     return _check("network name", "degraded", f"{host} not announced: {state.get('error') or state.get('state')}. Devices can use the IP address.")
+
+
+def _awake_check(state: dict[str, Any]) -> dict[str, str]:
+    """ENH-32: whether the server computer is held awake, and why. Sleeping on battery is the owner's choice, not a fault."""
+    if state.get("supported") is False:
+        return _check("keep awake", "ok", "not supported on this system; turn off its sleep timer")
+    reason = state.get("reason") or "not checked yet"
+    return _check("keep awake", "ok", f"kept awake: {reason}" if state.get("holding") else f"may sleep: {reason}")
+
+
+def _jobs_check(status: dict[str, Any]) -> dict[str, str]:
+    """Feature Set v2: the weekly jobs' last runs. A failed last run is "degraded": the pages keep the last good week."""
+    runs = status.get("jobs") if isinstance(status.get("jobs"), dict) else {}
+    if status.get("running"):
+        return _check("weekly jobs", "ok", f"{status['running']} running now")
+    if not runs:
+        return _check("weekly jobs", "ok", "not run yet; they run on this start, then Sundays from 6 AM")
+    failed = [r for r in runs.values() if isinstance(r, dict) and r.get("status") == "failed"]
+    if failed:
+        return _check("weekly jobs", "degraded", "; ".join(f"{r.get('label') or r.get('job')} failed {r.get('startedAt')}: {r.get('message')}" for r in failed))
+    return _check("weekly jobs", "ok", "; ".join(f"{r.get('label') or r.get('job')} skipped: {r.get('message')}" if r.get("status") == "skipped" else f"{r.get('label') or r.get('job')} {r.get('finishedAt')}" for r in runs.values() if isinstance(r, dict)))
 
 
 def _tls_check(tls: TlsState) -> dict[str, str]:
@@ -243,6 +264,12 @@ def health(request: Request) -> dict[str, Any]:
     mdns = getattr(request.app.state, "mdns", None)
     if mdns is not None and mdns.host:
         checks.append(_mdns_check(mdns.status()))
+    maintenance = getattr(request.app.state, "maintenance", None)
+    if maintenance is not None:
+        checks.append(_awake_check(maintenance.awake.status()))
+    jobs = getattr(request.app.state, "jobs", None)
+    if jobs is not None:
+        checks.append(_jobs_check(jobs.status()))
 
     upstream: dict[str, Any] | None = None
     cache_stats: dict[str, Any] | None = None
@@ -273,9 +300,13 @@ def health(request: Request) -> dict[str, Any]:
             "started_at": started_at.isoformat(timespec="seconds").replace("+00:00", "Z"),
             "uptime_seconds": round(uptime, 1),
             # post-freeze Wave 1: when the data requests were first served and the first data answered, in seconds from the
-            # start (None until then); the tray icon's clock waits for ready_seconds
+            # start (None until then)
             "ready_seconds": getattr(request.app.state, "ready_seconds", None),
             "first_data_seconds": getattr(request.app.state, "first_data_seconds", None),
+            # BUG-17, ENH-18: when the start said READY (the opening pages warm, or 30 s), and whether it opened the
+            # browser; the tray's note waits for open_seconds and says which
+            "open_seconds": boot.open_seconds(),
+            "browser_opened": boot.browser_opened(),
             "host": settings.host,
             "port": settings.port,
             "hostname": machine_name() or None,

@@ -34,17 +34,22 @@ import { el, isNum } from "./ui/dom.js";
 import { keepScreenOn } from "./wake.js";
 import { addAliases, enableHints } from "./ui/hints.js";
 import { parseRoute, routeKey } from "./ui/national-link.js";
+import { currentStop, loadStops, onStops, stopsNow, weekOf } from "./stops.js"; // the season as one line (owner 2026-10-30)
 import { installNationalLinks } from "./ui/national-sheet.js";
 import { installPullToRefresh } from "./ui/pull-refresh.js";
+import { installToTop } from "./ui/to-top.js"; // the Top button (owner 2026-11-15)
 import { MENU, shell } from "./ui/shell.js";
 import { band } from "./ui/states.js";
 import { fetchJson } from "./views/common.js";
 import { createLeadersView } from "./views/leaders.js";
 import { createLiveView } from "./views/live.js";
 import { createNewspaperView } from "./views/newspaper.js";
+import { createReaderView } from "./views/reader.js"; // FEAT-14: a copied story whole
 import { createTop25View } from "./views/top25.js";
+import { createImperialismView } from "./views/imperialism.js"; // FEAT-17: the Imperialism Map
 import { createProgramView } from "./views/program.js";
 import { createRatingsView } from "./views/ratings.js";
+import { createConferenceView } from "./views/conference.js"; // the conference page (owner 2026-11-02): any conference, ours first
 import { createRecruitingView } from "./views/recruiting.js";
 import { createRosterView } from "./views/roster.js";
 import { createSeasonView } from "./views/season.js";
@@ -52,9 +57,12 @@ import { createArchiveView } from "./views/archive.js";
 import { createGlossaryView } from "./views/glossary.js";
 import { createNationalView } from "./views/national.js";
 import { createSettingsView } from "./views/settings.js";
-import { gameLine, loadProgram, openFromMenu } from "./views/panels.js"; // the menu's tables opened wide (the layout pass, 2026-10-22)
-import { createTeamView, openTeam } from "./views/team.js";
+import { createStatsView } from "./views/stats.js"; // ENH-10: the Stats menu's full lists
+import { gameLine, loadProgram, openBand, openFromMenu } from "./views/panels.js"; // the menu's tables opened wide (the layout pass, 2026-10-22)
+import { watchBands } from "./ui/band-open.js"; // ENH-46 (owner 2026-11-10): a band opens by itself from its own head, the menu lists pages
+import { openTeam } from "./views/team.js"; // the team sheet; a team page is My Team's page of that team (wave 3, 2026-11-01)
 import { createBoxView } from "./views/box.js";
+import { bandTarget, createBandView, registerPages } from "./views/band.js"; // owner 2026-10-28: every band its own page
 import { installCvd } from "./ui/cvd.js";
 import { startGuestMode } from "./ui/guest.js";
 import { installSpoiler } from "./ui/spoiler.js";
@@ -62,29 +70,37 @@ import { startReadiness } from "./ui/readiness.js";
 import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): the join and the question popups
 import { openTodo } from "./ui/todo.js"; // the To do flyout (the layout pass, 2026-10-22): the notes off the page
 import { openFeedback } from "./ui/feedback.js"; // Send feedback with the logs (owner 2026-10-23)
+import { openAsk } from "./ui/ask.js"; // FEAT-12: Ask about this page
 import { startTrail } from "./ui/trail.js"; // what this tablet did lately, sent with a report
-import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";
+import { closeLayers, goTo, installLayerHistory, stepOverLeftovers, toTop } from "./ui/layers.js";
 import { createBoardView, seedBoardHistory } from "./views/board.js";
 import { createInviteView } from "./views/invite.js";
 import { createPreseasonView } from "./views/preseason.js";
-import { createReviewView } from "./views/review.js";
 import { createInjuriesView } from "./views/injuries.js";
+import { createSeasonsView } from "./views/seasons.js"; // rollover R2: the Seasons list
+import { pastYear } from "./ui/past.js";
 import { createPromptsView } from "./views/prompts.js";
 import { createTriviaView } from "./views/trivia.js";
-import { addNote } from "./ui/page-notes.js";
+import { addNote, removeNote } from "./ui/page-notes.js";
+import { claudeSignedOutSince, seasonSwitchNow, signedOutWords } from "./build.js";
 import { installRunBar } from "./ui/run-bar.js";
-import { reloadWhenServerAnswers, restartFlow } from "./ui/restart.js";
+import { reloadWhenServerAnswers, restartFlow, updateFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
 
 const BUILT = {
   season: (opts, arg, focus, params) => createSeasonView({ ...opts, arg, params }),
   leaders: (opts, arg, focus, params) => createLeadersView({ ...opts, arg, params }),
-  roster: (opts) => createRosterView(opts),
+  roster: (opts, arg, focus, params) => createRosterView({ ...opts, params }), // FEAT-5: ?team= any FBS team
   recruiting: (opts, arg, focus, params) => createRecruitingView({ ...opts, arg, params }),
-  newspaper: (opts, arg) => createNewspaperView({ ...opts, edition: arg }), // items 10-12: #newspaper=week-6 opens an earlier edition
+  newspaper: (opts, arg, focus, params) => createNewspaperView({ ...opts, edition: arg, params }), // #newspaper=week-6 opens that week folded open (FEAT-14); ?poll=Coaches opens the polls on that poll (wave 3, 2026-11-01)
+  story: (opts, arg, focus, params) => createReaderView({ ...opts, id: arg, season: params?.season }), // FEAT-14: the reader, #story=<id>; ?season=2026 a past season's (rollover R3)
   top25: (opts) => createTop25View(opts), // item 11: every game of the week with an AP Top 25 team
-  program: (opts, arg, focus) => createProgramView({ ...opts, gameId: arg && /^\d+$/.test(arg) ? arg : null, focus }),
-  team: (opts, arg, focus, params) => createTeamView({ ...opts, school: arg, params }),
+  picks: (opts) => createTop25View(opts), // FEAT-2's page folded into the Top 25 (wave 3, 2026-11-01): the old address lands there
+  imperialism: (opts) => createImperialismView(opts), // FEAT-17: the Imperialism Map, in New until he places it
+  blame: (opts) => createSeasonView({ ...opts, params: { band: "blame" } }), // FEAT-18's page dissolved into My Team (wave 3, 2026-11-01): the old address lands on the wheel
+  program: (opts, arg, focus, params) => createProgramView({ ...opts, gameId: arg && /^\d+$/.test(arg) ? arg : null, focus, team: params?.team, tab: params?.tab, view: params?.view, season: params?.season }), // FEAT-5: any game, ?team= its side; ?tab=pre the Pre-Game as it stood, ?view= a box's switch (the line, 2026-10-30)
+  postgame: (opts, arg, focus, params) => createProgramView({ ...opts, gameId: arg && /^\d+$/.test(arg) ? arg : null, focus, team: params?.team, tab: "post", season: params?.season }), // ?season=2026: rollover R2, that season's kept copy // the season as one line: a finished game's Post-Game stop
+  team: (opts, arg, focus, params) => createSeasonView({ ...opts, params: { ...(params || {}), team: arg } }), // wave 3 (2026-11-01): a team's page is My Team's page of that team
   box: (opts, arg) => createBoxView({ ...opts, gameId: arg }),
   preseason: (opts) => createPreseasonView(opts), // Phase 17 Part 3a: the season loads and each primary team's preseason // Phase 17 #2: any game's box score, from a W or L square
   live: (opts) => createLiveView(opts),
@@ -92,17 +108,23 @@ const BUILT = {
   settings: (opts, arg) => createSettingsView({ ...opts, arg }), // #settings=radio opens that section (2026-10-16); the Profile page since 2026-10-22
   profile: (opts, arg) => createSettingsView({ ...opts, arg }), // the layout pass (owner 2026-10-22): "a Profile that shows your settings and setup information"
   ratings: (opts, arg, focus, params) => createRatingsView({ ...opts, arg, params }),
+  conference: (opts, arg, focus, params) => createConferenceView({ ...opts, arg, params }), // the conference page (2026-11-02): #conference ours, #conference=<name> another
+  stats: (opts, arg, focus, params) => createStatsView({ ...opts, arg, params }), // ENH-10: #stats=passing?view=teams, every team and every qualified player
   glossary: (opts, arg) => createGlossaryView({ ...opts, focusId: arg }),
   national: (opts, arg, focus, params) => createNationalView({ ...opts, arg, params }), // Phase 16 NV: a chip's list as a page
   myteams: (opts, arg, focus, params) => createSeasonView({ ...opts, params }), // board 9 (owner 2026-10-22): My Teams is the Season page's window now; the old address opens it
   invite: (opts) => createInviteView(opts), // Phase 18.6: the QR code for friends
-  review: (opts) => createReviewView(opts), // Phase 19: the season told from the schedule
+  review: (opts, arg) => createSeasonView({ ...opts, review: true, past: pastYear(arg) }), // rollover R2: #review=2026 is that season's review as kept; Wave 7 (owner 2026-11-15): the season in review is My Team at the season's end (Phase 19's page told it from the schedule alone)
   board: (opts) => createBoardView(opts), // Phase 18.6: the Live sheet made for a wall
+  seasons: (opts) => createSeasonsView(opts), // rollover R2 (owner 2026-11-15): this season and the ones before, as kept
   injuries: (opts) => createInjuriesView(opts), // owner 2026-10-10: our injuries through the season, from the game notes
   prompts: (opts) => createPromptsView(opts), // the Prompts phase (2026-10-13): every prompt, its Copy, Paste and Run, the one run, the schedule
   trivia: (opts) => createTriviaView(opts), // the trivia (2026-10-21): the room's board by team name, today's answers, the rules
+  band: (opts, arg, focus, params) => createBandView({ ...opts, arg, params }), // owner 2026-10-28: #band=<page>:<band>, one band alone across the page
   setup: (opts) => createSettingsView(opts), // the Setup page joined the Profile (owner 2026-10-22): the old address lands on the Profile; the menu's Setup opens its flyout (#profile=setup)
 };
+
+registerPages(BUILT); // the menu's flyouts and the band's own page mount the router's own views
 
 const LATER = {
   radio: ["Radio", "The team's radio plays from the bar at the bottom of every page; pick the station in Settings."],
@@ -115,6 +137,13 @@ const KEEP_TAB = new Set(["national"]); // a list keeps the tab it was opened fr
 /** "#program=401856699" -> { id: "program", arg: "401856699" }; "#team=Kansas%20State" -> { id: "team", arg: "Kansas State" } */
 function parseHash() {
   return parseRoute(window.location.hash || "", VALID);
+}
+
+/** The page a band's own page is drawn from (#band=season:season-polls -> the Season route), else the band route itself. */
+function bandPage(route) {
+  const target = bandTarget(route.arg, route.params);
+  const page = target ? parseRoute(`#${target.address}`, VALID) : null;
+  return page && page.id !== "band" ? page : route;
 }
 
 function readState() {
@@ -149,12 +178,10 @@ export function gameIsLive(statusData) {
 const LIVE_CHECK_MS = 60000;
 const DOWN_RETRY_MS = Object.freeze([2000, 4000, 8000]); // a server that does not answer is asked again sooner: it is restarting
 
-let gameUnderWay = false; // what the last live check said; the restart reload keeps its hands off In Game and the board then
-
 /**
  * Keep the LIVE marker current: once now, then every minute and whenever the page comes back into view. A check the
  * server does not answer (it is restarting, owner bug 2026-10-13) is asked again after 2, 4 and 8 s, so the new build's
- * envelope arrives, and the page reloads, seconds after the server is back instead of up to a minute later.
+ * envelope arrives, and the To do's new-version note shows, seconds after the server is back.
  */
 function watchLiveGame(page) {
   let busy = false;
@@ -166,8 +193,7 @@ function watchLiveGame(page) {
     try {
       const delay = Number(getPrefs()?.delaySeconds); // the marker goes by what a sheet this far behind has seen
       const envelope = await fetchJson(`/api/live/status?delay=${Number.isFinite(delay) && delay >= 0 ? Math.round(delay) : 0}`);
-      gameUnderWay = gameIsLive(envelope?.data);
-      page.setLive(gameUnderWay);
+      page.setLive(gameIsLive(envelope?.data));
       misses = 0;
     } catch (error) {
       console.warn("Could not check for a live game; the LIVE marker keeps its last state.", error?.message || error);
@@ -186,7 +212,7 @@ function watchLiveGame(page) {
   });
 }
 
-const RELEASE_SEEN_KEY = "kickoff.release.seen";
+const UPDATE_SEEN_KEY = "kickoff.update.seen"; // FEAT-13: the newest commit whose note was closed
 const TODAY_SEEN_KEY = "kickoff.today.seen";
 
 /** Today on this device, YYYY-MM-DD. */
@@ -200,6 +226,40 @@ function todayKey(now = new Date()) {
  * facts prompt collected, for the teams the app follows and this week's opponent, as the one reminder note, once a day
  * on each device, with its close button. Never a popup.
  */
+const CHECK_SEEN_KEY = "kickoff.datacheck.seen"; // ENH-29: the data check whose note was closed
+
+/**
+ * ENH-29: the weekly data check found facts the web says are out of date: a To do note for the host, once per check, with
+ * the first few and the way to the whole list (Settings, Claude, What Claude learned).
+ */
+async function startDataCheckNote() {
+  if (document.body?.dataset?.role === "guest") return null;
+  const envelope = await fetchJson("/api/writing/datacheck/latest");
+  const written = envelope?.data?.written && typeof envelope.data.written === "object" ? envelope.data.written : null;
+  const findings = (Array.isArray(written?.findings) ? written.findings : []).filter((f) => f && typeof f === "object" && typeof f.subject === "string");
+  if (!findings.length || typeof written.writtenAt !== "string") return null;
+  let seen = null;
+  try {
+    seen = window.localStorage.getItem(CHECK_SEEN_KEY);
+  } catch {
+    seen = null;
+  }
+  if (seen === written.writtenAt) return null;
+  const count = findings.length === 1 ? "1 fact" : `${findings.length} facts`;
+  return addNote({
+    id: "datacheck",
+    title: `The data check found ${count} out of date`,
+    body: () => el("div", {}, el("ul", { class: "writing__list" }, findings.slice(0, 3).map((f) => el("li", {}, el("b", {}, `${f.subject}: `), typeof f.webSays === "string" ? f.webSays : "see the check"))), el("p", {}, el("a", { class: "btn btn--quiet", href: "#profile=claude" }, "See the whole check"))),
+    onDismiss: () => {
+      try {
+        window.localStorage.setItem(CHECK_SEEN_KEY, written.writtenAt);
+      } catch {
+        // no storage: the note comes back next load, the safe direction
+      }
+    },
+  });
+}
+
 async function startTodayNote() {
   let seen = null;
   try {
@@ -234,29 +294,43 @@ async function startTodayNote() {
 }
 
 /**
- * A newer release is out (the update check, Phase 16 wave 3, asked of GitHub once a day): the same note as every other
- * reminder (owner 2026-10-13), once per release on each device; its close button remembers the version. The app never
- * downloads or installs anything by itself.
+ * FEAT-13: new commits on GitHub's main (the update check, asked of GitHub at most once an hour): the same note as every
+ * other reminder (owner 2026-10-13), once per update on each device; its close button remembers the newest commit. One
+ * tap brings the update in and restarts the server with it; the app never updates by itself (owner 2026-10-26). A guest
+ * gets no note: only the host updates.
  */
-async function startReleaseNote() {
+async function startUpdateNote() {
+  if (document.body?.dataset?.role === "guest") return null;
   const envelope = await fetchJson("/api/updates");
   const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
-  if (!data || data.newer !== true || typeof data.latest !== "string" || !data.latest) return null;
+  if (!data || data.canUpdate !== true || !isNum(data.behind) || data.behind < 1) return null;
+  const changes = (Array.isArray(data.changes) ? data.changes : []).filter((c) => c && typeof c === "object" && typeof c.subject === "string" && c.subject);
+  const newest = typeof changes[0]?.short === "string" ? changes[0].short : `behind-${data.behind}`;
   let seen = null;
   try {
-    seen = window.localStorage.getItem(RELEASE_SEEN_KEY);
+    seen = window.localStorage.getItem(UPDATE_SEEN_KEY);
   } catch {
     seen = null;
   }
-  if (seen === data.latest) return null;
-  const link = typeof data.url === "string" && /^https:\/\//.test(data.url) ? el("a", { href: data.url, target: "_blank", rel: "noopener" }, "See what changed") : null;
+  if (seen === newest) return null;
+  const said = el("p", { class: "note", role: "status" }, "");
+  const go = el("button", { class: "btn btn--primary", type: "button", onclick: async (event) => {
+    event.currentTarget.disabled = true;
+    await updateFlow({ say: (words) => { said.textContent = words; }, confirmDuringGame: async (message) => window.confirm(`${message} Update anyway?`) });
+  } }, "Update now");
+  const count = data.behind === 1 ? "1 change" : `${data.behind} changes`;
   return addNote({
-    id: "release",
-    title: `Version ${data.latest} is out`,
-    body: () => el("p", {}, `You run ${typeof data.current === "string" ? data.current : "an older version"}. `, link, link ? ". " : "", "Settings, About, says how to update."),
+    id: "github-update",
+    title: `Update ready: ${count}`,
+    body: () => el("div", { class: "update-note" },
+      changes.length ? el("ul", { class: "update-list" }, ...changes.slice(0, 5).map((c) => el("li", {}, c.subject))) : null,
+      changes.length > 5 ? el("p", { class: "note" }, `and ${changes.length - 5} more (Settings, About, lists them all).`) : null,
+      data.packagesChange ? el("p", { class: "note" }, "It brings new packages too: the restart takes a few minutes.") : null,
+      el("p", {}, go),
+      said),
     onDismiss: () => {
       try {
-        window.localStorage.setItem(RELEASE_SEEN_KEY, data.latest);
+        window.localStorage.setItem(UPDATE_SEEN_KEY, newest);
       } catch {
         // no storage: the note comes back next load, the safe direction
       }
@@ -264,31 +338,16 @@ async function startReleaseNote() {
   });
 }
 
-/** The view the address names: "live" for "#live" and "#live=...", "" for none. */
-function viewInAddress() {
-  return String(window.location.hash || "").replace(/^#/, "").split(/[=?]/)[0];
-}
-
 /**
- * Whether a reload now would pull the page out from under a viewer: In Game or the board while our game is under way
- * (the banner shows there instead, and the reload waits for the next view). Anywhere else, any time, the page reloads.
- */
-function holdsAViewer() {
-  return gameUnderWay && ["live", "board"].includes(viewInAddress());
-}
-
-/**
- * Phase 12: when the server has a newer build than this page (a restart, or a file changed under
- * static/), the page reloads by itself as soon as the server answers (owner bug 2026-10-13: "when I restart the
- * server, the page does not refresh"; until then it waited to come back into view), so no device is ever left on
- * old code. The one hold: In Game and the board while our game is under way show the banner and reload the next
- * time they come into view, so nothing reloads under the viewer.
- * Item 6, step E: either way the page reloads only once the server answers (ui/restart.js reloadWhenServerAnswers),
- * never into a server that is still restarting or a Wi-Fi still reconnecting after the iPad wakes.
+ * Phase 12: when the server has a newer build than this page (a restart, or a file changed under static/), the page needs
+ * the new code. Since 2026-11-14 (owner: "make sure the page doesnt refresh when browsing", then "Say so, never reload")
+ * it never reloads under the reader: the To do says a new version is on the server, Reload brings it in now, and opening
+ * another page brings it in then, the reload landing on the page opened. The device that tapped Update or Restart reloads
+ * by itself (ui/restart.js). Item 6, step E: the page reloads only once the server answers (ui/restart.js
+ * reloadWhenServerAnswers), never into a server that is still restarting or a Wi-Fi still reconnecting after the iPad wakes.
  */
 const RELOADED_AT_KEY = "kickoff.update.reloadedAt";
 const RELOAD_LOOP_MS = 60000;
-const UPDATE_RETRY_MS = 60000; // while a new build waits behind a game, a look every minute (the board has no other trigger)
 
 /**
  * A reload for a new build is remembered for a minute (owner bug 2026-10-13: "the page refreshes every 5 seconds"): when
@@ -312,26 +371,12 @@ function rememberReload() {
   }
 }
 
-function watchForUpdates(page) {
+function watchForUpdates() {
   let pending = false;
-  let retryTimer = null;
-  // The board never changes visibility and shows no notes, so a build that arrived during the game reloads once the
-  // game is over (freeze wave F1, F3): a look every minute while an update waits.
-  const armRetry = () => {
-    if (retryTimer) return;
-    retryTimer = setInterval(() => {
-      if (!pending || document.visibilityState === "hidden" || holdsAViewer() || reloadedJustNow()) return;
-      clearInterval(retryTimer);
-      retryTimer = null;
-      rememberReload();
-      reloadWhenServerAnswers();
-    }, UPDATE_RETRY_MS);
-  };
   document.addEventListener("kickoff:update", (event) => {
     if (pending) return;
     pending = true;
     const looping = reloadedJustNow();
-    if (!looping) armRetry();
     if (looping) console.warn("The server answered with another build within a minute of a reload; the page keeps still.", event?.detail);
     const said = el("span", { class: "note", role: "status" }, "");
     const reloadButton = el("button", { class: "btn", type: "button", onclick: async () => {
@@ -343,11 +388,13 @@ function watchForUpdates(page) {
       }
     } }, "Reload");
     // one format for every reminder (owner 2026-10-13): a note at the top of the page with its close button (ui/page-notes.js)
-    addNote({ id: "update", title: "A new version of the app is on the server", body: () => el("div", { class: "page-note__row" }, el("span", {}, looping ? "The server answered with two different builds within a minute, so the page keeps still. If two servers are running on this address, stop one, then Reload." : "The page reloads by itself once the server answers; Reload does it now."), reloadButton, said) });
-    if (!looping && document.visibilityState === "visible" && !holdsAViewer()) {
-      rememberReload();
-      reloadWhenServerAnswers({ onWait: () => { said.textContent = " Waiting for the server…"; } });
-    }
+    addNote({ id: "update", title: "A new version of the app is on the server", body: () => el("div", { class: "page-note__row" }, el("span", {}, looping ? "The server answered with two different builds within a minute, so the page keeps still. If two servers are running on this address, stop one, then Reload." : "It loads when you open another page; Reload brings it in now."), reloadButton, said) });
+  });
+  // opening another page brings the new version in, the reload landing on the page opened (never under the reader)
+  window.addEventListener("hashchange", () => {
+    if (!pending || reloadedJustNow()) return;
+    rememberReload();
+    reloadWhenServerAnswers();
   });
   // Phase 16 wave 3: the server's own code changed on disk (an update was pulled): only a restart brings it in
   let restartOffered = false;
@@ -362,13 +409,72 @@ function watchForUpdates(page) {
     } }, "Restart the server");
     addNote({ id: "restart-needed", title: "The server's code was updated", body: () => el("div", { class: "page-note__row" }, el("span", {}, "Restart the server to use the new version."), button, said) });
   });
-  document.addEventListener("visibilitychange", () => {
-    // a server that never answers leaves the page and its banner
-    if (pending && document.visibilityState === "visible" && !holdsAViewer() && !reloadedJustNow()) {
-      rememberReload();
-      reloadWhenServerAnswers();
-    }
+  // a Claude run ended (ui/run-bar.js): the page keeps what it shows and the To do says the new data is in (owner
+  // 2026-11-14: "Say so, never reload"); the next page opened has it anyway, so the note leaves with this page
+  document.addEventListener("kickoff:data-loaded", () => {
+    const refresh = el("button", { class: "btn", type: "button", onclick: () => {
+      removeNote("data-loaded");
+      document.dispatchEvent(new CustomEvent("kickoff:refresh"));
+    } }, "Refresh");
+    addNote({ id: "data-loaded", title: "New data is in", leaveWithPage: true, body: () => el("div", { class: "page-note__row" }, el("span", {}, "Claude Code finished loading. Refresh shows it on this page; any page you open has it."), refresh) });
   });
+  document.addEventListener("kickoff:claude-signin", (event) => showClaudeSignin(event?.detail?.since));
+  document.addEventListener("kickoff:season-switch", (event) => showSeasonSwitch(event?.detail));
+}
+
+// The season's switch (rollover R2, owner 2026-11-15): for two weeks after the app moved to the next season by itself, the To
+// do says so on every device until it is cleared there (remembered per device and season); while a due switch fails, the
+// host's devices say why (a guest has nothing to do about it).
+const SEASON_NOTE_KEY = "kickoff.seasonNote";
+
+function seasonNoteCleared(to) {
+  try {
+    return window.localStorage?.getItem(SEASON_NOTE_KEY) === String(to);
+  } catch {
+    return false; // storage refused: the note shows until cleared on this visit
+  }
+}
+
+function showSeasonSwitch(value) {
+  const failed = value && typeof value.failed === "object" && value.failed ? value.failed : null;
+  const switched = value && typeof value.switched === "object" && value.switched ? value.switched : null;
+  if (failed) {
+    if (!claudeRoleKnown || document.body?.dataset?.role === "guest") return;
+    addNote({ id: "season-switch", title: `The move to ${String(failed.to ?? "the next season")} is waiting`, body: () => el("div", { class: "page-note__row" }, el("span", {}, String(failed.error || "The switch could not be made; the app tries again within the hour.")), el("a", { class: "btn btn--quiet", href: "#seasons" }, "Seasons")) });
+    return;
+  }
+  if (!switched || seasonNoteCleared(switched.to)) {
+    removeNote("season-switch");
+    return;
+  }
+  const from = String(switched.from ?? "Last season");
+  addNote({
+    id: "season-switch",
+    title: `The app is on ${String(switched.to ?? "the new season")} now`,
+    body: () => el("div", { class: "page-note__row" }, el("span", {}, `${from} is kept under Menu, My Teams, Seasons: its season in review and every game.`), el("a", { class: "btn btn--quiet", href: "#seasons" }, "Seasons")),
+    onDismiss: () => {
+      try {
+        window.localStorage?.setItem(SEASON_NOTE_KEY, String(switched.to));
+      } catch {
+        // storage refused: it shows again on the next visit
+      }
+    },
+  });
+}
+
+// Claude Code signed out on the server computer (owner 2026-11-15, "Yes, fix it first"): the To do says so on the host's
+// devices, with what to do, until a run gets through (build.js noteClaude); a guest has nothing to do about it. The first
+// answers come before the listener and before the device knows whether it is a guest's, so the boot shows what the server
+// already said once guest mode has answered (claudeRoleKnown); after that, each change is heard as it comes.
+let claudeRoleKnown = false;
+
+function showClaudeSignin(since) {
+  if (!since) {
+    removeNote("claude-signin");
+    return;
+  }
+  if (!claudeRoleKnown || document.body?.dataset?.role === "guest") return;
+  addNote({ id: "claude-signin", title: "Claude Code is signed out", body: () => el("div", { class: "page-note__row" }, el("span", {}, signedOutWords(since))) });
 }
 
 // index.html's watchdog (item 6, step E) retries a failed start once per tab and remembers it here; once the app has drawn
@@ -410,7 +516,7 @@ function showDemoBanner(page) {
     .then((envelope) => {
       const data = envelope?.data;
       if (!data || data.demo !== true) return;
-      const banner = el("div", { class: "demo-banner", role: "note" }, el("span", {}, "Demo: a made-up league with a game under way."), el("a", { href: "/demo" }, data.configured === true ? "Back to my team ›" : "Use my own team ›"));
+      const banner = el("div", { class: "demo-banner", role: "note" }, el("span", {}, "Demo: a sample season with invented games and one under way."), el("a", { href: "/demo" }, data.configured === true ? "Back to my team ›" : "Use my own team ›"));
       page.root.insertBefore(banner, page.root.firstChild);
     })
     .catch((error) => console.warn("Could not tell whether this is the demo.", error?.message || error));
@@ -431,8 +537,9 @@ async function start() {
   installClientLog(); // tablet errors reach logs/app.log (kickoff.client) from here on
   startTrail(); // the pages, taps, sheets and errors of the last 15 minutes, for Send feedback (owner 2026-10-23)
   applyTextScale(); // this device's text size, before anything is drawn (UX-09)
+  applyTheme(); // ENH-35: this device's theme too, so a light device never flashes the dark one first
   const root = document.getElementById("app");
-  await Promise.all([loadPrefs(), loadIdentity()]); // the theme, the delay and who "we" are come from the server before anything renders
+  await Promise.all([loadPrefs(), loadIdentity()]); // the delay and who "we" are come from the server before anything renders
   document.title = ours().title;
   applyTheme(); // again, now that the team's colors are known
   addAliases("national-conference-rank", [confLabel(), `${confLabel()} rank`]); // labels that name the team or its conference
@@ -449,6 +556,7 @@ async function start() {
       if (window.location.hash !== `#${id}`) goTo(id);
       else {
         closeLayers();
+        toTop(); // ENH-33: a tab for the page already showing goes back to its top
         show({ id, arg: null });
       }
     },
@@ -466,6 +574,7 @@ async function start() {
     onOpen: (entry, ctx) => openFromMenu(entry, ctx), // a table in the menu opens wide by itself (views/panels.js)
     onTodo: () => openTodo(), // the To do row at the top of the menu (owner 2026-10-22: "its own flyout")
     onFeedback: () => openFeedback(), // Send feedback at the foot of the menu (owner 2026-10-23)
+    onAsk: () => openAsk({ route: window.location.hash || "#program" }), // FEAT-12: Ask about this page
     subOf: (key) => (key === "game" ? loadProgram().then(() => gameLine()).catch(() => "") : ""), // the game the matchup's tables are about
   });
   root.replaceChildren(page.root); // the loading bar (and its Reload, item 6) gives way to the real one with its Menu
@@ -479,7 +588,7 @@ async function start() {
   mountRadio(page.root.querySelector(".shell__radio"));
   loadRadioSources();
   warmPrimaries();
-  watchForUpdates(page);
+  watchForUpdates();
   watchLiveGame(page);
   installRunBar(page.notes); // owner 2026-10-16: Claude Code loads in the background, one bar above the page, one refresh at the end
   keepScreenOn();
@@ -529,6 +638,43 @@ async function start() {
     }, { passive: true, capture: true });
   }
 
+  // The season as one line (owner 2026-10-30): the middle tab reads the stop that leads now, and the Newspaper tab follows
+  // the week on screen (a Pre-Game or Post-Game stop of another week opens that week's paper). One week position for the app.
+  let landHome = false; // rollover R3: true from a start with no page asked until the line first answers
+  const STOP_TAB = new Set(["program", "postgame", "season", "myteams", "preseason", "review"]); // rollover R3: the season in review leads once the season is over
+  function applyStops(line) {
+    const current = line && line.current ? line.current : currentStop();
+    page.setStop(current);
+    // rollover R3 (owner 2026-11-15): opened with no page asked, the app lands on the season in review once the season is over
+    // and on the Preseason Magazine before it starts; any other time, and once the reader has moved, home stays the program
+    if (landHome && line) {
+      landHome = false;
+      const kind = current && typeof current.kind === "string" ? current.kind : "";
+      if ((kind === "book" || kind === "preseason") && window.location.hash === "#program" && typeof current.href === "string" && current.href.startsWith("#")) window.location.replace(current.href);
+    }
+    followWeek(lastRoute);
+  }
+  let lastRoute = null;
+  function followWeek(route) {
+    lastRoute = route;
+    let key = null;
+    if (route && (route.id === "program" || route.id === "postgame") && route.arg) {
+      const item = weekOf(route.arg);
+      const current = currentStop();
+      if (item && Number.isFinite(item.week) && !(current && current.week === item.week)) {
+        const week = item.seasonType && item.seasonType !== "regular" ? "postseason" : `week-${item.week}`;
+        key = route.id === "postgame" ? `${week}-sunday` : week; // Wave 6 (2026-11-15): a Post-Game stop opens its game's Sunday paper
+      }
+    }
+    page.setNewspaperWeek(key);
+  }
+  // ENH-46: every band the page on screen draws gets the button that opens it wide by itself (the band of this page: another
+  // team's page opens that team's band); the pages redraw as their answers arrive, so the holder is watched
+  watchBands(page.main, { route: () => window.location.hash, onOpen: (entry, ctx) => openBand(entry, ctx) });
+  onStops(applyStops);
+  loadStops().then(applyStops).catch(() => {});
+  if (stopsNow()) applyStops(stopsNow());
+
   function show(route) {
     if (route.id === "radio") route = { id: "program", arg: null, focus: "program-radio" }; // the radio control lives on the Game program
     const key = routeKey(route);
@@ -558,7 +704,10 @@ async function start() {
     // menu needs the browser's back button; owner bug 2026-10-10)
     if (route.id !== "board") document.body.classList.remove("board-mode", "board-awake");
     currentKey = key;
-    if (!KEEP_TAB.has(route.id)) page.setCurrent(NO_TAB.has(route.id) ? null : route.id);
+    const shown = route.id === "band" ? bandPage(route) : route; // a band's own page belongs to its page's tab and status
+    if (!KEEP_TAB.has(shown.id)) page.setCurrent(NO_TAB.has(shown.id) ? null : shown.id === "story" ? "newspaper" : STOP_TAB.has(shown.id) ? "program" : shown.id); // the reader is the Newspaper's; the stops share the middle tab
+    followWeek(route);
+    page.setPage(shown); // ENH-4: the Data status card describes this page
     if (route.id === "archive" && route.arg) window.scrollTo(0, 0);
     page.main.replaceChildren();
     const factory = BUILT[route.id];
@@ -606,6 +755,7 @@ async function start() {
     else openTeam(event.detail);
   });
   const pull = installPullToRefresh({ root: page.main, host: page.root, onRefresh: refreshCurrent });
+  document.addEventListener("kickoff:refresh", () => pull.trigger()); // the Refresh beside the status pill and the To do's (owner 2026-11-14)
   // Phase 15: "/" opens search; Phase 16: "r" refreshes the page (the pull-down of a keyboard). Not while typing.
   document.addEventListener("keydown", (event) => {
     const target = event.target;
@@ -631,6 +781,7 @@ async function start() {
   installCvd(); // Phase 19: this device's color-blind friendly colors
   installSpoiler(); // Phase 19: this device's spoiler switch
   installLayerHistory(); // item 6: Back closes the top sheet, the card or the menu, and the page stays
+  installToTop(); // owner 2026-11-15: "an action to throw you back to the top of the page", bottom right from a screen down
   // Phase 18.3 and item 6, step C: once per server start per device, only when something is not loaded, a note on the
   // Pre-Game Program and a dot on the status pill; checked once the first page has drawn (its fetches go first) and the
   // device knows whether it is a guest (a guest gets the welcome note instead, ui/guest.js)
@@ -639,11 +790,17 @@ async function start() {
     if (readinessAsked) return;
     readinessAsked = true;
     startReadiness(page).catch((error) => console.warn("The Not loaded yet check did not finish.", error?.message || error));
-    startReleaseNote().catch((error) => console.warn("The update check did not finish.", error?.message || error));
+    startUpdateNote().catch((error) => console.warn("The update check did not finish.", error?.message || error));
     startTodayNote().catch((error) => console.warn("The on-this-day check did not finish.", error?.message || error));
+    startDataCheckNote().catch((error) => console.warn("The data check note did not finish.", error?.message || error));
   };
   const guestKnown = startGuestMode().catch(() => null); // Phase 18.6: a guest's page says it is view-only
   guestKnown.then(() => startTrivia()).catch((error) => console.error("The trivia could not start.", error)); // the trivia (2026-10-21): the join note once a day, then the popups while this tablet plays
+  guestKnown.then(() => {
+    claudeRoleKnown = true; // 2026-11-15: a host's device now says what the server already said about Claude Code's sign-in
+    showClaudeSignin(claudeSignedOutSince());
+    showSeasonSwitch(seasonSwitchNow()); // rollover R2: a failing switch is the host's to see
+  });
   const drawn = new Promise((resolve) => {
     document.addEventListener("kickoff:rendered", resolve, { once: true });
     setTimeout(resolve, 4000); // a page that draws without the event (its own stream) still gets the check
@@ -651,6 +808,7 @@ async function start() {
   Promise.all([guestKnown, drawn]).then(askReadiness);
   if (initial) show(initial);
   else {
+    landHome = true; // rollover R3: the line, once it answers, may lead elsewhere (the season in review, the Magazine)
     window.location.hash = "program"; // Phase 17 #32: the Game program is home
     show({ id: "program", arg: null });
   }

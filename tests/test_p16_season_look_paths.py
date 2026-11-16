@@ -1,5 +1,5 @@
 """Phase 16, stream SEASON, owner look GX-06 (restrained): the AP rank path in the Polls band (72 x 20, inverted,
-gaps for unranked weeks) and Swampwater Tech's Elo line in the team header. Dropping the commit drops this file."""
+gaps for unranked weeks) and Florida's Elo line in the team header. Dropping the commit drops this file."""
 
 from __future__ import annotations
 
@@ -44,31 +44,29 @@ scenarios.paths = async () => {
 
 scenarios.wired = async () => {
   installWindow();
-  const { createSeasonView } = await import(moduleUrl("views/season.js"));
-  const { createTeamView } = await import(moduleUrl("views/team.js"));
+  const { pollsBand } = await import(moduleUrl("ui/polls-band.js"));
+  const { openTeamFlyout } = await import(moduleUrl("views/team.js"));
   const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
   clearEnvelopeCache();
   route("/api/season/overview", () => envelope(clone(FIXTURE.season)));
   const ours = clone(FIXTURE.ours);
   ours.team.eloPath = { current: 1669, points: [{ pre: 1562, post: 1658 }, { pre: 1658, post: 1669 }] };
-  route("/api/team/Swampwater%20Tech", () => envelope(ours));
+  route("/api/team/Florida", () => envelope(ours));
   const main = document.createElement("main");
   document.body.append(main);
-  const season = createSeasonView({});
-  season.mount(main);
-  await settle();
+  // the Polls band (wave 3, 2026-11-01: the Newspaper's now, ui/polls-band.js) draws each team's AP path
+  main.append(pollsBand(clone(FIXTURE.season), { ui: { poll: null, sorts: {} } }));
   const paths = main.querySelectorAll("#season-polls .rankpath-wrap");
   assert.equal(paths.length, 3);
   assert.ok(text(main.querySelector("#season-polls .poll-caption")).includes("AP Top 25, week 4"));
   assert.ok(!RAW.test(text(main)));
-  season.unmount();
-  const team = createTeamView({ school: "Swampwater Tech" });
-  team.mount(main);
+  main.replaceChildren();
+  // the Elo line in a team's sheet header (the team page's header went with its tabs)
+  openTeamFlyout("Florida");
   await settle();
-  const elo = main.querySelector(".team-head__facts a.team-head__elo");
-  assert.equal(elo.getAttribute("href"), "#ratings=elo?team=Swampwater%20Tech");
+  const elo = document.body.querySelector(".team-head__facts a.team-head__elo");
+  assert.equal(elo.getAttribute("href"), "#ratings=elo?team=Florida");
   assert.equal(text(elo.querySelector(".elo-line__val")), "1669");
-  team.unmount();
 };
 """
 

@@ -284,11 +284,11 @@ scenarios.identity_ignoring_the_abort_still_ends = async () => {
 scenarios.identity_in_time_and_its_failures = async () => {
   const { loadIdentity, ours, resetIdentity } = await import(moduleUrl("identity.js"));
   resetIdentity();
-  const value = await loadIdentity(async () => ({ ok: true, status: 200, json: async () => ({ data: { school: "Swampwater Tech", mascot: "Mudpuppies", abbreviation: "SWT" } }) }));
-  assert.equal(value.school, "Swampwater Tech");
-  assert.equal(ours().label, "SWT");
+  const value = await loadIdentity(async () => ({ ok: true, status: 200, json: async () => ({ data: { school: "Florida", mascot: "Gators", abbreviation: "FLA" } }) }));
+  assert.equal(value.school, "Florida");
+  assert.equal(ours().label, "FLA");
   await advance(10000); // the limit's timer was cleared: nothing fires later
-  assert.equal(ours().school, "Swampwater Tech");
+  assert.equal(ours().school, "Florida");
   resetIdentity();
   assert.equal((await loadIdentity(async () => ({ ok: false, status: 503, json: async () => ({}) }))).school, "");
   assert.equal((await loadIdentity(async () => { throw new Error("offline"); })).school, "");
@@ -391,7 +391,7 @@ async function welcomePage(info) {
 }
 
 scenarios.welcome_set_up_shows_the_way_back = async () => {
-  const { back, demo } = await welcomePage({ setupNeeded: false, keyConfigured: true, team: "Swampwater Tech" });
+  const { back, demo } = await welcomePage({ setupNeeded: false, keyConfigured: true, team: "Florida" });
   assert.equal(back.hidden, false, "Back to the app shows");
   assert.equal(demo.hidden, true, "the demo is no longer offered");
 };
@@ -521,17 +521,19 @@ def test_the_app_forgets_the_retry_once_drawn_and_waits_for_the_server_after_a_r
     assert app.index("forgetBootRetry();", drawn) - drawn < 200, "forgotten right after the real bar is drawn"
     watch = app[app.index("function watchForUpdates") : app.index("const BOOT_RETRY_KEY")]
     assert "window.location.reload()" not in watch, "no reload straight into a server that may not be back"
-    assert watch.count("reloadWhenServerAnswers(") == 4, "the banner's Reload, the reload at once (owner bug 2026-10-13), the reload on coming back into view, and the board's look every minute once the game is over (freeze wave F1, F3)"
-    assert 'if (!looping && document.visibilityState === "visible" && !holdsAViewer()) {' in watch, "a visible page reloads as soon as the server answers"
-    assert re.search(r'"visibilitychange", \(\) => \{\s*//[^\n]*\n\s*if \(pending && document\.visibilityState === "visible" && !holdsAViewer\(\) && !reloadedJustNow\(\)\) \{\s*rememberReload\(\);\s*reloadWhenServerAnswers\(\);', watch)
+    # manual refresh (owner 2026-11-14: "Say so, never reload"): the To do's Reload, or opening another page; never at once,
+    # never on coming back into view, never on a timer
+    assert watch.count("reloadWhenServerAnswers(") == 2, "the note's Reload and the reload when another page opens"
+    assert re.search(r'window\.addEventListener\("hashchange", \(\) => \{\s*if \(!pending \|\| reloadedJustNow\(\)\) return;\s*rememberReload\(\);\s*reloadWhenServerAnswers\(\);', watch), "opening another page brings the new version in"
+    assert "visibilitychange" not in watch and "setInterval" not in watch and "holdsAViewer" not in app and "UPDATE_RETRY_MS" not in app
+    assert "It loads when you open another page; Reload brings it in now." in watch
     # owner bug 2026-10-13 ("the page refreshes every 5 seconds"): one reload a minute, never a loop
     guard = app[app.index("function reloadedJustNow") : app.index("function watchForUpdates")]
     assert "Date.now() - at < RELOAD_LOOP_MS" in guard and "window.sessionStorage.getItem(RELOADED_AT_KEY)" in guard and "RELOAD_LOOP_MS = 60000" in app
-    assert "two different builds within a minute" in watch and watch.count("rememberReload();") == 3  # at once, on coming back into view, and the board's look every minute (freeze wave F1, F3)
-    assert "UPDATE_RETRY_MS = 60000" in app and "const armRetry" in watch and "if (!looping) armRetry();" in watch, "the board reloads once the game is over"
-    hold = app[app.index("function holdsAViewer") : app.index("function watchForUpdates")]
-    assert 'gameUnderWay && ["live", "board"].includes(viewInAddress())' in hold, "only In Game and the board during our game keep the banner instead"
-    live = app[app.index("function watchLiveGame") : app.index("function viewInAddress")]
+    assert "two different builds within a minute" in watch and watch.count("rememberReload();") == 1
+    # a Claude run ended: the To do says the data is in, with Refresh, never a refresh by itself
+    assert '"kickoff:data-loaded"' in watch and 'title: "New data is in"' in watch and "leaveWithPage: true" in watch and 'new CustomEvent("kickoff:refresh")' in watch
+    live = app[app.index("function watchLiveGame") : app.index("const RELOADED_AT_KEY")]
     assert "retry = setTimeout(check, wait);" in live and "DOWN_RETRY_MS = Object.freeze([2000, 4000, 8000])" in app, "a server that does not answer is asked again in seconds"
     identity = (STATIC / "js" / "identity.js").read_text(encoding="utf-8")
     assert "export const IDENTITY_TIMEOUT_MS = 5000;" in identity and "controller.abort()" in identity
@@ -565,8 +567,9 @@ def _top_level(css: str) -> str:
 def test_the_menu_is_never_squeezed_and_the_pill_gives_way() -> None:
     top = _top_level(COMPONENTS)
     assert ".topbar > .btn { flex: none; }" in top, "Menu, Search, Reload and a page's way back keep their width"
-    assert ".topbar__status { min-width: 0; }" in top
-    assert ".topbar__status .pill { max-width: 100%; }" in top
+    assert ".topbar__status { min-width: 0; display: flex; align-items: center; gap: 4px; }" in top, "the pill and Refresh side by side (owner 2026-11-14)"
+    assert ".topbar__status .pill { max-width: 100%; min-width: 0; }" in top
+    assert ".pill-refresh { flex: none;" in top and "min-width: var(--tap); min-height: var(--tap);" in top, "Refresh keeps its 44 px; the pill's words give way first"
     assert ".topbar__status .pill::before { flex: none; }" in top
     assert ".topbar__status .pill__label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }" in top
     # the press area: nothing around the pill's words clips its 44 px ::after

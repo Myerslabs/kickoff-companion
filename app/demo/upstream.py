@@ -58,6 +58,7 @@ ROUTES: dict[str, Callable[[World, dict[str, str], datetime], Any]] = {
     "/recruiting/teams": R.r_recruiting_teams,
     "/roster": R.r_roster,
     "/player/portal": R.r_player_portal,
+    "/playoffs/cfp/participants": R.r_playoff_participants,  # FEAT-17
     "/player/search": R.r_player_search,
     "/player/usage": R.r_player_usage,
     "/player/returning": R.r_player_returning,

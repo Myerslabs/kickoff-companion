@@ -63,8 +63,8 @@ NUMBER_FIRST = ("QB", "PK", "P", "LS", "WR", "TE", "OL", "RB", "DL", "LB", "CB",
 FCS_TEAMS = [
     ("Pebble Creek", "Pebbles"), ("Turnip Tech", "Roots"), ("Muskrat Falls", "Muskrats"), ("Gopher Gulch", "Gophers"),
     ("Biscuit College", "Crumbs"), ("Soda Springs", "Fizz"), ("Haystack", "Needles"), ("Corn Maze", "Wanderers"),
-    ("Popcorn State", "Kernels"), ("Wishbone", "Wishes"), ("Mudpie", "Puddlers"), ("Lima Bean", "Beans"),
-    ("Tin Can", "Clankers"), ("Clothesline", "Pins"), ("Rocking Chair", "Rockers"), ("Porch Light", "Moths"),
+    ("Popcorn State", "Ducks"), ("Wishbone", "Wishes"), ("Mudpie", "Puddlers"), ("Lima Bean", "Beans"),
+    ("Tin Can", "Clankers"), ("Clothesline", "Pins"), ("Rocking Chair", "Commodores"), ("Porch Light", "Moths"),
     ("Jelly Jar", "Jams"), ("Gumdrop", "Drops"), ("Scarecrow State", "Crows"), ("Weathervane", "Spinners"),
     ("Thimble", "Stitches"), ("Teapot Dome", "Kettles"), ("Sawdust", "Chips"), ("Bramble", "Thorns"),
 ]
@@ -329,6 +329,8 @@ class League:
                 prestige = rng.betavariate(5, 3) if power else rng.betavariate(2.2, 4.5)
                 if school == N.OUR_SCHOOL:
                     primary, alt, prestige = "#00838f", "#f2b705", 0.82
+                if school in N.REAL_COLORS:  # ENH-25: the real colors, drawn after the random ones so the seed's sequence stays
+                    primary, alt = N.REAL_COLORS[school]
                 venue = self._venue(school, mascot, conference, power)
                 team = Team(
                     id=self._new_id(2, 2999), school=school, mascot=mascot, abbr=abbr, conference=conference,

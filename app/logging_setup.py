@@ -66,6 +66,12 @@ class DroppedConnectionFilter(logging.Filter):
     game night of 2026-09-26, so it becomes one INFO line."""
 
     def filter(self, record: logging.LogRecord) -> bool:
+        error = record.exc_info[1] if record.name == "asyncio" and record.exc_info else None
+        if isinstance(error, OSError) and getattr(error, "winerror", None) == 64:
+            # the bug round (2026-11-15): a device gone mid-connect (WinError 64, "the specified network name is no longer
+            # available") surfaced as "Task exception was never retrieved" with a traceback, 89 times in two weeks; the
+            # server's own "Accept failed" warning (app/serving.py) already says it once, so this copy goes
+            return False
         if record.name == "asyncio" and record.exc_info and isinstance(record.exc_info[1], (ConnectionResetError, ConnectionAbortedError, BrokenPipeError)):
             record.levelno, record.levelname = logging.INFO, "INFO"
             record.msg, record.args = "A device dropped its connection (%s)", (record.exc_info[1].__class__.__name__,)

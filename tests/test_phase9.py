@@ -55,9 +55,9 @@ def test_settings_routes_show_options_and_quota_without_secrets(app, client: Tes
     data = body["data"]
     assert data["prefs"]["delaySeconds"] == 30 and data["prefs"]["theme"] == "dark"
     # no station of the team's own is built in (public release Phase 3); 2026-10-16: the list's initial station plays as a sample
-    assert [s["origin"] for s in data["radioSources"]] == ["sample"]
+    assert {s["origin"] for s in data["radioSources"]} == {"list"}  # Florida's shipped stations (ENH-25)
     assert set(data["quota"]) >= {"used", "remaining", "budget", "pctUsed", "mode", "tierName"}
-    assert data["server"]["team"] == "Swampwater Tech" and "notes" in data and "autoStart" in data
+    assert data["server"]["team"] == "Florida" and "notes" in data and "autoStart" in data
     assert TEST_KEY not in json.dumps(body) and "cfbd_api_key" not in json.dumps(body)
     saved = client.put("/api/settings", json={"theme": "light", "delaySeconds": 60}).json()
     assert saved["data"]["prefs"]["theme"] == "light" and saved["data"]["prefs"]["delaySeconds"] == 60 and saved["errors"] == []
@@ -111,61 +111,12 @@ def test_launcher_writes_and_removes_the_startup_shortcut(tmp_path: Path, app, c
     assert body["data"]["prefs"]["autoStart"] and any(e["code"] == "autostart_failed" and "COM error" in e["message"] for e in body["errors"])
 
 
-def test_launcher_on_linux_is_a_systemd_user_service(tmp_path: Path):
-    calls: list[list[str]] = []
-    root = tmp_path / "project dir"  # a space in the path is quoted in the unit and the launcher
-    root.mkdir()
-    (root / "start.sh").write_text("#!/usr/bin/env bash" + chr(10), encoding="utf-8")
-    home = tmp_path / "home"
-    launcher = Launcher(root, runner=lambda args: calls.append(args) or (0, ""), platform="linux", home=home)
-    unit = home / ".config" / "systemd" / "user" / "kickoff-companion.service"
-    status = launcher.status()
-    assert status["supported"] and status["system"] == "linux" and status["tray"] is False and status["shortcut"] == str(unit) and not status["enabled"]
-    on = launcher.set_enabled(True)
-    assert on["enabled"] and "error" not in on
-    text = unit.read_text(encoding="utf-8")
-    assert f"ExecStart=/bin/bash '{root / 'start.sh'}' --service" in text and "WantedBy=default.target" in text and "Restart=on-failure" in text
-    assert calls == [["systemctl", "--user", "daemon-reload"], ["systemctl", "--user", "enable", "kickoff-companion.service"]]  # enabled for next login, not started
-    calls.clear()
-    off = launcher.set_enabled(False)
-    assert not off["enabled"] and not unit.exists() and calls[0] == ["systemctl", "--user", "disable", "kickoff-companion.service"]
-    # no systemd: the file is not left behind and the message says why
-    broken = Launcher(root, runner=lambda args: (1, "systemctl: command not found"), platform="linux", home=home)
-    result = broken.set_enabled(True)
-    assert "systemd" in result["error"] and not unit.exists() and not result["enabled"]
-    icon = launcher.desktop_shortcut()
-    menu = home / ".local" / "share" / "applications" / "kickoff-companion.desktop"
-    assert icon["created"] and Path(icon["path"]).is_file() and menu.is_file()
-    entry = menu.read_text(encoding="utf-8")
-    assert entry.startswith("[Desktop Entry]") and "Terminal=true" in entry and "start.sh" in entry and "icon-192.png" in entry
-
-
-def test_launcher_on_macos_is_a_launch_agent(tmp_path: Path):
-    import plistlib
-
-    root = tmp_path / "project"
-    root.mkdir()
-    home = tmp_path / "home"
-    launcher = Launcher(root, runner=lambda args: (1, "never called"), platform="darwin", home=home)
-    assert launcher.set_enabled(True)["error"] == "start.sh is missing from the project folder"
-    (root / "start.sh").write_text("#!/usr/bin/env bash" + chr(10), encoding="utf-8")
-    on = launcher.set_enabled(True)
-    agent = home / "Library" / "LaunchAgents" / "com.kickoff-companion.server.plist"
-    assert on["enabled"] and on["system"] == "mac" and "error" not in on
-    plist = plistlib.loads(agent.read_bytes())
-    assert plist["ProgramArguments"] == ["/bin/bash", str(root / "start.sh"), "--service"] and plist["RunAtLoad"] is True and plist["KeepAlive"] == {"SuccessfulExit": False}
-    assert not launcher.set_enabled(False)["enabled"] and not agent.exists()
-    icon = launcher.desktop_shortcut()
-    command = home / "Desktop" / "Kickoff Companion.command"
-    assert icon["created"] and command.read_text(encoding="utf-8").startswith("#!/bin/bash") and "start.sh" in command.read_text(encoding="utf-8")
-
-
 # --- archive ------------------------------------------------------------------------------------------------------
 
 
 def route_archive(fake: FakeCfbd) -> None:
     def games(request: httpx.Request) -> httpx.Response:
-        if request.url.params.get("team") == "Swampwater Tech":
+        if request.url.params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("games_team"))
         if request.url.params.get("team"):
             return httpx.Response(200, json=fixture_payload("games_opponent"))
@@ -174,7 +125,7 @@ def route_archive(fake: FakeCfbd) -> None:
     fake.route("/games", handler=games)
     fake.fixture("/metrics/wp", "metrics_wp")
     fake.fixture("/ppa/games", "ppa_games")
-    fake.route("/ppa/players/games", handler=lambda r: httpx.Response(200, json=fixture_payload("ppa_players_games") if r.url.params.get("team") == "Swampwater Tech" else []))
+    fake.route("/ppa/players/games", handler=lambda r: httpx.Response(200, json=fixture_payload("ppa_players_games") if r.url.params.get("team") == "Florida" else []))
     fake.fixture("/teams/fbs", "teams_fbs")
     fake.route("/records", handler=lambda r: httpx.Response(200, json=fixture_payload("records_all")))
     fake.fixture("/rankings", "rankings")
@@ -183,7 +134,7 @@ def route_archive(fake: FakeCfbd) -> None:
     fake.fixture("/lines", "lines")
     fake.fixture("/metrics/wp/pregame", "metrics_wp_pregame")
     fake.fixture("/stats/season/advanced", "stats_season_advanced_fbs")
-    fake.route("/stats/player/season", handler=lambda r: httpx.Response(200, json=fixture_payload("stats_player_season_team") if r.url.params.get("team") == "Swampwater Tech" else []))
+    fake.route("/stats/player/season", handler=lambda r: httpx.Response(200, json=fixture_payload("stats_player_season_team") if r.url.params.get("team") == "Florida" else []))
     fake.fixture("/teams/matchup", "teams_matchup")
     fake.fixture("/venues", "venues")
     fake.fixture("/ratings/sp", "ratings_sp")
@@ -198,11 +149,11 @@ def write_archive_file(app) -> Path:
 
     game = parse_one(LiveGame, fixture_payload("live_plays"), context="t")
     events = events_from_live(game, datetime(2026, 9, 20, 3, 0, tzinfo=timezone.utc))
-    state = derive_state(events, game_id=LAST_GAME, home="Silver Dollar", away="Swampwater Tech", mode="archive")
+    state = derive_state(events, game_id=LAST_GAME, home="Fresno State", away="Florida", mode="archive")
     folder = app.state.settings.data_dir / "archive"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{LAST_GAME}.json"
-    path.write_text(json.dumps({"gameId": LAST_GAME, "week": 3, "home": "Silver Dollar", "away": "Swampwater Tech", "kickoff": "2026-09-19T23:00:00+00:00", "savedAt": "2026-09-20T03:00:00+00:00", "winProbability": None, "state": state}), encoding="utf-8")
+    path.write_text(json.dumps({"gameId": LAST_GAME, "week": 3, "home": "Fresno State", "away": "Florida", "kickoff": "2026-09-19T23:00:00+00:00", "savedAt": "2026-09-20T03:00:00+00:00", "winProbability": None, "state": state}), encoding="utf-8")
     return path
 
 
@@ -211,34 +162,39 @@ def test_archive_lists_and_reads_back_a_watched_game(app, client: TestClient, fa
     client.portal.call(app.state.live.stop_background)
     app.state.cfbd._clock = lambda: datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc)
     assert client.get("/api/archive").json()["data"] == {**client.get("/api/archive").json()["data"], "games": [], "count": 0, "skipped": 0}
+    empty = client.get("/api/archive/latest")  # owner 2026-10-28: the menu's "The last game watched", before any final
+    assert empty.status_code == 404 and "no games yet" in empty.json()["errors"][0]["message"]
     write_archive_file(app)
-    (app.state.settings.data_dir / "archive" / "junk.json").write_text("{", encoding="utf-8")
+    (app.state.settings.data_dir / "archive" / "998.json").write_text("{", encoding="utf-8")  # a game's file broken: skipped and counted
+    (app.state.settings.data_dir / "archive" / ".refreshed.json").write_text("{}", encoding="utf-8")  # the bug round: the folder's own file is not a game
     (app.state.settings.data_dir / "archive" / "999.json").write_text(json.dumps({"gameId": "x"}), encoding="utf-8")
     listing = client.get("/api/archive").json()["data"]
     assert listing["count"] == 1 and listing["skipped"] == 2
     row = listing["games"][0]
     ours, theirs = facts.scores(facts.last_game())
     plays, drives = facts.live_counts()
-    assert row["gameId"] == LAST_GAME and row["opponent"] == "Silver Dollar" and row["usScore"] == ours and row["themScore"] == theirs and row["plays"] == plays and row["hasWinProbability"] is False
+    assert row["gameId"] == LAST_GAME and row["opponent"] == "Fresno State" and row["usScore"] == ours and row["themScore"] == theirs and row["plays"] == plays and row["hasWinProbability"] is False
     body = client.get(f"/api/archive/{LAST_GAME}").json()
     data = body["data"]
     rate = facts.live_team()["successRate"]
-    assert data["state"]["status"] == "final" and data["state"]["counts"]["drives"] == drives and data["state"]["feedStats"]["Swampwater Tech"]["successRate"] == rate
-    red = data["state"]["box"]["Swampwater Tech"]["redZone"]
-    assert data["state"]["box"]["Swampwater Tech"]["successRate"] == rate and data["state"]["box"]["Swampwater Tech"]["successCounts"] is None
+    assert data["state"]["status"] == "final" and data["state"]["counts"]["drives"] == drives and data["state"]["feedStats"]["Florida"]["successRate"] == rate
+    red = data["state"]["box"]["Florida"]["redZone"]
+    assert data["state"]["box"]["Florida"]["successRate"] == rate and data["state"]["box"]["Florida"]["successCounts"] is None
     assert isinstance(red["trips"], int) and 0 <= red["scores"] <= red["trips"] and red["trips"] >= 1  # C3: a 50-point game reached the red zone
     assert data["winProbability"]["available"] and len(data["winProbability"]["series"]) == facts.wp_points()  # from CFBD since the file had none
     assert data["ppa"]["available"] and data["ppa"]["teams"]["us"]["gameId"] == LAST_GAME and data["ppa"]["players"]["us"]
-    assert data["final"]["available"] and data["game"]["completed"] and data["them"]["school"] == "Silver Dollar" and data["us"]["abbreviation"] == "SWT"
+    assert data["final"]["available"] and data["game"]["completed"] and data["them"]["school"] == "Fresno State" and data["us"]["abbreviation"] == "FLA"
     assert "boxTeams" in data["parts"] and "wp" in data["parts"]
     assert client.get("/api/archive/526001015").status_code == 404 and client.get("/api/archive/abc").status_code == 404
+    latest = client.get("/api/archive/latest").json()["data"]  # the newest game archived, the same answer as by its id
+    assert latest["game"]["gameId"] == data["game"]["gameId"] and latest["them"]["school"] == "Fresno State"
     # tables wave 3: the list's small form names each school by its abbreviation, peeked from the /teams/fbs answer the
     # program cached above: the list itself never calls CFBD
     assert row["awayAbbr"] is None and row["homeAbbr"] is None, "a cold cache: no abbreviation, the page falls back"
     calls = fake_cfbd.count()
     again = client.get("/api/archive").json()["data"]["games"][0]
     assert fake_cfbd.count() == calls, "the list peeks the cache, never a call"
-    assert again["awayAbbr"] == data["us"]["abbreviation"] == "SWT" and again["homeAbbr"] == data["them"]["abbreviation"]
+    assert again["awayAbbr"] == data["us"]["abbreviation"] == "FLA" and again["homeAbbr"] == data["them"]["abbreviation"]
 
 
 def test_archive_list_abbreviations_survive_a_damaged_teams_answer(tmp_path: Path) -> None:
@@ -250,9 +206,9 @@ def test_archive_list_abbreviations_survive_a_damaged_teams_answer(tmp_path: Pat
     from app.services.archive import ArchiveService
 
     payload = [
-        {"id": 1, "school": "Swampwater Tech", "abbreviation": " SWT "},
-        {"id": 2, "school": "Silver Dollar", "abbreviation": "  "},
-        {"id": "x", "school": "Diner Tech", "abbreviation": "DT"},
+        {"id": 1, "school": "Florida", "abbreviation": " FLA "},
+        {"id": 2, "school": "Fresno State", "abbreviation": "  "},
+        {"id": "x", "school": "Texas State", "abbreviation": "DT"},
         None, "junk", [1],
         {"id": 3, "school": None, "abbreviation": "NOPE"},
     ]
@@ -261,12 +217,12 @@ def test_archive_list_abbreviations_survive_a_damaged_teams_answer(tmp_path: Pat
     service = ArchiveService.__new__(ArchiveService)
     service.folder = tmp_path / "archive"
     service.folder.mkdir()
-    service.team = "Swampwater Tech"
+    service.team = "Florida"
     service.analytics = SimpleNamespace(client=SimpleNamespace(cache=cache), settings=SimpleNamespace(season=2026))
-    (service.folder / "5.json").write_text(json.dumps({"gameId": 5, "home": "Silver Dollar", "away": "Swampwater Tech", "state": {}}), encoding="utf-8")
-    (service.folder / "6.json").write_text(json.dumps({"gameId": 6, "home": ["not", "a", "school"], "away": "Diner Tech", "state": {}}), encoding="utf-8")
+    (service.folder / "5.json").write_text(json.dumps({"gameId": 5, "home": "Fresno State", "away": "Florida", "state": {}}), encoding="utf-8")
+    (service.folder / "6.json").write_text(json.dumps({"gameId": 6, "home": ["not", "a", "school"], "away": "Texas State", "state": {}}), encoding="utf-8")
     rows = {r["gameId"]: r for r in asyncio.run(service.list())["games"]}
-    assert (rows[5]["awayAbbr"], rows[5]["homeAbbr"]) == ("SWT", None)
+    assert (rows[5]["awayAbbr"], rows[5]["homeAbbr"]) == ("FLA", None)
     assert (rows[6]["awayAbbr"], rows[6]["homeAbbr"]) == (None, None), "a damaged record and a home that is no school name nothing"
     answers["payload"] = {"not": "a list"}
     assert asyncio.run(service.list())["games"][0]["awayAbbr"] is None
@@ -278,6 +234,7 @@ def test_archive_list_abbreviations_survive_a_damaged_teams_answer(tmp_path: Pat
 
 
 def test_notes_runner_reports_a_missing_command_and_runs_a_fake_one(app, client: TestClient, fake_cfbd: FakeCfbd, tmp_path: Path):
+    app.state.settings.claude_command = "claude"  # the test review: the tests hide Claude Code (conftest NO_CLAUDE); this test is about the default name
     fake_cfbd.route("/games", handler=lambda r: httpx.Response(200, json=fixture_payload("games_team")))
     client.portal.call(app.state.live.stop_background)
     app.state.cfbd._clock = lambda: datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc)
@@ -308,7 +265,7 @@ def test_notes_runner_reports_a_missing_command_and_runs_a_fake_one(app, client:
         time.sleep(0.1)
     assert status["running"] is False and status["exitCode"] == 0 and status["error"] is None and status["fileWritten"] is True
     assert target.is_file() and json.loads(target.read_text(encoding="utf-8"))["sections"][0]["heading"] == "Coaching matchup"
-    assert "526001015" in runner.build_prompt({"gameId": 526001015, "home": "Swampwater Tech", "away": "Diner Tech"})
+    assert "526001015" in runner.build_prompt({"gameId": 526001015, "home": "Florida", "away": "Texas State"})
     log = app.state.settings.log_dir / "notes-526001015.log"
     assert log.is_file() and "prompt was" in log.read_text(encoding="utf-8")
     assert client.post("/api/notes/run", json={"gameId": 12345}).status_code == 404

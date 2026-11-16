@@ -27,10 +27,10 @@ from tests.test_national import load_pages, route_all
 from tests.test_phase8 import KICKOFF, quiet_engine, route_week, set_clock
 from tests.test_welcome import NEW_KEY, info, setup_app  # noqa: F401 (setup_app is a fixture)
 
-HOME = "Swampwater Tech"
-OPPONENT = "Diner Tech"  # week 4, on our schedule
-SLATE_SCHOOL = "Cactus Gulch"  # plays in week 4, not us
-OTHER_CONF = "Gravy Ten"
+HOME = "Florida"
+OPPONENT = "Texas State"  # week 4, on our schedule
+SLATE_SCHOOL = "Houston"  # plays in week 4, not us
+OTHER_CONF = "Big Ten"
 STATE = "CO"
 TEAMS = parse_records(Team, fixture_payload("teams_fbs"), context="test").records
 GAMES = parse_records(Game, fixture_payload("games_team"), context="test").records
@@ -60,7 +60,7 @@ def test_a_free_key_follows_the_home_team_alone_and_keeps_the_saved_picks():
 
 
 def test_a_tier2_set_spells_names_as_cfbd_and_expands_conferences_and_states():
-    prefs = Prefs(primaryTeams=["diner tech", HOME], likedTeams=[SLATE_SCHOOL, OPPONENT], likedConferences=[OTHER_CONF], likedStates=[STATE])
+    prefs = Prefs(primaryTeams=["texas state", HOME], likedTeams=[SLATE_SCHOOL, OPPONENT], likedConferences=[OTHER_CONF], likedStates=[STATE])
     chosen = teamset.resolve(HOME, prefs, True, TEAMS)
     assert chosen.primaries == (HOME, OPPONENT) and chosen.extra == (OPPONENT,)  # CFBD's spelling; the home team once
     assert OPPONENT not in chosen.secondary and HOME not in chosen.secondary  # a team is primary or secondary, never both
@@ -74,7 +74,7 @@ def test_a_tier2_set_spells_names_as_cfbd_and_expands_conferences_and_states():
 
 
 def test_opponents_come_in_schedule_order():
-    assert teamset.opponents(GAMES, HOME)[:3] == ["Rhubarb State", "Silver Dollar", OPPONENT]
+    assert teamset.opponents(GAMES, HOME)[:3] == ["Akron", "Fresno State", OPPONENT]
     assert HOME not in teamset.opponents(GAMES, HOME) and teamset.opponents([], HOME) == []
 
 
@@ -116,11 +116,11 @@ def test_setup_saves_primaries_secondaries_and_the_ticker_with_a_tier2_key(setup
     app, client, fake, env = setup_app
     fake.route("/info", json=info(2))
     assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200
-    body = {"team": HOME, "primaryTeams": [OPPONENT, HOME, "diner tech", SLATE_SCHOOL], "liked": {"teams": [SLATE_SCHOOL, "Silver Dollar"], "conferences": [OTHER_CONF], "states": [STATE]}, "tickerMode": "mine"}
+    body = {"team": HOME, "primaryTeams": [OPPONENT, HOME, "texas state", SLATE_SCHOOL], "liked": {"teams": [SLATE_SCHOOL, "Fresno State"], "conferences": [OTHER_CONF], "states": [STATE]}, "tickerMode": "mine"}
     done = client.post("/api/welcome/finish", json=body)
     assert done.status_code == 200, done.text
     prefs = app.state.prefs.prefs
-    assert prefs.primaryTeams == [OPPONENT, SLATE_SCHOOL] and prefs.likedTeams == ["Silver Dollar"] and prefs.tickerMode == "mine"
+    assert prefs.primaryTeams == [OPPONENT, SLATE_SCHOOL] and prefs.likedTeams == ["Fresno State"] and prefs.tickerMode == "mine"
     state = client.get("/api/welcome").json()["data"]
     assert state["primaryTeams"] == [OPPONENT, SLATE_SCHOOL] and state["maxPrimaryTeams"] == 4 and state["tickerMode"] == "mine"
     restart.reset()
@@ -238,9 +238,9 @@ def test_my_teams_lists_records_ranks_and_games_from_cached_answers(app, client:
     assert by["No Such School"]["known"] is False and by["No Such School"]["record"] is None  # a saved name CFBD no longer lists
     sp_rank = next(r["ranking"] for r in fixture_payload("ratings_sp") if r["team"] == HOME)
     assert by[HOME]["sp"]["rank"] == sp_rank and isinstance(by[HOME]["record"]["wins"], int)
-    assert by[HOME]["last"]["opponent"] == "Silver Dollar" and by[HOME]["next"]["opponent"] == OPPONENT
-    abbr = {t.school: t.abbreviation for t in TEAMS}  # tables wave 3: the small table reads "at GRID", "vs DINR"
-    assert by[HOME]["last"]["opponentAbbr"] == abbr["Silver Dollar"] and by[HOME]["next"]["opponentAbbr"] == abbr[OPPONENT]
+    assert by[HOME]["last"]["opponent"] == "Fresno State" and by[HOME]["next"]["opponent"] == OPPONENT
+    abbr = {t.school: t.abbreviation for t in TEAMS}  # tables wave 3: the small table reads "at FRES", "vs TXST"
+    assert by[HOME]["last"]["opponentAbbr"] == abbr["Fresno State"] and by[HOME]["next"]["opponentAbbr"] == abbr[OPPONENT]
     assert by[HOME]["abbreviation"] == abbr[HOME]
     assert body["data"]["note"] is None and body["data"]["teamSet"]["extraPrimaries"] == [OPPONENT]
     tier(app, 0)
@@ -251,9 +251,9 @@ def test_my_teams_lists_records_ranks_and_games_from_cached_answers(app, client:
 def test_last_and_next_carry_the_opponents_abbreviation_when_known():
     """Tables wave 3: My Teams' small table names each opponent by its abbreviation; an FCS opponent, a blank one or no team
     map leaves it None (the page then shows the school)."""
-    teams = {"Silver Dollar": {"abbreviation": " GRID "}, OPPONENT: {"abbreviation": "  "}, "Junk": "x"}
+    teams = {"Fresno State": {"abbreviation": " FRES "}, OPPONENT: {"abbreviation": "  "}, "Junk": "x"}
     last, upcoming = myteams.last_and_next(GAMES, HOME, teams)
-    assert last["opponent"] == "Silver Dollar" and last["opponentAbbr"] == "GRID"
+    assert last["opponent"] == "Fresno State" and last["opponentAbbr"] == "FRES"
     assert upcoming["opponent"] == OPPONENT and upcoming["opponentAbbr"] is None
     plain_last, plain_next = myteams.last_and_next(GAMES, HOME)
     assert plain_last["opponentAbbr"] is None and plain_next["opponentAbbr"] is None
@@ -349,7 +349,7 @@ def test_a_team_without_a_station_gets_search_links_and_the_request_form(app, cl
     assert set(help_rows) == {HOME, OPPONENT}
     request = help_rows[OPPONENT]["requestUrl"]
     assert request.startswith("https://github.com/Myerslabs/kickoff-companion/issues/new?template=radio-station.yml")
-    assert "school=Diner%20Tech" in request and "title=Radio%20station%3A%20Diner%20Tech" in request
+    assert "school=Texas%20State" in request and "title=Radio%20station%3A%20Texas%20State" in request
     assert [link["label"] for link in help_rows[HOME]["search"]] == ["Search the web", "Search TuneIn"]
     assert all(link["url"].startswith("https://") for h in body["help"] for link in h["search"])
 

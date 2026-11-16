@@ -77,10 +77,11 @@ class TickerService:
 
     # --- the answer --------------------------------------------------------------------------------
 
-    async def ticker(self, delay: float) -> Assembled:
+    async def ticker(self, delay: float, mode: str | None = None) -> Assembled:
+        """`mode` overrides the setting for one answer (Pick a game on In Game reads the whole slate, 2026-11-02)."""
         slot, source, parts, kept = await self.collect(delay)
         week = slot[0] if slot else None
-        mode, asked, mode_note, mine = self._mode(parts["teams"].records)
+        mode, asked, mode_note, mine = self._mode(parts["teams"].records, mode)
         for g in kept:
             g["isMine"] = g["isUs"] or g["home"]["school"] in mine or g["away"]["school"] in mine
         if mode == "mine":
@@ -159,14 +160,15 @@ class TickerService:
 
     # --- which week, which games -------------------------------------------------------------------
 
-    def _mode(self, teams: list[Team]) -> tuple[str, str, str | None, frozenset[str]]:
-        """(mode shown, mode asked for, a note, my teams). My teams needs a Tier 2 key; asked for without
-        one, the ticker shows every game and says why."""
+    def _mode(self, teams: list[Team], override: str | None = None) -> tuple[str, str, str | None, frozenset[str]]:
+        """(mode shown, mode asked for, a note, my teams). My teams needs a Tier 2 key; asked for without one, the
+        ticker shows every game and says why. `override` is one answer's own mode (the query); anything but national or
+        mine falls back to the setting."""
         prefs = getattr(self.prefs, "prefs", None)
-        asked = getattr(prefs, "tickerMode", "national")
+        asked = override if override in ("national", "mine") else getattr(prefs, "tickerMode", "national")
         asked = asked if asked in ("national", "mine") else "national"
         mine = teamset.current(self.settings, self.prefs, self.client, teams).mine()
-        if asked == "mine" and not plan.allows_liked(self.client.capabilities):
+        if asked == "mine" and not plan.allows_liked(getattr(self.client, "capabilities", None)):
             return "national", asked, "The My teams ticker needs a Tier 2 key, so it shows every game.", mine
         return asked, asked, None, mine
 

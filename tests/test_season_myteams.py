@@ -77,19 +77,23 @@ def test_another_followed_team_gets_its_own_season(app, client: TestClient, fake
     assert app.state.cfbd.game_day == game_day, "another team's game day never speeds up our refreshes"
 
 
-def test_only_a_followed_team_opens(app, client: TestClient, fake_cfbd: FakeCfbd):
+def test_any_fbs_team_opens_and_a_made_up_name_does_not(app, client: TestClient, fake_cfbd: FakeCfbd):
+    """FEAT-5 (owner 2026-10-25): every team the way the home team is seen; a team nobody follows comes last in the picker."""
     route_followed(fake_cfbd)
     tier(app, 2)
     app.state.prefs.update({"primaryTeams": [OPPONENT], "likedTeams": ["No Such School"]})
     stranger = client.get(f"/api/season/overview?team={quote(SLATE_SCHOOL)}")
-    assert stranger.status_code == 404 and stranger.json()["errors"][0]["code"] == "not_followed"
+    assert stranger.status_code == 200, stranger.text[:300]
+    picker = stranger.json()["data"]["picker"]
+    assert picker["picked"] == SLATE_SCHOOL and picker["teams"][-1]["school"] == SLATE_SCHOOL and picker["teams"][-1]["role"] == "viewing"
+    assert [t["role"] for t in picker["teams"]].count("viewing") == 1
     gone = client.get("/api/season/overview?team=No%20Such%20School")
     assert gone.status_code == 404 and gone.json()["errors"][0]["code"] == "unknown_team"
     assert client.get(f"/api/season/overview?team={quote(HOME)}").json()["data"]["picker"]["picked"] == HOME, "the home team by name is the plain page"
     assert client.get("/api/season/overview?team=%20").json()["data"]["picker"]["picked"] == HOME, "a blank name is the home team"
     tier(app, 0)
     free = client.get(f"/api/season/overview?team={quote(OPPONENT)}")
-    assert free.status_code == 404, "a free key follows the home team alone"
+    assert free.status_code == 200, "FEAT-5: any team's page still opens when someone asks for it, on any key"
     picker = client.get("/api/season/overview").json()["data"]["picker"]
     assert [t["school"] for t in picker["teams"]] == [HOME] and picker["allowed"] is False and "Tier 2" in picker["note"]
 
@@ -110,12 +114,12 @@ const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object \w+\]/;
 const text = (node) => (node ? node.textContent : "");
 const PICKER = {
   teams: [
-    { school: "Swampwater Tech", abbreviation: "SWT", color: "#00838f", altColor: "#f2b705", role: "home" },
-    { school: "Diner Tech", abbreviation: "DINR", color: "#1c957a", role: "primary" },
-    { school: "Cactus Gulch", abbreviation: null, color: "not a color", role: "secondary" },
+    { school: "Florida", abbreviation: "FLA", color: "#00838f", altColor: "#f2b705", role: "home" },
+    { school: "Texas State", abbreviation: "TXST", color: "#1c957a", role: "primary" },
+    { school: "Houston", abbreviation: null, color: "not a color", role: "secondary" },
     null, "junk", { school: "" },
   ],
-  picked: "Swampwater Tech", home: "Swampwater Tech", allowed: true, note: null, plansUrl: "https://collegefootballdata.com/api-tiers",
+  picked: "Florida", home: "Florida", allowed: true, note: null, plansUrl: "https://collegefootballdata.com/api-tiers",
 };
 
 async function draw(data, params) {
@@ -140,34 +144,38 @@ scenarios.window = async () => {
   const pick = main.querySelector(".season-pick");
   assert.ok(pick, "the window on top");
   assert.ok(!RAW.test(text(pick)), text(pick));
-  assert.equal(text(pick.querySelector(".season-pick__name")), "Swampwater Tech");
+  assert.ok(pick.querySelector("section.cover.cover--one"), "the cover on one team (2026-11-07) is the window");
+  assert.equal(text(pick.querySelector(".cover__name")), "Florida");
   assert.ok(text(pick).includes("Home team"));
   assert.ok(pick.querySelector(".season-pick__arrow--prev.season-pick__arrow--off"), "the home team has no team before it");
   const next = pick.querySelector("a.season-pick__arrow--next");
-  assert.equal(next.getAttribute("href"), "#season?team=Diner%20Tech");
-  assert.equal(next.getAttribute("aria-label"), "Next team: Diner Tech", "the arrow names the team it goes to");
+  assert.equal(next.getAttribute("href"), "#season?team=Texas%20State");
+  assert.equal(next.getAttribute("aria-label"), "Next team: Texas State", "the arrow names the team it goes to");
   const chips = pick.querySelectorAll("a.season-pick__team");
-  assert.deepEqual(chips.map((a) => a.getAttribute("href")), ["#season", "#season?team=Diner%20Tech", "#season?team=Cactus%20Gulch"], "one chip a team; junk rows dropped");
+  assert.deepEqual(chips.map((a) => a.getAttribute("href")), ["#season", "#season?team=Texas%20State", "#season?team=Houston"], "one chip a team; junk rows dropped");
   assert.equal(chips[0].getAttribute("aria-current"), "page");
   assert.ok(chips[0].className.includes("is-on") && !chips[1].className.includes("is-on"));
-  assert.equal(text(chips[2].querySelector("i")), "Cactus Gulch", "no abbreviation: the school");
+  assert.equal(text(chips[2].querySelector("i")), "Houston", "no abbreviation: the school");
   assert.equal(text(pick.querySelector(".season-pick__count")), "1 of 3");
   assert.equal(pick.querySelector(".season-pick__change").getAttribute("href"), "#profile=teams");
-  const facts = pick.querySelectorAll(".season-pick__fact");
-  assert.deepEqual(facts.map((f) => text(f.querySelector("small"))), ["AP", "SP+", "Elo", "FPI", "Last", "Next"]);
-  assert.equal(text(facts[0].querySelector("b")), "Unranked");
-  assert.ok(text(facts[4]).includes("L") && text(facts[4]).includes("GRID"), "the last game: its result and the opponent's abbreviation");
-  assert.ok(text(facts[5]).includes("MISS"), "the next game's opponent");
+  // the cover on one team (2026-11-07): the facts are the cover's chips, the last and the next game its middle
+  const chipWords = pick.querySelectorAll(".cover-chip").map(text);
+  assert.ok(chipWords.some((w) => w.startsWith("SP+ #")) && chipWords.some((w) => w.startsWith("Elo #")) && chipWords.some((w) => w.startsWith("FPI #")), chipWords.join(" | "));
+  assert.equal(pick.querySelector(".poll-badge"), null, "unranked: no AP badge");
+  const lastLine = pick.querySelector('[data-k="pick:last"]').parentNode;
+  assert.ok(text(lastLine).includes("L") && text(lastLine).includes("FRES"), "the last game: its result and the opponent's abbreviation");
+  const nextLink = pick.querySelector('[data-k="pick:next"]');
+  assert.ok(nextLink && /^(vs|at) /.test(text(nextLink)), "the next game's card names the opponent");
+  assert.ok(pick.querySelector(".cover__next-count b"), "the countdown");
   assert.equal(main.querySelector("#season-playoff"), null, "unranked: no playoff band");
-  // the bands side by side, flush: Schedule | Standings 2:1, Polls | Ratings over Résumé 1:2
-  const r21 = main.querySelector(".flush-row--21");
-  assert.deepEqual(r21.children.map((c) => c.getAttribute("id")), ["season-schedule", "season-standings"]);
-  const r12 = main.querySelector(".flush-row--12");
-  assert.equal(r12.children[0].getAttribute("id"), "season-polls");
-  assert.deepEqual(r12.children[1].children.map((c) => c.getAttribute("id")), ["season-ratings", "season-resume"]);
-  assert.ok(r12.children[1].className.includes("flush-stack"));
+  // one column (owner 2026-11-01): no flush rows, every band a child of the page in the order of board 9
+  assert.equal(main.querySelector(".flush-row"), null);
+  const page = main.querySelector(".page.season");
+  assert.equal(page.dataset.cols, "1");
   const order = [...main.querySelectorAll("section.band[id]")].map((s) => s.getAttribute("id"));
-  assert.deepEqual(order, ["season-schedule", "season-standings", "season-polls", "season-ratings", "season-resume", "season-profile", "season-trends", "season-advanced", "season-road", "season-last"], "today's order");
+  assert.deepEqual(order, ["season-schedule", "season-standings", "season-ratings", "season-resume", "season-profile", "season-trends", "season-road", "season-last", "season-numbers", "season-land", "season-injuries", "team-recruiting", "season-tendencies", "season-trip", "season-race", "roster-breakdown", "roster-costs", "roster-table", "roster-stars", "roster-impact", "recruiting-class", "recruiting-where", "team-staff", "team-playvalue", "team-facts", "season-stars", "season-lineup"], "today's order: the season's bands (the polls left for the Newspaper), then the bands that joined My Team in the inventory's order (wave 3, 2026-11-01; here each late band's host holds its band at its id, loaded or not)");
+  const wrapped = order.filter((id) => { const n = main.querySelector(`#${id}`); return n.parentNode !== page && n.parentNode.parentNode !== page; });
+  assert.deepEqual(wrapped, [], "every band a child of the page, or of its own host on the page (one column, 2026-11-01)");
   assert.equal(window.location.hash === "" || typeof window.location.hash === "string", true);
   view.unmount();
 };
@@ -175,27 +183,28 @@ scenarios.window = async () => {
 scenarios.other = async () => {
   installWindow();
   const data = clone(FIXTURE.season);
-  data.team = { school: "Diner Tech", abbreviation: "DINR", conference: "Gravy Ten", conferenceShort: "G10", color: "#1c957a" };
-  data.picker = { ...clone(PICKER), picked: "Diner Tech" };
+  data.team = { school: "Texas State", abbreviation: "TXST", conference: "Big Ten", conferenceShort: "B1G", color: "#1c957a" };
+  data.picker = { ...clone(PICKER), picked: "Texas State" };
   data.record.apRank = 3;
-  const { main, view } = await draw(data, { team: "Diner Tech" });
-  assert.ok(calls.some((u) => u === "/api/season/overview?team=Diner%20Tech"), calls.join(" "));
+  const { main, view } = await draw(data, { team: "Texas State" });
+  assert.ok(calls.some((u) => u === "/api/season/overview?team=Texas%20State"), calls.join(" "));
   const pick = main.querySelector(".season-pick");
-  assert.equal(text(pick.querySelector(".season-pick__name")), "Diner Tech");
-  assert.ok(text(pick).includes("Primary team") && text(pick).includes("Gravy Ten"));
+  assert.equal(text(pick.querySelector(".cover__name")), "Texas State");
+  assert.ok(text(pick).includes("Primary team") && text(pick).includes("Big Ten"));
   assert.equal(pick.querySelector("a.season-pick__arrow--prev").getAttribute("href"), "#season", "back to the home team's plain address");
-  assert.equal(pick.querySelector("a.season-pick__arrow--next").getAttribute("href"), "#season?team=Cactus%20Gulch");
+  assert.equal(pick.querySelector("a.season-pick__arrow--next").getAttribute("href"), "#season?team=Houston");
   assert.equal(text(pick.querySelector(".season-pick__count")), "2 of 3");
-  assert.equal(text(pick.querySelectorAll(".season-pick__fact b")[0]), "No. 3");
+  assert.ok(text(pick.querySelector(".poll-badge")).includes("3"), "the AP badge on the cover");
+  assert.equal(pick.querySelector(".rail"), null, "another team's page carries no rail");
   assert.ok(main.querySelector("#season-playoff"), "in the AP Top 25: the playoff band shows");
-  assert.ok(text(main.querySelector("#season-standings")).includes("G10 standings"), "its own conference's name");
+  assert.ok(text(main.querySelector("#season-standings")).includes("B1G standings"), "its own conference's name");
   view.unmount();
 };
 
 scenarios.free = async () => {
   installWindow();
   const data = clone(FIXTURE.season);
-  data.picker = { teams: [clone(PICKER.teams[0])], picked: "Swampwater Tech", home: "Swampwater Tech", allowed: false, note: "Add more primary teams and secondary teams with a Tier 2 key.", plansUrl: "https://collegefootballdata.com/api-tiers" };
+  data.picker = { teams: [clone(PICKER.teams[0])], picked: "Florida", home: "Florida", allowed: false, note: "Add more primary teams and secondary teams with a Tier 2 key.", plansUrl: "https://collegefootballdata.com/api-tiers" };
   const { main, view } = await draw(data, {});
   const pick = main.querySelector(".season-pick");
   assert.ok(pick.className.includes("season-pick--alone"));
@@ -214,7 +223,7 @@ scenarios.free = async () => {
   // no picker at all (an older server): the team alone, no crash
   const bare = clone(FIXTURE.season);
   const third = await draw(bare, {});
-  assert.equal(text(third.main.querySelector(".season-pick__name")), "Swampwater Tech");
+  assert.equal(text(third.main.querySelector(".cover__name")), "Florida");
   assert.ok(!RAW.test(text(third.main.querySelector(".season-pick"))));
   third.view.unmount();
 };
@@ -222,13 +231,13 @@ scenarios.free = async () => {
 scenarios.helpers = async () => {
   installWindow();
   const { seasonHref, pickOrder, inTopTwentyFive, trendGames } = await import(moduleUrl("views/season.js"));
-  assert.equal(seasonHref("Swampwater Tech", "Swampwater Tech"), "#season");
-  assert.equal(seasonHref("Okra Valley", "Swampwater Tech"), "#season?team=Okra%20Valley");
-  assert.equal(seasonHref(null, "Swampwater Tech"), "#season");
-  assert.equal(seasonHref("  ", "Swampwater Tech"), "#season");
-  const order = pickOrder(PICKER, "Cactus Gulch");
+  assert.equal(seasonHref("Florida", "Florida"), "#season");
+  assert.equal(seasonHref("Georgia", "Florida"), "#season?team=Georgia");
+  assert.equal(seasonHref(null, "Florida"), "#season");
+  assert.equal(seasonHref("  ", "Florida"), "#season");
+  const order = pickOrder(PICKER, "Houston");
   assert.equal(order.at, 2);
-  assert.equal(order.prev.school, "Diner Tech");
+  assert.equal(order.prev.school, "Texas State");
   assert.equal(order.next, null);
   assert.deepEqual(pickOrder(null, "X"), { teams: [], at: -1, prev: null, next: null });
   assert.equal(pickOrder(PICKER, "Somebody Else").prev, null, "a team not on the list steps nowhere");
@@ -237,7 +246,7 @@ scenarios.helpers = async () => {
   assert.equal(inTopTwentyFive({ record: { apRank: "3" } }), false);
   assert.equal(inTopTwentyFive(null), false);
   assert.deepEqual(trendGames(null), []);
-  assert.deepEqual(trendGames({ trends: { gameIds: [9], weeks: [4], opponents: ["Diner Tech"] }, schedule: [] }).map((g) => g.opponent.school), ["Diner Tech"], "an id the schedule lacks: the trends' own opponent");
+  assert.deepEqual(trendGames({ trends: { gameIds: [9], weeks: [4], opponents: ["Texas State"] }, schedule: [] }).map((g) => g.opponent.school), ["Texas State"], "an id the schedule lacks: the trends' own opponent");
 };
 
 scenarios.grid = async () => {
@@ -246,15 +255,15 @@ scenarios.grid = async () => {
   assert.equal(trendGrid({ games: [] }), null);
   assert.equal(trendGrid({ games: "junk" }), null);
   const games = [
-    { week: 1, homeAway: "home", opponent: { school: "Rhubarb State", abbreviation: "RHUB", color: "#80671f" }, result: "W", usPoints: 59, themPoints: 13 },
-    { week: 2, homeAway: "away", opponent: { school: "Silver Dollar", color: "#ffffff" }, result: "L", usPoints: 27, themPoints: 35 },
+    { week: 1, homeAway: "home", opponent: { school: "Akron", abbreviation: "AKR", color: "#80671f" }, result: "W", usPoints: 59, themPoints: 13 },
+    { week: 2, homeAway: "away", opponent: { school: "Fresno State", color: "#ffffff" }, result: "L", usPoints: 27, themPoints: 35 },
     { postseason: "Bowl", homeAway: "neutral", opponent: {}, result: null },
   ];
   const grid = trendGrid({ games, metrics: [{ key: "points", label: "Points scored", values: [59, null, 30] }, { label: "Third down", values: [0.5, 0.4], format: "pct" }, null] });
   document.body.append(grid);
   assert.ok(!RAW.test(text(grid)), text(grid));
   const heads = grid.querySelectorAll(".tgrid__game");
-  assert.deepEqual(heads.map((h) => text(h.querySelector(".tgrid__chip"))), ["RHUB", "SD", "–"], "the abbreviation, else the school's initials, else a dash");
+  assert.deepEqual(heads.map((h) => text(h.querySelector(".tgrid__chip"))), ["AKR", "FS", "–"], "the abbreviation, else the school's initials, else a dash");
   assert.deepEqual(heads.map((h) => text(h.querySelector(".tgrid__when"))), ["wk 1 · vs", "wk 2 · at", "bowl · n"]);
   assert.deepEqual(heads.map((h) => text(h.querySelector(".tgrid__score"))), ["W 59-13", "L 27-35", "–"]);
   const rows = grid.querySelectorAll(".tgrid__row").slice(1);
@@ -291,7 +300,11 @@ def test_the_menu_lists_one_season_entry_and_the_old_address_opens_it() -> None:
     root = Path(__file__).resolve().parents[1] / "static" / "js"
     tree = (root / "ui" / "menu-tree.js").read_text(encoding="utf-8")
     assert 'page: "myteams"' not in tree, "board 9: My Teams and the Season are one page"
-    assert tree.count('page: "season" }') == 1
+    catalog = (root / "ui" / "band-catalog.js").read_text(encoding="utf-8")  # the page's name and address are the catalog's
+    assert tree.count('pageRow("season"') == 1 and 'pageList("season")' not in tree, "My Team (owner 2026-11-01): one row; ENH-46 (2026-11-10): it opens the page, the team page's bands on it"
+    assert 'label: "My Team"' in catalog
+    assert '"team-bands"' not in tree and 'pageList("team")' not in tree, "the team page's own row and list are gone"
+    assert catalog.count('route: "season"') == 1
     app = (root / "app.js").read_text(encoding="utf-8")
     assert "myteams: (opts, arg, focus, params) => createSeasonView({ ...opts, params })" in app
     assert not (root / "views" / "myteams.js").exists()

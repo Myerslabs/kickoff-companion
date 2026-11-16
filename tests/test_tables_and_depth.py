@@ -1,4 +1,4 @@
-"""Owner requests after the Diner Tech game (2026-09-26): every column of a stats table sorts (tables
+"""Owner requests after the Texas State game (2026-09-26): every column of a stats table sorts (tables
 whose rows are stat names keep their order), text cells sort by what they mean, ranks start best
 first; and the depth chart shows unit columns of position cards with the recruiting rating."""
 
@@ -24,7 +24,7 @@ assert.deepEqual(table.sortValue("+0.24"), [0.24, 0]);
 assert.deepEqual(table.sortValue("−0.30"), [-0.3, 0]);
 assert.deepEqual(table.sortValue("43%"), [43, 0]);
 assert.deepEqual(table.sortValue("#12"), [12, 0]);
-assert.equal(table.sortValue("Swampwater Tech"), "swampwater tech");
+assert.equal(table.sortValue("Florida"), "florida");
 for (const empty of ["–", "-", "", null, undefined, true]) assert.equal(table.sortValue(empty), null, String(empty));
 
 // rows: dashes last in both directions, words after numbers, ties by name

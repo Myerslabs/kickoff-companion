@@ -1,0 +1,139 @@
+cfbd_school,alias,state,ipeds_unitid
+Air Force,United States Air Force Academy,CO,128328
+Akron,University of Akron Main Campus,OH,200800
+Alabama,The University of Alabama,AL,100751
+App State,Appalachian State University,NC,197869
+Arizona,University of Arizona,AZ,104179
+Arizona State,Arizona State University Campus Immersion,AZ,104151
+Arkansas,University of Arkansas,AR,106397
+Arkansas State,Arkansas State University,AR,106458
+Army,United States Military Academy,NY,197036
+Auburn,Auburn University,AL,100858
+BYU,Brigham Young University,UT,230038
+Ball State,Ball State University,IN,150136
+Baylor,Baylor University,TX,223232
+Boise State,Boise State University,ID,142115
+Boston College,Boston College,MA,164924
+Bowling Green,Bowling Green State University-Main Campus,OH,201441
+Buffalo,University at Buffalo,NY,196088
+California,University of California-Berkeley,CA,110635
+Central Michigan,Central Michigan University,MI,169248
+Charlotte,University of North Carolina at Charlotte,NC,199139
+Cincinnati,University of Cincinnati-Main Campus,OH,201885
+Clemson,Clemson University,SC,217882
+Coastal Carolina,Coastal Carolina University,SC,218724
+Colorado,University of Colorado Boulder,CO,126614
+Colorado State,Colorado State University-Fort Collins,CO,126818
+Delaware,University of Delaware,DE,130943
+Duke,Duke University,NC,198419
+East Carolina,East Carolina University,NC,198464
+Eastern Michigan,Eastern Michigan University,MI,169798
+Florida,University of Florida,FL,134130
+Florida Atlantic,Florida Atlantic University,FL,133669
+Florida International,Florida International University,FL,133951
+Florida State,Florida State University,FL,134097
+Fresno State,California State University-Fresno,CA,110556
+Georgia,University of Georgia,GA,139959
+Georgia Southern,Georgia Southern University,GA,139931
+Georgia State,Georgia State University,GA,139940
+Georgia Tech,Georgia Institute of Technology-Main Campus,GA,139755
+Hawai'i,University of Hawaii at Manoa,HI,141574
+Houston,University of Houston,TX,225511
+Illinois,University of Illinois Urbana-Champaign,IL,145637
+Indiana,Indiana University-Bloomington,IN,151351
+Iowa,University of Iowa,IA,153658
+Iowa State,Iowa State University,IA,153603
+Jacksonville State,Jacksonville State University,AL,101480
+James Madison,James Madison University,VA,232423
+Kansas,University of Kansas,KS,155317
+Kansas State,Kansas State University,KS,155399
+Kennesaw State,Kennesaw State University,GA,486840
+Kent State,Kent State University at Kent,OH,203517
+Kentucky,University of Kentucky,KY,157085
+LSU,Louisiana State University and Agricultural & Mechanical College,LA,159391
+Liberty,Liberty University,VA,232557
+Louisiana,University of Louisiana at Lafayette,LA,160658
+Louisiana Tech,Louisiana Tech University,LA,159647
+Louisville,University of Louisville,KY,157289
+Marshall,Marshall University,WV,237525
+Maryland,University of Maryland-College Park,MD,163286
+Massachusetts,University of Massachusetts-Amherst,MA,166629
+Memphis,University of Memphis,TN,220862
+Miami,University of Miami,FL,135726
+Miami (OH),Miami University-Oxford,OH,204024
+Michigan,University of Michigan-Ann Arbor,MI,170976
+Michigan State,Michigan State University,MI,171100
+Middle Tennessee,Middle Tennessee State University,TN,220978
+Minnesota,University of Minnesota-Twin Cities,MN,174066
+Mississippi State,Mississippi State University,MS,176080
+Missouri,University of Missouri-Columbia,MO,178396
+Missouri State,Missouri State University-Springfield,MO,179566
+NC State,North Carolina State University at Raleigh,NC,199193
+Navy,United States Naval Academy,MD,164155
+Nebraska,University of Nebraska-Lincoln,NE,181464
+Nevada,University of Nevada-Reno,NV,182290
+New Mexico,University of New Mexico-Main Campus,NM,187985
+New Mexico State,New Mexico State University-Main Campus,NM,188030
+North Carolina,University of North Carolina at Chapel Hill,NC,199120
+North Dakota State,North Dakota State University-Main Campus,ND,200332
+North Texas,University of North Texas,TX,227216
+Northern Illinois,Northern Illinois University,IL,147703
+Northwestern,Northwestern University,IL,147767
+Notre Dame,University of Notre Dame,IN,152080
+Ohio,Ohio University-Main Campus,OH,204857
+Ohio State,Ohio State University-Main Campus,OH,204796
+Oklahoma,University of Oklahoma-Norman Campus,OK,207500
+Oklahoma State,Oklahoma State University-Main Campus,OK,207388
+Old Dominion,Old Dominion University,VA,232982
+Ole Miss,University of Mississippi,MS,176017
+Oregon,University of Oregon,OR,209551
+Oregon State,Oregon State University,OR,209542
+Penn State,Pennsylvania State University-Main Campus,PA,214777
+Pittsburgh,University of Pittsburgh-Pittsburgh Campus,PA,215293
+Purdue,Purdue University-Main Campus,IN,243780
+Rice,Rice University,TX,227757
+Rutgers,Rutgers University-New Brunswick,NJ,186380
+SMU,Southern Methodist University,TX,228246
+Sacramento State,California State University-Sacramento,CA,110617
+Sam Houston,Sam Houston State University,TX,227881
+San Diego State,San Diego State University,CA,122409
+San José State,San Jose State University,CA,122755
+South Alabama,University of South Alabama,AL,102094
+South Carolina,University of South Carolina-Columbia,SC,218663
+South Florida,University of South Florida,FL,137351
+Southern Miss,University of Southern Mississippi,MS,176372
+Stanford,Stanford University,CA,243744
+Syracuse,Syracuse University,NY,196413
+TCU,Texas Christian University,TX,228875
+Temple,Temple University,PA,216339
+Tennessee,The University of Tennessee-Knoxville,TN,221759
+Texas,The University of Texas at Austin,TX,228778
+Texas A&M,Texas A & M University-College Station,TX,228723
+Texas State,Texas State University,TX,228459
+Texas Tech,Texas Tech University,TX,229115
+Toledo,University of Toledo,OH,206084
+Troy,Troy University,AL,102368
+Tulane,Tulane University of Louisiana,LA,160755
+Tulsa,University of Tulsa,OK,207971
+UAB,University of Alabama at Birmingham,AL,100663
+UCF,University of Central Florida,FL,132903
+UCLA,University of California-Los Angeles,CA,110662
+UConn,University of Connecticut,CT,129020
+UL Monroe,University of Louisiana at Monroe,LA,159993
+UNLV,University of Nevada-Las Vegas,NV,182281
+USC,University of Southern California,CA,123961
+UTEP,The University of Texas at El Paso,TX,228796
+UTSA,The University of Texas at San Antonio,TX,229027
+Utah,University of Utah,UT,230764
+Utah State,Utah State University,UT,230728
+Vanderbilt,Vanderbilt University,TN,221999
+Virginia,University of Virginia-Main Campus,VA,234076
+Virginia Tech,Virginia Polytechnic Institute and State University,VA,233921
+Wake Forest,Wake Forest University,NC,199847
+Washington,University of Washington-Seattle Campus,WA,236948
+Washington State,Washington State University,WA,236939
+West Virginia,West Virginia University,WV,238032
+Western Kentucky,Western Kentucky University,KY,157951
+Western Michigan,Western Michigan University,MI,172699
+Wisconsin,University of Wisconsin-Madison,WI,240444
+Wyoming,University of Wyoming,WY,240727

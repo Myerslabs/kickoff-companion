@@ -387,7 +387,7 @@ def test_a_box_score_500_does_not_stop_the_play_poll(app, fake_cfbd: FakeCfbd, c
     kinds = Counter(w["kind"] for _, w in game.recordings())
     assert kinds["box-players"] >= 2 and "box-teams" not in kinds
     saved = game.archive()
-    assert saved["state"]["counts"]["plays"] == PLAY_COUNT and saved["state"]["boxScore"] is None and saved["state"]["playerStats"]["Swampwater Tech"]
+    assert saved["state"]["counts"]["plays"] == PLAY_COUNT and saved["state"]["boxScore"] is None and saved["state"]["playerStats"]["Florida"]
     assert "Box poll /games/teams failed" in caplog.text
 
 
@@ -688,7 +688,7 @@ def test_state_frames_carry_the_feed_because_a_busy_stream_never_pings(app, clie
     engine: LiveEngine = app.state.live
     client.portal.call(engine.stop_background)
     engine.current_game_id, engine.home, engine.away = GAME, HOME, AWAY
-    play = LiveEvent("play:1", "play", GAME, engine._clock() - timedelta(seconds=5), {"id": "1", "period": 1, "clock": {"minutes": 14, "seconds": 55}, "offense": "Swampwater Tech", "defense": "Silver Dollar", "playType": "Rush", "yardsGained": 4})
+    play = LiveEvent("play:1", "play", GAME, engine._clock() - timedelta(seconds=5), {"id": "1", "period": 1, "clock": {"minutes": 14, "seconds": 55}, "offense": "Florida", "defense": "Fresno State", "playType": "Rush", "yardsGained": 4})
     client.portal.call(engine.publish, [play])
     events = read_stream(client, "/api/live/stream?delay=0&ttl=0.5")
     states = [e for e in events if e.get("event") == "state"]
@@ -759,7 +759,7 @@ def test_the_box_poll_warns_once_while_the_game_is_missing(app, fake_cfbd: FakeC
 
 
 SCOREBOARD = [
-    {"id": NEXT_GAME, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 2, "clock": "4:10", "homeTeam": {"id": 57, "name": "Swampwater Tech Mudpuppies", "conference": "Biscuit Belt", "points": 10}, "awayTeam": {"id": 145, "name": "Diner Tech Rebels", "conference": "Biscuit Belt", "points": 7}},
+    {"id": NEXT_GAME, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 2, "clock": "4:10", "homeTeam": {"id": 57, "name": "Florida Gators", "conference": "SEC", "points": 10}, "awayTeam": {"id": 145, "name": "Texas State Rebels", "conference": "SEC", "points": 7}},
 ]
 
 

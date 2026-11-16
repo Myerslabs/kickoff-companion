@@ -19,7 +19,7 @@ const flush = async () => { for (let i = 0; i < 8; i += 1) await new Promise((re
 Object.getPrototypeOf(document.body).scrollIntoView = function (opts) { this.scrolledInto = opts || true; };
 
 const PREFS = { delaySeconds: 30, hints: true, autoStart: false, theme: "dark", refreshMinutes: 5, keepScreenOn: "gameday", openBrowser: "manual", tickerMode: "national", announcer: true };
-const META = { radioSources: [{ id: "env-1", name: "Station 101.5", kind: "link", url: "https://example.com", origin: "env" }], autoStart: { supported: true, method: "a Startup shortcut", enabled: false }, notes: { commandFound: false }, plan: { tierName: "Tier 2", likedAllowed: true, used: 412, monthlyLimit: 30000, remaining: 29588 }, about: { version: "0.24.0" }, server: { team: "Swampwater Tech", dataDir: "C:/data", logDir: "C:/logs" }, teamSet: {} };
+const META = { radioSources: [{ id: "env-1", name: "Station 101.5", kind: "link", url: "https://example.com", origin: "env" }], autoStart: { supported: true, method: "a Startup shortcut", enabled: false }, notes: { commandFound: false }, plan: { tierName: "Tier 2", likedAllowed: true, used: 412, monthlyLimit: 30000, remaining: 29588 }, about: { version: "0.24.0" }, server: { team: "Florida", dataDir: "C:/data", logDir: "C:/logs" }, teamSet: {} };
 
 async function mounted(arg = null) {
   const { createSettingsView } = await import(moduleUrl("views/settings.js"));
@@ -56,9 +56,14 @@ scenarios.settings = async () => {
   // the four game-day settings on the page
   const quick = page.querySelectorAll(".profile-quick__row").map((r) => text(r.querySelector(".profile-quick__label b")));
   assert.deepEqual(quick, ["Spoiler delay", "Theme", "Keep the screen on", "Text size"]);
+  const puts = calls.length;
   page.querySelectorAll(".profile-seg").find((g) => g.getAttribute("aria-label") === "Theme").querySelectorAll("button")[1].click();
   await flush();
-  assert.ok(text(main.querySelector(".setting__saved")).includes("Theme saved"), "a tap on Light saves the theme: " + text(main.querySelector(".setting__saved")));
+  // ENH-35 (owner 2026-10-27): the theme is this device's own, like the text size: stored here, never sent to the server
+  assert.ok(text(main.querySelector(".setting__saved")).includes("Light theme on this device"), "a tap on Light: " + text(main.querySelector(".setting__saved")));
+  assert.equal(document.documentElement.dataset.theme, "light");
+  assert.equal(JSON.parse(localStorage.getItem("ui:theme")), "light");
+  assert.equal(calls.length, puts, "nothing asked of the server");
   // the ten tiles, in the board's order, each saying what is set now, and Feedback after them (owner 2026-10-23, new at the end)
   const tiles = main.querySelectorAll(".profile-tile");
   assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["Game day", "Trivia", "Display", "Your teams", "Friends and the big screen", "Radio stations", "Claude and loading data", "Server Settings", "About and help", "Setup", "Feedback"]);
@@ -73,7 +78,7 @@ scenarios.settings = async () => {
   const sheet = document.querySelector(".profile-sheet");
   assert.ok(sheet && sheet.className.includes("side-sheet--wide"), "the wide flyout");
   const rows = sheet.querySelectorAll(".setting__label").map((l) => text(l.childNodes[0]));
-  assert.deepEqual(rows, ["Theme", "Text size", "Stat hints", "Color-blind friendly colors", "Spoiler mode", "Page refresh"]);
+  assert.deepEqual(rows, ["Theme", "Text size", "Map app", "Stat hints", "Color-blind friendly colors", "Spoiler mode"], "no Page refresh row (manual refresh, owner 2026-11-14)");
   assert.ok(sheet.querySelector(".setting__label small"), "each setting explains itself");
   const hints = sheet.querySelector('input[aria-label="Stat hints"]');
   assert.equal(hints.getAttribute("role"), "switch");
@@ -102,29 +107,47 @@ scenarios.settings = async () => {
   start.view.unmount();
 };
 
-scenarios.uvx = async () => {
-  // post-freeze Wave 1: a uvx install has no start script; one sentence instead of three switches that do nothing
+scenarios.updates = async () => {
+  // FEAT-13: new commits on GitHub's main under About and help, with Update now only where this copy can update itself
   installWindow();
-  route("/api/settings", () => envelope({ prefs: PREFS, ...META, autoStart: { supported: false, installed: true, tray: false, system: "windows", enabled: false } }));
+  route("/api/settings", () => envelope({ prefs: PREFS, ...META }));
   route("/api/host", () => envelope({ pinSet: true, isHost: true, serverComputer: true }));
   route("/api/invite", () => envelope({ url: "http://kickoff.local:8642/", copyUrl: null, warnings: [] }));
   route("/api/readiness", () => envelope({ ready: true, items: [] }));
   route("/api/board/screens", () => envelope({ screens: [], serverComputer: true, browser: true }));
   route("/api/claude-schedule", () => envelope({ enabled: false, commandFound: false, next: [], recent: [] }));
-  route("/api/updates", () => envelope({ enabled: true, current: "0.24.0", latest: "0.24.0", newer: false }));
-  const { main, view } = await mounted("server");
-  assert.ok(text(main.querySelector('.profile-tile[data-section="server"] small')).includes("Started with uvx"));
-  const sheet = document.querySelector(".profile-sheet");
-  const labels = sheet.querySelectorAll(".setting__label").map((l) => text(l.childNodes[0]));
-  assert.ok(labels.includes("How it starts"), labels.join(", "));
-  for (const gone of ["Start at login", "Tray mode", "Desktop icon"]) assert.ok(!labels.includes(gone), `${gone} is not offered on uvx`);
-  assert.ok(text(sheet).includes("uvx kickoff-companion@latest"));
-  view.unmount();
+  const head = { sha: "a".repeat(40), short: "aaaaaaa", subject: "Windows only (ENH-26)", date: "2026-10-25T20:00:00-04:00" };
+  let answer = { enabled: true, available: true, current: "1.0.1", branch: "main", head, behind: 2, ahead: 0, canUpdate: true, blocked: null, packagesChange: true, syncPending: false, error: null, checkedAt: "2026-10-26T13:00:00Z", remote: "origin/main",
+    changes: [{ short: "bbbbbbb", subject: "Every team the way you see yours", date: "2026-10-26T09:00:00-04:00" }, { short: "ccccccc", subject: "The call target", date: "2026-10-26T08:00:00-04:00" }, null, "x"], lastUpdate: null };
+  route("/api/updates", () => envelope(answer));
+  const one = await mounted("about");
+  const facts = one.main.querySelectorAll(".profile-fact").map(text);
+  assert.ok(facts[1].includes("aaaaaaa") && facts[1].includes("2 changes waiting"), facts[1]);
+  let sheet = document.querySelector(".profile-sheet");
+  let t = text(sheet);
+  assert.ok(!RAW.test(t), t.slice(0, 400));
+  assert.ok(t.includes("2 changes on GitHub") && t.includes("Every team the way you see yours") && t.includes("new packages too"), t.slice(0, 600));
+  assert.equal(sheet.querySelectorAll(".update-list li").length, 2, "a damaged change is left out");
+  assert.ok(sheet.querySelectorAll("button").find((b) => text(b) === "Update now"), "the host's one tap");
+  one.view.unmount();
+  // the development copy: on a branch, so no button and a plain line
+  answer = { ...answer, branch: "private-p2", behind: 0, canUpdate: false, changes: [], packagesChange: false, blocked: { code: "branch", message: "This copy is on the branch private-p2; updates come to main only." } };
+  const two = await mounted("about");
+  sheet = document.querySelector(".profile-sheet");
+  t = text(sheet);
+  assert.ok(t.includes("Up to date with GitHub") && !sheet.querySelectorAll("button").find((b) => text(b) === "Update now"), t.slice(0, 600));
+  two.view.unmount();
+  // a copy that isn't a clone says why
+  answer = { enabled: true, available: false, current: "1.0.1", blocked: { code: "not_a_clone", message: "This copy isn't a git clone, so it can't update itself." } };
+  const three = await mounted("about");
+  assert.ok(text(document.querySelector(".profile-sheet")).includes("isn't a git clone"));
+  assert.ok(three.main.querySelectorAll(".profile-fact").map(text)[1].includes("no updates here"));
+  three.view.unmount();
 };
 """
 
 
 @needs_node
-@pytest.mark.parametrize("scenario", ["settings", "uvx"])
+@pytest.mark.parametrize("scenario", ["settings", "updates"])
 def test_settings_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)

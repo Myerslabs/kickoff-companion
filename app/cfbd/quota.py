@@ -1,12 +1,15 @@
 """The quota ledger and guard. Mandatory: no CFBD call happens without passing check().
 
-Rules from docs/02-ARCHITECTURE.md, "Quota guard":
+The rules, "Quota guard":
 - Every upstream attempt is recorded, including failures. Counting conservatively is safer
   than being surprised.
 - The budget comes from settings until /info gives the live remaining-calls value, after
   which the ledger counts down from that number.
 - 75 percent: warning. QUOTA_HARD_STOP_PCT: only live-game calls continue. 97 percent or
   nothing left: everything stops.
+- The month's target (MONTHLY_CALL_TARGET, ENH-27): a paced call (the server's own background loads) goes only while
+  the month's calls are under the target's share for the day, so by the 15th they may have spent about half of it.
+  Pages someone opens and live calls are never paced; they keep the rest of the budget as the reserve.
 - Reconciliation with /info is adaptive: at startup, hourly inside a live game window,
   every 6 hours otherwise, and right after a threshold is crossed. Never more than once per
   10 minutes, since /info is itself a billed call.
@@ -14,6 +17,7 @@ Rules from docs/02-ARCHITECTURE.md, "Quota guard":
 
 from __future__ import annotations
 
+import calendar
 import json
 import logging
 from dataclasses import asdict, dataclass
@@ -63,6 +67,9 @@ class QuotaStatus:
     tier_name: str | None
     reset_at: str | None = None
     upstream_used: int | None = None
+    target: int = 0  # ENH-27: what the background loads may spend this month
+    pace_allowed: int = 0  # the target's share up to today
+    paced_open: bool = True  # whether a paced call may go now
 
     def as_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -72,6 +79,13 @@ class QuotaStatus:
 
 def month_of(now: datetime) -> str:
     return now.astimezone(timezone.utc).strftime("%Y-%m")
+
+
+def pace_allowed(target: int, now: datetime) -> int:
+    """ENH-27: the target's share of the month up to the end of today (UTC): day 1 allows a 30th or 31st, the last day all."""
+    utc = now.astimezone(timezone.utc)
+    days = calendar.monthrange(utc.year, utc.month)[1]
+    return round(target * utc.day / days)
 
 
 def _iso(value: datetime) -> str:
@@ -142,11 +156,17 @@ class QuotaGuard:
 
     # --- decisions ----------------------------------------------------------------
 
-    def check(self, *, live: bool, now: datetime, reconciling: bool = False, essential: bool = False) -> QuotaStatus:
+    def check(self, *, live: bool, now: datetime, reconciling: bool = False, essential: bool = False, paced: bool = False) -> QuotaStatus:
         """Raise QuotaBlocked when the call must not happen. Returns the status otherwise. `essential` marks the week's
         slate and the schedule (freeze wave F2): they go on in RESTRICTED mode like the live calls, so a free key, which
-        has no live calls, still shows Saturday's scores in its last 10%; EXHAUSTED stops them too."""
+        has no live calls, still shows Saturday's scores in its last 10%; EXHAUSTED stops them too. `paced` marks the
+        server's own background loads (ENH-27): they wait once the month's calls reach the target's share for the day."""
         status = self.status(now)
+        if paced and not live and not status.paced_open:
+            raise QuotaBlocked(
+                f"Background loads keep to the month's target: {status.used:,} calls used, {status.pace_allowed:,} allowed by today"
+                f" of {status.target:,}. They go on tomorrow; pages and live games still load."
+            )
         if status.mode is QuotaMode.EXHAUSTED:
             if reconciling and self._reconcile_allowed_when_exhausted(now):
                 return status
@@ -243,6 +263,11 @@ class QuotaGuard:
         else:
             mode = QuotaMode.NORMAL
 
+        # ENH-27's two thirds, of this key's own month: a Free key's 1,000 keep 334 for the pages someone opens
+        target = max(min(int(getattr(self.settings, "monthly_call_target", budget) or 0), budget * 2 // 3), 0)
+        allowed = pace_allowed(target, now)
+        paced_open = used < allowed
+
         # Plain words (tester 2026-10-19: "out of calls" on a new free key, with nothing saying whose count that was).
         reset_note = f"; resets {reset_at[:10]}" if reset_at else ""
         if reconciled and int(rec["remaining"]) <= 0:
@@ -269,6 +294,9 @@ class QuotaGuard:
             tier_name=tier_name,
             reset_at=reset_at,
             upstream_used=upstream_used,
+            target=target,
+            pace_allowed=allowed,
+            paced_open=paced_open,
         )
 
     def last_reconcile_raw(self, now: datetime) -> tuple[Any, datetime] | None:

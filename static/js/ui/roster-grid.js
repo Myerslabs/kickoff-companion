@@ -56,11 +56,17 @@ function chipNames(p, forms) {
   return { long: `${f.initial}${rs}`, surname: `${f.last}${rs}` };
 }
 
+/** The chip's number: our stat grade. */
+function gradeOf(p) {
+  return gradeValue(p.grade);
+}
+
 function chip(p, onPlayer, forms) {
-  const grade = gradeValue(p.grade);
+  const grade = gradeOf(p);
   const tier = grade === null ? null : gradeTier(grade);
   const whole = typeof p.name === "string" && p.name.trim() ? p.name.trim() : [p.firstName, p.lastName].filter((w) => typeof w === "string" && w.trim()).map((w) => w.trim()).join(" ") || null;
-  const says = `${playerNames(whole).full}${isNum(p.number) ? `, number ${p.number}` : ""}${grade !== null ? `, stat grade ${Math.round(grade)}` : ", no stat grade"}`;
+  const kind = "stat grade";
+  const says = `${playerNames(whole).full}${isNum(p.number) ? `, number ${p.number}` : ""}${grade !== null ? `, ${kind} ${Math.round(grade)}` : `, no ${kind}`}`;
   const names = chipNames(p, forms);
   return el(
     "button",
@@ -73,8 +79,8 @@ function chip(p, onPlayer, forms) {
 /** Players sorted for a cell: graded first, best first, then by name. */
 function ordered(list, forms) {
   return [...list].sort((a, b) => {
-    const ga = gradeValue(a.grade);
-    const gb = gradeValue(b.grade);
+    const ga = gradeOf(a);
+    const gb = gradeOf(b);
     if (ga !== gb) return (gb ?? -1) - (ga ?? -1);
     return chipNames(a, forms).long.localeCompare(chipNames(b, forms).long);
   });
@@ -144,7 +150,7 @@ export function rosterGrid(players, { onPlayer } = {}) {
     { class: "rgrid-wrap" },
     fit,
     el("p", { class: "note rgrid__note rgrid__note--chips" }, "The number is our stat grade (100 is the best, 50 the middle at the position); linemen and long snappers have none. Tap a player for the card."),
-    el("p", { class: "note rgrid__note rgrid__note--counts" }, "Players at each position by class. The Roster below names each one with our stat grade; tap a player there for the card."),
+    el("p", { class: "note rgrid__note rgrid__note--counts" }, `Players at each position by class. The Roster below names each one with our stat grade; tap a player there for the card.`),
     unclassed.length ? el("p", { class: "note" }, `${unclassed.length} player${unclassed.length === 1 ? " has" : "s have"} no class or position on CFBD's roster and ${unclassed.length === 1 ? "is" : "are"} not in the grid.`) : null,
   );
   const apply = (step) => {
@@ -152,8 +158,21 @@ export function rosterGrid(players, { onPlayer } = {}) {
     outer.dataset.size = fit.dataset.size;
   };
   apply("large");
+  // ENH-20 (P5): the table is fixed at its box's width with equal class columns, so a size fits when no cell's chips push
+  // past its column
+  // 2026-11-15 (owner: nothing cut off): the chips sit at a cell's right, so a chip wider than its cell spills out to the LEFT,
+  // which a scroll width never counts; each chip is also held inside its cell's own box (a phone cut one by 8 px)
+  const inside = (td) => {
+    if (typeof td.getBoundingClientRect !== "function") return true;
+    const box = td.getBoundingClientRect();
+    return [...td.querySelectorAll(".rgrid__chip")].every((chip) => {
+      const r = typeof chip.getBoundingClientRect === "function" ? chip.getBoundingClientRect() : null;
+      return !r || !(r.width > 0) || (r.left >= box.left - 1 && r.right <= box.right + 1);
+    });
+  };
+  const cellsFit = () => [...table.querySelectorAll(".rgrid__cell")].every((td) => (!isNum(td.scrollWidth) || !isNum(td.clientWidth) || td.scrollWidth <= td.clientWidth + 1) && inside(td));
   watchSize(fit, () => {
-    const size = fitSize(fit, table, apply);
+    const size = fitSize(fit, table, apply, undefined, cellsFit);
     if (size === null) return;
     if (size === DROPPED) fit.classList.remove("stat-table-wrap--fits");
     else fit.classList.add("stat-table-wrap--fits");

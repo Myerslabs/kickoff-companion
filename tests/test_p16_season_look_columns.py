@@ -33,7 +33,7 @@ scenarios.columns = async () => {
   assert.ok(page && page.className.includes("flow"));
   const ids = page.querySelectorAll("section.band").map((b) => b.getAttribute("id")).filter(Boolean);
   // the owner's order (2026-10-10); the playoff band, when there is one, last until week 8 and first from week 8
-  const order = ["season-schedule", "season-standings", "season-polls", "season-ratings", "season-resume", "season-profile", "season-trends", "season-advanced", "season-road", "season-last"];
+  const order = ["season-schedule", "season-standings", "season-ratings", "season-resume", "season-profile", "season-trends", "season-road", "season-last", "season-numbers", "season-land", "season-injuries", "team-recruiting", "season-tendencies", "season-trip", "season-race", "roster-breakdown", "roster-costs", "roster-table", "roster-stars", "roster-impact", "recruiting-class", "recruiting-where", "team-staff", "team-playvalue", "team-facts", "season-stars", "season-lineup"]; // wave 3 (2026-11-01): the polls left for the Newspaper, the team page's, the roster's and the recruiting's bands joined at the bottom (each late band's host holds its band at its id) // the Season stop (Wave 4): Advanced in The numbers box, then Our land
   assert.deepEqual(ids.filter((id) => id !== "season-playoff"), order);
   const { seasonWeek } = await import(moduleUrl("views/season.js"));
   if (ids.includes("season-playoff")) assert.equal(ids.indexOf("season-playoff") === 0, seasonWeek(FIXTURE.season) >= 8);
@@ -45,7 +45,7 @@ scenarios.columns = async () => {
   assert.equal(profile.querySelectorAll(".band").length, 0, "no band nested inside the profile band");
   assert.deepEqual(profile.querySelectorAll("h3.subhead").map(text), ["Offense", "Defense"]);
   // one paired table: the offense and defense success rates on one row, each with its linked chip
-  const adv = main.querySelector("#season-advanced");
+  const adv = main.querySelector("#season-numbers"); // the Season stop (Wave 4): The numbers opens on Advanced
   assert.equal(adv.querySelectorAll("table").length, 1);
   const row = adv.querySelectorAll("tbody tr").find((tr) => text(tr).startsWith("Success rate"));
   assert.ok(text(row).includes("49%") && text(row).includes("39%"), text(row));

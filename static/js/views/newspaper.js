@@ -1,52 +1,51 @@
-// The Newspaper (N1 to N4): our local sports section (Design rules, 2026-10-21), laid out as a newspaper's front page since
-// the layout pass (owner 2026-10-22, board 5: https://claude.ai/artifact/Vv827cCpVUGkdDWuN4QeAV; "the problem is that the
-// articles become completely uniform down the page"; the whiteboard of 2026-10-13 had boxes of two across):
-//   the masthead: this week's name (steady within a week, made from the team's own names), the date and the edition,
-//     and the ‹ › ears to the other weeks' editions (the weekly keepsake, kept on the server for the season);
-//   the skybox: refers to inside (the next game, the Top 25's count, the trivia's leader or the season's record);
-//   the lead, one dominant story: our game with a banner headline across the page, the deck (the player of the game and
-//     the record after the final, the kickoff before it), the pixel stadium, and the press box beside it (the turning
-//     point, the key numbers in words, what is next; or the two teams and the line), the ways into the box and the program;
-//   then modules of different widths and depths: the game of the week (the best pair of ranked teams, else the
-//     top-ranked other game, its helmets facing and its score by quarter) across two columns beside "By the numbers"; the player feature (or the player of the game),
-//     the coach's story, and the rail's scoreboard: every ranked game of the week in one line of agate, ours marked, the
-//     full cards on the Top 25 page (his 1: ours first, the Top 25 compact), in AP poll order as there (2026-10-22);
-//   the other headlines as briefs at the foot.
-// A matchup carries a funny headline before kickoff and after the final only ("Funny headline only for the pregame and
-// postgame articles"); while a game is on it shows the score, the quarter and the clock, our game following the spoiler
-// delay. A matchup opens its box score (ours opens In Game); a story opens its source. Names are never cut (his 2):
-// headlines wrap and balance, the agate shortens a long school the way a newspaper does ("Dust Devil St.").
-// The pictures are drawn on a grid shaped like their box (ui/pixel-art.js fillPicture). On a phone the modules stack in
-// the same order. The page refreshes every minute (live matchups); an earlier edition is read once from its file.
+// The Newspaper (FEAT-14 wave 3, the owner's boards of 2026-10-27: the paper
+// the reader). One long scroll of every week, on a six-column grid:
+//   the masthead (this week's name, the date, the week, how many stories so far) and the week chips (a jump to any week);
+//   the front page: the lead in four columns (its photo, the cutline, its text in two legs cut to the rail's foot) beside
+//     the rail (Inside today, By the numbers, the week's quote); three stories of two columns, photo first, head first,
+//     photo first, so no two headlines sit side by side; the game of the week across the page;
+//   page 2: its own lead beside eight briefs, then three more stories; page 3 and on: the rest by subject;
+//   the Top 25 at the back, Claude's stories and picks at the foot; then the earlier weeks folded, one row each, a tap
+//     opening that week's paper in place.
+// The server lays the pages out (app/services/paper_layout.py, Claude in wave 4); the page draws them. No empty space (his
+// mark): a story's text runs to the foot of its row and fades into "The whole story"; a headline-only story takes an Also
+// brief. Nothing repeats the tabs or the menu (his mark: no skybox, press box or links to In Game and the program). A
+// copied story opens the reader (#story=<id>); a headline-only story opens its publisher's site.
 //
 //   mastheadName(season, week, who)   this week's paper's name
-//   pickStories(headlines, us)         { lead, player, coach, rest }: the week's stories for the modules
 //   agateName(school)                  a school's name for a line of agate
 //   gameOfWeek(matchups, ours)         the game drawn large: the best pair of ranked teams, else the first other game
-//   layoutPaper(root)                  names on one line under the helmets, pictures redrawn to their boxes
-//   createNewspaperView({ onStatus, edition })   edition: "week-6" or "postseason" opens an earlier edition
+//   createNewspaperView({ onStatus, edition })   edition: "week-6" opens that week folded open under this week's paper
 
-import { ours, usSchool } from "../identity.js";
-import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, text, recordText as sharedRecord } from "../ui/dom.js";
-import { crewText } from "../ui/game-staff.js";
-import { openMatchupSheet } from "../ui/matchup-sheet.js";
-import { ageOf } from "../ui/news.js";
-import { fitNames, loosenNames } from "../ui/paper-fit.js";
-import { lastTriviaData, triviaRunning } from "../ui/trivia.js";
-import { fillPicture, pixelBanner, pixelPicture, refitPictures, seedOf } from "../ui/pixel-art.js";
-import { band, note } from "../ui/states.js";
-import { quarterLine } from "../ui/team-stats.js";
-import { getPrefs, pollMs } from "../prefs.js";
-import { errorPanel, poller } from "./common.js";
+import { ours, usName, usSchool } from "../identity.js";
+import { paragraphs, sourcesLine, writingBand } from "../ui/writing-band.js"; // FEAT-11: what Claude Code wrote
+import { el, fmtDate, fmtTime, isNum, obj, records, teamLink, teamLogo, text, recordText as sharedRecord } from "../ui/dom.js";
+import { band, note, subhead } from "../ui/states.js";
+import { getPrefs } from "../prefs.js";
+import { icon } from "../ui/icons.js";
+import { errorPanel, fetchJson, poller } from "./common.js";
+import { pastYear } from "../ui/past.js"; // rollover R3: a past season's paper, as kept
+import { pollsBand } from "../ui/polls-band.js"; // wave 3 of the one-column page (2026-11-01): the polls left My Team for the paper
 
-const REFRESH_MS = 60 * 1000; // this week's paper: live matchups
-const EDITION = /^(?:week-\d{1,2}|postseason)$/;
-const NBSP = " ";
+const EDITION = /^(?:week-\d{1,2}|postseason)(?:-sunday)?$/; // Wave 6 (2026-11-15): a game's Sunday paper is "<week>-sunday"
+const STORY = /^[0-9a-f]{16}$/;
+let linkSeason = null; // rollover R3: while a past season's paper draws, its stories open that season's copies
+const NBSP = " ";
 
 // --- the masthead -------------------------------------------------------------------------------------------------
 
 // The masthead's names: the team's mascot or school in a newspaper's name, one per week of the season.
 const MASTHEADS = ["The {m} Gazette", "The {m} Herald", "The {s} Courier", "The {m} Chronicle", "The {s} Sentinel", "The {m} Tribune", "The Saturday {m}", "The {m} Bugle", "The {s} Ledger", "The {m} Dispatch"];
+
+function seedOf(value) {
+  const s = String(value ?? "");
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i += 1) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h || 1;
+}
 
 /** This week's paper's name, steady all week (Phase 17 #26: "randomize a little bit, depending on the week"). */
 export function mastheadName(season, week, who = ours()) {
@@ -58,302 +57,205 @@ export function mastheadName(season, week, who = ours()) {
   return pick.replace("{m}", mascot).replace("{s}", school);
 }
 
-function editionHref(key, current) {
-  return current ? "#newspaper" : `#newspaper=${encodeURIComponent(key)}`;
-}
+const orn = () => el("span", { class: "np-orn", "aria-hidden": "true" }, "✦");
 
-function navLink(which, entry) {
-  const arrow = el("span", { class: "paper-mast__arrow", "aria-hidden": "true" }, which === "prev" ? "‹" : "›");
-  if (!entry) return el("span", { class: `paper-mast__nav paper-mast__nav--${which} is-off`, "aria-hidden": "true" }, which === "prev" ? arrow : null, which === "next" ? arrow : null);
-  const where = entry.opponent ? `${entry.homeAway === "away" ? "at" : "vs"} ${text(entry.opponent)}` : entry.current ? "this week" : "";
-  const words = el("span", { class: "paper-mast__navtext" }, el("b", {}, `${text(entry.label)} edition`), where ? el("small", {}, where) : null);
-  return el(
-    "a",
-    { class: `paper-mast__nav paper-mast__nav--${which}`, href: editionHref(entry.key, entry.current), "aria-label": `${which === "prev" ? "Earlier" : "Later"} edition: ${text(entry.label)}${where ? `, ${where}` : ""}` },
-    which === "prev" ? [arrow, words] : [words, arrow],
-  );
-}
-
-function masthead(data, edition, editions) {
-  const at = editions.findIndex((e) => e.key === edition.key);
-  const prev = at > 0 ? editions[at - 1] : null;
-  const next = at >= 0 && at < editions.length - 1 ? editions[at + 1] : null;
+function masthead(data, edition, count, by) {
   const week = isNum(edition.week) ? edition.week : null;
   const season = isNum(edition.season) ? edition.season : data.season;
-  const date = edition.current ? data.today || new Date().toISOString() : edition.date;
-  const where = edition.opponent ? `${edition.homeAway === "away" ? "at" : "vs"} ${text(edition.opponent)}` : null;
-  const orn = () => el("span", { class: "paper-mast__orn", "aria-hidden": "true" }, "✦");
+  const date = data.today || new Date().toISOString();
+  const stories = isNum(count) ? `${count} ${count === 1 ? "story" : "stories"} so far` : null;
   return el(
     "header",
-    { class: "paper-mast" },
-    navLink("prev", prev),
-    el(
-      "div",
-      { class: "paper-mast__center" },
-      pixelBanner({ seed: seedOf(`${isNum(season) ? season : ""}:${isNum(week) ? week : "x"}:banner`) }),
-      el("h1", { class: "paper-mast__name" }, mastheadName(season, week)),
-      el("p", { class: "paper-mast__line" }, el("span", {}, fmtDate(date, "long")), orn(), el("span", {}, `${text(edition.label || "This week")} edition`), where ? [orn(), el("span", {}, where)] : null),
-    ),
-    navLink("next", next),
+    { class: "np-mast" },
+    el("h1", { class: "np-mast__name" }, mastheadName(season, week)),
+    el("p", { class: "np-mast__line" }, fmtDate(date, "long"), orn(), text(edition.label || "This week"), stories ? [orn(), stories] : null, by === "Claude Code" ? [orn(), "laid out by Claude Code"] : null),
   );
 }
 
-// --- the stories ------------------------------------------------------------------------------------------------------
+// --- one story ------------------------------------------------------------------------------------------------------
 
-const KICKERS = { game: "Game week", injury: "Injury report", recruiting: "Recruiting", coach: "From the coach", weather: "Forecast", nfl: "In the NFL", "other-sport": "Around campus", practice: "Practice", trophy: "Rivalries and titles", rankings: "Rankings", stadium: "Game day", scoreboard: "Results" };
+const httpUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
 
-const headlineOk = (h) => typeof h.title === "string" && h.title.trim();
-
-/**
- * The week's stories for the boxes: the player feature is the newest headline naming one of our players, the coach's
- * story the newest about the coach, the lead the newest of the rest (owner: headlines only, never a write-up).
- */
-export function pickStories(headlines, us = usSchool()) {
-  const items = records(headlines).filter(headlineOk);
-  const names = (h) => records(h.players).filter((p) => typeof p.playerId === "string" && p.playerId && (!p.team || p.team === us));
-  const player = items.find((h) => names(h).length) || null;
-  const coach = items.find((h) => h !== player && h.topic === "coach") || null;
-  const lead = items.find((h) => h !== player && h !== coach) || null;
-  const rest = items.filter((h) => h !== player && h !== coach && h !== lead);
-  return { lead, player, coach, rest };
+/** Where a story goes: the reader for a copied story, else its publisher's page (never a script or a bad address). */
+function storyHref(s) {
+  if (s && s.copied === true && STORY.test(String(s.id || ""))) return linkSeason ? `#story=${s.id}?season=${linkSeason}` : `#story=${s.id}`;
+  return httpUrl(s && s.url);
 }
 
-// a score or a record ("52-16") and a team's or a player's name never split across two lines
-function richText(title, names) {
-  const value = text(title);
-  const list = [...new Set(names.filter((n) => typeof n === "string" && /\s/.test(n)))].sort((a, b) => b.length - a.length);
-  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const keep = new RegExp(`(${[...list.map(esc), "\\d+-\\d+"].join("|")})`);
-  return value.split(keep).map((part, i) => (i % 2 ? el("span", { class: "paper-nw" }, part) : part));
+function linkTo(s, child) {
+  const href = storyHref(s);
+  if (!href) return child;
+  return href.startsWith("#") ? el("a", { href, onclick: rememberSpot }, child) : el("a", { href, target: "_blank", rel: "noopener" }, child);
 }
 
-function storyHref(item) {
-  return typeof item.url === "string" && /^https?:\/\//i.test(item.url) ? item.url : null;
-}
-
-function words(item, kicker, cls, names) {
-  const href = storyHref(item);
-  const title = richText(item.title, names);
-  return el(
-    "div",
-    { class: "paper-words" },
-    el("p", { class: "paper-kicker" }, kicker),
-    el("h3", { class: `paper-head ${cls}`, dataset: { fit: "1" } }, href ? el("a", { href, target: "_blank", rel: "noopener" }, title) : title),
-    el("p", { class: "paper-source" }, [item.source, ageOf(item.publishedAt)].filter(Boolean).map(text).join(" · ") || "Headline"),
-  );
-}
-
-const cell = (canvas, cls = "") => el("div", { class: `paper-pic ${cls}` }, canvas);
-const margin = () => el("div", { class: "paper-m", "aria-hidden": "true" });
-
-function storyPicture(item) {
-  const face = records(item.players).find((p) => typeof p.playerId === "string" && p.playerId);
-  const pic = pixelPicture({ topic: item.topic, seed: seedOf(item.title), playerId: face ? face.playerId : null, label: face ? `${text(face.name)}, in pixels` : `A pixel picture: ${text(item.topic || "the game")}` });
-  pic.classList.add("paper-topic");
-  return pic;
-}
-
-function articleBox(item, side, names) {
-  const box = el("article", { class: `paper-box paper-art paper-art--${side}` });
-  const kids = [margin(), cell(storyPicture(item)), words(item, KICKERS[item.topic] || "This week", "paper-head--art", names)];
-  box.append(...(side === "left" ? kids : kids.reverse()));
-  return box;
-}
-
-function playerBox(item, names) {
-  const face = records(item.players).find((p) => typeof p.playerId === "string" && p.playerId);
-  const pic = fillPicture("player", { playerId: face ? face.playerId : null, seed: 3 }, face ? `${text(face.name)}, in pixels` : "Our player, in pixels");
-  return el("article", { class: "paper-box paper-feat paper-feat--player" }, margin(), cell(pic, "paper-pic--player"), words(item, "Player feature", "paper-head--feat", names));
-}
-
-function coachBox(item, names) {
-  return el("article", { class: "paper-box paper-feat paper-feat--coach" }, margin(), cell(fillPicture("coach", { seed: 5 }, "Our coach, in pixels"), "paper-pic--coach"), words(item, "From the coach", "paper-head--feat", names));
-}
-
-// --- a ranked game ----------------------------------------------------------------------------------------------------
-
-const abbr = (t) => text(t.abbreviation || (typeof t.school === "string" ? t.school.slice(0, 4).toUpperCase() : null));
-const rankedName = (t) => (isNum(t.rank) ? `No.${NBSP}${t.rank} ${text(t.school)}` : text(t.school));
-const QUARTERS = ["1st quarter", "2nd quarter", "3rd quarter", "4th quarter"];
-
-function quarterWords(g) {
-  if (isNum(g.period)) return g.period <= 4 ? QUARTERS[g.period - 1] : g.period === 5 ? "Overtime" : `${g.period - 4} overtimes`;
-  return /half/i.test(text(g.detail)) ? "Halftime" : "Under way";
-}
-
-function recordText(t) {
-  const r = obj(t.record);
-  const c = obj(t.conferenceRecord);
-  const main = sharedRecord(r); // freeze wave F3: the one formatter (ui/dom.js), so a tie shows here as everywhere
-  const conf = sharedRecord(c);
-  return main ? (conf ? `${main} (${conf} conf)` : main) : "No record yet";
-}
-
-function who(t, isUs) {
-  return el(
-    "div",
-    { class: `paper-who${isUs ? " is-us" : ""}` },
-    el("div", { class: "paper-who__line" }, isNum(t.rank) ? el("span", { class: "paper-rank" }, el("span", { class: "paper-rank__ap" }, "AP"), ` ${t.rank}`) : el("span", { class: "paper-rank paper-rank--nr" }, "NR")),
-    el("div", { class: "paper-who__name", dataset: { oneline: "1", min: "14" } }, t.school ? teamLink(t.school, text(t.school)) : text(null)),
-    el("div", { class: "paper-who__rec" }, recordText(t)),
-  );
-}
-
-function helmet(t, flip, isUs) {
-  const pic = fillPicture("helmet", { color: t.color, alt: t.altColor, flip, seed: seedOf(text(t.school)) }, `A pixel helmet in ${text(t.school)}'s colors`);
-  return el("div", { class: `paper-helm paper-helm--${flip ? "home" : "away"}` }, el("div", { class: "paper-pic paper-pic--helm" }, pic), who(t, isUs));
-}
-
-// a line of facts breaks only between its facts, never inside a stadium's or a network's name
-/** The network, or our game's announcers from the notes (freeze wave F4), for a game box's facts line. */
-function crewOrTv(g) {
-  const crew = g && g.broadcast ? crewText({ broadcast: g.broadcast }, g) : null;
-  return crew || (g && g.tv ? text(g.tv) : null);
-}
-
-function facts(list) {
-  return list.filter((f) => typeof f === "string" && f && f !== "–").flatMap((f, i) => [i ? `${NBSP}· ` : null, el("span", { class: "paper-nw" }, f)]).filter(Boolean);
-}
-
-function wpBar(g) {
-  if (!isNum(g.homeWinProbability) || g.homeWinProbability < 0 || g.homeWinProbability > 1) return null;
-  const away = obj(g.away);
-  const home = obj(g.home);
-  const a = Math.round((1 - g.homeWinProbability) * 100);
-  const h = 100 - a;
-  return el(
-    "div",
-    { class: "paper-wp", role: "img", "aria-label": `Pregame win probability: ${abbr(away)} ${a}%, ${abbr(home)} ${h}%` },
-    el("span", { class: "paper-wp__cap" }, "Pregame win probability"),
-    el("span", { class: "paper-wp__lab" }, `${abbr(away)} ${a}%`),
-    el("span", { class: "paper-wp__bar" }, el("i", { style: { width: `${a}%`, background: away.color || "var(--fog)" } }), el("i", { style: { width: `${h}%`, background: home.color || "var(--mist)" } })),
-    el("span", { class: "paper-wp__lab" }, `${h}% ${abbr(home)}`),
-  );
-}
-
-function finalScore(g) {
-  const away = obj(g.away);
-  const home = obj(g.home);
-  const a = away.points;
-  const h = home.points;
-  const periods = Math.max(Array.isArray(home.lineScores) ? home.lineScores.length : 0, Array.isArray(away.lineScores) ? away.lineScores.length : 0);
-  const ot = periods > 4 ? (periods === 5 ? ", overtime" : `, ${periods - 4} overtimes`) : "";
-  if (!isNum(a) || !isNum(h)) return el("div", { class: "paper-score" }, el("span", { class: "paper-score__state" }, "Final"));
-  const side = (t, p, first, won) => el("span", { class: won ? "is-winner" : "is-loser" }, first ? `${abbr(t)} ${p}` : `${p} ${abbr(t)}`);
-  return el("div", { class: "paper-score" }, el("span", { class: "paper-score__num" }, side(away, a, true, a >= h), el("span", { class: "paper-score__dot" }, " · "), side(home, h, false, h >= a)), el("span", { class: "paper-score__state" }, `Final${ot}`));
-}
-
-function statusLine(g) {
-  const away = obj(g.away);
-  const home = obj(g.home);
-  const a = isNum(away.points) ? away.points : "–";
-  const h = isNum(home.points) ? home.points : "–";
-  const q = quarterWords(g);
-  return el(
-    "a",
-    { class: "paper-status", href: gameHref(g) || "#top25" },
-    el("span", { class: "paper-status__score" }, `${abbr(away)} ${a}`, el("span", { class: "paper-score__dot" }, " · "), `${h} ${abbr(home)}`),
-    el("span", { class: "paper-status__clock" }, el("i", { class: "paper-live-dot", "aria-hidden": "true" }), typeof g.clock === "string" && g.clock ? `${q}, ${g.clock} left` : q),
-  );
-}
-
-function gameHref(g) {
-  if (g.isUs === true) return "#live";
-  return isNum(g.gameId) ? `#box=${g.gameId}` : null;
-}
-
-function tagOf(g) {
-  if (typeof g.bowl === "string" && g.bowl) return g.bowl;
-  return g.conferenceGame === true ? text(g.conference || "Conference game") : "Non-conference";
-}
-
-function matchBox(g, size, names) {
-  const away = obj(g.away);
-  const home = obj(g.home);
-  const us = usSchool();
-  const line = obj(g.headline);
-  const status = ["pre", "live", "final", "unplayed"].includes(g.status) ? g.status : "pre";
-  const word = g.isUs === true ? "Our game" : status === "live" ? "Live" : status === "unplayed" ? "Not played" : line.kicker || "Top 25";
-  const kicker = el("p", { class: `paper-kicker paper-kicker--${status}` }, [word, tagOf(g)].join(" · "));
-  const mid = el("div", { class: "paper-mid", dataset: { fit: "1" } }, kicker);
-  const href = gameHref(g);
-  if (status === "unplayed") {
-    // a kept edition's game the season never finished (postponed or cancelled): no score, no headline
-    mid.append(el("p", { class: "paper-status__clock paper-unplayed" }, `${rankedName(away)} ${g.neutralSite ? "vs." : "at"} ${rankedName(home)} was not played`), el("p", { class: "paper-facts" }, facts([fmtDate(g.kickoff, "medium"), text(g.venue)])));
-  } else if (status === "live") {
-    mid.append(statusLine(g), el("p", { class: "paper-facts" }, facts([`kicked off ${fmtTime(g.kickoff)}`, text(g.venue), crewOrTv(g)])));
-  } else {
-    const headText = typeof line.text === "string" && line.text ? line.text : `${rankedName(away)} ${g.neutralSite ? "vs." : "at"} ${rankedName(home)}`;
-    mid.append(el("h3", { class: `paper-head paper-head--match${status === "final" ? " paper-head--final" : ""}` }, href ? el("a", { href }, richText(headText, names)) : richText(headText, names)));
-    if (status === "final") {
-      mid.append(finalScore(g));
-      if (size === "big" && Array.isArray(home.lineScores) && Array.isArray(away.lineScores) && home.lineScores.length && away.lineScores.length) {
-        const q = quarterLine({ us: { abbr: abbr(away), scores: away.lineScores, total: away.points }, them: { abbr: abbr(home), scores: home.lineScores, total: home.points } });
-        q.classList.add("paper-qline");
-        mid.append(q);
-      }
-      mid.append(el("p", { class: "paper-facts" }, facts([fmtDate(g.kickoff, "medium"), text(g.venue), crewOrTv(g)])));
-    } else {
-      const l = obj(g.line);
-      const spread = typeof l.short === "string" && l.short ? l.short : typeof l.formatted === "string" && l.formatted ? l.formatted : null;
-      mid.append(
-        el("p", { class: "paper-facts paper-facts--when" }, facts([fmtDate(g.kickoff, "medium"), g.startTimeTbd === true ? "time TBD" : fmtTime(g.kickoff), text(g.venue), crewOrTv(g)])),
-        spread || isNum(l.overUnder) ? el("p", { class: "paper-facts paper-facts--line" }, "Line ", el("b", {}, text(spread)), " · Over/under ", el("b", {}, isNum(l.overUnder) ? String(l.overUnder) : "–")) : null,
-        wpBar(g),
-      );
-    }
+/** Before the reader opens, the paper keeps its place, so the reader's way back returns to the same spot. */
+function rememberSpot() {
+  try {
+    sessionStorage.setItem("np.from", JSON.stringify({ y: typeof window !== "undefined" ? window.scrollY : 0, at: Date.now() }));
+  } catch {
+    // storage refused: the reader's way back still opens the paper, at its top
   }
-  const box = el(
+}
+
+const dateWords = (iso) => (iso ? fmtDate(iso, "short") : null);
+const hostOf = (s) => {
+  try {
+    return new URL(String(s.url)).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+};
+
+/** The line under a story: its source and date, and the way to the whole story (or to its site, for a headline). */
+function sourceLine(s) {
+  const facts = [text(s.source || "News"), dateWords(s.publishedAt)].filter(Boolean).join(" · ");
+  const href = storyHref(s);
+  const go = !href ? null : s.copied ? el("a", { class: "np-go", href, onclick: rememberSpot }, "The whole story ›") : el("a", { class: "np-go", href, target: "_blank", rel: "noopener" }, `Read it at ${text(s.source || hostOf(s) || "the site")} ›`);
+  return el("p", { class: "np-src" }, el("span", {}, facts), go ? el("span", { "aria-hidden": "true" }, "·") : null, go);
+}
+
+function picture(p, cls) {
+  const pic = obj(p);
+  if (typeof pic.src !== "string" || !(pic.src.startsWith("/") || httpUrl(pic.src))) return null;
+  const words = typeof pic.cutline === "string" && pic.cutline ? pic.cutline : null;
+  const credit = typeof pic.credit === "string" && pic.credit ? (pic.kind === "drawn" ? pic.credit : `Photo: ${pic.credit}`) : null; // a drawing says whose it is
+  const img = el("img", { src: pic.src, alt: words || "", loading: "lazy", decoding: "async" });
+  const box = el("div", { class: `np-pic ${cls}${pic.kind === "headshot" ? " np-pic--headshot" : ""}${pic.kind === "drawn" ? " np-pic--drawn" : ""}` }, img);
+  img.addEventListener("error", () => box.remove()); // a photo that will not load leaves no grey box behind
+  const cut = words || credit ? el("p", { class: "np-cut" }, [words, credit].filter(Boolean).join(" ")) : null;
+  return [box, cut];
+}
+
+/** A story's opening, cut to the space its row leaves (the fade says there is more); one column or two. */
+function cutText(opening, legs) {
+  const paras = (Array.isArray(opening) ? opening : []).filter((p) => typeof p === "string" && p.trim()).map((p) => el("p", {}, p)); // strings: records() keeps objects only
+  if (!paras.length) return null;
+  if (legs) return el("div", { class: "np-legbox" }, el("div", { class: "np-legs np-text" }, paras), el("div", { class: "np-fade np-fade--leg2", "aria-hidden": "true" }));
+  return el("div", { class: "np-textbox" }, el("div", { class: "np-text" }, paras), el("div", { class: "np-fade", "aria-hidden": "true" }));
+}
+
+function briefItem(s) {
+  const facts = [text(s.source || "News"), dateWords(s.publishedAt)].filter(Boolean).join(" · ");
+  const href = storyHref(s);
+  const kids = [el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, facts, s.copied ? null : el("span", { class: "np-only", title: "Only the headline is on this server" }, "Headline only"))];
+  if (!href) return el("div", { class: "np-brief" }, kids);
+  return href.startsWith("#") ? el("a", { class: "np-brief", href, onclick: rememberSpot, id: `np-s-${s.id}` }, kids) : el("a", { class: "np-brief", href, target: "_blank", rel: "noopener", id: `np-s-${s.id}` }, kids);
+}
+
+function alsoItem(s) {
+  const href = storyHref(s);
+  const kids = [el("span", { class: "np-label" }, "Also"), el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, [text(s.source || "News"), dateWords(s.publishedAt), s.copied ? null : "Headline only"].filter(Boolean).join(" · "))];
+  if (!href) return el("div", { class: "np-also" }, kids);
+  return href.startsWith("#") ? el("a", { class: "np-also", href, onclick: rememberSpot }, kids) : el("a", { class: "np-also", href, target: "_blank", rel: "noopener" }, kids);
+}
+
+/** One story of two columns: photo first or head first; its text cut to the row; an Also brief under a headline. */
+function storyCell(cell, i) {
+  const c = obj(cell);
+  const s = obj(c.story);
+  if (!s.title) return null;
+  const pic = picture(c.picture, "np-pic--story");
+  const head = el("h3", { class: "np-head np-head--story" }, linkTo(s, text(s.title)));
+  const kicker = el("span", { class: "np-kicker" }, text(s.kicker || "The week"));
+  const body = s.copied ? cutText(s.opening, false) : el("span", { class: "np-only" }, "Headline only");
+  const parts = c.first === "photo" && pic ? [pic, kicker, head] : [kicker, head, pic];
+  return el("article", { class: `np-story np-span2${i ? " np-rule-v" : ""}`, id: `np-s-${s.id}` }, parts, body, sourceLine(s), c.also ? alsoItem(c.also) : null);
+}
+
+function storyRow(cells) {
+  const list = records(cells).map(storyCell).filter(Boolean);
+  return list.length ? el("section", { class: "np-row" }, list) : null;
+}
+
+/** A page's lead: kicker, headline, byline, the photo and its cutline, the text in two legs, the way to the whole story. */
+function leadStory(lead, pic, { kicker, banner, deck, final, page = 1, briefs = [] } = {}) {
+  const s = obj(lead);
+  const head = el("h2", { class: `np-head ${page === 1 ? "np-head--lead" : "np-head--page"}${final ? " paper-head--final" : ""}` }, linkTo(s, text(banner || s.title)));
+  const byline = deck || [s.author ? `By ${text(s.author)}` : null, text(s.source || null), s.publishedAt ? fmtDate(s.publishedAt, "long") : null].filter((v) => v && v !== "–").join(" · ");
+  const text2 = s.copied ? cutText(s.opening, true) : briefs.length ? el("div", { class: "np-legbox" }, el("div", { class: "np-legs" }, briefs.map(briefItem)), el("div", { class: "np-fade np-fade--leg2", "aria-hidden": "true" })) : null;
+  return el(
     "article",
-    { class: `paper-box paper-match paper-match--${size} paper-match--${status}${g.isUs === true ? " paper-match--us" : ""}`, "aria-label": `${text(away.school)} ${g.neutralSite ? "versus" : "at"} ${text(home.school)}` },
-    margin(),
-    helmet(away, false, away.school === us),
-    mid,
-    helmet(home, true, home.school === us),
-    margin(),
+    { class: "np-lead np-span4", id: `np-s-${s.id}` },
+    el("span", { class: `np-kicker${final ? " paper-kicker--final" : ""}` }, text(kicker || s.kicker || "The week")),
+    head,
+    byline ? el("p", { class: `np-byline${final ? " paper-head--final" : ""}` }, byline) : null,
+    picture(pic, "np-pic--lead"),
+    text2,
+    banner && banner !== s.title && s.title ? el("p", { class: "np-byline" }, "From ", linkTo(s, text(s.title))) : null,
+    sourceLine(s),
   );
-  box.style.setProperty("--c-away", typeof away.color === "string" && away.color ? away.color : "var(--rule-strong)");
-  box.style.setProperty("--c-home", typeof home.color === "string" && home.color ? home.color : "var(--rule-strong)");
-  // freeze wave F5 (owner 2026-10-20): a tap on Matchup opens the two teams side by side (ui/matchup-sheet.js, Phase 16)
-  if (status !== "unplayed" && typeof away.school === "string" && away.school && typeof home.school === "string" && home.school) {
-    mid.append(el("p", { class: "paper-tools" }, el("button", { class: "btn btn--quiet paper-matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")));
-  }
-  return box;
 }
 
-// --- the front page (the layout pass, owner 2026-10-22, board 5: https://claude.ai/artifact/Vv827cCpVUGkdDWuN4QeAV) ---------
-// "The problem is that the articles become completely uniform down the page": a newspaper's front instead. One dominant
-// story (our game) with a banner headline across the page, a deck, the big picture and a column beside it; then modules of
-// different widths and depths (the game of the week across two columns, the player, the coach); a rail at the right with
-// "By the numbers" and every ranked game in one line of agate; the other headlines as briefs at the foot. Our team first,
-// the Top 25 compact (his 1); names never cut (his 2).
-
-const pct = (v) => `${Math.round(v * 100)}%`;
+// --- the rail ---------------------------------------------------------------------------------------------------------
 
 /** A key stat's value in its format: whole numbers, one decimal, or a whole-number rate (Design rules, 2026-10-21). */
 function statValue(value, format) {
   if (!isNum(value)) return "–";
-  if (format === "pct") return pct(value);
+  if (format === "pct") return `${Math.round(value * 100)}%`;
   if (format === "1f") return value.toFixed(1);
   return String(Math.round(value));
 }
 
-/** The recap of our game when it belongs to this edition (this week's paper, our game final), else null. */
-function recapFor(data, edition, ours) {
-  const r = obj(data.recap);
-  if (!edition.current || !isNum(r.gameId)) return null;
-  const game = ours ? ours.gameId : edition.gameId;
-  return isNum(game) && game === r.gameId && r.final && typeof r.final === "object" ? r : null;
+/** "By the numbers": our game's key stats after the final, the two teams' records before it, else the week's count. */
+function numbersBox({ recap, ourGame, data, chosen }) {
+  let rows = [];
+  const picked = records(chosen).filter((n) => typeof n.big === "string" && typeof n.words === "string");
+  if (picked.length && !recap) {
+    rows = picked.slice(0, 4); // FEAT-14 wave 4: the numbers Claude took from the week's stories
+  } else if (recap) {
+    rows = records(recap.keyStats).filter((s) => typeof s.label === "string").slice(0, 3).map((s) => ({ big: statValue(s.us, s.format), words: `${s.label.toLowerCase()} for us; ${statValue(s.them, s.format)} for ${text(recap.opponent)}` }));
+  } else if (ourGame) {
+    const away = obj(ourGame.away);
+    const home = obj(ourGame.home);
+    rows = [
+      sharedRecord(obj(away.record)) ? { big: sharedRecord(obj(away.record)), words: `${text(away.school)}'s record${isNum(away.rank) ? `, No. ${away.rank}` : ""}` } : null,
+      sharedRecord(obj(home.record)) ? { big: sharedRecord(obj(home.record)), words: `${text(home.school)}'s record${isNum(home.rank) ? `, No. ${home.rank}` : ""}` } : null,
+    ].filter(Boolean);
+  } else {
+    const c = obj(obj(data.rankedWeek).counts);
+    rows = [isNum(c.final) ? { big: String(c.final), words: "ranked games final" } : null, isNum(c.live) ? { big: String(c.live), words: "ranked games live" } : null, isNum(c.pre) ? { big: String(c.pre), words: "ranked games to come" } : null].filter(Boolean);
+  }
+  if (!rows.length) return null;
+  return el("aside", { class: `np-box${recap ? " score-words" : ""}`, "aria-label": "By the numbers" }, el("div", { class: "np-standing" }, "By the numbers"), rows.map((r) => el("div", { class: "np-num" }, el("b", {}, r.big), el("span", {}, r.words))));
 }
 
-// a school's name short enough for a line of agate the way a newspaper shortens it; never cut with "…" (his 2)
-const SHORTER = [[/\bState\b/g, "St."], [/\bMountain\b/g, "Mtn."], [/\bJunction\b/g, "Jct."], [/\bCentral\b/g, "Cen."], [/\bUniversity\b/g, "U."], [/\bInternational\b/g, "Intl."], [/\bNorthern\b/g, "N."], [/\bSouthern\b/g, "S."], [/\bEastern\b/g, "E."], [/\bWestern\b/g, "W."]];
+function insideBox(items, lastPage) {
+  const list = records(items);
+  if (!list.length) return null;
+  return el(
+    "nav",
+    { "aria-label": "Inside today" },
+    el("div", { class: "np-standing" }, "Inside today"),
+    list.map((i) =>
+      el(
+        "button",
+        { type: "button", class: "np-inside", style: { width: "100%", textAlign: "left", background: "none", border: "0", borderBottom: "1px solid var(--rule)", font: "inherit", cursor: "pointer" }, onclick: () => jump(i.id ? `np-s-${i.id}` : i.anchor || `np-page-${i.page}`) },
+        el("span", { class: "np-label" }, `Page ${i.page}`),
+        el("span", { class: "np-inside__words" }, text(i.words)),
+      ),
+    ),
+  );
+}
 
-/** "Dust Devil State" -> "Dust Devil St." in a line of agate (a name of thirteen letters or fewer stays whole). */
+function jump(id) {
+  const target = typeof document !== "undefined" && typeof document.getElementById === "function" ? document.getElementById(id) : null;
+  if (target && typeof target.scrollIntoView === "function") target.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function quoteBox(q) {
+  const quote = obj(q);
+  if (typeof quote.text !== "string" || !quote.text) return null;
+  return el("figure", { class: "np-box np-box--quiet", style: { margin: "0" } }, el("span", { class: "np-label" }, "Said this week"), el("blockquote", { class: "np-quote" }, `“${quote.text}”`), el("figcaption", { class: "np-src" }, text(quote.who || null), quote.publishedAt ? ` · ${fmtDate(quote.publishedAt, "short")}` : ""));
+}
+
+// --- the game of the week and the agate ---------------------------------------------------------------------------------
+
+const rankedName = (t) => (isNum(t.rank) ? `No.${NBSP}${t.rank} ${text(t.school)}` : text(t.school));
+
 /** The game of the week: the matchups come in AP poll order (No. 1 against an unranked team first), so the game drawn
  * large is the best pair of ranked teams (the lowest sum of ranks, then the better rank), else the first other game. */
-export function gameOfWeek(matchups, ours = null) {
-  const others = records(matchups).filter((g) => g !== ours && g.isUs !== true);
+export function gameOfWeek(matchups, ourGame = null) {
+  const others = records(matchups).filter((g) => g !== ourGame && g.isUs !== true);
   const rank = (g, side) => (isNum(obj(g[side]).rank) ? obj(g[side]).rank : null);
   const pairs = others.filter((g) => rank(g, "home") !== null && rank(g, "away") !== null);
   if (!pairs.length) return others[0] || null;
@@ -365,203 +267,264 @@ export function gameOfWeek(matchups, ours = null) {
   });
 }
 
+function gameStatus(g) {
+  return ["pre", "live", "final", "unplayed"].includes(g.status) ? g.status : "pre";
+}
+
+function gameModule(g) {
+  if (!g) return null;
+  const away = obj(g.away);
+  const home = obj(g.home);
+  const status = gameStatus(g);
+  const line = obj(g.headline);
+  const tag = typeof g.bowl === "string" && g.bowl ? g.bowl : g.conferenceGame === true ? text(g.conference || "Conference game") : "Non-conference";
+  const side = (t, isHome) =>
+    el(
+      "div",
+      { class: `np-game__side np-span2${isHome ? " np-game__side--home" : ""}` },
+      isHome ? null : teamLogo(t, { size: 72, lazy: false, className: "np-logo" }),
+      el("span", { style: { display: "grid", gap: "2px" } }, el("span", { class: "np-src" }, [isNum(t.rank) ? `AP ${t.rank}` : null, sharedRecord(obj(t.record))].filter(Boolean).join(" · ") || "Unranked"), el("span", { class: "np-game__name" }, t.school ? teamLink(t.school, text(t.school)) : "–")),
+      isHome ? teamLogo(t, { size: 72, lazy: false, className: "np-logo" }) : null,
+    );
+  let middle;
+  if (status === "final" && isNum(away.points) && isNum(home.points)) {
+    const [w, l] = away.points >= home.points ? [away, home] : [home, away];
+    middle = [el("span", { class: "np-head np-head--story paper-head--final" }, text(line.text) !== "–" ? text(line.text) : `${text(w.school)} ${w.points}, ${text(l.school)} ${l.points}`), el("span", { class: "np-src score-words" }, `Final: ${text(w.school)} ${w.points}, ${text(l.school)} ${l.points}`)];
+  } else if (status === "live") {
+    middle = [el("span", { class: "np-head np-head--story score-words" }, `${text(away.school)} ${isNum(away.points) ? away.points : "–"}, ${text(home.school)} ${isNum(home.points) ? home.points : "–"}`), el("span", { class: "np-src" }, isNum(g.period) ? (g.period <= 4 ? `Quarter ${g.period}${g.clock ? `, ${text(g.clock)} left` : ""}` : "Overtime") : "Under way")];
+  } else {
+    middle = [el("span", { class: "np-head np-head--story" }, typeof line.text === "string" && line.text ? line.text : `${rankedName(away)} ${g.neutralSite ? "vs." : "at"} ${rankedName(home)}`), el("span", { class: "np-src" }, [fmtDate(g.kickoff, "medium"), g.startTimeTbd === true ? "time TBD" : fmtTime(g.kickoff), text(g.venue || null)].filter((v) => v && v !== "–").join(" · "))];
+  }
+  return el("section", { class: "np-row np-game", "aria-label": "Game of the week" }, side(away, false), el("div", { class: "np-game__mid np-span2" }, el("span", { class: "np-kicker" }, `Game of the week · ${tag}`), middle), side(home, true));
+}
+
+// a school's name short enough for a line of agate the way a newspaper shortens it; never cut with "…"
+const SHORTER = [[/\bState\b/g, "St."], [/\bMountain\b/g, "Mtn."], [/\bJunction\b/g, "Jct."], [/\bCentral\b/g, "Cen."], [/\bUniversity\b/g, "U."], [/\bInternational\b/g, "Intl."], [/\bNorthern\b/g, "N."], [/\bSouthern\b/g, "S."], [/\bEastern\b/g, "E."], [/\bWestern\b/g, "W."]];
+
+/** "Appalachian State" -> "Appalachian St." in a line of agate (a name of thirteen letters or fewer stays whole). */
 export function agateName(school) {
   const name = text(school);
   if (name.length <= 13) return name;
   return SHORTER.reduce((s, [from, to]) => s.replace(from, to), name);
 }
 
-/** The skybox under the flag: three refers to inside (the next game, the Top 25, the season or the trivia). */
-function skybox(data, edition, recap) {
-  const counts = obj(obj(data.rankedWeek).counts);
-  const next = recap ? obj(recap.next) : obj(data.nextGame);
-  const nextWhen = next.date ? `${fmtDate(next.date, "medium")}${next.startTimeTbd ? "" : `, ${fmtTime(next.date)}`}` : null;
-  const nextWho = next.opponent ? `${next.homeAway === "away" ? "at" : next.homeAway === "home" ? "vs" : ""} ${text(next.opponent)}`.trim() : null;
-  const top = [isNum(counts.final) && counts.final ? `${counts.final} final` : null, isNum(counts.live) && counts.live ? `${counts.live} live` : null, isNum(counts.pre) && counts.pre ? `${counts.pre} to come` : null].filter(Boolean).join(", ");
-  const trivia = lastTriviaData();
-  const leader = triviaRunning(trivia) ? records(trivia.standings)[0] : null;
-  const rec = recap ? obj(recap.record) : null;
-  const items = [
-    nextWho ? { kicker: recap ? "Next up" : "This week", words: [nextWho, nextWhen].filter(Boolean).join(", "), href: "#program" } : null,
-    top ? { kicker: "Top 25", words: top, href: "#top25" } : null,
-    leader && leader.name ? { kicker: "Trivia", words: `${text(leader.name)} lead${Array.isArray(leader.today) ? `, ${leader.today[0]} of ${leader.today[1]}` : ""}`, href: "#trivia" } : rec && isNum(rec.wins) ? { kicker: "The season", words: `${text(ours().name || usSchool())} ${sharedRecord(rec) || ""}`.trim(), href: "#season" } : null,
-  ].filter(Boolean);
-  if (!items.length) return null;
-  return el("nav", { class: "front-sky", "aria-label": "Inside" }, items.map((i) => el("a", { class: "front-sky__item", href: i.href }, el("span", { class: "paper-kicker" }, i.kicker), el("span", { class: "front-sky__words" }, i.words, el("span", { class: "front-sky__go", "aria-hidden": "true" }, " ›")))));
-}
-
-/** The lead: the kicker, the banner headline across the page, the deck, the big picture with a column of text beside it. */
-function leadPackage({ story, ours, recap, edition, names }) {
-  const status = ours ? (["pre", "live", "final", "unplayed"].includes(ours.status) ? ours.status : "pre") : recap ? "final" : null;
-  const us = text(ours ? (obj(ours.away).school === usSchool() ? obj(ours.away).abbreviation : obj(ours.home).abbreviation) : null);
-  const them = ours ? (obj(ours.away).school === usSchool() ? obj(ours.home) : obj(ours.away)) : {};
-  const final = status === "final";
-  const kicker = el("p", { class: `paper-kicker${final ? " paper-kicker--final" : ""}` }, ours || recap ? `Game week · ${final ? "Final" : status === "live" ? "Live" : "Preview"}` : KICKERS[story.lead?.topic] || "This week");
-  const headWords = ours && obj(ours.headline).text ? obj(ours.headline).text : story.lead ? story.lead.title : null;
-  const href = ours ? gameHref(ours) : story.lead ? storyHref(story.lead) : null;
-  let banner;
-  if (status === "live" && ours) banner = el("div", { class: "front-banner front-banner--live" }, statusLine(ours));
-  else if (headWords) banner = el("h2", { class: `front-banner${final ? " paper-head--final" : ""}` }, href ? el("a", href.startsWith("http") ? { href, target: "_blank", rel: "noopener" } : { href }, richText(headWords, names)) : richText(headWords, names));
-  else banner = el("p", { class: "paper-empty" }, "No stories from the team's feeds yet this week. They show here as the feeds publish.");
-  const pog = recap ? obj(recap.playerOfGame) : null;
-  const rec = recap ? sharedRecord(obj(recap.record)) : null;
-  const deckWords = recap
-    ? [pog && pog.name && pog.isUs !== false ? `${text(pog.name)} is the player of the game` : null, rec ? `${usSchool()} moves to ${rec}` : null].filter(Boolean).join(", and ")
-    : ours
-      ? [fmtDate(ours.kickoff, "long"), ours.startTimeTbd === true ? "time TBD" : fmtTime(ours.kickoff), ours.venue ? text(ours.venue) : null, crewOrTv(ours)].filter((f) => typeof f === "string" && f && f !== "–").join(" · ")
-      : null;
-  const deck = deckWords ? el("p", { class: `front-deck${final ? " paper-head--final" : ""}` }, deckWords) : null;
-  const stadium = fillPicture("stadium", { seed: seedOf(text(headWords || "stadium")) }, "A pixel stadium under the lights");
-  const art = el("figure", { class: "front-art" }, el("div", { class: "paper-pic paper-pic--stadium" }, stadium), ours && ours.venue ? el("figcaption", { class: "front-cutline" }, `${text(ours.venue)}${final ? ", after the final whistle" : status === "live" ? ", the game under way" : ", waiting for kickoff"}.`) : null);
-  return el(
-    "section",
-    { class: "front-lead", "aria-label": "Our game" },
-    kicker,
-    banner,
-    deck,
-    el("div", { class: "front-leadrow" }, art, pressBox({ ours, recap, story, them, us, status })),
-  );
-}
-
-/** The column beside the lead's picture: the turning point, the key numbers in words, what is next; or before the game,
- *  the two teams and the line; always the way into the box score and the program. */
-function pressBox({ ours, recap, story, them, us, status }) {
-  const paras = [];
-  if (recap) {
-    const tp = obj(recap.turningPoint);
-    const q = isNum(tp.period) ? (tp.period <= 4 ? QUARTERS[tp.period - 1] : "overtime") : null;
-    const clock = tp.clock && isNum(tp.clock.minutes) ? `${tp.clock.minutes}:${String(isNum(tp.clock.seconds) ? tp.clock.seconds : 0).padStart(2, "0")}` : null;
-    if (q && isNum(tp.usScore) && isNum(tp.themScore)) paras.push(`The turning point came ${clock ? `with ${clock} left in the ` : "in the "}${q}: the play that made it ${tp.usScore}-${tp.themScore}${isNum(tp.usWpBefore) && isNum(tp.usWpAfter) ? `, our chances from ${pct(tp.usWpBefore)} to ${pct(tp.usWpAfter)}` : ""}.`);
-    const stats = records(recap.keyStats).filter((s) => typeof s.label === "string").slice(0, 3);
-    if (stats.length) paras.push(stats.map((s) => `${s.label}: ${text(us || "us")} ${statValue(s.us, s.format)}, ${text(them.abbreviation || recap.opponent)} ${statValue(s.them, s.format)}`).join(". ") + ".");
-    const next = obj(recap.next);
-    if (next.opponent) paras.push(`Next: ${text(next.opponent)}${next.homeAway === "home" ? " at home" : next.homeAway === "away" ? " on the road" : ""}${next.date ? `, ${fmtDate(next.date, "long")}` : ""}.`);
-  } else if (ours) {
-    const l = obj(ours.line);
-    const spread = typeof l.short === "string" && l.short ? l.short : typeof l.formatted === "string" && l.formatted ? l.formatted : null;
-    const away = obj(ours.away);
-    const home = obj(ours.home);
-    paras.push(`${rankedName(away)} (${recordText(away)}) ${ours.neutralSite ? "meets" : "visits"} ${rankedName(home)} (${recordText(home)}).`);
-    if (spread || isNum(l.overUnder)) paras.push(`The line: ${text(spread)}${isNum(l.overUnder) ? `, over/under ${l.overUnder}` : ""}.`);
-  } else if (story.lead) {
-    paras.push([story.lead.source, ageOf(story.lead.publishedAt)].filter(Boolean).map(text).join(" · "));
-  }
-  const gid = ours ? ours.gameId : recap ? recap.gameId : null;
-  return el(
-    "div",
-    { class: `front-col${status === "final" ? " paper-head--final" : ""}` },
-    el("p", { class: "front-byline" }, recap || ours ? "From the press box" : "The lead story"),
-    paras.map((p) => el("p", {}, p)),
-    ours || recap ? el("a", { class: "front-refer", href: ours ? gameHref(ours) || "#live" : `#box=${gid}` }, status === "pre" ? "In Game at kickoff ›" : "The box score ›") : null,
-    isNum(gid) ? el("a", { class: "front-refer", href: `#program=${gid}` }, status === "final" ? "The Post-Game Program ›" : "The Pre-Game Program ›") : null,
-  );
-}
-
-/** The rail's "By the numbers": our game's key stats after the final, the two teams before it, else the week's count. */
-function numbersBox({ recap, ours, data }) {
-  let rows = [];
-  if (recap) {
-    rows = records(recap.keyStats).filter((s) => typeof s.label === "string").slice(0, 3).map((s) => ({ big: statValue(s.us, s.format), words: `${s.label.toLowerCase()} for us; ${statValue(s.them, s.format)} for ${text(recap.opponent)}` }));
-  } else if (ours) {
-    const away = obj(ours.away);
-    const home = obj(ours.home);
-    const l = obj(ours.line);
-    rows = [
-      sharedRecord(obj(away.record)) ? { big: sharedRecord(obj(away.record)), words: `${text(away.school)}'s record` } : null,
-      sharedRecord(obj(home.record)) ? { big: sharedRecord(obj(home.record)), words: `${text(home.school)}'s record` } : null,
-      isNum(l.overUnder) ? { big: String(l.overUnder), words: "points, the over/under" } : null,
-    ].filter(Boolean);
-  } else {
-    const c = obj(obj(data.rankedWeek).counts);
-    rows = [isNum(c.final) ? { big: String(c.final), words: "ranked games final" } : null, isNum(c.live) ? { big: String(c.live), words: "ranked games live" } : null, isNum(c.pre) ? { big: String(c.pre), words: "ranked games to come" } : null].filter(Boolean);
-  }
-  if (!rows.length) return null;
-  return el("aside", { class: `front-numbers${recap ? " score-words" : ""}`, "aria-label": "By the numbers" }, el("p", { class: "front-railhead" }, "By the numbers"), rows.map((r) => el("p", { class: "front-num" }, el("b", {}, r.big), el("span", {}, r.words))));
-}
-
-/** One ranked game as a line of agate: the winner first after a final, the score and the quarter while live. */
 function agateLine(g) {
   const away = obj(g.away);
   const home = obj(g.home);
   const name = (t) => `${isNum(t.rank) ? `${t.rank} ` : ""}${agateName(t.school)}`;
-  const status = ["pre", "live", "final", "unplayed"].includes(g.status) ? g.status : "pre";
+  const status = gameStatus(g);
   let words;
   let state;
   if (status === "final" && isNum(away.points) && isNum(home.points)) {
     const [w, l] = away.points >= home.points ? [away, home] : [home, away];
-    const periods = Math.max(Array.isArray(home.lineScores) ? home.lineScores.length : 0, Array.isArray(away.lineScores) ? away.lineScores.length : 0);
-    words = [el("b", {}, `${name(w)} ${w.points}`), ", ", el("span", { class: "front-agate__l" }, `${name(l)} ${l.points}`)];
-    state = periods > 5 ? `${periods - 4}OT` : periods === 5 ? "OT" : "F";
+    words = `${name(w)}, ${name(l)}`;
+    state = el("span", { class: "score-words" }, `${w.points}-${l.points}`);
   } else if (status === "live") {
-    words = `${name(away)} ${isNum(away.points) ? away.points : "–"}, ${name(home)} ${isNum(home.points) ? home.points : "–"}`;
-    state = el("span", { class: "front-agate__live" }, isNum(g.period) ? (g.period <= 4 ? `Q${g.period}` : "OT") : "Live");
+    words = `${name(away)} at ${name(home)}`;
+    state = el("span", { class: "score-words" }, `${isNum(away.points) ? away.points : "–"}-${isNum(home.points) ? home.points : "–"} live`);
   } else if (status === "unplayed") {
     words = `${name(away)} at ${name(home)}`;
     state = "Not played";
   } else {
-    words = `${name(away)} ${g.neutralSite ? "vs." : "at"} ${name(home)}`;
-    state = g.startTimeTbd === true ? "TBD" : fmtTime(g.kickoff);
+    words = `${name(away)} ${g.neutralSite ? "vs" : "at"} ${name(home)}`;
+    state = g.startTimeTbd === true ? "TBD" : fmtTime(g.kickoff).replace(/\s[A-Z]{2,4}$/, "");
   }
-  // plain lines, as a newspaper's agate (a 44 px press target a line would stretch the rail): the cards are on the Top 25 page
-  return el("div", { class: `front-agate__row${g.isUs === true ? " is-us" : ""}${status === "final" || status === "live" ? " score-words" : ""}` }, el("span", { class: "front-agate__game" }, words), el("span", { class: "front-agate__state" }, state));
+  return el("div", { class: `np-agate${g.isUs === true ? " is-us" : ""}` }, el("span", {}, words), el("span", { class: "np-agate__state" }, state));
 }
 
-/** The rail's scoreboard: every ranked game of the week in one line, ours marked, the teams off this week, the way to the cards. */
-function scoreboard(matchups, edition) {
-  if (!matchups.length) return null;
-  const off = records(edition.offThisWeek).filter((t) => typeof t.school === "string");
-  return el(
-    "section",
-    { class: "front-scores", "aria-label": "Around the Top 25" },
-    el("p", { class: "front-railhead" }, "Around the Top 25"),
-    el("div", { class: "front-agate" }, matchups.map(agateLine)),
-    off.length ? el("p", { class: "front-off" }, el("b", {}, "Off this week: "), off.map((t) => `${isNum(t.rank) ? `${t.rank} ` : ""}${agateName(t.school)}`).join(", ")) : null,
-    el("a", { class: "front-refer", href: "#top25" }, "Every game's card on the Top 25 page ›"),
-  );
+
+// --- the pages ----------------------------------------------------------------------------------------------------------
+
+function folio(page, name, paperLine, anchor) {
+  return el("header", { class: "np-folio", id: anchor || null }, el("span", { style: { display: "flex", alignItems: "baseline", gap: "12px" } }, el("span", { class: "np-folio__page" }, page), el("span", { class: "np-folio__name" }, name)), el("span", { class: "np-folio__paper" }, paperLine));
 }
 
-/** The player of the game from the recap, when no headline this week names one of ours. */
-function pogBox(recap) {
-  const p = obj(recap.playerOfGame);
-  const pic = fillPicture("player", { seed: seedOf(text(p.name)) }, `${text(p.name)}, in pixels`);
-  return el(
-    "article",
-    { class: "paper-box paper-feat paper-feat--player" },
-    margin(),
-    cell(pic, "paper-pic--player"),
-    el("div", { class: "paper-words" }, el("p", { class: "paper-kicker" }, "Player of the game"), el("h3", { class: "paper-head paper-head--feat" }, `${text(p.name)}${p.position ? `, ${text(p.position)}` : ""}`), el("p", { class: "paper-source" }, isNum(p.value) ? `${p.value.toFixed(1)} points of play value` : "From the play by play")),
-  );
-}
-
-/** The other headlines as briefs: two columns at the foot, or one column in a tier when no coach's story fills it. */
-function briefs(items, { column = false } = {}) {
-  const list = records(items).filter(headlineOk).slice(0, 8);
-  if (!list.length) return null;
-  return el(
-    "section",
-    { class: `front-briefs${column ? " front-briefs--column" : ""}`, "aria-label": "More headlines" },
-    el("p", { class: "front-railhead" }, "More headlines"),
+function morePage(page, paperLine) {
+  const columns = (Array.isArray(page.columns) ? page.columns : []).filter(Array.isArray).slice(0, 3); // arrays: records() keeps objects only
+  return [
+    folio(`Page ${page.page}`, text(page.name || "The rest of the week"), paperLine, `np-page-${page.page}`),
     el(
-      "div",
-      { class: "front-briefs__list" },
-      list.map((item) => {
-        const href = storyHref(item);
-        return el("p", { class: "front-brief" }, el("b", {}, href ? el("a", { href, target: "_blank", rel: "noopener" }, text(item.title)) : text(item.title)), el("small", {}, [item.source, ageOf(item.publishedAt)].filter(Boolean).map(text).join(" · ") || "Headline"));
-      }),
+      "section",
+      { class: "np-row" },
+      columns.map((col, i) => el("div", { class: `np-column np-span2${i ? " np-rule-v" : ""}` }, records(col).map((item) => (typeof item.section === "string" ? el("div", { class: "np-standing" }, item.section) : item.title ? briefItem(item) : null)))),
     ),
+  ];
+}
+
+/** The recap of our game when it belongs to this edition (this week's paper, our game final), else null. */
+function recapFor(data, edition, ourGame) {
+  const r = obj(data.recap);
+  if (!edition.current || !isNum(r.gameId)) return null;
+  const game = ourGame ? ourGame.gameId : edition.gameId;
+  return isNum(game) && game === r.gameId && r.final && typeof r.final === "object" ? r : null;
+}
+
+/** One week's paper: the front page, page 2, page 3 and on, the Top 25 at the back (and, this week, Claude's line). */
+function weekPages(data, edition, { kept = false, polls = null } = {}) {
+  const lay = obj(edition.layout);
+  const front = obj(lay.front);
+  const matchups = records(edition.matchups).filter((g) => g.home && typeof g.home === "object" && g.away && typeof g.away === "object");
+  const ourGame = matchups.find((g) => g.isUs === true) || null;
+  const recap = kept ? null : recapFor(data, edition, ourGame);
+  const status = ourGame ? gameStatus(ourGame) : null;
+  const paperLine = `${mastheadName(isNum(edition.season) ? edition.season : data.season, isNum(edition.week) ? edition.week : null)} · ${kept ? text(edition.label) : fmtDate(data.today || new Date().toISOString(), "long")}`;
+  const out = [];
+  if (status === "live" && ourGame && !kept) {
+    // our game under way: its score under the masthead, the way the paper's front carries a late score (no link: In Game is a tab)
+    const a = obj(ourGame.away);
+    const h = obj(ourGame.home);
+    out.push(el("p", { class: "np-live score-words", role: "status" }, el("span", { class: "np-kicker" }, "Our game · Live"), el("b", {}, `${text(a.school)} ${isNum(a.points) ? a.points : "–"}, ${text(h.school)} ${isNum(h.points) ? h.points : "–"}`), el("span", { class: "np-src" }, isNum(ourGame.period) ? (ourGame.period <= 4 ? `Quarter ${ourGame.period}${ourGame.clock ? `, ${text(ourGame.clock)} left` : ""}` : "Overtime") : "Under way")));
+  }
+  const final = Boolean(recap) || (kept && status === "final");
+  const finalWords = final && ourGame && typeof obj(ourGame.headline).text === "string" ? obj(ourGame.headline).text : null;
+  const pog = recap ? obj(recap.playerOfGame) : null;
+  const deck = recap ? [pog && pog.name && pog.isUs !== false ? `${text(pog.name)} is the player of the game` : null, sharedRecord(obj(recap.record)) ? `${usSchool()} moves to ${sharedRecord(obj(recap.record))}` : null].filter(Boolean).join(", and ") || null : null;
+  if (front.lead) {
+    out.push(
+      el(
+        "section",
+        { class: "np-row", id: "np-page-1" },
+        leadStory(front.lead, front.picture, { kicker: final ? "Game week · Final" : null, banner: finalWords, deck, final, briefs: records(front.leadBriefs) }),
+        // Wave 6 (owner 2026-11-15, "Article replaces the box"): with the paper's own article on page 2 (By the numbers) the
+        // rail keeps Inside today and the quote
+        el("aside", { class: "np-rail np-span2 np-rule-v" }, insideBox(front.inside, null), obj(obj(lay.page2).lead).app === true ? null : numbersBox({ recap, ourGame, data, chosen: front.numbers }), quoteBox(front.quote)),
+      ),
+    );
+  } else {
+    // Wave 6 (owner 2026-11-15): the Sunday paper holds only the game's stories, so its empty words say so
+    const sunday = typeof edition?.key === "string" && edition.key.endsWith("-sunday");
+    const waiting = edition && edition.offseason
+      ? "No stories about the team that week. The paper turns over on Monday morning with the week's stories."
+      : sunday
+        ? "No stories about the game yet. They show here as the feeds publish them, until the new week's paper on Monday morning."
+        : "No stories from the team's feeds yet this week. They show here as the feeds publish.";
+    out.push(note(kept ? (sunday ? "No stories about the game were kept." : "No stories were kept for this week.") : waiting, { kind: "empty" }));
+  }
+  out.push(storyRow(front.row));
+  out.push(gameModule(gameOfWeek(matchups, ourGame)));
+  const p2 = obj(lay.page2);
+  if (p2.lead) {
+    out.push(folio("Page 2", ours().school ? `More ${usName()}` : "More stories", paperLine, "np-page-2")); // the mascot ("More Gators"), the school without one
+    out.push(el("section", { class: "np-row" }, leadStory(p2.lead, p2.picture, { page: 2 }), el("aside", { class: "np-rail np-span2 np-rule-v" }, el("div", {}, el("div", { class: "np-standing" }, "Briefs"), records(p2.briefs).map(briefItem)))));
+    out.push(storyRow(p2.row));
+  }
+  for (const page of records(lay.more)) out.push(...morePage(page, paperLine));
+  // the Top 25's Saturday (the agate) left the paper for the Top 25 page (wave 3, owner 2026-11-01, his inventory)
+  if (!kept && polls) out.push(polls);
+  if (!kept && !edition.offseason) out.push(storiesBand(edition, matchups)); // rollover R3: the off-season paper has no week's games to pick
+  return out.filter(Boolean);
+}
+
+/** The Polls band at the back of this week's paper (wave 3 of the one-column page, owner 2026-11-01: the polls left My Team
+ *  for the Newspaper, the sheets and the magazine): the season overview's polls, loaded on their own; the reader's poll and
+ *  each table's order live in memory.polls across the minute's redraws (?poll=Coaches opens on that poll). */
+function pollsHost(memory) {
+  const host = el("section", { class: "np-polls" }, band({ id: "np-polls", title: "Polls", collapsible: false, state: { status: "loading" } }));
+  fetchJson("/api/season/overview")
+    .then((envelope) => host.replaceChildren(pollsBand(obj(envelope?.data), { ui: memory.polls, id: "np-polls" })))
+    .catch((error) => host.replaceChildren(band({ id: "np-polls", title: "Polls", collapsible: false, state: { status: "error", message: `${text(error?.message || error)}. The paper tries again with the next refresh.` } })));
+  return host;
+}
+
+
+/** FEAT-11: the week's stories and the Picks of the week, each pick by its game, written by Claude Code on Thursday. */
+function storiesBand(edition, matchups) {
+  const key = typeof edition?.key === "string" ? edition.key : null;
+  if (!key) return null;
+  const byId = new Map(matchups.map((g) => [String(g.gameId), g]));
+  const gameName = (pick) => {
+    const g = byId.get(String(pick.gameId));
+    return g ? `${text(obj(g.away).school)} at ${text(obj(g.home).school)}` : null;
+  };
+  return writingBand({
+    id: "paper-stories",
+    title: "The week's stories and picks",
+    kind: "paper",
+    key,
+    when: "Claude Code writes the week's stories and the Picks of the week on Thursday.",
+    draw: (w) => el(
+      "div",
+      { class: "paper-stories" },
+      records(w.stories).filter((s) => typeof s.headline === "string").map((s) => el("article", { class: "paper-story" }, el("h3", { class: "writing__head" }, s.headline), typeof s.dek === "string" ? el("p", { class: "paper-story__dek" }, s.dek) : null, ...paragraphs(s.paragraphs))),
+      records(w.picks).length
+        ? el("div", { class: "paper-picks" }, subhead("Picks of the week"), el("ul", { class: "writing__list" }, records(w.picks).filter((pick) => typeof pick.pick === "string").map((pick) => el("li", {}, el("b", {}, pick.pick), gameName(pick) ? ` (${gameName(pick)})` : "", typeof pick.reason === "string" ? `: ${pick.reason}` : ""))))
+        : null,
+      sourcesLine(w.sources),
+    ),
+  });
+}
+
+// --- the earlier weeks, folded ------------------------------------------------------------------------------------------
+
+function foldRow(row, delay, memory) {
+  const r = obj(row);
+  const when = [r.weekOf ? `The week of ${fmtDate(r.weekOf, "long").replace(/^\w+, /, "")}` : null, r.bye ? "Bye week" : r.opponent ? `${r.homeAway === "away" ? "at " : ""}${text(r.opponent)}` : null].filter(Boolean).join(" · ");
+  const holder = el("div", { class: "np-week", id: `np-weekbody-${r.key}`, hidden: true });
+  const button = el(
+    "button",
+    { type: "button", class: "np-fold", id: `np-week-${r.key}`, "aria-expanded": "false", "aria-controls": `np-weekbody-${r.key}` },
+    el("span", { class: "np-fold__week" }, text(r.label)),
+    el("span", { style: { display: "grid", gap: "2px", minWidth: "0" } }, el("span", { class: "np-fold__when" }, when || "–"), el("span", { class: `np-fold__lead${r.final ? " paper-head--final" : ""}` }, text(r.lead || r.label))),
+    el("span", { class: "np-src np-fold__rec", "aria-label": "Record after the week" }, text(r.record || null)),
+    el("span", { class: "np-fold__open", "aria-hidden": "true" }, icon("chevron-down")),
+  );
+  let loaded = false;
+  const draw = (data) => {
+    const edition = data.edition && typeof data.edition === "object" ? data.edition : null;
+    holder.replaceChildren(...(edition ? weekPages(data, edition, { kept: true }) : [note(`No paper was kept for ${text(r.label)}.`, { kind: "empty" })]));
+    loaded = true;
+    memory.refit?.();
+  };
+  async function load() {
+    if (memory.papers.has(r.key)) return draw(memory.papers.get(r.key)); // a kept week never changes: drawn again from memory
+    holder.replaceChildren(el("div", { class: "skel", style: { height: "160px" } }));
+    try {
+      const body = await fetchJson(`/api/newspaper?delay=${delay}&edition=${encodeURIComponent(r.key)}`);
+      const data = obj(body.data);
+      memory.papers.set(r.key, data);
+      draw(data);
+    } catch (error) {
+      holder.replaceChildren(note(`${text(r.label)} could not be read: ${text(error?.message || "no answer")}.`, { kind: "error" }), el("button", { type: "button", class: "btn", onclick: load }, "Try again"));
+    }
+  }
+  function toggle(force) {
+    const open = typeof force === "boolean" ? force : button.getAttribute("aria-expanded") !== "true";
+    button.setAttribute("aria-expanded", open ? "true" : "false");
+    holder.hidden = !open;
+    if (open) memory.refit?.();
+    if (open) memory.open.add(r.key);
+    else memory.open.delete(r.key);
+    if (open && !loaded) load();
+  }
+  button.addEventListener("click", () => toggle());
+  if (memory.open.has(r.key)) toggle(true);
+  return { node: [button, holder], open: () => toggle(true), button };
+}
+
+function earlierWeeks(rows, delay, memory) {
+  const list = records(rows).filter((r) => typeof r.key === "string" && EDITION.test(r.key));
+  if (!list.length) return { node: null, rows: [] };
+  const made = list.map((r) => ({ key: r.key, week: r.week, label: r.label, ...foldRow(r, delay, memory) }));
+  return { node: el("section", { class: "np-folds", "aria-label": "Earlier weeks" }, el("div", { class: "np-standing" }, "Earlier weeks"), made.map((m) => m.node)), rows: made };
+}
+
+function weekChips(edition, made) {
+  if (!made.length) return null;
+  const chip = (label, current, onclick) => el("button", { type: "button", class: "np-chip", "aria-current": current ? "true" : null, onclick }, label);
+  return el(
+    "nav",
+    { class: "np-weeks", "aria-label": "Weeks of the paper" },
+    el("span", { class: "np-label" }, "Weeks"),
+    chip(text(edition.label || "This week"), true, () => jump("np-top")),
+    // Wave 6: a Sunday paper's chip says so ("8 Sun"), beside its week's "8"
+    made.map((m) => chip(isNum(m.week) ? `${m.week}${typeof m.key === "string" && m.key.endsWith("-sunday") ? " Sun" : ""}` : text(m.label), false, () => {
+      m.open();
+      if (typeof m.button.scrollIntoView === "function") m.button.scrollIntoView({ behavior: "smooth", block: "start" });
+    })),
   );
 }
 
-// --- the page ---------------------------------------------------------------------------------------------------------
-
-/** The edition to draw: the server's, or (a server from before items 10-12) this week's headlines with no matchups. */
-function editionOf(data) {
-  if (data.edition && typeof data.edition === "object") return data.edition;
-  if (data.edition === null) return null;
-  // no edition at all: a server from before items 10-12, or one that could not read the ranked games (editionError)
-  const week = records(data.weeks)[0] || {};
-  return { key: "this-week", current: true, label: isNum(week.week) ? `Week ${week.week}` : "This week", week: week.week, season: data.season, opponent: week.opponent, homeAway: week.homeAway, headlines: records(week.headlines), matchups: [] };
-}
+// --- the page -----------------------------------------------------------------------------------------------------------
 
 function feedTrouble(feeds) {
   const entries = feeds && typeof feeds === "object" ? Object.values(feeds).filter((f) => f && typeof f === "object") : [];
@@ -570,135 +533,174 @@ function feedTrouble(feeds) {
   return stale ? note(`${text(stale.name)}: ${text(stale.error)}. The stories shown are from before.`, { kind: "empty" }) : null;
 }
 
-function render(envelope, container, asked) {
-  const data = obj(envelope?.data);
-  const editions = records(data.editions);
-  const edition = editionOf(data);
-  if (!edition) {
-    container.replaceChildren(
-      el(
-        "div",
-        { class: "page page--wide paper-page" },
-        band({
-          id: "paper-missing",
-          title: "Newspaper",
-          collapsible: false,
-          state: { status: "ready" },
-          body: () =>
-            el(
-              "div",
-              {},
-              note(`No paper was kept for ${asked ? text(asked).replace("week-", "week ") : "that week"}. The paper keeps every week's edition from the week it started saving them, and an earlier week's headlines when the feeds had any for it. The arrows by the paper's name page through the weeks it has.`, { kind: "empty" }),
-              el("p", {}, el("a", { class: "btn", href: "#newspaper" }, "This week's paper")),
-            ),
-        }),
-      ),
-    );
-    return null;
-  }
-  const matchups = records(edition.matchups).filter((g) => g.home && typeof g.home === "object" && g.away && typeof g.away === "object");
-  const story = pickStories(edition.headlines);
-  const names = [
-    ...matchups.flatMap((g) => [obj(g.away), obj(g.home)]).flatMap((t) => [isNum(t.rank) ? rankedName(t) : null, t.school]),
-    ...records(edition.headlines).flatMap((h) => records(h.players).map((p) => p.name)),
-  ];
-  // the front page (board 5): our game leads; the best pair of ranked teams is the game of the week; every ranked game is
-  // a line in the rail's scoreboard; the player and the coach (or the player of the game, or another story) between them
-  const ours = matchups.find((g) => g.isUs === true) || null;
-  const top = gameOfWeek(matchups, ours);
-  const recap = recapFor(data, edition, ours);
-  const rest = [...story.rest];
-  const leadAside = (ours || recap) && story.lead ? story.lead : null; // the lead is our game's own; the feed's headline about it goes to the briefs
-  const player = story.player ? playerBox(story.player, names) : recap && obj(recap.playerOfGame).name ? pogBox(recap) : rest.length ? articleBox(rest.shift(), "left", names) : null;
-  const coach = story.coach ? coachBox(story.coach, names) : rest.length ? articleBox(rest.shift(), "right", names) : null;
-  const numbers = numbersBox({ recap, ours, data });
-  const tier2 = top || numbers ? el("div", { class: `front-tier front-tier--two${top ? "" : " front-tier--rail-only"}` }, top ? el("div", { class: "front-span2" }, matchBox(top, "big", names)) : null, numbers ? el("div", { class: "front-rail" }, numbers) : null) : null;
-  const scores = scoreboard(matchups, edition);
-  const more = leadAside ? [...rest, leadAside] : rest;
-  // no coach's story this week: the other headlines take the coach's column instead of the foot, so no column stands empty
-  const middle = coach ? el("div", { class: "front-mod front-mod--coach" }, coach) : more.some(headlineOk) ? el("div", { class: "front-mod front-mod--briefs" }, briefs(more, { column: true })) : null;
-  const tier3 = player || middle || scores ? el("div", { class: "front-tier front-tier--three" }, player ? el("div", { class: "front-mod front-mod--player" }, player) : null, middle, scores ? el("div", { class: "front-rail" }, scores) : null) : null;
-  const earlier = edition.current
-    ? null
-    : note(`${text(edition.label)} edition, as the paper printed it${edition.rebuilt ? ": its headlines (the paper kept its matchups from the week this feature arrived)" : ""}.`, { kind: "empty" });
+/** The edition to draw: the server's, or (an answer without one) this week's headlines with no matchups and no layout. */
+function editionOf(data) {
+  if (data.edition && typeof data.edition === "object") return data.edition;
+  const week = records(data.weeks)[0] || {};
+  return { key: null, current: true, label: isNum(week.week) ? `Week ${week.week}` : "This week", week: week.week, season: data.season, headlines: records(week.headlines), matchups: [], layout: null };
+}
+
+function plainLayout(headlines) {
+  // an older server (no layout): the headlines as page 3's briefs, so the paper still reads
+  const rows = records(headlines).filter((h) => typeof h.title === "string" && h.title.trim()).map((h) => ({ ...h, id: h.id || "", copied: false }));
+  return rows.length ? { front: {}, more: [{ page: 1, name: "This week's headlines", columns: [rows.filter((_, i) => i % 3 === 0), rows.filter((_, i) => i % 3 === 1), rows.filter((_, i) => i % 3 === 2)] }], count: rows.length } : { front: {}, more: [], count: 0 };
+}
+
+/** Rollover R3: a past season's paper, as kept (frozen at the switch): its week chips, its pages, nothing live. */
+function pastChips(data, current) {
+  const listed = records(data.editions);
+  if (!listed.length) return null;
+  const go = (key) => () => {
+    window.location.hash = `newspaper=${encodeURIComponent(key)}?season=${data.past}`;
+  };
+  return el(
+    "nav",
+    { class: "np-weeks", "aria-label": "Weeks of the paper" },
+    el("span", { class: "np-label" }, `${data.past}`),
+    listed.map((e) => el("button", { type: "button", class: "np-chip", "aria-current": e.key === current ? "true" : null, onclick: go(e.key) }, isNum(e.week) ? `${e.week}${typeof e.key === "string" && e.key.endsWith("-sunday") ? " Sun" : ""}` : text(e.label))),
+  );
+}
+
+function renderPast(data, container) {
+  const edition = data.edition && typeof data.edition === "object" ? data.edition : null;
+  if (edition && !edition.layout) edition.layout = plainLayout(edition.headlines);
   const page = el(
     "div",
-    { class: "page page--wide paper-page paper front" },
-    masthead(data, edition, editions),
-    edition.current ? skybox(data, edition, recap) : null,
-    edition.current ? feedTrouble(data.feeds) : null,
-    earlier,
-    edition.current ? null : el("p", { class: "paper-back" }, el("a", { class: "btn btn--quiet", href: "#newspaper" }, "This week's paper")),
-    leadPackage({ story, ours, recap, edition, names }),
-    tier2,
-    tier3,
-    coach ? briefs(more) : null,
+    { class: "page page--wide np", id: "np-top" },
+    edition ? masthead(data, edition, isNum(obj(edition.layout).count) ? edition.layout.count : null, obj(edition.layout).by) : null,
+    pastChips(data, edition ? edition.key : null),
+    el("p", { class: "note past-note" }, `The ${data.past} paper, as kept when the app moved on. `, el("a", { href: `#review=${data.past}` }, `The ${data.past} season in review`), " · ", el("a", { href: "#newspaper" }, "Today's paper")),
+    ...(edition ? weekPages(data, edition, { kept: true }) : [note("No paper was kept for that week. The chips above list the weeks that were.", { kind: "empty" })]),
   );
   container.replaceChildren(page);
+  restoreSpot();
   return page;
+}
+
+/** Rollover R3 (owner 2026-11-15, "weekly it should update with the most relevant stories"): what the off-season paper is,
+ *  when it turns over, and last season's papers once the app has moved on. */
+function offseasonLine(data, edition) {
+  const next = obj(edition.offseason).next;
+  const when = typeof next === "string" && isNum(Date.parse(next)) ? fmtDate(next) : "Monday";
+  const past = isNum(data.pastPapers) ? data.pastPapers : null;
+  return el("p", { class: "note past-note" }, `The off-season paper: the week's stories about the team, chosen once a week. The next one comes ${when} morning.`, past ? el("span", {}, " ", el("a", { href: `#newspaper?season=${past}` }, `The ${past} papers`), ".") : null);
+}
+
+function render(envelope, container, asked, delay, memory) {
+  const data = obj(envelope?.data);
+  linkSeason = isNum(data.past) ? data.past : null;
+  if (linkSeason) return renderPast(data, container);
+  const edition = editionOf(data);
+  if (!edition.layout) edition.layout = plainLayout(edition.headlines);
+  const count = isNum(obj(edition.layout).count) ? edition.layout.count : null;
+  const first = !memory.drawn;
+  if (first && asked) memory.open.add(asked); // #newspaper=week-6 opens that week under this week's paper
+  memory.drawn = true;
+  const folded = earlierWeeks(data.folded, delay, memory);
+  const page = el(
+    "div",
+    { class: "page page--wide np", id: "np-top" },
+    masthead(data, edition, count, obj(edition.layout).by),
+    weekChips(edition, folded.rows),
+    feedTrouble(data.feeds),
+    typeof data.editionError === "string" ? note(data.editionError, { kind: "empty" }) : null,
+    edition.offseason ? offseasonLine(data, edition) : null,
+    weekPages(data, edition, { polls: pollsHost(memory) }),
+    folded.node,
+  );
+  container.replaceChildren(page);
+  if (first && asked) {
+    const row = folded.rows.find((r) => r.key === asked);
+    if (row && typeof row.button.scrollIntoView === "function") setTimeout(() => row.button.scrollIntoView({ block: "start" }), 0);
+  }
+  restoreSpot();
+  return page;
+}
+
+/** Back from the reader: the paper opens where it was (once, within half an hour). */
+function restoreSpot() {
+  let spot = null;
+  try {
+    spot = JSON.parse(sessionStorage.getItem("np.back") || "null");
+    sessionStorage.removeItem("np.back");
+  } catch {
+    spot = null;
+  }
+  if (spot && isNum(spot.y) && isNum(spot.at) && Date.now() - spot.at < 30 * 60 * 1000 && typeof window !== "undefined" && typeof window.scrollTo === "function") {
+    setTimeout(() => window.scrollTo(0, spot.y), 0);
+  }
 }
 
 // --- fitting the page ---------------------------------------------------------------------------------------------------
 
-/** Fit the front page to the screen: a team's name under its helmet on one line, the pictures drawn to their boxes. The
- *  modules keep their own heights (board 5: a newspaper's modules differ in depth); on a phone a long name may break. */
-export function layoutPaper(root) {
-  if (!root || !root.isConnected || !(root.clientWidth > 0)) return null;
-  const width = root.clientWidth;
-  const phone = width < 700;
-  root.classList.toggle("paper--phone", phone);
-  fitNames(root);
-  if (phone) loosenNames(root);
-  refitPictures(root);
-  return { width, phone };
+/** No hole beside a lead (his mark): where the rail ends well above the lead (a week with few stories, a kept week with no
+ *  numbers), the lead takes the page's width and the rail's boxes go under it. Measured after each draw and on resize;
+ *  a phone stacks everything anyway. */
+export function fitRows(root) {
+  if (!root || typeof root.querySelectorAll !== "function" || !root.isConnected || !(root.clientWidth >= 700)) return 0;
+  let widened = 0;
+  for (const row of root.querySelectorAll(".np-row")) {
+    const lead = row.querySelector(":scope > .np-lead");
+    const rail = row.querySelector(":scope > .np-rail");
+    if (!lead || !rail) continue;
+    row.classList.remove("np-row--wide");
+    const kids = [...rail.children].filter((k) => k.getBoundingClientRect().height > 0);
+    const railBottom = kids.length ? Math.max(...kids.map((k) => k.getBoundingClientRect().bottom)) : rail.getBoundingClientRect().top;
+    const legs = lead.querySelector(".np-legbox");
+    const atMinimum = !legs || legs.getBoundingClientRect().height <= 100; // the lead's text already cut to its least
+    if (atMinimum && lead.getBoundingClientRect().bottom - railBottom > 48) {
+      row.classList.add("np-row--wide");
+      widened += 1;
+    }
+  }
+  return widened;
 }
 
 // --- the view -----------------------------------------------------------------------------------------------------------
 
-export function createNewspaperView({ onStatus, edition = null } = {}) {
+export function createNewspaperView({ onStatus, edition = null, params = null } = {}) {
   const asked = typeof edition === "string" && EDITION.test(edition) ? edition : null;
-  const delay = Number(getPrefs().delaySeconds);
-  const url = `/api/newspaper?delay=${Number.isFinite(delay) ? delay : 30}${asked ? `&edition=${encodeURIComponent(asked)}` : ""}`;
+  const delay = Number.isFinite(Number(getPrefs().delaySeconds)) ? Number(getPrefs().delaySeconds) : 30;
+  const past = pastYear(params?.season); // rollover R3: #newspaper=week-8?season=2026, that season's paper as kept
+  const url = past ? `/api/seasons/${past}/paper${asked ? `?edition=${encodeURIComponent(asked)}` : ""}` : `/api/newspaper?delay=${delay}`;
+  const memory = { open: new Set(), papers: new Map(), drawn: false, polls: { poll: typeof params?.poll === "string" && params.poll ? params.poll : null, sorts: {} } }; // the open weeks and the polls' choice survive the minute's refresh
   let page = null;
   let frame = null;
   let timer = null;
-  const layout = () => {
-    frame = null;
-    try {
-      layoutPaper(page);
-    } catch (error) {
-      console.error("The newspaper could not be fitted to the screen; it keeps its plain sizes.", error);
-    }
+  const refit = () => {
+    if (frame !== null || typeof requestAnimationFrame !== "function") return;
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      try {
+        fitRows(page);
+      } catch (error) {
+        console.error("The newspaper could not be fitted to the screen; it keeps its plain layout.", error);
+      }
+    });
   };
-  const schedule = () => {
-    if (frame === null && typeof requestAnimationFrame === "function") frame = requestAnimationFrame(layout);
-  };
+  memory.refit = refit;
   const onResize = () => {
     clearTimeout(timer);
-    timer = setTimeout(schedule, 150);
+    timer = setTimeout(refit, 150);
   };
+  const win = typeof window !== "undefined" && typeof window.addEventListener === "function" ? window : null;
   const inner = poller({
     url,
-    refreshMs: asked ? pollMs() : REFRESH_MS,
-    holdDuringRuns: Boolean(asked), // this week's paper carries live scores: never held for a data load, like the Top 25 (freeze wave F1, F5); a kept edition can wait
     onStatus,
     render: (envelope, container) => {
-      page = render(envelope, container, asked);
-      schedule();
-      if (typeof document !== "undefined" && document.fonts?.ready) document.fonts.ready.then(schedule).catch(() => {});
+      page = render(envelope, container, asked, delay, memory);
+      refit();
     },
-    renderError: (message, container, retry) => container.replaceChildren(errorPanel("Newspaper", message, retry)),
-    loadingDetail: asked ? "That week's edition" : "This week's paper",
+    renderError: (message, container, retry) => container.replaceChildren(errorPanel(past ? `The ${past} paper` : "Newspaper", message, retry)),
+    loadingDetail: "This week's paper",
     renderLoading: () =>
       el(
         "div",
-        { class: "page page--wide paper-page paper" },
-        el("header", { class: "paper-mast" }, el("div", { class: "skel", style: { width: "min(420px, 70%)", height: "40px", margin: "4px auto", gridColumn: "1 / -1" } })),
-        el("div", { class: "paper-row paper-row--a" }, el("div", { class: "paper-box paper-box--skel" }, el("div", { class: "skel" })), el("div", { class: "paper-box paper-box--skel" }, el("div", { class: "skel" }))),
-        el("div", { class: "paper-row paper-row--b" }, el("div", { class: "paper-box paper-box--skel" }, el("div", { class: "skel" })), el("div", { class: "paper-box paper-box--skel" }, el("div", { class: "skel" }))),
+        { class: "page page--wide np" },
+        el("header", { class: "np-mast" }, el("div", { class: "skel", style: { width: "min(420px, 70%)", height: "40px" } })),
+        el("div", { class: "np-row" }, el("div", { class: "np-span4 skel", style: { height: "420px" } }), el("div", { class: "np-span2 skel", style: { height: "420px" } })),
       ),
   });
-  const win = typeof window !== "undefined" && typeof window.addEventListener === "function" ? window : null;
   return {
     mount(target) {
       inner.mount(target);

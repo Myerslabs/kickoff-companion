@@ -233,6 +233,9 @@ def smoke_test(program: Path) -> list[str]:
 
 def archive(dist: Path, name: str, system: str = sys.platform) -> Path:
     fmt = "zip" if system.startswith("win") else "gztar"
+    for name_ in ("LICENSE", "NOTICE"):  # the MIT license travels with the program (2.0)
+        if (ROOT / name_).is_file():
+            shutil.copy2(ROOT / name_, dist / NAME / name_)
     path = Path(shutil.make_archive(str(dist / name), fmt, root_dir=dist, base_dir=NAME))
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     (dist / f"{path.name}.sha256").write_text(f"{digest}  {path.name}\n", encoding="utf-8")

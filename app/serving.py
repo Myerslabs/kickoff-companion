@@ -20,6 +20,7 @@ import logging
 import socket
 import ssl
 import sys
+import threading
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -167,10 +168,7 @@ class DualProtocolServer(uvicorn.Server):
                 mode = "plain HTTP"
             log.info("Listening on %s:%s (%s). Press CTRL+C to quit.", host, port, mode)
         self.started = True
-        if self.ready_note:
-            print(self.ready_note, flush=True)
-        if self.open_url:
-            open_in_browser(self.open_url)
+        when_ready(self.open_url, self.ready_note)
 
     async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
         shutdown_signal.begin()  # open event streams say goodbye now, inside the graceful timeout
@@ -336,7 +334,6 @@ def port_taken(settings: Settings, *, open_url: str | None = None, restarting: b
 
 def open_in_browser(url: str) -> None:
     """Open url in the default browser without holding up the server; a failure is only logged."""
-    import threading
     import webbrowser
 
     def go() -> None:
@@ -347,6 +344,37 @@ def open_in_browser(url: str) -> None:
             log.info("Could not open the browser (%s); the app is at %s", exc, url)
 
     threading.Thread(target=go, name="open-browser", daemon=True).start()
+
+
+OPEN_CAP_SECONDS = 30  # ENH-18 (owner 2026-10-27): the longest a start waits for the first data before it opens the browser anyway
+
+
+def when_ready(open_url: str | None, ready_note: str | None, cap: float = OPEN_CAP_SECONDS) -> threading.Thread:
+    """BUG-17, ENH-18 (owner 2026-10-27): the window's READY and the browser wait for the opening pages' data (main.py
+    _startup_warm), so the page never opens on a loading screen while its data is held back; past `cap` seconds they go
+    anyway, and the log says the pages are still loading. The tray's note follows (health: open_seconds, browser_opened)."""
+
+    start = boot.generation()
+    if open_url:
+        log.info("The browser opens once the opening pages have their data (%d s at most).", cap)
+
+    def go() -> None:
+        warm = boot.wait_pages(cap)
+        if boot.generation() != start:
+            return  # the server restarted in place meanwhile: that start says READY for itself
+        took = boot.opened(browser=bool(open_url))
+        if warm:
+            log.info("The opening pages are ready after %.1f s%s", took, "; opening the app in the browser" if open_url else "")
+        else:
+            log.warning("The opening pages are still loading after %d s%s", cap, "; opening the app in the browser anyway" if open_url else "")
+        if ready_note:
+            print(ready_note, flush=True)
+        if open_url:
+            open_in_browser(open_url)
+
+    thread = threading.Thread(target=go, name="when-ready", daemon=True)
+    thread.start()
+    return thread
 
 
 RESTART_BIND_SECONDS = 20  # after a restart the old listener may need a moment to let go of the port

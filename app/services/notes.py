@@ -12,7 +12,7 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from app.cfbd.models import DropBad
+from app.cfbd.models import DropBad, NoneIfBad
 
 log = logging.getLogger("kickoff.notes")
 
@@ -137,6 +137,30 @@ class Coaches(NotesModel):
     source: str | None = None
 
 
+class LayoutKey(NotesModel):
+    line: str
+    text: str | None = None
+
+
+class LayoutNumber(NotesModel):
+    team: str  # "us" or "them"
+    metric: str  # the program's metric key, "profile:third"; the value and the ranks come from the program
+
+
+class LayoutWatch(NotesModel):
+    line: str
+    text: str | None = None
+
+
+class Layout(NotesModel):
+    """Wave 5 (owner 2026-11-15, "Build as drawn"): the top of the Program notes band as Claude wrote it. The pieces are
+    checked against their lengths and the program's numbers by app/services/notes_layout.py when the program is built."""
+
+    keys: Annotated[list[LayoutKey], DropBad] = []
+    numbers: Annotated[list[LayoutNumber], DropBad] = []
+    watch: Annotated[LayoutWatch | None, NoneIfBad] = None
+
+
 class NotesFile(NotesModel):
     gameId: int | None = None
     author: str | None = None
@@ -151,6 +175,27 @@ class NotesFile(NotesModel):
     lineups: Lineups | None = None
     broadcast: Broadcast | None = None
     coaches: Coaches | None = None
+    layout: Annotated[Layout | None, NoneIfBad] = None  # Wave 5: the keys, the figures named, the matchup to watch
+
+
+def compact_notes(notes: NotesFile | None) -> dict[str, Any] | None:
+    """The notes in short (P4, the weekly review and the next notes run): the availability, the starters of each chart, the schemes and the headings."""
+    if notes is None:
+        return None
+    lineups: dict[str, Any] = {}
+    for side in ("us", "them"):
+        chart = getattr(notes.lineups, side, None) if notes.lineups else None
+        if chart is not None:
+            lineups[side] = [{"slot": s.slot, "starter": s.players[0].name} for s in chart.slots if s.players][:40]
+    return {
+        "author": notes.author,
+        "writtenAt": notes.writtenAt,
+        "availabilitySource": notes.availabilitySource,
+        "availability": [r.model_dump(exclude_none=True) for r in notes.availability][:60],
+        "starters": lineups,
+        "sections": [s.heading for s in notes.sections],
+        "sources": [s.model_dump(exclude_none=True) for s in notes.sources][:20],
+    }
 
 
 def notes_path(data_dir: Path, game_id: int | str) -> Path:

@@ -4,6 +4,7 @@ runs main() too, then pause_before_closing()."""
 from __future__ import annotations
 
 import argparse
+import logging
 import sys
 from collections.abc import Callable
 from pathlib import Path
@@ -119,10 +120,11 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
     parser = argparse.ArgumentParser(prog="python -m app", description=f"Run the {APP_NAME} server. `python -m app prompts [--all]` runs every prompt through Claude Code on the running server.")
     parser.add_argument("--check", action="store_true", help="validate .env, print the settings, and exit")
     parser.add_argument("--reload", action="store_true", help="development mode: restart when code in app/ changes")
-    parser.add_argument("--demo", action="store_true", help="run against the made-up league: no key, no network (--demo --help for its options)")
+    parser.add_argument("--demo", action="store_true", help="run against the test league (invented games and players): no key, no network (--demo --help for its options)")
     parser.add_argument("--no-browser", action="store_true", help="do not open the app in this computer's browser once the server is up")
     parser.add_argument("--login", action="store_true", help="started at login (the start scripts pass it); opens the browser only if Settings say always")
     parser.add_argument("--use-port", type=int, metavar="N", help="save PORT=N in .env and exit (the tray icon's \"Use port N\" when the port is taken)")
+    parser.add_argument("--restarted", action="store_true", help="the launcher starts the server again after a restart: no browser, and the port may take a moment to come free")
     args = parser.parse_args(argv)
 
     if args.use_port is not None:
@@ -161,8 +163,16 @@ def main(argv: list[str] | None = None, env_file: Path | None = DEFAULT_ENV_FILE
 
     set_console_title(f"{APP_NAME} server (keep this window open)")
     print(console_banner(settings, demo=demo_start(settings)), flush=True)
-    code = serve(settings, first=True)
-    while code in (restart.RESTART, PORT_CHANGED):  # setup finished, the team changed, the demo was switched, or a new port: serve again
+    code = serve(settings, first=not args.restarted)
+    while code in (restart.RESTART, PORT_CHANGED):  # setup finished, the team changed, the demo was switched, an update, or a new port: serve again
+        if code == restart.RESTART and restart.relaunch_available():
+            print("Restarting in a fresh process, which loads any new code.", flush=True)
+            return restart.RELAUNCH  # BUG-22: the launcher starts the server again
+        if code == restart.RESTART:
+            from app.build import code_changed
+
+            if code_changed():
+                logging.getLogger("kickoff.restart").warning("The server's code changed on disk; this restart keeps the code it started with. Start it again with start.ps1 to load the new code.")
         try:
             settings = load_settings(env_file)
         except SettingsError as exc:

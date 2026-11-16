@@ -443,7 +443,7 @@ def test_in_game_has_the_radio_before_the_game_too() -> None:
     root = Path(__file__).resolve().parents[1] / "static" / "js"
     live = (root / "views" / "live.js").read_text(encoding="utf-8")
     assert 'openSheet({ title: "Radio", body: () => radioStations() })' in live
-    assert 'stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet })' in live
+    assert 'stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onPick: () => pickGameSheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet })' in live  # Pick a game between (2026-11-02)
     assert 'el("div", { class: "live-tools" }' not in live, "the tools row is gone; the tools sit in the panel row"
     program = (root / "views" / "program.js").read_text(encoding="utf-8")
     assert "radioStations({ onDraw:" in program

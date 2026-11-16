@@ -1,7 +1,7 @@
 """GET /api/wiki?team=A&team=B&venue=V&coach=Name|School: Wikipedia links for the big headers (Phase 17 #4; Phase 19: coaches). For each team its football
 page and its school's page, for the venue its page; what can't be found is a Wikipedia search link, so every link
-works. The first lookup of a team takes a few seconds (Wikipedia, one request at a time); after that it is read from
-data/wiki/links.json. No CFBD call beyond the cached team list."""
+works. Answered at once from data/wiki/links.json (batch 1, 2026-11-15): a name not yet found is a Wikipedia search this
+time and is looked up behind the answer, so the next page has its page. No CFBD call beyond the cached team list."""
 
 from __future__ import annotations
 
@@ -30,11 +30,12 @@ async def wiki_links(request: Request, team: Annotated[list[str] | None, Query()
             meta = await program.team_meta()
         except Exception as exc:  # noqa: BLE001 - without mascots the lookups still give search links; logged by the fetcher
             errors.append({"code": "teams_unavailable", "message": f"The team list did not load ({exc.__class__.__name__}); links are searches."})
-    teams = {name: await client.team(name, (meta.get(name) or {}).get("mascot")) for name in names}
-    venues = {venue.strip(): await client.venue(venue)} if isinstance(venue, str) and venue.strip() else {}
+    # batch 1 (owner 2026-11-15): answered at once from what is kept, a new name looked up behind the answer (app/wiki.py)
+    teams = {name: client.team_now(name, (meta.get(name) or {}).get("mascot")) for name in names}
+    venues = {venue.strip(): client.venue_now(venue)} if isinstance(venue, str) and venue.strip() else {}
     coaches: dict[str, Any] = {}
     for item in [c for c in (coach or []) if isinstance(c, str) and c.strip()][:MAX_COACHES]:
         person, _bar, school = item.partition("|")
         if person.strip():
-            coaches[item.strip()] = await client.coach(person.strip(), school.strip() or None)
+            coaches[item.strip()] = client.coach_now(person.strip(), school.strip() or None)
     return envelope({"teams": teams, "venues": venues, "coaches": coaches}, source="live", errors=errors)

@@ -12,7 +12,7 @@
 // order by the AP poll"; the server sorts). Ranked teams with no game are named in one line, "Off this week", no card for
 // them.
 //
-// The layout pass, board 6 (https://claude.ai/artifact/JyA5ZPwaWeMxWhryx1aQsR, "just needs some better spacing"): the
+// The layout pass, board 6 ("just needs some better spacing"): the
 // score alone in the middle, both sides' rows level, a long name on two lines (never the abbreviation the logo shows),
 // "Head coach" over each coach, the when in two lines, the weather and the card's tools in its last row; two across on
 // a tablet, three from 1700 px and four from 2500 (the design rule of 2026-10-21), one on a phone.
@@ -36,9 +36,10 @@ import { fitNames } from "../ui/paper-fit.js";
 import { helpsChip } from "../ui/race.js";
 import { band, note } from "../ui/states.js";
 import { getPrefs } from "../prefs.js";
-import { errorPanel, poller } from "./common.js";
+import { errorPanel, fetchJson, poller } from "./common.js";
+import { picksBand, scopeOf } from "./picks.js"; // wave 3 (2026-11-01): the picks as the page's band
+import { followButton } from "../ui/follow.js"; // wave 3: Watch it live on each card
 
-const REFRESH_MS = 60 * 1000;
 
 /** The quarter and the clock under a live score, short enough for the card's middle (board 6): "Q2 · 7:02", "OT", "2OT". */
 export function clockText(g) {
@@ -88,6 +89,7 @@ function card(g) {
   const matchup = typeof away.school === "string" && away.school && typeof home.school === "string" && home.school
     ? el("button", { class: "btn top25-card__matchup", type: "button", "aria-haspopup": "dialog", onclick: () => openMatchupSheet({ away: away.school, home: home.school }) }, "Matchup")
     : null;
+  const watch = g.isUs !== true && isNum(g.gameId) && typeof home.school === "string" && home.school ? followButton({ gameId: g.gameId, kickoff: g.kickoff, completed: status === "final" }, home.school) : null; // FEAT-1 on the Top 25 (his inventory, 2026-11-01)
   const section = cover({
     compact: true,
     label: `${text(away.school)} ${g.neutralSite ? "versus" : "at"} ${text(home.school)}`,
@@ -111,7 +113,7 @@ function card(g) {
     kicker: [g.isUs === true ? "Our game" : null, status === "live" ? "Live" : null, tagOf(g)].filter(Boolean).join(" · "),
     staff: { us: coachCell(away, "us"), them: coachCell(home, "them") },
     conditions: weatherLine(g),
-    extra: chip || matchup ? el("div", { class: "top25-card__tools" }, chip ? el("span", { class: "top25-card__helps" }, chip) : null, matchup) : null,
+    extra: chip || matchup || watch ? el("div", { class: "top25-card__tools" }, chip ? el("span", { class: "top25-card__helps" }, chip) : null, matchup, watch) : null, // watch (wave 3, 2026-11-01): Watch it live, the game followed from the home team's side
   });
   section.classList.add("top25-card", `top25-card--${status}`);
   if (g.isUs === true) section.classList.add("top25-card--us");
@@ -205,9 +207,24 @@ function render(envelope, container, state = { filter: null }, onFilter = () => 
     header(data, state, onFilter),
     shown.length ? el("div", { class: "top25-grid" }, shown.map(card)) : band({ id: "top25-empty", title: "This week's games", collapsible: false, state: { status: "ready" }, body: () => note(none, { kind: "empty" }) }),
     offLine(data.offThisWeek),
+    picksHost(state), // wave 3 (owner 2026-11-01, his inventory): the Picks of the week as a band at the bottom
   );
   container.replaceChildren(page);
   return page;
+}
+
+/** The picks' band, loading its own answer (/api/picks); the scope switch draws it again in place. */
+function picksHost(state) {
+  const host = el("div", { class: "late", dataset: { late: "picks" } }, band({ id: "top25-picks", title: "Picks of the week", collapsible: false, state: { status: "loading" } }));
+  state.picks ??= { scope: scopeOf(), watchRun: () => {}, runDone: () => {} };
+  fetchJson("/api/picks")
+    .then((envelope) => {
+      const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
+      const draw = () => host.replaceChildren(picksBand(data, state.picks, draw));
+      draw();
+    })
+    .catch((error) => host.replaceChildren(band({ id: "top25-picks", title: "Picks of the week", collapsible: false, state: { status: "error", message: `${text(error?.message || error)}. The page tries again with the next refresh.` } })));
+  return host;
 }
 
 export function createTop25View({ onStatus } = {}) {
@@ -233,8 +250,6 @@ export function createTop25View({ onStatus } = {}) {
   };
   const inner = poller({
     url: `/api/top25?delay=${Number.isFinite(delay) ? delay : 30}`,
-    refreshMs: REFRESH_MS,
-    holdDuringRuns: false, // live scores: never held for a data load (2026-10-16)
     onStatus,
     render: (envelope, container) => {
       const draw = () => {

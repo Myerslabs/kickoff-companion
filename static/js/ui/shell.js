@@ -14,9 +14,10 @@
 // the opening one takes its own history entry, so Back, Escape, a swipe right and "‹" go up one level.
 
 import { icon } from "./icons.js";
+import { claudeSignedOutSince, signedOutWords } from "../build.js";
 import { ours } from "../identity.js";
 import { el, reducedMotion, replaceWith, swipeToClose, syncPageLock, text } from "./dom.js";
-import { closeLayers, goTo, holdLayer, placeLayers } from "./layers.js";
+import { closeLayers, goTo, holdLayer, placeLayers, toTop } from "./layers.js";
 import { findPath, labelOf, levelAt, MENU } from "./menu-tree.js";
 import { pill } from "./pills.js";
 
@@ -29,7 +30,7 @@ export const VIEWS = [
   { id: "newspaper", label: "Newspaper", tab: true },
   { id: "program", label: "Pre-Game Program", tab: true },
   { id: "live", label: "In Game", tab: true },
-  { id: "season", label: "Season" },
+  { id: "season", label: "My Team" }, // the Season page until 2026-11-01 (owner: "my team and season are the same in my eyes"); the address stays #season
   { id: "top25", label: "Top 25" },
 ];
 export const TABS = VIEWS.filter((view) => view.tab);
@@ -53,7 +54,7 @@ function countEntries(items) {
  * setNotice({ dot, title, body(), onOpen }) or null: a dot on the status pill while `dot`, and the card lists body()
  * under its title; opening the card calls onOpen (it clears the dot).
  */
-export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, onFeedback, subOf, menu = MENU, inlineDrawer = false } = {}) {
+export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, onFeedback, onAsk, subOf, menu = MENU, inlineDrawer = false } = {}) {
   let currentView = current;
   let todoCount = 0; // the To do's items listed for this page (ui/page-notes.js counts them)
   let live = false;
@@ -62,6 +63,11 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
   let notice = null;
   const statusSlot = el("div", { class: "topbar__status", role: "status" });
 
+  // The season as one line (owner 2026-10-30): the middle tab is the stop that leads now (Season, Pre-Game Program or
+  // Post-Game Program), its small line the week and the opponent; setStop() renames it and points it at the stop. The
+  // Newspaper tab follows the week on screen (setNewspaperWeek): stepping the line steps the paper to that week.
+  let stopHref = "#program";
+  let newspaperHref = "#newspaper";
   const tabs = el(
     "nav",
     { class: "tabs", "aria-label": "Main views" },
@@ -69,20 +75,56 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       el(
         "a",
         {
-          class: "tab",
+          class: `tab${view.id === "program" ? " tab--stop" : ""}`,
           href: `#${view.id}`,
           "aria-current": view.id === currentView ? "page" : null,
           dataset: { view: view.id },
           onclick: (event) => {
             event.preventDefault();
+            if (view.id === "program" && stopHref !== "#program") {
+              closeDrawer("route");
+              window.location.hash = stopHref.slice(1);
+              return;
+            }
+            if (view.id === "newspaper" && newspaperHref !== "#newspaper") {
+              closeDrawer("route");
+              window.location.hash = newspaperHref.slice(1);
+              return;
+            }
             navigate(view.id);
           },
         },
-        view.label,
+        el("span", { class: "tab__label" }, view.label),
+        view.id === "program" ? el("small", { class: "tab__detail", hidden: true }) : null,
         view.id === "live" ? liveDot() : null,
       ),
     ),
   );
+
+  /** The middle tab reads the stop that leads now: { label, detail, href }. Null puts the Pre-Game Program back. */
+  function setStop(stop) {
+    const tab = tabs.querySelector('.tab[data-view="program"]');
+    if (!tab) return;
+    const label = tab.querySelector(".tab__label");
+    const detail = tab.querySelector(".tab__detail");
+    const s = stop && typeof stop === "object" ? stop : null;
+    stopHref = s && typeof s.href === "string" && s.href.startsWith("#") ? s.href : "#program";
+    if (label) label.textContent = s && typeof s.label === "string" && s.label ? s.label : "Pre-Game Program";
+    if (detail) {
+      const words = s && typeof s.detail === "string" ? s.detail : "";
+      detail.textContent = words;
+      if (words) detail.removeAttribute("hidden");
+      else detail.setAttribute("hidden", "");
+    }
+    tab.setAttribute("href", stopHref);
+  }
+
+  /** The Newspaper tab opens the week on screen ("week-7"), or this week's paper with null. */
+  function setNewspaperWeek(key) {
+    const tab = tabs.querySelector('.tab[data-view="newspaper"]');
+    newspaperHref = typeof key === "string" && /^(week-\d{1,2}|postseason)(-sunday)?$/.test(key) ? `#newspaper=${key}` : "#newspaper";
+    if (tab) tab.setAttribute("href", newspaperHref);
+  }
 
   const liveFlag = el(
     "a",
@@ -233,6 +275,7 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
     if (!page) return;
     if (typeof window !== "undefined" && window.location.hash === `#${page}`) {
       closeDrawer();
+      toTop(); // ENH-33: the page already showing goes back to its top
       return;
     }
     if (/^[a-z0-9]+$/i.test(page)) {
@@ -329,8 +372,32 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       el("div", { class: "drawer__label" }, "Game day"),
       el("div", { class: "drawer__tiles" }, (Array.isArray(menu.tiles) ? menu.tiles : []).map(tileView)),
       el("div", { class: "drawer__groups" }, groups.map(groupRow)),
+      askRow(),
       feedbackRow(),
     ];
+  }
+
+  /** Ask about this page (FEAT-12): beside Send feedback at the foot of the opening level. */
+  function askRow() {
+    if (typeof onAsk !== "function") return null;
+    return el(
+      "button",
+      {
+        class: "drawer__item drawer__group-row drawer__ask",
+        type: "button",
+        onclick: () => {
+          closeDrawer();
+          try {
+            onAsk();
+          } catch (error) {
+            console.error("The ask sheet could not open.", error);
+          }
+        },
+      },
+      el("span", { class: "drawer__icon", "aria-hidden": "true" }, icon("page")),
+      el("span", { class: "drawer__words" }, el("b", {}, "Ask about this page"), el("small", {}, "Claude Code answers from what the page shows")),
+      goIcon("wide"),
+    );
   }
 
   /** Send feedback at the foot of the opening level (owner 2026-10-23), for every device, guests too. */
@@ -520,6 +587,11 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
 
   // Phase 16 wave 3 (DS-12): the pill is a button; its card says what the state means, with Retry now and the
   // server's status page. Retry asks the page to fetch again ("kickoff:retry", answered by the app).
+  // ENH-4 (the owner's board of 2026-10-27: "the status pill ALWAYS
+  // shows data age + server connected + how often the band polls"): the pill is the server connection as a dot, the
+  // data's age and how often the page's data is checked ("Updated 32 min ago · hourly"); the card is the wide Data status
+  // panel: the server, this page and CFBD across its top, then each band of the page with when its source changes, when
+  // the app looks and how old its copy is (/api/datastatus, read when the page reports and when the card opens).
   const STATUS_WORDS = {
     live: "The live feed is current.",
     delayed: "The live feed is running behind your spoiler delay on purpose.",
@@ -528,17 +600,113 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
     stale: "This page shows an older copy of its data.",
     offline: "This device could not reach the app's server.",
   };
+  const DOT_OF_KIND = { live: "live", delayed: "live", replay: "live", stale: "down", offline: "off", quiet: "ok" };
+  const DATA_STATUS_EVERY_MS = 60000;
+  const DATA_STATUS_TIMEOUT_MS = 8000;
+  let pageId = current; // the route the card describes (setPage)
+  let pageInfo = null; // /api/datastatus's answer for it
+  let pageInfoKey = "";
+  let pageInfoAt = 0;
+  let pageInfoError = null;
+  let loadingInfo = null;
+  let serverOkAt = null; // when this device last heard from the server
+  let statusScrim = null;
 
   function closeStatusCard() {
     if (!statusCard) return;
     statusCard.remove();
+    statusScrim?.remove();
     statusCard = null;
+    statusScrim = null;
     document.removeEventListener("pointerdown", onOutside, true);
     statusSlot.querySelector(".pill--button")?.setAttribute("aria-expanded", "false");
   }
 
   function onOutside(event) {
     if (statusCard && !statusCard.contains(event.target) && !statusSlot.contains(event.target)) closeStatusCard();
+  }
+
+  /** "just now", "8 s ago", "3 min ago", "2 h ago" from a time in ms. */
+  function sinceText(at) {
+    if (typeof at !== "number" || !Number.isFinite(at)) return null;
+    const seconds = Math.max(0, Math.round((Date.now() - at) / 1000));
+    if (seconds < 2) return "just now";
+    if (seconds < 60) return `${seconds} s ago`;
+    if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`;
+    return `${Math.round(seconds / 3600)} h ago`;
+  }
+
+  /** A band's "Data from": "32 min ago" today within a few hours, "Sun 2:14 PM" within the week, "Oct 21" before. */
+  function dataFromText(iso) {
+    if (typeof iso !== "string" || !iso) return null;
+    const when = new Date(iso);
+    const ms = when.getTime();
+    if (!Number.isFinite(ms)) return null;
+    const seconds = (Date.now() - ms) / 1000;
+    if (seconds < 6 * 3600) return sinceText(ms);
+    if (seconds < 6.5 * 86400) return `${when.toLocaleDateString("en-US", { weekday: "short" })} ${when.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+    return when.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+
+  /** How this page asks the server: a stream for In Game and the board, else on opening and Refresh (owner 2026-11-14). */
+  function asksText() {
+    if (pageId === "live" || pageId === "board") return "Told of each play as it comes";
+    if (pageId === "trivia") return "Asks the server every 30 s";
+    return "Asks the server when you open the page or tap Refresh";
+  }
+
+  /** Whether the page on screen is refreshed by hand: every page but the live ones. */
+  const refreshable = () => !["live", "board", "trivia"].includes(pageId);
+
+  function dataStatusKey() {
+    return [pageId || "", lastStatus?.gameId || "", lastStatus?.kickoff || ""].join("|");
+  }
+
+  /** /api/datastatus for the page in view: kept a minute, asked again sooner when the page or its game changes. */
+  function loadDataStatus(force = false) {
+    if (inlineDrawer || typeof fetch !== "function" || !pageId) return null;
+    const key = dataStatusKey();
+    if (!force && key === pageInfoKey && Date.now() - pageInfoAt < DATA_STATUS_EVERY_MS) return null;
+    if (loadingInfo && loadingInfo.key === key) return loadingInfo.promise;
+    const params = new URLSearchParams({ view: pageId });
+    if (lastStatus?.gameId) params.set("gameId", lastStatus.gameId);
+    if (lastStatus?.kickoff) params.set("kickoff", lastStatus.kickoff);
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = setTimeout(() => controller?.abort(), DATA_STATUS_TIMEOUT_MS);
+    const promise = (async () => {
+      try {
+        const response = await fetch(`/api/datastatus?${params.toString()}`, { cache: "no-store", signal: controller?.signal });
+        const body = await response.json().catch(() => null);
+        if (!response.ok || !body || typeof body.data !== "object" || body.data === null) throw new Error(body?.errors?.[0]?.message || `the server answered ${response.status}`);
+        if (key === dataStatusKey()) {
+          pageInfo = body.data;
+          pageInfoError = null;
+        }
+        serverOkAt = Date.now();
+      } catch (error) {
+        if (key === dataStatusKey()) pageInfoError = error?.name === "AbortError" ? "the server took too long" : text(error?.message || error);
+      } finally {
+        clearTimeout(timer);
+        pageInfoKey = key;
+        pageInfoAt = Date.now();
+        loadingInfo = null;
+        drawPill();
+        if (statusCard) replaceWith(statusCard, statusCardBody());
+      }
+    })();
+    loadingInfo = { key, promise };
+    return promise;
+  }
+
+  /** The page the card describes: its route id (app.js on every page change). */
+  function setPage(route) {
+    const id = route && typeof route.id === "string" ? route.id : null;
+    if (id === pageId) return;
+    pageId = id;
+    pageInfo = null; // the last page's "how often" is not this one's
+    pageInfoError = null;
+    pageInfoKey = "";
+    drawPill();
   }
 
   /** The notice's list for the card (item 6, step C: "Not loaded yet"), or null; a list that will not draw is left out. */
@@ -555,8 +723,69 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
     return el("div", { class: "status-card__notice" }, el("b", { class: "status-card__subtitle" }, text(notice.title)), body);
   }
 
+  /** A fact across the card's top: its name, its state with a dot when it has one, and a line under it. */
+  function fact(name, state, line, dot = null) {
+    return el(
+      "div",
+      { class: "ds-fact" },
+      el("span", { class: "ds-fact__name" }, name),
+      el("b", { class: "ds-fact__state" }, dot ? el("span", { class: `pill__dot pill__dot--${dot}`, "aria-hidden": "true" }) : null, text(state)),
+      el("span", { class: "ds-fact__line" }, text(line)),
+    );
+  }
+
+  function factsRow(s) {
+    const dot = s.dot || DOT_OF_KIND[s.kind] || "ok";
+    const server = s.kind === "offline"
+      ? fact("Server", "Not reachable", serverOkAt ? `Last heard ${sinceText(serverOkAt)}` : "Not heard from yet", "off")
+      : dot === "slow"
+        ? fact("Server", "Slow to answer", serverOkAt ? `Last answered ${sinceText(serverOkAt)}` : "Still working on it", "slow")
+        : fact("Server", "Connected", serverOkAt ? `The server answered ${sinceText(serverOkAt)}` : "Answering", "ok");
+    const page = fact("This page", s.label || "Waiting", asksText());
+    const cfbd = pageInfo?.cfbd || {};
+    const cfbdState = { answering: "Answering", testing: "Testing the connection", "not answering": "Not answering" }[cfbd.state] || (pageInfo ? "Unknown" : "Checking");
+    const last = typeof cfbd.lastSuccessAt === "string" ? sinceText(new Date(cfbd.lastSuccessAt).getTime()) : null;
+    return el("div", { class: "ds-facts" }, server, page, fact("CFBD", cfbdState, last ? `Last call ${last}` : pageInfo ? "No call yet since the server started" : "Reading the server's records"));
+  }
+
+  /** Claude Code signed out on the server computer (owner 2026-11-15): one line under the facts on the host's devices,
+   *  until a run gets through (build.js noteClaude). Nothing while it is signed in. */
+  function claudeLine() {
+    const since = claudeSignedOutSince();
+    if (!since || document.body?.dataset?.role === "guest") return null;
+    return el("p", { class: "status-card__detail note note--error status-card__claude" }, signedOutWords(since));
+  }
+
+  /** Each band of the page: when its source changes, when the app looks, how old its copy is. */
+  function bandsBlock() {
+    const head = el("div", { class: "ds-bands__head" }, el("h3", { class: "ds-bands__title" }, "Each band on this page"), el("span", { class: "ds-bands__note" }, "when its source changes, and when the app looks"));
+    const bands = Array.isArray(pageInfo?.bands) ? pageInfo.bands.filter((b) => b && typeof b === "object" && typeof b.band === "string") : null;
+    let body;
+    if (!pageInfo && pageInfoError) body = el("p", { class: "note note--error ds-bands__state" }, `The server's schedules could not be read: ${text(pageInfoError)}. Retry now asks again.`);
+    else if (!pageInfo) body = el("div", { class: "ds-bands__state", "aria-busy": "true" }, el("div", { class: "skel skel--line" }), el("div", { class: "skel skel--line" }), el("div", { class: "skel skel--line" }));
+    else if (!bands || !bands.length) body = el("p", { class: "note ds-bands__state" }, "This page has no bands of its own data: what it shows comes with the page when it opens.");
+    else {
+      body = el(
+        "table",
+        { class: "ds-table no-hints" },
+        el("thead", {}, el("tr", {}, el("th", { scope: "col" }, "Band"), el("th", { scope: "col", class: "ds-table__changes" }, "Changes"), el("th", { scope: "col" }, "The app checks"), el("th", { scope: "col", class: "ds-table__from" }, "Data from"))),
+        el(
+          "tbody",
+          {},
+          bands.map((b) => {
+            const due = typeof b.due === "string" && b.due ? b.due : null;
+            const from = due ? el("span", { class: "ds-due" }, due) : dataFromText(b.dataFrom) || "–";
+            return el("tr", {}, el("th", { scope: "row" }, text(b.band)), el("td", { class: "ds-table__changes" }, text(b.changes)), el("td", {}, text(b.checks)), el("td", { class: "ds-table__from" }, from));
+          }),
+        ),
+      );
+    }
+    return el("section", { class: "ds-bands", "aria-label": "Each band on this page" }, head, body);
+  }
+
   function statusCardBody() {
     const s = lastStatus || {};
+    const fresh = (s.kind === "quiet" && (s.dot || "ok") === "ok" && typeof s.updatedAt === "number") || ["live", "delayed", "replay"].includes(s.kind);
     const detail = typeof s.detail === "string" && s.detail ? s.detail : STATUS_WORDS[s.kind] || STATUS_WORDS.quiet;
     const retry = el("button", { class: "btn btn--quiet status-card__retry", type: "button", onclick: () => {
       retry.disabled = true;
@@ -564,9 +793,13 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       document.dispatchEvent(new CustomEvent("kickoff:retry"));
       setTimeout(closeStatusCard, 600);
     } }, "Retry now");
+    const close = el("button", { class: "btn btn--quiet icon-btn status-card__close", type: "button", "aria-label": "Close the data status", onclick: closeStatusCard }, icon("close"));
     return [
-      el("b", { class: "status-card__title" }, text(s.label)),
-      el("p", { class: "status-card__detail" }, detail),
+      el("div", { class: "status-card__head" }, el("h2", { class: "status-card__title" }, "Data status"), close),
+      factsRow(s),
+      claudeLine(),
+      fresh ? null : el("p", { class: "status-card__detail" }, detail), // the board: a fresh page needs no sentence
+      bandsBlock(),
       el("div", { class: "status-card__actions" }, retry, el("a", { class: "btn btn--quiet", href: "/status", target: "_blank", rel: "noopener" }, "Server status")),
       noticeBlock(),
     ].filter(Boolean);
@@ -578,10 +811,12 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       return;
     }
     placeLayers(); // the card hangs from the top bar's bottom edge, wherever the bar sits now
-    statusCard = el("div", { class: "status-card", role: "dialog", "aria-label": "Data status" }, statusCardBody());
-    document.body.append(statusCard);
+    statusScrim = el("div", { class: "status-scrim", "aria-hidden": "true" });
+    statusCard = el("div", { class: "status-card status-card--data", role: "dialog", "aria-label": "Data status" }, statusCardBody());
+    document.body.append(statusScrim, statusCard);
     statusSlot.querySelector(".pill--button")?.setAttribute("aria-expanded", "true");
     document.addEventListener("pointerdown", onOutside, true);
+    loadDataStatus(true);
     if (notice && typeof notice.onOpen === "function") {
       try {
         notice.onOpen(); // the reader has seen the list: the dot goes
@@ -591,23 +826,40 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
     }
   }
 
-  /** "Updated 4 min ago" from the time the page's data was fetched. */
-  function updatedLabel(at) {
+  /** "Updated 4 min ago" from the time the page's data was fetched, as [words, hiddenBelowPx] pairs: "4 min ago" on an iPad
+   *  (the tabs take the top bar's room), "4 min" on a phone. */
+  function updatedParts(at) {
     const seconds = Math.max(0, (Date.now() - at) / 1000);
-    if (seconds < 60) return "Updated just now";
-    if (seconds < 3600) return `Updated ${Math.round(seconds / 60)} min ago`;
-    return `Updated ${Math.round(seconds / 3600)} h ago`;
+    if (seconds < 60) return [["Updated ", 900], ["just now", null]];
+    if (seconds < 3600) return [["Updated ", 900], [`${Math.round(seconds / 60)} min`, null], [" ago", 480]];
+    return [["Updated ", 900], [`${Math.round(seconds / 3600)} h`, null], [" ago", 480]];
   }
 
   function setStatus(next) {
     lastStatus = next && typeof next === "object" ? { ...next } : { kind: "quiet" };
-    if (typeof lastStatus.updatedAt === "number" && Number.isFinite(lastStatus.updatedAt)) lastStatus.label = updatedLabel(lastStatus.updatedAt);
+    if (typeof lastStatus.updatedAt === "number" && Number.isFinite(lastStatus.updatedAt)) lastStatus.label = updatedParts(lastStatus.updatedAt).map(([bit]) => bit).join("");
+    if (lastStatus.kind !== "offline" && lastStatus.dot !== "slow" && lastStatus.label !== "Connecting") serverOkAt = Date.now(); // the page heard from the server
     drawPill();
     if (statusCard) replaceWith(statusCard, statusCardBody()); // an open card follows the page's state
+    if (lastStatus.label !== "Connecting") loadDataStatus(); // not before the page has said anything
+  }
+
+  /** The pill's parts: the dot, the words (shortened on a phone), then how often or the kept copy's age. */
+  function pillProps(s) {
+    const live = s.kind === "live" && s.label === "Live";
+    const dot = s.dot || (s.kind === "live" && !live ? "ok" : DOT_OF_KIND[s.kind]) || "ok";
+    const delayed = s.kind === "delayed" && typeof s.delay === "number" && s.delay > 0;
+    const extras = [];
+    // how often the app asks, on the live pages only: every other page asks when opened and on Refresh (owner 2026-11-14)
+    if (!refreshable() && (dot === "ok" || dot === "live") && typeof pageInfo?.cadence === "string" && pageInfo.cadence) extras.push(pageInfo.cadence);
+    if (delayed) extras.push(`${s.delay} s delay`);
+    if (typeof s.more === "string" && s.more) extras.push(s.more);
+    const parts = typeof s.updatedAt === "number" && Number.isFinite(s.updatedAt) ? updatedParts(s.updatedAt) : null;
+    return { kind: s.kind, label: delayed ? "Live" : s.label, dot, more: extras.join(" · ") || null, parts };
   }
 
   function drawPill() {
-    const button = pill({ ...lastStatus, onClick: toggleStatusCard });
+    const button = pill({ ...pillProps(lastStatus || {}), onClick: toggleStatusCard });
     button.setAttribute("aria-expanded", statusCard ? "true" : "false");
     if (notice && notice.dot === true) {
       const words = text(button.textContent);
@@ -615,7 +867,12 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
       button.append(el("span", { class: "pill__notice", "aria-hidden": "true" })); // item 6, step C: something to look at
       button.setAttribute("aria-label", `${words}. ${text(notice.title)}: open to see the list`);
     }
-    statusSlot.replaceChildren(button);
+    // manual refresh (owner 2026-11-14, "Tap the status pill"): Refresh rides beside the pill, which still opens the Data
+    // status card; app.js runs it as the pull down's refresh (its line under the top bar)
+    const refresh = refreshable()
+      ? el("button", { class: "pill-refresh", type: "button", title: "Refresh this page", "aria-label": "Refresh this page", onclick: () => document.dispatchEvent(new CustomEvent("kickoff:refresh")) }, icon("refresh"), el("span", { class: "pill-refresh__word" }, "Refresh"))
+      : null;
+    statusSlot.replaceChildren(...[button, refresh].filter(Boolean)); // a null child would be written out as the word
   }
 
   /** Item 6, step C: a dot on the pill while notice.dot, and notice.body() listed in the card; null takes both away. */
@@ -639,8 +896,11 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
   // The Updated words age with the clock between refreshes; only a changed label is redrawn.
   setInterval(() => {
     if (typeof lastStatus?.updatedAt !== "number") return;
-    const label = updatedLabel(lastStatus.updatedAt);
-    if (label !== lastStatus.label) setStatus(lastStatus);
+    const label = updatedParts(lastStatus.updatedAt).map(([bit]) => bit).join("");
+    if (label === lastStatus.label) return;
+    lastStatus.label = label; // a redraw, not word from the server: the card's "answered" time stays
+    drawPill();
+    if (statusCard) replaceWith(statusCard, statusCardBody());
   }, 30000);
 
   /** Mark the Live sheet while our game is under way (Phase 17 #25); false clears it. */
@@ -702,7 +962,7 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
 
   renderDrawer();
   const root = el("div", { class: "shell" }, topbar, notes, main, radioSlot, drawer);
-  return { root, main, notes, setStatus, setNotice, setCurrent, setLive, openDrawer, closeDrawer, setRadio };
+  return { root, main, notes, setStatus, setNotice, setCurrent, setPage, setLive, setStop, setNewspaperWeek, openDrawer, closeDrawer, setRadio };
 }
 
 /** The pinned mini-bar shown while the radio plays: station, state, play or pause, close. */

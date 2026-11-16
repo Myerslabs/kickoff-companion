@@ -3,7 +3,7 @@ returning production and the blue-chip ratio. The recorded nationwide answers pa
 skipped and counted and never crash a list or leak NaN; a cold cache costs exactly the expected calls
 through the guard and a warm one none for a week; a refused call serves the stale list or a 503;
 years outside the five recorded classes are refused before any fetch; the blue-chip ratio agrees with
-stats_extra's for Swampwater Tech and the opponent; every page payload that shows one of these numbers names
+stats_extra's for Florida and the opponent; every page payload that shows one of these numbers names
 its list; and every list marks the next opponent."""
 
 from __future__ import annotations
@@ -139,10 +139,10 @@ def test_the_recordings_parse():
 
 def test_recruit_list_top_100_and_every_one_of_ours(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
-    data = get(client, "/api/national/recruit:2026?team=Diner%20Tech")["data"]
+    data = get(client, "/api/national/recruit:2026?team=Texas%20State")["data"]
     assert data["unit"] == "player" and data["family"] == "recruit" and data["format"] == "rating100" and data["rankSource"] == "cfbd"
     assert len(data["rows"]) == 100 and data["cut"] == 100 and [r["rank"] for r in data["rows"][:3]] == [1, 2, 3]
-    swt_rows = [r for r in fixture_payload("recruiting_players_national_2026") if r.get("committedTo") == "Swampwater Tech" and isinstance(r.get("ranking"), int)]
+    swt_rows = [r for r in fixture_payload("recruiting_players_national_2026") if r.get("committedTo") == "Florida" and isinstance(r.get("ranking"), int)]
     below = sorted(r["ranking"] for r in swt_rows if r["ranking"] > 100)
     assert [r["rank"] for r in data["beyond"] if r["isUs"]] == below and below
     assert all(r["isUs"] or r["isFocus"] for r in data["beyond"])
@@ -155,7 +155,7 @@ def test_recruit_list_top_100_and_every_one_of_ours(client: TestClient, fake_cfb
 
 def test_bluechip_agrees_with_stats_extra_for_us_and_the_opponent(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
-    data = get(client, "/api/national/bluechip:ratio?team=Diner%20Tech")["data"]
+    data = get(client, "/api/national/bluechip:ratio?team=Texas%20State")["data"]
 
     def team_level(names: list[str]) -> dict[str, Any]:
         return blue_chip({2023 + i: parse_records(Recruit, fixture_payload(n), context="t").records for i, n in enumerate(names)})
@@ -163,33 +163,33 @@ def test_bluechip_agrees_with_stats_extra_for_us_and_the_opponent(client: TestCl
     swt = team_level(["recruiting_players_2023", "recruiting_players_2024", "recruiting_players_2025", "recruiting_players"])
     opponent = team_level([f"recruiting_players_opponent_{y}" for y in (2023, 2024, 2025, 2026)])
     assert data["us"]["value"] == swt["ratio"] and data["focus"]["value"] == opponent["ratio"]
-    row = next(r for r in data["rows"] if r["team"] == "Swampwater Tech")
+    row = next(r for r in data["rows"] if r["team"] == "Florida")
     assert row["detail"] == {"blueChips": swt["blueChips"], "signees": swt["signees"]}
     assert data["of"] <= 138 and all(r["value"] is not None for r in data["rows"])
     ranks = [r["rank"] for r in data["rows"]]
     assert ranks == sorted(ranks) and ranks[0] == 1
     conf = get(client, "/api/national/bluechip:ratio?scope=conference")["data"]
-    assert conf["conference"] == "Biscuit Belt" and all(r["conference"] == "Biscuit Belt" and r["nationalRank"] for r in conf["rows"]) and conf["of"] == 16
+    assert conf["conference"] == "SEC" and all(r["conference"] == "SEC" and r["nationalRank"] for r in conf["rows"]) and conf["of"] == 16
 
 
 def test_returning_list(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
     data = get(client, "/api/national/returning:percentPPA")["data"]
     recorded = {r["team"]: r["percentPPA"] for r in fixture_payload("player_returning_national")}
-    assert data["us"]["value"] == pytest.approx(recorded["Swampwater Tech"], abs=1e-3) and data["us"]["rank"]
+    assert data["us"]["value"] == pytest.approx(recorded["Florida"], abs=1e-3) and data["us"]["rank"]
     assert data["rows"][0]["value"] == pytest.approx(max(v for v in recorded.values() if v is not None), abs=1e-3)
     assert data["label"] == "Returning production (PPA)" and data["format"] == "pct"
     total = get(client, "/api/national/returning:totalPPA?scope=conference")["data"]
-    assert total["conference"] == "Biscuit Belt" and total["format"] == "1f"
+    assert total["conference"] == "SEC" and total["format"] == "1f"
 
 
 def test_every_list_marks_the_next_opponent(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
     for path in ("/api/national/profile:ypp", "/api/national/bluechip:ratio", "/api/national/recruit:2026"):
         data = get(client, path)["data"]
-        assert data["next"] == "Diner Tech", path
+        assert data["next"] == "Texas State", path
         marked = [r for r in data["rows"] + data["beyond"] if r["isNext"]]
-        assert all(r["team"] == "Diner Tech" for r in marked), path
+        assert all(r["team"] == "Texas State" for r in marked), path
     assert any(r["isNext"] for r in get(client, "/api/national/profile:ypp")["data"]["rows"])
 
 
@@ -285,8 +285,8 @@ def test_a_missing_class_leaves_the_ratio_empty_with_a_note(client: TestClient, 
 def test_junk_recruits_are_skipped_and_counted(client: TestClient, fake_cfbd: FakeCfbd):
     good = fixture_payload("recruiting_players_national_2026")[:150]
     junk = [
-        {"id": "x1", "name": "No Rank", "committedTo": "Swampwater Tech", "stars": 4, "rating": 0.9},
-        {"id": "x2", "name": "String Stars", "ranking": 7, "committedTo": "Swampwater Tech", "stars": "four", "rating": 0.95},
+        {"id": "x1", "name": "No Rank", "committedTo": "Florida", "stars": 4, "rating": 0.9},
+        {"id": "x2", "name": "String Stars", "ranking": 7, "committedTo": "Florida", "stars": "four", "rating": 0.95},
         {"id": "x3", "name": "Null Team", "ranking": 8, "committedTo": None, "stars": 3, "rating": float("nan")},
         {"id": "x4", "ranking": "9", "rating": "high"},
         {"name": "No Id", "ranking": 10},
@@ -309,7 +309,7 @@ def test_junk_recruits_are_skipped_and_counted(client: TestClient, fake_cfbd: Fa
 
 def test_junk_returning_production(client: TestClient, fake_cfbd: FakeCfbd):
     rows = [dict(r) for r in fixture_payload("player_returning_national")]
-    swt = next(r for r in rows if r["team"] == "Swampwater Tech")
+    swt = next(r for r in rows if r["team"] == "Florida")
     swt["percentPPA"] = "x"
     junk = [{"team": None, "percentPPA": 0.5}, {"percentPPA": 0.9}, {"team": "Ghost U", "percentPPA": float("inf")}, "junk", None]
     route_national(fake_cfbd, returning=rows + junk)
@@ -359,7 +359,7 @@ def test_page_payloads_carry_the_extra_list_keys(client: TestClient, fake_cfbd: 
 def test_matchup_rows_name_their_lists_and_logos_are_local(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
     fake_cfbd.fixture("/talent", "talent")
-    body = client.get("/api/matchup?away=Diner%20Tech&home=Swampwater%20Tech")
+    body = client.get("/api/matchup?away=Texas%20State&home=Florida")
     assert body.status_code == 200
     data = body.json()["data"]
     assert data["rows"] and all(resolve(r["metric"], SEASON) is not None for r in data["rows"])
@@ -409,17 +409,17 @@ def assert_returning_agrees(client: TestClient, block: dict[str, Any], team: str
 def test_page_chips_agree_with_their_lists(client: TestClient, fake_cfbd: FakeCfbd):
     route_national(fake_cfbd)
     program = get(client, "/api/program/next")["data"]
-    for side, team in (("us", "Swampwater Tech"), ("them", "Diner Tech")):
+    for side, team in (("us", "Florida"), ("them", "Texas State")):
         block = program["recruiting"][side]
         assert block["school"] == team
         assert_blue_chip_agrees(client, block["blueChip"], team)
         assert_returning_agrees(client, block["returning"], team)
-    for team in ("Diner Tech", "Swampwater Tech"):
+    for team in ("Texas State", "Florida"):
         page = get(client, f"/api/team/{team}")["data"]
         assert_blue_chip_agrees(client, page["recruiting"]["blueChip"], team)
         assert_returning_agrees(client, page["recruiting"]["returning"], team)
     roster = get(client, "/api/roster")["data"]
-    assert_blue_chip_agrees(client, roster["blueChip"], "Swampwater Tech")
+    assert_blue_chip_agrees(client, roster["blueChip"], "Florida")
     assert program["recruiting"]["us"]["blueChip"]["nationalRank"] == roster["blueChip"]["nationalRank"]
 
 
@@ -429,8 +429,8 @@ def test_page_chips_cost_five_calls_cold_and_none_warm(app, client: TestClient, 
     app.state.cfbd._clock = lambda: base
     get(client, "/api/program/next")
     assert national_calls(fake_cfbd) == 5  # four signed classes and returning production
-    get(client, "/api/team/Diner%20Tech")
-    get(client, "/api/team/Swampwater Tech")
+    get(client, "/api/team/Texas%20State")
+    get(client, "/api/team/Florida")
     get(client, "/api/roster")
     assert national_calls(fake_cfbd) == 5  # the other pages share the keys
     get(client, "/api/national/bluechip:ratio")
@@ -439,7 +439,7 @@ def test_page_chips_cost_five_calls_cold_and_none_warm(app, client: TestClient, 
     assert national_calls(fake_cfbd) == 5  # and so do the lists
     app.state.cfbd._clock = lambda: base + timedelta(days=6, hours=23)
     get(client, "/api/program/next")
-    get(client, "/api/team/Diner%20Tech")
+    get(client, "/api/team/Texas%20State")
     get(client, "/api/roster")
     assert national_calls(fake_cfbd) == 5  # warm for the week (the signed classes and returning are kept a month)
     app.state.cfbd._clock = lambda: base + timedelta(days=31)
@@ -463,7 +463,7 @@ def test_a_failed_pull_shows_the_value_without_a_rank(client: TestClient, fake_c
     parts = body["data"]["parts"]
     assert parts["recruitsNational_2024"]["status"] == "error" and parts["returningNational"]["status"] == "error"
     assert {e["message"].split(":")[0] for e in body["errors"] if e["code"] == "part_unavailable"} >= {"recruitsNational_2024", "returningNational"}
-    team = strict(client.get("/api/team/Diner%20Tech").text)["data"]["recruiting"]
+    team = strict(client.get("/api/team/Texas%20State").text)["data"]["recruiting"]
     assert team["blueChip"]["nationalRank"] is None and team["blueChip"]["ratio"] is not None
 
 
@@ -486,18 +486,18 @@ def test_a_quota_refusal_shows_the_value_without_a_rank(app, client: TestClient,
 
 
 def test_malformed_pulls_never_break_a_page(client: TestClient, fake_cfbd: FakeCfbd):
-    junk_class = fixture_payload("recruiting_players_national_2025")[:400] + [{"id": "j1", "committedTo": "Swampwater Tech", "stars": "five"}, {"committedTo": None}, "junk", None, 7, {"id": "j2", "committedTo": {"school": "x"}}]
-    junk_returning = [{"team": "Swampwater Tech", "percentPPA": "x", "usage": float("nan")}, {"team": None}, {"percentPPA": 0.5}, "junk", None] + [dict(r) for r in fixture_payload("player_returning_national") if r["team"] != "Swampwater Tech"]
+    junk_class = fixture_payload("recruiting_players_national_2025")[:400] + [{"id": "j1", "committedTo": "Florida", "stars": "five"}, {"committedTo": None}, "junk", None, 7, {"id": "j2", "committedTo": {"school": "x"}}]
+    junk_returning = [{"team": "Florida", "percentPPA": "x", "usage": float("nan")}, {"team": None}, {"percentPPA": 0.5}, "junk", None] + [dict(r) for r in fixture_payload("player_returning_national") if r["team"] != "Florida"]
     route_national(fake_cfbd, classes={2025: junk_class, 2024: {"message": "a dict"}}, returning=junk_returning)
     response = client.get("/api/program/next")
     assert response.status_code == 200
     body = strict(response.text)
     us, them = body["data"]["recruiting"]["us"], body["data"]["recruiting"]["them"]
-    assert us["returning"]["ranks"]["percentPPA"]["rank"] is None  # Swampwater Tech's figure is junk there: no rank, no crash
+    assert us["returning"]["ranks"]["percentPPA"]["rank"] is None  # Florida's figure is junk there: no rank, no crash
     assert them["returning"]["ranks"]["percentPPA"]["rank"] is not None
     assert body["data"]["parts"]["returningNational"]["skipped"] >= 3
     assert us["blueChip"]["ratio"] is not None
-    page = strict(client.get("/api/team/Swampwater Tech").text)["data"]["recruiting"]
+    page = strict(client.get("/api/team/Florida").text)["data"]["recruiting"]
     assert page["returning"] is None or all(isinstance(r["tied"], bool) for r in page["returning"]["ranks"].values())
 
 

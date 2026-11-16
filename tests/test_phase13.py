@@ -1,4 +1,4 @@
-"""Phase 13 (stats depth II): the client's patience with a busy endpoint (the Diner Tech night's 429
+"""Phase 13 (stats depth II): the client's patience with a busy endpoint (the Texas State night's 429
 "Too many concurrent requests" after two timeouts on /stats/season/advanced); the calculations
 behind the new tables from recorded answers, with junk; the routes that carry them; and the new
 front-end helpers under Node."""
@@ -58,7 +58,7 @@ def setup(app, client: TestClient) -> dict:
 def test_a_busy_endpoint_is_retried_patiently_then_rests(app, client: TestClient, fake_cfbd: FakeCfbd):
     clock = setup(app, client)
     cfbd = app.state.cfbd
-    fake_cfbd.route("/stats/season/advanced", json=[{"team": "Swampwater Tech"}])
+    fake_cfbd.route("/stats/season/advanced", json=[{"team": "Florida"}])
     first = client.portal.call(lambda: cfbd.get("/stats/season/advanced", {"year": 2026}, kind=DataKind.SEASON_STATS))
     assert first.source == "live"
     clock["now"] += timedelta(hours=7)  # past the weekday lifetime
@@ -69,7 +69,7 @@ def test_a_busy_endpoint_is_retried_patiently_then_rests(app, client: TestClient
     again = client.portal.call(lambda: cfbd.get("/stats/season/advanced", {"year": 2026}, kind=DataKind.SEASON_STATS))
     assert again.stale and fake_cfbd.count("/stats/season/advanced") == 5  # resting: the cached copy, no call
     clock["now"] += ENDPOINT_COOLDOWN + timedelta(seconds=1)
-    fake_cfbd.route("/stats/season/advanced", json=[{"team": "Swampwater Tech", "season": 2026}])
+    fake_cfbd.route("/stats/season/advanced", json=[{"team": "Florida", "season": 2026}])
     fresh = client.portal.call(lambda: cfbd.get("/stats/season/advanced", {"year": 2026}, kind=DataKind.SEASON_STATS))
     assert fresh.source == "live" and fake_cfbd.count("/stats/season/advanced") == 6
     assert "/stats/season/advanced" not in cfbd._busy_until
@@ -114,68 +114,69 @@ def test_sos_played_averages_rated_opponents_and_counts_fcs():
 
 def test_the_resume_from_the_recorded_schedule():
     schedule = recs("games_team", Game)
-    r = depth2.resume(schedule, schedule + recs("games_week", Game), "Swampwater Tech", recs("ratings_sp", TeamSP), recs("rankings", PollWeek))
-    rec = facts.record("Swampwater Tech", "records_team")["total"]
+    r = depth2.resume(schedule, schedule + recs("games_week", Game), "Florida", recs("ratings_sp", TeamSP), recs("rankings", PollWeek))
+    rec = facts.record("Florida", "records_team")["total"]
     assert r["wins"] == rec["wins"] and r["losses"] == rec["losses"] and r["gamesCounted"] == rec["games"]
     played = [g for g in fixture_payload("games_team") if g["completed"]]
-    expected = sum(g["homePostgameWinProbability"] if g["homeTeam"] == "Swampwater Tech" else g["awayPostgameWinProbability"] for g in played)
+    expected = sum(g["homePostgameWinProbability"] if g["homeTeam"] == "Florida" else g["awayPostgameWinProbability"] for g in played)
     assert r["expectedWins"] == pytest.approx(expected, abs=0.01)
     assert r["luck"] == pytest.approx(rec["wins"] - r["expectedWins"], abs=0.01)
     assert len(r["remaining"]["games"]) == sum(1 for g in fixture_payload("games_team") if not g["completed"]) and isinstance(r["remaining"]["averageSp"], float)
-    assert all(set(p) == {"week", "seasonType", "ap", "coaches"} for p in r["polls"])
+    assert all(set(p) == {"week", "seasonType", "ap", "coaches", "led"} for p in r["polls"])  # ENH-19: the game that led into each poll
+    assert r["opponentPolls"] is None, "no next opponent named: no second line"
 
 
 def test_the_portal_joins_by_name_and_destination():
     portal = [PlayerTransfer.model_validate(x) for x in (
-        {"firstName": "Aaron", "lastName": "Hamilton", "origin": "Georgia Tech", "destination": "Swampwater Tech", "stars": 3, "rating": 0.89, "transferDate": "2026-01-06T00:00:00Z", "eligibility": "Immediate"},
-        {"firstName": "Eric", "lastName": "Singleton Jr.", "origin": "Silver Dollar", "destination": "Swampwater Tech", "stars": 4, "transferDate": "2026-01-02T00:00:00Z"},
-        {"firstName": "Aaron", "lastName": "Hamilton", "origin": "Swampwater Tech", "destination": "Troy", "transferDate": "2027-01-01T00:00:00Z"},
+        {"firstName": "Aaron", "lastName": "Hamilton", "origin": "Georgia Tech", "destination": "Florida", "stars": 3, "rating": 0.89, "transferDate": "2026-01-06T00:00:00Z", "eligibility": "Immediate"},
+        {"firstName": "Eric", "lastName": "Singleton Jr.", "origin": "Fresno State", "destination": "Florida", "stars": 4, "transferDate": "2026-01-02T00:00:00Z"},
+        {"firstName": "Aaron", "lastName": "Hamilton", "origin": "Florida", "destination": "Troy", "transferDate": "2027-01-01T00:00:00Z"},
     )]
-    idx = depth2.portal_index(portal, "Swampwater Tech")
+    idx = depth2.portal_index(portal, "Florida")
     assert depth2.transfer_for(idx, "Aaron", "Hamilton") == {"from": "Georgia Tech", "stars": 3, "rating": 0.89, "date": "2026-01-06", "eligibility": "Immediate", "position": None}
-    assert depth2.transfer_for(idx, "Eric", "Singleton") ["from"] == "Silver Dollar"  # the suffix does not matter
+    assert depth2.transfer_for(idx, "Eric", "Singleton") ["from"] == "Fresno State"  # the suffix does not matter
     assert depth2.transfer_for(idx, "Nobody", "Here") is None and depth2.transfer_for({}, None, None) is None
-    real = depth2.portal_index(recs("player_portal", PlayerTransfer), "Swampwater Tech")
+    real = depth2.portal_index(recs("player_portal", PlayerTransfer), "Florida")
     assert len(real) >= 5  # a realistic portal class (public release Phase 7 rosters)
 
 
 def test_class_rank():
     table = fixture_payload("recruiting_teams")
-    row = next(r for r in table if r["team"] == "Swampwater Tech")
-    assert depth2.class_rank(recs("recruiting_teams", TeamRecruitingRanking), "Swampwater Tech") == {"year": 2026, "rank": row["rank"], "points": row["points"], "of": len(table), "metric": "class:2026"}
-    assert depth2.class_rank([], "Swampwater Tech") is None
+    row = next(r for r in table if r["team"] == "Florida")
+    assert depth2.class_rank(recs("recruiting_teams", TeamRecruitingRanking), "Florida") == {"year": 2026, "rank": row["rank"], "points": row["points"], "of": len(table), "metric": "class:2026"}
+    assert depth2.class_rank([], "Florida") is None
 
 
 def test_adjusted_metrics_boards_and_more_ratings():
     adjusted = recs("wepa_team_season_2025", AdjustedTeamMetrics)
-    rows = depth2.adjusted_matchup(adjusted, "Swampwater Tech", "Diner Tech")
+    rows = depth2.adjusted_matchup(adjusted, "Florida", "Texas State")
     assert rows[0]["key"] == "epa" and 1 <= rows[0]["themRank"] <= rows[0]["of"] == len(adjusted)
-    assert depth2.adjusted_matchup([], "Swampwater Tech", "Diner Tech") == []
-    boards = depth2.player_boards(recs("wepa_players_passing_2025", PlayerWeightedEPA), recs("wepa_players_rushing_2025", PlayerWeightedEPA), recs("wepa_players_kicking", KickerPAAR), team="Swampwater Tech", opponent="Sweet Tea State", conference="Biscuit Belt", fbs=None)
+    assert depth2.adjusted_matchup([], "Florida", "Texas State") == []
+    boards = depth2.player_boards(recs("wepa_players_passing_2025", PlayerWeightedEPA), recs("wepa_players_rushing_2025", PlayerWeightedEPA), recs("wepa_players_kicking", KickerPAAR), team="Florida", opponent="Ole Miss", conference="SEC", fbs=None)
     assert [b["id"] for b in boards] == ["wepa:passing", "wepa:rushing", "paar:kicking"]
     national = boards[2]["national"]
     assert len(national) == 10 and all(national[i]["value"] >= national[i + 1]["value"] for i in range(9)) and national[0]["nationalRank"] == 1
-    empty = depth2.player_boards([], [], [], team="Swampwater Tech", opponent=None, conference="Biscuit Belt", fbs=None)
+    empty = depth2.player_boards([], [], [], team="Florida", opponent=None, conference="SEC", fbs=None)
     assert empty[0]["national"] == [] and "not published" in empty[0]["note"]
     more = depth2.more_ratings(recs("ratings_core", TeamCoreRating), recs("ratings_srs_2025", TeamSRS), adjusted)
     top = max(fixture_payload("ratings_core"), key=lambda r: r["overall"])["team"]
-    assert more[top]["core"]["rank"] == 1 and more["Swampwater Tech"]["srs"]["value"] is not None
+    assert more[top]["core"]["rank"] == 1 and more["Florida"]["srs"]["value"] is not None
     conf = depth2.conference_rows(recs("ratings_sp_conferences", ConferenceSP))
-    assert conf[0]["conference"] == "Biscuit Belt" and conf[0]["rank"] == 1 and len(conf) == 11
+    assert conf[0]["conference"] == "SEC" and conf[0]["rank"] == 1 and len(conf) == 11
 
 
 def test_opponent_tendencies_from_the_recorded_plays():
-    t = depth2.tendencies(recs("rushing_plays_opponent", RushingPlay), recs("passing_plays_opponent", PassingPlay), "Diner Tech")
+    t = depth2.tendencies(recs("rushing_plays_opponent", RushingPlay), recs("passing_plays_opponent", PassingPlay), "Texas State")
     games = {r["gameId"] for r in fixture_payload("rushing_plays_opponent")} | {r["gameId"] for r in fixture_payload("passing_plays_opponent")}
     assert t["games"] == len(games) and t["plays"] > 50 * len(games) and 0.3 < t["runRate"] < 0.8
     first = next(r for r in t["bySituation"] if r["key"] == "first")
     assert first["plays"] == first["run"]["plays"] + first["pass"]["plays"]
     assert [d["key"] for d in t["runDirection"]] == ["left", "middle", "right"] and sum(d["plays"] for d in t["runDirection"]) > 25 * len(games)
     assert {d["key"] for d in t["passDepth"]} <= {"short", "deep", "behind_los", "behind line of scrimmage"}
-    none = depth2.tendencies([], [], "Sweet Tea State")
+    none = depth2.tendencies([], [], "Ole Miss")
     assert none["plays"] == 0 and none["runRate"] is None
     other = depth2.tendencies(recs("rushing_plays_opponent", RushingPlay), [], "Arkansas-Pine Bluff")
-    assert other["plays"] < t["plays"]  # the defense's side is its own offense, not Sweet Tea State's
+    assert other["plays"] < t["plays"]  # the defense's side is its own offense, not Ole Miss's
 
 
 def test_tendencies_count_sacks_as_passes_and_skip_kneels_and_spikes():
@@ -189,12 +190,12 @@ def test_tendencies_count_sacks_as_passes_and_skip_kneels_and_spikes():
 def test_the_advanced_box_score_normalizes_and_survives_junk():
     box = depth2.advanced_box(fixture_payload("game_box_advanced"))
     raw = fixture_payload("game_box_advanced")["teams"]
-    pick = lambda block: next(row for row in raw[block] if row["team"] == "Swampwater Tech")  # noqa: E731
-    assert set(box["teams"]) == {"Swampwater Tech", "Silver Dollar"}
-    fl = box["teams"]["Swampwater Tech"]
+    pick = lambda block: next(row for row in raw[block] if row["team"] == "Florida")  # noqa: E731
+    assert set(box["teams"]) == {"Florida", "Fresno State"}
+    fl = box["teams"]["Florida"]
     assert fl["plays"] == pick("ppa")["plays"] and fl["success"]["overall"]["quarter3"] == pick("successRates")["overall"]["quarter3"]
     assert fl["line"]["lineYards"] == pick("rushing")["lineYardsAverage"] and fl["scoring"]["opportunities"] == pick("scoringOpportunities")["opportunities"]
-    assert box["players"][0]["totalPpa"] >= box["players"][-1]["totalPpa"] and box["home"] == "Silver Dollar"
+    assert box["players"][0]["totalPpa"] >= box["players"][-1]["totalPpa"] and box["home"] == "Fresno State"
     for junk in (None, [], "x", {}, {"teams": []}, {"teams": {"ppa": "x"}}):
         result = depth2.advanced_box(junk)
         assert result is None or result["teams"] == {}
@@ -203,11 +204,11 @@ def test_the_advanced_box_score_normalizes_and_survives_junk():
 
 
 def test_the_advanced_rows_cover_every_area():
-    rows = advanced_rows(recs("stats_season_advanced_fbs", AdvancedSeasonStat), "Swampwater Tech")
+    rows = advanced_rows(recs("stats_season_advanced_fbs", AdvancedSeasonStat), "Florida")
     assert len(rows) == 32 and {r["group"] for r in rows} == {"Overall", "Downs", "Run and pass", "Line play", "Havoc", "Finishing drives", "Field position"}
     assert all(r["value"] is not None and r["nationalRank"] is not None for r in rows)
     assert len({r["key"] for r in rows}) == 32
-    empty = advanced_rows([], "Swampwater Tech")
+    empty = advanced_rows([], "Florida")
     assert all(r["value"] is None and r["nationalRank"] is None for r in empty)
 
 
@@ -221,7 +222,7 @@ def test_the_game_analytics_carry_the_advanced_box(app, client: TestClient, fake
     route_analytics(fake_cfbd)
     route_depth2(fake_cfbd)
     data = client.get("/api/games/526000600/analytics").json()["data"]
-    assert data["advancedBox"]["teams"]["Swampwater Tech"]["plays"] == next(r for r in fixture_payload("game_box_advanced")["teams"]["ppa"] if r["team"] == "Swampwater Tech")["plays"]
+    assert data["advancedBox"]["teams"]["Florida"]["plays"] == next(r for r in fixture_payload("game_box_advanced")["teams"]["ppa"] if r["team"] == "Florida")["plays"]
     # wave 2 review: the box names its players without ids, so the server takes them from the week's play value records
     known = {(r["team"], r["name"]): str(r["id"]) for r in fixture_payload("ppa_players_games")}
     players = data["advancedBox"]["players"]
@@ -234,11 +235,11 @@ def test_player_ids_skip_junk_records():
     from app.cfbd.models import PlayerGamePpa
     from app.services.analytics import player_ids
 
-    good = PlayerGamePpa.model_validate({"id": "4321", "name": "A Back", "team": "Swampwater Tech"})
+    good = PlayerGamePpa.model_validate({"id": "4321", "name": "A Back", "team": "Florida"})
     no_team = PlayerGamePpa.model_validate({"id": "99", "name": "B Back"})
-    not_digits = PlayerGamePpa.model_validate({"id": "x9", "name": "C Back", "team": "Swampwater Tech"})
-    again = PlayerGamePpa.model_validate({"id": "5555", "name": "A Back", "team": "Swampwater Tech"})
-    assert player_ids([[good, no_team, not_digits], [again]]) == {("Swampwater Tech", "A Back"): "4321"}
+    not_digits = PlayerGamePpa.model_validate({"id": "x9", "name": "C Back", "team": "Florida"})
+    again = PlayerGamePpa.model_validate({"id": "5555", "name": "A Back", "team": "Florida"})
+    assert player_ids([[good, no_team, not_digits], [again]]) == {("Florida", "A Back"): "4321"}
     assert player_ids([]) == {}
 
 
@@ -248,7 +249,7 @@ def test_the_season_carries_the_resume(app, client: TestClient, fake_cfbd: FakeC
     quiet_engine(app, client)
     route_season(fake_cfbd)
     data = client.get("/api/season/overview").json()["data"]
-    assert data["resume"]["wins"] == facts.record("Swampwater Tech", "records_team")["total"]["wins"] and data["resume"]["expectedWins"] is not None
+    assert data["resume"]["wins"] == facts.record("Florida", "records_team")["total"]["wins"] and data["resume"]["expectedWins"] is not None
     assert any(r["group"] == "Havoc" for r in data["advanced"]["rows"])
 
 
@@ -265,14 +266,14 @@ const groups = d2.groupRows([{ group: "Havoc", key: "a" }, { group: "Overall", k
 assert.deepEqual([...groups.keys()], ["Havoc", "Overall", "Other"]);
 assert.deepEqual(groups.get("Havoc").map((r) => r.key), ["a", "c"]);
 
-assert.equal(openingLine(-1.5, 2.5, "Silver Dollar", "Swampwater Tech"), "Silver Dollar -1.5");
-assert.equal(openingLine(3, 2.5, "Silver Dollar", "Swampwater Tech"), "Swampwater Tech -3");
-assert.equal(openingLine(0, 2.5, "Silver Dollar", "Swampwater Tech"), "a pick'em");
-assert.equal(openingLine(2.5, 2.5, "Silver Dollar", "Swampwater Tech"), null);
-assert.equal(openingLine(null, 2.5, "Silver Dollar", "Swampwater Tech"), null);
+assert.equal(openingLine(-1.5, 2.5, "Fresno State", "Florida"), "Fresno State -1.5");
+assert.equal(openingLine(3, 2.5, "Fresno State", "Florida"), "Florida -3");
+assert.equal(openingLine(0, 2.5, "Fresno State", "Florida"), "a pick'em");
+assert.equal(openingLine(2.5, 2.5, "Fresno State", "Florida"), null);
+assert.equal(openingLine(null, 2.5, "Fresno State", "Florida"), null);
 
 assert.equal(transferText({ from: "Georgia Tech", stars: 3, rating: 0.89, date: "2026-01-06", eligibility: "Immediate" }), "From Georgia Tech, 3-star in the portal, 0.8900, entered 2026-01-06, immediate");
-assert.equal(transferText({ from: "Silver Dollar" }), "From Silver Dollar");
+assert.equal(transferText({ from: "Fresno State" }), "From Fresno State");
 for (const bad of [null, undefined, {}, { from: "" }, { from: 3 }, "x"]) assert.equal(transferText(bad), null);
 
 assert.equal(classRankText({ rank: 17, of: 221, points: 250.98 }), " Class rank #17 of 221 nationally (250.98 points, 247Sports composite).");

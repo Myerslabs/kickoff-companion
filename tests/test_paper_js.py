@@ -1,8 +1,8 @@
-"""Queue items 10 to 12 in the fake browser (mock approved 2026-10-13), laid out as a newspaper's front page since the
-layout pass (owner 2026-10-22, board 5): the masthead with this week's name and the edition arrows; the skybox; our game
-as the dominant story with a banner headline, the deck and the press box; the game of the week beside "By the numbers";
-the player feature, the coach's story and every ranked game in one line of agate; the briefs; an earlier edition, a
-missing one and an old server's answer; no undefined, null or NaN on screen."""
+"""FEAT-14 wave 3 in the fake browser (the owner's boards of 2026-10-27): the paper in one scroll (the masthead and the
+week chips; the front page's lead beside the rail, three stories, the game of the week; page 2; page 3 and on; the Top 25
+at the back), the earlier weeks folded and opened in place, our final as the lead, an older server's answer, and the
+reader; nothing that repeats the tabs; no undefined, null or NaN on screen. The layout is the server's own rule
+(app/services/paper_layout.py), built here from made-up stories."""
 
 from __future__ import annotations
 
@@ -11,56 +11,58 @@ from pathlib import Path
 
 import pytest
 
+from app.services.paper_layout import layout
 from tests.fakedom import needs_node, run_scenario
 
 
-def team(school: str, abbr: str, rank: int | None, points: int | None = None, lines: list[int] | None = None, color: str = "#336699") -> dict:
-    return {"school": school, "abbreviation": abbr, "mascot": "Things", "rank": rank, "apRank": rank, "color": color, "altColor": "#ffffff", "record": {"wins": 5, "losses": 1}, "conferenceRecord": {"wins": 3, "losses": 1}, "points": points, "lineScores": lines, "headCoach": "A Coach", "form": []}
+def team(school: str, abbr: str, rank: int | None, points: int | None = None, color: str = "#336699") -> dict:
+    return {"school": school, "abbreviation": abbr, "mascot": "Things", "rank": rank, "color": color, "altColor": "#ffffff", "record": {"wins": 5, "losses": 1}, "conferenceRecord": {"wins": 3, "losses": 1}, "points": points, "lineScores": None, "logo": None, "logoDark": None}
 
 
-def game(gid: int, status: str, away: dict, home: dict, *, headline: dict | None = None, us: bool = False, **extra) -> dict:
-    return {
-        "gameId": gid, "week": 8, "seasonType": "regular", "bowl": None, "kickoff": "2026-10-24T19:30:00Z", "startTimeTbd": False, "neutralSite": False,
-        "conferenceGame": True, "conference": "Big Casserole", "venue": "Prairie Fire Stadium", "tv": "Snack Sports", "status": status, "detail": "Q2 7:02" if status == "live" else None,
-        "period": 2 if status == "live" else None, "clock": "7:02" if status == "live" else None, "isUs": us, "href": "#live" if us else f"#box={gid}",
-        "away": away, "home": home, "line": {"spread": -3.5, "formatted": "Prairie Fire -3.5", "short": "EMBR -3.5", "overUnder": 58.5, "pickem": False},
-        "homeWinProbability": 0.61, "weather": None, "headline": headline, **extra,
-    }
+def game(gid: int, status: str, away: dict, home: dict, *, headline: dict | None = None, us: bool = False) -> dict:
+    return {"gameId": gid, "week": 9, "seasonType": "regular", "kickoff": "2026-10-31T19:30:00Z", "startTimeTbd": False, "neutralSite": False, "conferenceGame": True, "conference": "SEC", "venue": "A Stadium", "status": status, "period": 2 if status == "live" else None, "clock": "7:02" if status == "live" else None, "isUs": us, "away": away, "home": home, "headline": headline}
 
 
 MATCHUPS = [
-    game(1, "final", team("Saddle Sore", "SADL", 2, 54, [6, 10, 0, 24, 7, 7]), team("Prairie Fire", "EMBR", 20, 47, [3, 14, 13, 10, 7, 0]), headline={"kind": "overtime", "kicker": "Overtime", "text": "No. 2 Saddle Sore outlasts No. 20 Prairie Fire, 54-47, in 2 overtimes"}),
-    game(2, "live", team("Snowdrift State", "SNOW", 6, 2), team("Hayloft", "HAY", 18, 0)),
-    game(3, "pre", team("Rust Belt", "RVT", 9), team("Tater Tot Tech", "TOT", None), headline={"kind": "preLate", "kicker": "Late show", "text": "No. 9 Rust Belt visits Tater Tot Tech, 10:30 PM kickoff; brew the coffee"}),
-    game(4, "live", team("Swampwater Tech", "SWT", None), team("Bluegrass Bottoms", "BLUE", 12), us=True),
-    game(5, "final", team("Loon Lake", "LOON", None, 19), team("Snowmobile Tech", "SLED", 25, 3), headline={"kind": "finalUpset", "kicker": "Upset", "text": "Loon Lake sends No. 25 Snowmobile Tech home grumbling, 19-3"}),
+    game(1, "final", team("Miami", "MIA", 1, 52), team("North Carolina", "UNC", None, 23), headline={"text": "No. 1 Miami rolls"}),
+    game(2, "pre", team("Arizona", "ARIZ", 22), team("Texas Tech", "TTU", 13), headline={"text": "Wildcats at Red Raiders"}),
+    game(3, "pre", team("Florida", "FLA", 17), team("Georgia", "UGA", 3), us=True, headline={"text": "Florida meets No. 3 Georgia"}),
+    game(4, "live", team("Ohio State", "OSU", 2, 14), team("USC", "USC", None, 10)),
 ]
 
 
-def story(title: str, topic: str, hours: int, players: list | None = None, url: str = "https://example.com/s") -> dict:
-    return {"title": title, "url": url, "source": "Campus Daily", "publishedAt": f"2026-10-24T{max(0, 20 - hours):02d}:00:00Z", "topic": topic, "players": players or []}
+def story(n: int, *, copied: bool = False, photo: bool = False, topic: str = "game", url: str | None = None) -> dict:
+    sid = f"{n:016x}"
+    return {
+        "id": sid, "title": f"Gators story number {n}", "url": url or f"https://site.example.invalid/{n}", "source": "Florida Athletics" if copied else "On3", "publishedAt": "2026-10-27T15:00:00Z",
+        "topic": topic, "players": [], "copied": copied, "photo": f"/media/paper/{sid}.jpg" if photo else None, "cutline": "A caption." if photo else None, "credit": "A Photographer" if photo else None,
+        "opening": ["The first paragraph.", "The second paragraph."] if copied else [], "words": 500 if copied else 0, "author": "Pat Writer" if copied else None,
+    }
 
 
-HEADLINES = [
-    story("Gameday: Swampwater Tech visits Bluegrass Bottoms", "stadium", 1),
-    story("Jadan Quillfeather has the offense humming", "game", 2, [{"playerId": "11", "name": "Jadan Quillfeather", "team": "Swampwater Tech"}]),
-    story("Head coach on the Banjos: they are fast", "coach", 3),
-    story("Storms in the forecast", "weather", 4, url="javascript:alert(1)"),
-    story("Thursday practice ran loud", "practice", 5),
-    {"title": None}, "junk",
-]
+ROWS = [story(1, copied=True, photo=True), story(2, copied=True, photo=True, topic="coach"), story(3, topic="coach"), story(4, copied=True), story(5, copied=True, topic="rankings"),
+        *[story(n, topic="recruiting") for n in range(6, 30)], story(30, url="javascript:alert(1)")]
+LAYOUT = layout(ROWS, coach="Jon Sumrall")
+LAYOUT["front"]["quote"] = {"text": "We will be ready.", "who": "Jon Sumrall", "storyId": ROWS[0]["id"], "publishedAt": "2026-10-26T15:00:00Z"}
 
 PAPER = {
     "season": 2026,
-    "today": "2026-10-24",
-    "feeds": {"espn": {"name": "ESPN", "status": "ok", "count": 3, "betting": 1}},
-    "weeks": [{"key": "4", "gameId": 4, "week": 8, "label": "Week 8 · at Bluegrass Bottoms", "opponent": "Bluegrass Bottoms", "homeAway": "away", "kickoff": "2026-10-24T23:00:00Z", "headlines": HEADLINES[:2]}],
-    "editions": [
-        {"key": "week-7", "label": "Week 7", "opponent": "Catfish Bend", "homeAway": "home", "saved": True, "frozen": True, "current": False},
-        {"key": "week-8", "label": "Week 8", "opponent": None, "homeAway": None, "saved": True, "frozen": False, "current": True},
+    "today": "2026-10-27",
+    "feeds": {"team": {"name": "Florida Athletics", "status": "ok"}},
+    "editions": [{"key": "week-8", "label": "Week 8", "saved": True}, {"key": "week-9", "label": "Week 9", "current": True}],
+    "folded": [
+        {"key": "week-8", "week": 8, "label": "Week 8", "weekOf": "2026-10-19", "opponent": None, "homeAway": None, "final": None, "won": None, "record": "5-2", "lead": "A Long Wait, A Big Moment For Jones", "bye": True},
+        {"key": "week-7", "week": 7, "label": "Week 7", "weekOf": "2026-10-12", "opponent": "Texas", "homeAway": "away", "final": "Florida 27, Texas 24", "won": True, "record": "5-2", "lead": "Florida 27, Texas 24", "bye": False},
+        "junk", {"key": "../x"},
     ],
-    "edition": {"key": "week-8", "season": 2026, "label": "Week 8", "week": 8, "seasonType": "regular", "gameId": 4, "opponent": "Bluegrass Bottoms", "homeAway": "away", "date": "2026-10-24T23:00:00Z", "headlines": HEADLINES, "matchups": MATCHUPS, "offThisWeek": [], "frozen": False, "current": True},
-    "parts": {},
+    "edition": {"key": "week-9", "season": 2026, "label": "Week 9", "week": 9, "headlines": ROWS, "matchups": MATCHUPS, "offThisWeek": [], "layout": LAYOUT, "current": True},
+}
+KEPT = {"season": 2026, "today": "2026-10-27", "edition": {"key": "week-8", "season": 2026, "label": "Week 8", "week": 8, "headlines": ROWS[:6], "matchups": MATCHUPS[:2], "offThisWeek": [{"school": "Florida"}], "layout": layout(ROWS[:6]), "current": False, "frozen": True}}
+STORY = {
+    "id": ROWS[1]["id"], "title": "Gators story number 2", "source": "Florida Athletics", "author": "Scott Carter", "publishedAt": "2026-10-26T21:30:00Z", "url": "https://floridagators.example.invalid/news/x",
+    "host": "floridagators.example.invalid", "paragraphs": ["GAINESVILLE, Fla. — The first paragraph.", "The second.", "The third."], "photo": f"/media/paper/{ROWS[1]['id']}.jpg", "cutline": "A caption.", "credit": "A Photographer",
+    "words": 900, "readMinutes": 4, "copiedAt": "2026-10-26T21:40:00Z",
+    "paper": {"key": "week-9", "label": "Week 9", "position": 2, "count": 30, "section": "The coach and the team", "prev": {"id": ROWS[0]["id"], "title": "Gators story number 1", "copied": True}, "next": {"id": ROWS[2]["id"], "title": "Gators story number 3", "copied": False, "url": "https://site.example.invalid/3", "source": "On3"}, "related": [{"id": ROWS[2]["id"], "title": "Gators story number 3", "source": "On3", "copied": False, "url": "https://site.example.invalid/3"}, {"id": ROWS[3]["id"], "title": "Gators story number 4", "source": "Florida Athletics", "copied": True}]},
 }
 
 SCENARIOS = r"""
@@ -70,7 +72,7 @@ const text = (node) => (node ? node.textContent : "");
 async function mounted(paper, data, opts = {}) {
   const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
   clearEnvelopeCache();
-  route("/api/newspaper", () => envelope(clone(data)));
+  route("/api/newspaper", (url) => envelope(clone(String(url).includes("edition=week-8") ? FIX.kept : data)));
   const main = document.createElement("main");
   document.body.append(main);
   const view = paper.createNewspaperView(opts);
@@ -79,151 +81,161 @@ async function mounted(paper, data, opts = {}) {
   return { main, view };
 }
 
+let FIX = null;
+
 scenarios.paper = async () => {
   installWindow();
-  const fixture = JSON.parse(readFileSync(process.argv[4], "utf8"));
+  FIX = JSON.parse(readFileSync(process.argv[4], "utf8"));
   const { setIdentity } = await import(moduleUrl("identity.js"));
-  setIdentity({ school: "Swampwater Tech", mascot: "Mudpuppies", label: "SWT", name: "Mudpuppies" });
+  setIdentity({ school: "Florida", mascot: "Gators", label: "FLA", name: "Gators" });
   const paper = await import(moduleUrl("views/newspaper.js"));
-  // the masthead: steady within a week, a different name for some other week, from the team's own names
+  // the masthead's name: steady within a week, a different one some other week, from the team's own names
   assert.equal(paper.mastheadName(2026, 6), paper.mastheadName(2026, 6));
   const names = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((w) => paper.mastheadName(2026, w)));
-  assert.ok(names.size >= 3 && [...names].every((n) => n.includes("Mudpuppies") || n.includes("Swampwater Tech")));
-  assert.ok(paper.mastheadName(null, null, null).startsWith("The "));
-  // the stories for the boxes: the player feature names one of ours, the coach's story is about the coach (headlines only)
-  const picked = paper.pickStories(fixture.edition.headlines, "Swampwater Tech");
-  assert.equal(picked.lead.title, "Gameday: Swampwater Tech visits Bluegrass Bottoms");
-  assert.equal(picked.player.title, "Jadan Quillfeather has the offense humming");
-  assert.equal(picked.coach.topic, "coach");
-  assert.deepEqual(picked.rest.map((h) => h.topic), ["weather", "practice"]);
-  assert.deepEqual(paper.pickStories(null), { lead: null, player: null, coach: null, rest: [] });
-  // a school in a line of agate: shortened the way a newspaper does, never cut (his 2)
-  assert.equal(paper.agateName("Dust Devil State"), "Dust Devil St.");
-  assert.equal(paper.agateName("Moonpie Mountain"), "Moonpie Mtn.");
-  assert.equal(paper.agateName("Red Clay"), "Red Clay", "a short name stays whole");
+  assert.ok(names.size >= 3 && [...names].every((n) => n.includes("Gators") || n.includes("Florida")));
+  assert.equal(paper.agateName("Appalachian State"), "Appalachian St.");
   assert.equal(paper.agateName(null), "–");
-  // the game of the week (the layout pass, 2026-10-22): the matchups come in AP poll order, so No. 1 against an unranked
-  // team leads them; the game drawn large is still the best pair of ranked teams, else the first game not ours
   const g = (id, a, h, extra = {}) => ({ gameId: id, away: { rank: a }, home: { rank: h }, ...extra });
-  const week = [g(1, 1, null), g(2, 2, 20), g(3, 6, 18), g(4, 9, 13), g(5, null, 12, { isUs: true })];
-  assert.equal(paper.gameOfWeek(week).gameId, 2, "No. 2 against No. 20 (22) over No. 9 against No. 13 (22, the better rank wins)");
-  assert.equal(paper.gameOfWeek([g(1, 1, null), g(5, 3, 4, { isUs: true }), g(6, null, 7)]).gameId, 1, "no other ranked pair: the first game not ours");
-  assert.equal(paper.gameOfWeek([g(5, 3, 4, { isUs: true })]), null);
+  assert.equal(paper.gameOfWeek([g(1, 1, null), g(2, 2, 20), g(3, 9, 13), g(5, null, 12, { isUs: true })]).gameId, 2);
   assert.equal(paper.gameOfWeek(null), null);
-  assert.equal(paper.gameOfWeek([null, "x", g(8, "2", 3), g(9, 5, 6)]).gameId, 9, "a malformed rank is no rank");
 
-  const { main, view } = await mounted(paper, fixture);
+  const { main, view } = await mounted(paper, FIX.paper);
   const t = text(main);
   assert.ok(!RAW.test(t), t.slice(0, 400));
-  assert.equal(text(main.querySelector(".paper-mast__name")), paper.mastheadName(2026, 8));
-  const line = text(main.querySelector(".paper-mast__line"));
-  assert.ok(line.includes("Week 8 edition") && line.includes("at Bluegrass Bottoms"), line);
-  const prev = main.querySelector("a.paper-mast__nav--prev");
-  assert.equal(prev.getAttribute("href"), "#newspaper=week-7");
-  assert.ok(text(prev).includes("Week 7 edition") && text(prev).includes("vs Catfish Bend"));
-  assert.ok(main.querySelector(".paper-mast__nav--next").className.includes("is-off"), "this week's paper has no later edition");
-  // the lead (board 5): our game under way, its score as the banner, the stadium, the press box with the way into In Game
-  const lead = main.querySelector(".front-lead");
-  assert.ok(text(lead.querySelector(".paper-kicker")).includes("Game week · Live"));
-  const liveBanner = lead.querySelector(".front-banner--live .paper-status");
-  assert.equal(liveBanner.getAttribute("href"), "#live", "our game opens In Game");
-  assert.ok(text(liveBanner).includes("2nd quarter, 7:02 left"), text(liveBanner));
-  assert.ok(lead.querySelector("canvas.px-fill--stadium"));
-  assert.ok(text(lead.querySelector(".front-col")).includes("From the press box"));
-  assert.ok(text(lead.querySelector(".front-deck")).includes("Prairie Fire Stadium"), "the deck before the final: when and where");
-  // the game of the week: the top-ranked other game across two columns, two helmets in their teams' colors
-  const top = main.querySelector(".front-tier--two .front-span2 .paper-match--big");
-  assert.equal(top.querySelectorAll("canvas.px-fill--helmet").length, 2);
-  assert.ok(text(top).includes("54-47") && text(top.querySelector(".paper-score")).includes("Final, 2 overtimes"));
-  assert.ok(top.querySelector(".paper-qline"), "a finished top game shows its score by quarter");
-  assert.equal(top.querySelector(".paper-head a").getAttribute("href"), "#box=1");
-  assert.ok(top.querySelector(".paper-head--final"), "a final's headline is hidden in spoiler mode");
-  // beside it, by the numbers: before the final, the two teams' records and the over/under
-  const nums = main.querySelectorAll(".front-tier--two .front-rail .front-num");
-  assert.ok(nums.length >= 2 && text(nums[0]).includes("5-1"), text(main.querySelector(".front-numbers")));
-  // the next tier: the player feature and the coach's story (headlines linking out), then the rail's scoreboard
-  const player = main.querySelector(".front-tier--three .front-mod--player .paper-feat--player");
-  assert.ok(text(player).includes("Player feature") && player.querySelector("canvas.px-fill--player"));
-  assert.equal(player.querySelector(".paper-head a").getAttribute("href"), "https://example.com/s");
-  const coach = main.querySelector(".front-tier--three .front-mod--coach .paper-feat--coach");
-  assert.ok(text(coach).includes("From the coach") && coach.querySelector("canvas.px-fill--coach"));
-  // every ranked game one line of agate (his 1: the Top 25 compact): the winner first after a final, the quarter while live,
-  // the kickoff before, ours marked; the full cards a tap away on the Top 25 page
-  const agate = main.querySelectorAll(".front-agate__row");
-  assert.equal(agate.length, 5);
-  assert.ok(text(agate[0]).startsWith("2 Saddle Sore 54, 20 Prairie Fire 47") && text(agate[0]).endsWith("2OT"), text(agate[0]));
-  assert.ok(text(agate[1]).includes("6 Snowdrift St. 2, 18 Hayloft 0") && text(agate[1]).endsWith("Q2"), text(agate[1]));
-  assert.ok(text(agate[2]).startsWith("9 Rust Belt at Tater Tot Tech"), text(agate[2]));
-  assert.ok(agate[3].className.includes("is-us"));
-  assert.equal(main.querySelector(".front-scores .front-refer").getAttribute("href"), "#top25");
-  // the briefs at the foot: the other stories, and the feed's lead (our game leads the page); a bad link is plain text
-  const briefs = main.querySelectorAll(".front-briefs .front-brief").map(text);
-  assert.ok(briefs.some((b) => b.includes("Storms in the forecast")) && briefs.some((b) => b.includes("Gameday: Swampwater Tech visits")), briefs.join(" | "));
-  assert.ok(!main.querySelectorAll("a").some((a) => (a.getAttribute("href") || "").startsWith("javascript")));
+  assert.equal(text(main.querySelector(".np-mast__name")), paper.mastheadName(2026, 9));
+  assert.ok(text(main.querySelector(".np-mast__line")).includes(`${FIX.paper.edition.layout.count} stories so far`));
+  // the week chips: this week, then each earlier week by its number
+  const chips = main.querySelectorAll(".np-weeks .np-chip").map(text);
+  assert.deepEqual(chips, ["Week 9", "8", "7"]);
+  // the lead beside the rail: a copied story with its photo, its text in two legs, the way to the whole story
+  const lead = main.querySelector(".np-lead");
+  assert.equal(text(lead.querySelector(".np-head--lead")), "Gators story number 1");
+  assert.equal(lead.querySelector(".np-head--lead a").getAttribute("href"), `#story=${FIX.rows[0].id}`);
+  assert.ok(lead.querySelector(".np-pic--lead img").getAttribute("src").startsWith("/media/paper/"));
+  assert.equal(lead.querySelectorAll(".np-legs p").length, 2);
+  assert.ok(text(lead.querySelector(".np-byline")).includes("By Pat Writer"));
+  assert.ok(text(lead).includes("The whole story ›"));
+  const rail = main.querySelector(".np-rail");
+  assert.ok(rail.querySelectorAll(".np-inside").length >= 2, "Inside today: page 2's stories and the rest");
+  assert.ok(text(rail).includes("By the numbers") && text(rail).includes("Florida's record, No. 17"));
+  assert.ok(text(rail.querySelector(".np-quote")).includes("We will be ready."));
+  // three stories of two columns: the middle leads with its head, a headline-only story has an Also brief
+  const cells = main.querySelectorAll(".np-row")[1].querySelectorAll(".np-story");
+  assert.equal(cells.length, 3);
+  assert.ok(cells[1].childNodes[0].className.includes("np-kicker"), "head first in the middle");
+  assert.ok(cells.some((c) => c.querySelector(".np-also")), "an Also brief under the headline-only story");
+  assert.ok(cells.some((c) => text(c).includes("Read it at On3 ›")));
+  // the game of the week, the logos facing; page 2; page 3 and on; the Top 25 at the back
+  assert.ok(text(main.querySelector(".np-game")).includes("Wildcats at Red Raiders"));
+  const folios = main.querySelectorAll(".np-folio").map((f) => text(f.querySelector(".np-folio__page")));
+  assert.equal(folios[0], "Page 2");
+  assert.ok(folios.includes("Page 3"));
+  assert.ok(main.querySelectorAll(".np-column .np-standing").length >= 2, "page 3's sections");
+  assert.equal(main.querySelectorAll(".np-agate").length, 0, "the Top 25's Saturday left the paper for the Top 25 page (wave 3, 2026-11-01)");
+  // nothing repeats the tabs or the menu (his marks), and no script address anywhere
+  const hrefs = main.querySelectorAll("a").map((a) => a.getAttribute("href") || "");
+  assert.ok(!hrefs.some((h) => h === "#live" || h.startsWith("#program") || h === "#top25" || h.startsWith("javascript")), hrefs.join(" "));
+  // the earlier weeks, folded: a tap opens Week 8 in place (its finals, our bye), and it stays open through a refresh
+  const folds = main.querySelectorAll(".np-fold");
+  assert.equal(folds.length, 2);
+  assert.ok(text(folds[0]).includes("A Long Wait, A Big Moment For Jones") && text(folds[0]).includes("Bye week") && text(folds[0]).includes("5-2"));
+  folds[0].click();
+  await settle();
+  assert.equal(folds[0].getAttribute("aria-expanded"), "true");
+  const body = main.querySelector("#np-weekbody-week-8");
+  assert.ok(body && !text(body).includes("the week's finals"), "the kept week opens in place; its Top 25 finals agate left the paper for the Top 25 page (wave 3, 2026-11-01)");
+  await view.refresh();
+  await settle();
+  assert.equal(main.querySelector(".np-fold").getAttribute("aria-expanded"), "true", "an open week stays open through the minute's refresh");
   view.unmount();
 
-  // after our final, with the recap: the paper's own headline as the banner, the player of the game and the record in the
-  // deck, the turning point and the key stats in the press box, the key stats by the numbers, the skybox's refers
-  const done = clone(fixture);
-  const ourGame = done.edition.matchups[3];
-  Object.assign(ourGame, { status: "final", detail: "Final", period: null, clock: null, headline: { kind: "final", text: "Swampwater Tech takes down No. 12 Bluegrass Bottoms, 40-34" } });
-  ourGame.away.points = 40;
-  ourGame.home.points = 34;
-  done.rankedWeek = { counts: { live: 1, pre: 1, final: 3 } };
-  done.recap = { gameId: 4, opponent: "Bluegrass Bottoms", final: { usScore: 40, themScore: 34, result: "W" }, record: { wins: 5, losses: 2, ties: 0 }, playerOfGame: { name: "Keegan Crawford", position: "QB", isUs: true, value: 19.7 }, turningPoint: { period: 4, clock: { minutes: 4, seconds: 55 }, usScore: 40, themScore: 34, usWpBefore: 0.6487, usWpAfter: 0.9219 }, keyStats: [{ label: "Turnovers", format: "0f", us: 0, them: 3 }, { label: "Third-down rate", format: "pct", us: 0.214, them: 0.4 }, null], next: { opponent: "Front Porch State", homeAway: "home", date: "2026-10-31T19:30:00Z" } };
+  // our final with the recap: its headline is the lead's banner, the player of the game in the deck, hidden in spoiler mode
+  const done = clone(FIX.paper);
+  const ourGame = done.edition.matchups[2];
+  Object.assign(ourGame, { status: "final", headline: { text: "Florida stuns No. 3 Georgia, 31-28" } });
+  ourGame.away.points = 31;
+  ourGame.home.points = 28;
+  done.recap = { gameId: 3, opponent: "Georgia", final: { usScore: 31, themScore: 28 }, record: { wins: 6, losses: 2, ties: 0 }, playerOfGame: { name: "Tramell Jones Jr.", isUs: true }, keyStats: [{ label: "Turnovers", format: "0f", us: 0, them: 2 }] };
   const fin = await mounted(paper, done);
-  const ft = text(fin.main);
-  assert.ok(!RAW.test(ft), ft.slice(0, 400));
-  const banner = fin.main.querySelector(".front-banner");
-  assert.equal(text(banner), "Swampwater Tech takes down No. 12 Bluegrass Bottoms, 40-34");
-  assert.ok(banner.className.includes("paper-head--final"), "a final's banner is hidden in spoiler mode");
-  const deck = text(fin.main.querySelector(".front-deck"));
-  assert.ok(deck.includes("Keegan Crawford is the player of the game") && deck.includes("moves to 5-2"), deck);
-  const press = text(fin.main.querySelector(".front-col"));
-  assert.ok(press.includes("4:55 left in the 4th quarter") && press.includes("65% to 92%") && press.includes("Turnovers: SWT 0, BLUE 3") && press.includes("21%") && press.includes("Next: Front Porch State at home"), press);
-  assert.ok(fin.main.querySelector('.front-col a[href="#program=4"]'), "the way into the Post-Game Program");
-  assert.equal(text(fin.main.querySelector(".front-numbers .front-num b")), "0", "the key stats by the numbers");
-  const sky = fin.main.querySelectorAll(".front-sky__item").map(text);
-  assert.ok(sky[0].includes("Next up") && sky[0].includes("Front Porch State") && sky[1].includes("3 final, 1 live, 1 to come") && sky[2].includes("5-2"), sky.join(" | "));
-  assert.ok(text(fin.main.querySelector(".front-agate .is-us")).startsWith("Swampwater Tech 40, 12 Bluegrass Bottoms 34"));
+  const banner = fin.main.querySelector(".np-head--lead");
+  assert.equal(text(banner), "Florida stuns No. 3 Georgia, 31-28");
+  assert.ok(banner.className.includes("paper-head--final"));
+  assert.ok(text(fin.main.querySelector(".np-kicker")).includes("Game week · Final"));
+  assert.ok(text(fin.main.querySelector(".np-lead .np-byline")).includes("Tramell Jones Jr. is the player of the game"));
+  assert.ok(!RAW.test(text(fin.main)));
   fin.view.unmount();
 
-  // an earlier edition, as the paper printed it (rebuilt from the headlines: no matchups)
-  const old = clone(fixture);
-  old.edition = { key: "week-7", season: 2026, label: "Week 7", week: 7, opponent: "Catfish Bend", homeAway: "home", date: "2026-10-17T19:30:00Z", headlines: fixture.edition.headlines.slice(0, 2), matchups: [], current: false, rebuilt: true, frozen: true };
-  const second = await mounted(paper, old, { edition: "week-7" });
-  const t2 = text(second.main);
-  assert.ok(!RAW.test(t2) && t2.includes("Week 7 edition, as the paper printed it"), t2.slice(0, 300));
-  assert.equal(second.main.querySelector(".paper-back a").getAttribute("href"), "#newspaper");
-  assert.equal(text(second.main.querySelector(".front-banner a")), "Gameday: Swampwater Tech visits Bluegrass Bottoms", "no matchup: the feed's lead story leads");
-  assert.equal(second.main.querySelector(".front-tier--two"), null, "no game of the week and nothing to number");
-  assert.equal(second.main.querySelector("a.paper-mast__nav--next").getAttribute("href"), "#newspaper");
-  second.view.unmount();
+  // an older answer with no layout: the headlines still read, as briefs
+  const older = clone(FIX.paper);
+  delete older.edition.layout;
+  delete older.folded;
+  const old = await mounted(paper, older);
+  assert.ok(text(old.main).includes("Gators story number 7") && !RAW.test(text(old.main)));
+  old.view.unmount();
 
-  // a kept edition with a game the season never finished: "Not played", no score, no headline
-  const kept = clone(old);
-  kept.edition.rebuilt = false;
-  kept.edition.matchups = [{ ...fixture.edition.matchups[1], status: "unplayed", detail: "Not played", headline: null }];
-  const keptView = await mounted(paper, kept, { edition: "week-7" });
-  const k = text(keptView.main.querySelector(".paper-match"));
-  assert.ok(k.includes("Not played") && k.includes("was not played") && !k.includes("SNOW 2"), k);
-  assert.equal(keptView.main.querySelector(".paper-match .paper-head"), null);
-  keptView.view.unmount();
+  // laid out by Claude Code (wave 4): said on the masthead, its numbers in the rail, a drawing where a story had no picture
+  const edited = clone(FIX.paper);
+  edited.edition.layout.by = "Claude Code";
+  edited.edition.layout.front.numbers = [{ big: "100", words: "seasons of the annual game", storyId: FIX.rows[0].id }];
+  edited.edition.layout.front.row[1].picture = { kind: "drawn", src: `/media/paper-art/${FIX.rows[2].id}.svg`, cutline: "A drawing of the stadium.", credit: "Illustration: Claude Code" };
+  const ed = await mounted(paper, edited);
+  assert.ok(text(ed.main.querySelector(".np-mast__line")).includes("laid out by Claude Code"));
+  assert.ok(text(ed.main.querySelector(".np-rail")).includes("seasons of the annual game"));
+  const drawn = ed.main.querySelector(".np-pic--drawn img");
+  assert.ok(drawn && drawn.getAttribute("src").startsWith("/media/paper-art/"));
+  assert.ok(text(ed.main).includes("A drawing of the stadium. Illustration: Claude Code") && !text(ed.main).includes("Photo: Illustration"));
+  ed.view.unmount();
 
-  // a week the season has no paper for
-  const none = clone(fixture);
-  none.edition = null;
-  const third = await mounted(paper, none, { edition: "week-2" });
-  assert.ok(text(third.main).includes("No paper was kept for week 2") && third.main.querySelector('a[href="#newspaper"]'));
-  third.view.unmount();
+  // a week with no stories yet: said, not blank
+  const empty = clone(FIX.paper);
+  empty.edition.layout = { front: {}, page2: null, more: [], order: [], count: 0 };
+  const none = await mounted(paper, empty);
+  assert.ok(text(none.main).includes("No stories from the team's feeds yet this week"));
+  none.view.unmount();
+};
 
-  // a server from before items 10-12 sends no edition: this week's headlines, no matchups
-  const older = clone(fixture);
-  delete older.edition;
-  delete older.editions;
-  const fourth = await mounted(paper, older);
-  assert.ok(text(fourth.main).includes("Jadan Quillfeather has the offense humming") && !RAW.test(text(fourth.main)));
-  fourth.view.unmount();
+scenarios.reader = async () => {
+  installWindow();
+  FIX = JSON.parse(readFileSync(process.argv[4], "utf8"));
+  const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
+  const reader = await import(moduleUrl("views/reader.js"));
+  clearEnvelopeCache();
+  const sid = FIX.story.id;
+  route(`/api/paper/story/${sid}`, () => envelope(clone(FIX.story)));
+  const main = document.createElement("main");
+  document.body.append(main);
+  const view = reader.createReaderView({ id: sid });
+  view.mount(main);
+  await settle();
+  const t = text(main);
+  assert.ok(!RAW.test(t), t.slice(0, 300));
+  assert.equal(text(main.querySelector("h1")), "Gators story number 2");
+  assert.ok(text(main.querySelector(".np-reader__byline")).includes("By Scott Carter") && t.includes("4 min read"));
+  assert.equal(main.querySelectorAll(".np-reader__body p").length, 3);
+  assert.ok(main.querySelector(".np-reader__photo img").getAttribute("src").startsWith("/media/paper/"));
+  assert.ok(text(main.querySelector(".np-reader__photo figcaption")).includes("Photo: A Photographer"));
+  assert.ok(text(main.querySelector(".np-reader__where")).includes("Story 2 of 30"));
+  const steps = main.querySelectorAll(".np-reader__bar a.btn").map((a) => a.getAttribute("href"));
+  assert.ok(steps.includes(`#story=${FIX.rows[0].id}`) && steps.includes("https://site.example.invalid/3"), steps.join(" "));
+  assert.ok(t.includes("Read it at floridagators.example.invalid ↗"));
+  assert.ok(text(main.querySelector(".np-card--next")).includes("Next in the paper") && text(main.querySelector(".np-card--next")).includes("Gators story number 3"));
+  assert.equal(main.querySelectorAll(".np-related .np-brief").length, 2);
+  view.unmount();
+
+  // a story that stayed headline only, and a bad id
+  clearEnvelopeCache();
+  route("/api/paper/story/0000000000000001", () => ({ status: 404, body: { data: null, errors: [{ message: "the site refuses automated readers (HTTP 402)" }], meta: {} } }));
+  const refused = reader.createReaderView({ id: "0000000000000001" });
+  const main2 = document.createElement("main");
+  document.body.append(main2);
+  refused.mount(main2);
+  await settle();
+  assert.ok(text(main2).includes("402") && main2.querySelector('a[href="#newspaper"]'));
+  refused.unmount();
+  const bad = reader.createReaderView({ id: "../etc" });
+  const main3 = document.createElement("main");
+  bad.mount(main3);
+  assert.ok(text(main3).includes("That story is not on this server."));
 };
 """
 
@@ -231,10 +243,11 @@ scenarios.paper = async () => {
 @pytest.fixture(scope="module")
 def fixture_path(tmp_path_factory: pytest.TempPathFactory) -> Path:
     path = tmp_path_factory.mktemp("paper") / "paper.json"
-    path.write_text(json.dumps(PAPER), encoding="utf-8")
+    path.write_text(json.dumps({"paper": PAPER, "kept": KEPT, "story": STORY, "rows": ROWS}), encoding="utf-8")
     return path
 
 
 @needs_node
-def test_newspaper_in_a_fake_browser(tmp_path: Path, fixture_path: Path) -> None:
-    run_scenario(tmp_path, SCENARIOS, "paper", str(fixture_path))
+@pytest.mark.parametrize("scenario", ["paper", "reader"])
+def test_newspaper_in_a_fake_browser(tmp_path: Path, fixture_path: Path, scenario: str) -> None:
+    run_scenario(tmp_path, SCENARIOS, scenario, str(fixture_path))

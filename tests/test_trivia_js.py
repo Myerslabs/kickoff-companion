@@ -12,7 +12,7 @@ from tests.fakedom import needs_node, run_scenario
 
 SCENARIOS = r"""
 const DAY = { date: "2026-10-24", startedAt: "2026-10-24T15:40:00-04:00", endedAt: null, endedBy: null, asked: 3, playing: 2, next: "Next at 7:27 pm", context: "pre" };
-const QUESTION = { id: "2026-10-24-3", n: 3, kind: "stadium", school: "Diner Tech", text: "Where does Diner Tech play its home games?", choices: ["Griddle Field", "The Skillet", "Biscuit Bowl"], askedAt: "2026-10-24T16:10:00-04:00", closesAt: new Date(Date.now() + 38000).toISOString(), secondsLeft: 38, context: "pre", period: null, open: true, yourPick: null };
+const QUESTION = { id: "2026-10-24-3", n: 3, kind: "stadium", school: "Texas State", text: "Where does Texas State play its home games?", choices: ["Griddle Field", "The Skillet", "Biscuit Bowl"], askedAt: "2026-10-24T16:10:00-04:00", closesAt: new Date(Date.now() + 38000).toISOString(), secondsLeft: 38, context: "pre", period: null, open: true, yourPick: null };
 const STANDINGS = [{ rank: 1, name: "Nana's Nachos", today: [2, 2], season: [16, 22], you: false }, { rank: 2, name: "Couch Coordinators", today: [1, 2], season: [14, 22], you: true }];
 const RAW = /(undefined|null|NaN|Infinity)|\[object Object\]/;
 const clean = (label, node) => {
@@ -20,7 +20,7 @@ const clean = (label, node) => {
   assert.ok(!RAW.test(t), `${label} printed ${JSON.stringify(t.slice(0, 400))}`);
   return t;
 };
-const base = (extra = {}) => ({ on: true, board: true, pace: "15", gameDay: true, ourGame: { home: "Home U", away: "Diner Tech", opponent: "Diner Tech" }, serverNow: new Date(Date.now()).toISOString(), day: DAY, team: null, question: null, standings: STANDINGS, ...extra });
+const base = (extra = {}) => ({ on: true, board: true, pace: "15", gameDay: true, ourGame: { home: "Home U", away: "Texas State", opponent: "Texas State" }, serverNow: new Date(Date.now()).toISOString(), day: DAY, team: null, question: null, standings: STANDINGS, ...extra });
 
 scenarios.popups = async () => {
   const { questionPopup, standingsPopup, joinCard } = await import(moduleUrl("ui/trivia.js"));
@@ -28,7 +28,7 @@ scenarios.popups = async () => {
   const q = questionPopup(base({ team: { name: "Couch Coordinators", joined: true }, question: QUESTION }), { onPick: (i) => picks.push(i) });
   document.body.append(q);
   const t = clean("question popup", q);
-  assert.ok(t.includes("Where does Diner Tech play") && t.includes("Griddle Field") && t.includes("Playing as Couch Coordinators") && /Closes in 3\d s/.test(t), t);
+  assert.ok(t.includes("Where does Texas State play") && t.includes("Griddle Field") && t.includes("Playing as Couch Coordinators") && /Closes in 3\d s/.test(t), t);
   assert.ok(!t.includes("right answer") && !t.includes("answer:"), "the popup never carries the answer");
   assert.equal(q.querySelectorAll("button.trivia-pop__choice").length, 3);
   q.querySelectorAll("button.trivia-pop__choice")[1].click();
@@ -60,7 +60,7 @@ scenarios.page = async () => {
       { ...QUESTION, open: false, answer: 1, fact: "The Skillet, since 1948.", answered: 3, yourPick: 0, checkedAt: "2026-10-21" },
       { ...QUESTION, id: "2026-10-24-4", n: 4, open: true, yourPick: null, period: 3, context: "game" },
     ],
-    seasonTable: [{ date: "2026-09-05", our: { home: "Home U", away: "Crabtown" }, span: "11:30 am to 11:10 pm", right: 4, asked: 4, running: false }, { date: "2026-10-24", our: { home: "Home U", away: "Diner Tech" }, span: "since 3:40 pm", right: 1, asked: 2, running: true }],
+    seasonTable: [{ date: "2026-09-05", our: { home: "Home U", away: "Crabtown" }, span: "11:30 am to 11:10 pm", right: 4, asked: 4, running: false }, { date: "2026-10-24", our: { home: "Home U", away: "Texas State" }, span: "since 3:40 pm", right: 1, asked: 2, running: true }],
     teamsThisSeason: 3,
   });
   const cells = clean("score cells", scoreCells(data));
@@ -72,7 +72,7 @@ scenarios.page = async () => {
   const marked = [];
   const card = questionCard(data.questions[0], data, { onMark: async (id) => marked.push(id) });
   const ct = clean("closed card", card);
-  assert.ok(ct.startsWith("Wrong") && ct.includes("right answer") && ct.includes("your pick") && ct.includes("3 of 2 teams answered") && ct.includes("The Skillet, since 1948") && ct.includes("Diner Tech's facts, checked"), ct);
+  assert.ok(ct.startsWith("Wrong") && ct.includes("right answer") && ct.includes("your pick") && ct.includes("3 of 2 teams answered") && ct.includes("The Skillet, since 1948") && ct.includes("Texas State's facts, checked"), ct);
   card.querySelector(".trivia-card__mark").click();
   await settle();
   assert.deepEqual(marked, ["2026-10-24-3"]);
@@ -157,7 +157,7 @@ scenarios.flow = async () => {
   assert.deepEqual(posts, ["join"]);
   assert.equal(teamName(), "Couch Coordinators", "the name is kept on the tablet");
   const pop = document.querySelector(".trivia-pop");
-  assert.ok(pop && !pop.hasAttribute("hidden") && pop.textContent.includes("Where does Diner Tech play"), "the open question shows after the join");
+  assert.ok(pop && !pop.hasAttribute("hidden") && pop.textContent.includes("Where does Texas State play"), "the open question shows after the join");
   // a pick posts the answer and closes the popup; the standings come next
   pop.querySelectorAll("button.trivia-pop__choice")[1].click();
   await settle();
@@ -222,7 +222,7 @@ scenarios.panel = async () => {
   // the board shows the open question in the same spot, plain, with its clock, never the answer
   const q = triviaPanel(base({ question: QUESTION }), { board: true });
   const qt = clean("board question", q);
-  assert.ok(qt.includes("Where does Diner Tech play") && qt.includes("Griddle Field") && qt.includes("Answer on your tablet") && /3\d s/.test(qt), qt);
+  assert.ok(qt.includes("Where does Texas State play") && qt.includes("Griddle Field") && qt.includes("Answer on your tablet") && /3\d s/.test(qt), qt);
   assert.equal(q.querySelectorAll("button").length, 0, "no buttons on the board");
   assert.ok(q.querySelector(".trivia-clock"), "the clock counts down by itself");
   assert.ok(clean("tablet panel", triviaPanel(base({ question: QUESTION }))).includes("Couch Coordinators"), "a tablet's block keeps the standings; its question is a popup");

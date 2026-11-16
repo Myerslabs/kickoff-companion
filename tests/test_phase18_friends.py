@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -17,7 +19,10 @@ def test_a_pin_is_four_to_eight_digits_and_stored_hashed(tmp_path):
         with pytest.raises(PinError):
             access.set_pin(bad)
     access.set_pin("4321")
-    assert access.pin_set and "4321" not in (tmp_path / "host.json").read_text(encoding="utf-8")
+    stored = json.loads((tmp_path / "host.json").read_text(encoding="utf-8"))
+    # the salt, the hash and the cookie secret, never the PIN; read as values, since a random hex string holds the four
+    # digits "4321" about once in a thousand runs (BUG-23)
+    assert access.pin_set and set(stored) == {"salt", "hash", "secret"} and "4321" not in stored.values()
     assert HostAccess(tmp_path).pin_set, "survives a restart"
     assert access.verify("4321") and not access.verify("0000")
     assert access.valid_token(access.token()) and not access.valid_token("nope") and not access.valid_token(None)
@@ -105,7 +110,8 @@ def test_invite_gives_an_ip_address_a_qr_and_warnings(client: TestClient, monkey
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "192.168.0.20")
     data = client.get("/api/invite").json()["data"]
     assert data["url"].startswith("http://192.168.0.20:") and data["qrPath"].startswith("/setup/qr.svg?url=http://192.168.0.20")
-    assert any("No host PIN" in w for w in data["warnings"]) and data["copyUrl"], "the copy link, now that the repository is public (0.13.0)"
+    assert data["pinWarning"].startswith("No host PIN") and data["copyUrl"], "the copy link, now that the repository is public (0.13.0)"
+    assert not any("PIN" in w for w in data["warnings"]), "ENH-20: the PIN is its own field, said once on the Invite page"
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "8.8.4.4")
     assert any("public network" in w for w in client.get("/api/invite").json()["data"]["warnings"])
     monkeypatch.setattr("app.api.host.lan_ip", lambda: "192.168.137.1")

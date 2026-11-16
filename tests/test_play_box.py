@@ -49,8 +49,8 @@ def test_play_box_counts_by_the_ncaa_rules():
 def test_the_recorded_game_fills_every_team_stats_row():
     game = parse_one(LiveGame, fixture_payload("live_plays"), context="t")
     assert game is not None
-    state = derive_state(events_from_live(game, SEEN), game_id=game.id, home="Silver Dollar", away="Swampwater Tech")
-    for team in ("Silver Dollar", "Swampwater Tech"):
+    state = derive_state(events_from_live(game, SEEN), game_id=game.id, home="Fresno State", away="Florida")
+    for team in ("Fresno State", "Florida"):
         box = state["box"][team]
         assert box["netPassingYards"] + box["rushingYards"] >= box["totalYards"] - 20  # the same snaps, give or take odd plays
         comp, att = (int(x) for x in box["raw"]["completionAttempts"].split("-"))
@@ -68,7 +68,7 @@ def test_the_box_score_still_arrives_separately():
 
 
 def test_fumble_plays_count_as_the_snap_they_were():
-    """Diner Tech 2026-09-26: a run and a sack typed "Fumble Recovery (Own)" were missed (2 carries, 7 yards)."""
+    """Texas State 2026-09-26: a run and a sack typed "Fumble Recovery (Own)" were missed (2 carries, 7 yards)."""
     plays = [
         play("A", "Fumble Recovery (Own)", -4, "#26 J.Lindsey rush middle for 4 yards loss to the OLE31 fumbled by #26 J.Lindsey recovered by OLE"),
         play("A", "Fumble Recovery (Own)", -3, "#6 T.Webb sacked for loss of 3 yards to the FLA43, fumble by #6 T.Webb recovered by OLE"),
@@ -81,13 +81,13 @@ def test_fumble_plays_count_as_the_snap_they_were():
 
 
 def test_a_penalty_first_down_goes_to_the_team_not_penalized():
-    teams = ["Swampwater Tech", "Diner Tech"]
-    assert first_down_team("#1 X rush for 12 yards, 1ST DOWN", "Swampwater Tech", teams) == "Swampwater Tech"
-    assert first_down_team("PENALTY DINR Pass Interference 15 yards, 1ST DOWN. NO PLAY", "Diner Tech", teams) == "Swampwater Tech"
-    assert first_down_team("PENALTY SWT Roughing The Passer 15 yards, 1ST DOWN", "Swampwater Tech", teams) == "Diner Tech"
-    assert first_down_team("#1 X rush for 12 yards, 1ST DOWN, PENALTY DINR Holding declined", "Swampwater Tech", teams) == "Swampwater Tech"  # the first down came first
-    assert first_down_team("PENALTY ZZZ Holding 10 yards, 1ST DOWN", "Swampwater Tech", teams) == "Swampwater Tech"  # unknown team: the offense
-    assert first_down_team("PENALTY DINR Holding, 1ST DOWN", "Swampwater Tech", ["Swampwater Tech"]) == "Swampwater Tech"
+    teams = ["Florida", "Texas State"]
+    assert first_down_team("#1 X rush for 12 yards, 1ST DOWN", "Florida", teams) == "Florida"
+    assert first_down_team("PENALTY TXST Pass Interference 15 yards, 1ST DOWN. NO PLAY", "Texas State", teams) == "Florida"
+    assert first_down_team("PENALTY FLA Roughing The Passer 15 yards, 1ST DOWN", "Florida", teams) == "Texas State"
+    assert first_down_team("#1 X rush for 12 yards, 1ST DOWN, PENALTY TXST Holding declined", "Florida", teams) == "Florida"  # the first down came first
+    assert first_down_team("PENALTY ZZZ Holding 10 yards, 1ST DOWN", "Florida", teams) == "Florida"  # unknown team: the offense
+    assert first_down_team("PENALTY TXST Holding, 1ST DOWN", "Florida", ["Florida"]) == "Florida"
 
 
 def test_possession_adds_the_seconds_between_drives_to_the_team_that_got_the_ball():

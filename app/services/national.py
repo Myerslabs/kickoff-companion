@@ -159,6 +159,8 @@ def resolve(metric: Any, season: int) -> Metric | None:
     family, _, rest = metric.partition(":")
     if family == "class" and rest.isdigit() and int(rest) in (season, season + 1):  # the Recruiting page's two classes
         return class_metric(int(rest))
+    if metric == "class:current":  # the menu's National recruiting (owner 2026-10-28): this season's class, every school ranked
+        return class_metric(season)
     extra = national_extra.spec(metric, season)  # stream NV: the extra-call lists
     return Metric(**extra) if extra else None
 

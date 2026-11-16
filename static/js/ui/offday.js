@@ -201,7 +201,7 @@ export function commonOpponentsBlock(rows, { usAbbr, themAbbr, usTeam, themTeam,
 // import block never meet this.)
 import { twoTeamTable as programTwoTeam } from "./two-team.js";
 
-export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, ladder = false, tug = false } = {}) {
+export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, ladder = false, tug = false, halves = false } = {}) {
   const d = data && typeof data === "object" ? data : {};
   const list = records(d.rows);
   if (!list.some((r) => isNum(r.us?.value) || isNum(r.them?.value))) return note(`${text(d.year)} numbers could not be loaded yet.`);
@@ -210,5 +210,16 @@ export function lastSeasonTwoTeam(data, usAbbr, themAbbr, { usTeam, themTeam, la
     title: SIDE_TITLES[side] || text(side),
     rows: list.filter((r) => r.side === side).map((r) => ({ label: r.label, format: r.format, higherIsBetter: r.higherIsBetter, metric: r.metric, metricYear: r.metricYear ?? d.year, us: { value: r.us?.value, rank: r.us?.rank, of: r.us?.of }, them: { value: r.them?.value, rank: r.them?.rank, of: r.them?.of } })),
   }));
-  return el("div", { class: "d2" }, programTwoTeam({ groups, usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, ladder, tug, tug, caption: `${text(d.year)} season, both teams` }));
+  const caption = `${text(d.year)} season, both teams`;
+  const table = (sets, title, className) => programTwoTeam({ groups: sets, usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, ladder, tug, caption: title, className });
+  if (!halves || groups.length < 2) return el("div", { class: "d2" }, table(groups, caption));
+  // BUG-15 (the owner's board of 2026-10-27): in a band as wide as the page the offense sits beside the rest (the defense, the
+  // overall line), the one long table hidden; a narrower band keeps the one table (components.css, .d2--halves)
+  const rest = groups.slice(1);
+  return el(
+    "div",
+    { class: "d2 d2--halves" },
+    table(groups, caption, "d2__whole"),
+    el("div", { class: "d2__halves" }, table([groups[0]], `${caption}, ${groups[0].title.toLowerCase()}`), table(rest, `${caption}, ${rest.map((g) => g.title.toLowerCase()).join(" and ")}`)),
+  );
 }

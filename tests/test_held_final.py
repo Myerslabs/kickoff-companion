@@ -18,7 +18,7 @@ GAME, NEXT = 7, 8
 
 
 def window(game_id: int, kickoff: datetime, contains: bool) -> SimpleNamespace:
-    return SimpleNamespace(game_id=game_id, home="Swampwater Tech", away="Diner Tech", week=6, kickoff=kickoff, opens_at=kickoff - timedelta(minutes=30), closes_at=kickoff + timedelta(hours=5), cap=kickoff + timedelta(hours=10), season_type="regular", contains=lambda now: contains)
+    return SimpleNamespace(game_id=game_id, home="Florida", away="Texas State", week=6, kickoff=kickoff, opens_at=kickoff - timedelta(minutes=30), closes_at=kickoff + timedelta(hours=5), cap=kickoff + timedelta(hours=10), season_type="regular", contains=lambda now: contains)
 
 
 def test_the_live_marker_holds_while_the_next_window_waits(app):
@@ -56,7 +56,7 @@ def test_the_held_record_survives_a_restart_and_a_broken_file_is_ignored(app, se
     engine._clock = lambda: NOW
     engine._hold_final(window(GAME, NOW - timedelta(hours=3), False), NOW - timedelta(minutes=5))
     saved = json.loads(engine.held_path.read_text(encoding="utf-8"))
-    assert saved["gameId"] == GAME and saved["home"] == "Swampwater Tech" and saved["until"].endswith("Z")
+    assert saved["gameId"] == GAME and saved["home"] == "Florida" and saved["until"].endswith("Z")
     again = LiveEngine(engine.client, settings, app.state.db, clock=lambda: NOW)
     assert again.held_final() is not None and again.held_final()["gameId"] == GAME
     assert again.held_final(NOW + timedelta(days=1)) is None, "past its time, nothing is held"
@@ -68,7 +68,7 @@ def test_the_held_record_survives_a_restart_and_a_broken_file_is_ignored(app, se
 def _seed(engine: LiveEngine) -> None:
     engine.store.append([
         LiveEvent("status", "status", GAME, NOW - timedelta(minutes=10), {"status": "in_progress", "period": 4, "clock": {"minutes": 0, "seconds": 30}, "homeScore": 21, "awayScore": 17}),
-        LiveEvent("play:1", "play", GAME, NOW - timedelta(minutes=9), {"id": "1", "period": 4, "offense": "Swampwater Tech", "defense": "Diner Tech", "playType": "Rush", "yardsGained": 3, "text": "run for 3 yards"}),
+        LiveEvent("play:1", "play", GAME, NOW - timedelta(minutes=9), {"id": "1", "period": 4, "offense": "Florida", "defense": "Texas State", "playType": "Rush", "yardsGained": 3, "text": "run for 3 yards"}),
     ])
     engine.store.append([LiveEvent("status", "status", GAME, NOW - timedelta(seconds=20), {"status": "final", "period": 4, "clock": {"minutes": 0, "seconds": 0}, "homeScore": 21, "awayScore": 17})])
 
@@ -122,12 +122,17 @@ def test_a_restart_picks_the_held_game_back_up_and_another_teams_final_is_ignore
     engine._clock = lambda: NOW
     _seed(engine)
     team = engine.settings.team
-    engine._hold_final(SimpleNamespace(game_id=GAME, home=team, away="Diner Tech", kickoff=NOW - timedelta(hours=3)), NOW - timedelta(seconds=20))
+    engine._hold_final(SimpleNamespace(game_id=GAME, home=team, away="Texas State", kickoff=NOW - timedelta(hours=3)), NOW - timedelta(seconds=20))
     again = LiveEngine(engine.client, settings, app.state.db, clock=lambda: NOW)
     assert again.current_game_id == GAME and again.home == team and again.mode == "idle" and again.window is None
     frame = again.state(0)
     assert frame["status"] == "final" and frame["held"]["until"], "a stream frame of the held game carries the hold"
-    engine._hold_final(SimpleNamespace(game_id=GAME, home="Lake Effect", away="Diner Tech", kickoff=NOW - timedelta(hours=3)), NOW - timedelta(seconds=20))
+    kept = engine.held_path.read_text(encoding="utf-8")
+    engine._hold_final(SimpleNamespace(game_id=GAME + 1, home="Texas", away="Oklahoma", kickoff=NOW - timedelta(hours=3)), NOW - timedelta(seconds=20))
+    assert engine.held_path.read_text(encoding="utf-8") == kept, "FEAT-1: a game the host followed never replaces our last final"
+    record = json.loads(kept)
+    record["home"] = "Charlotte"  # the home team changed since this final was held
+    engine.held_path.write_text(json.dumps(record), encoding="utf-8")
     other = LiveEngine(engine.client, settings, app.state.db, clock=lambda: NOW)
     assert other.held is None and other.current_game_id is None, "not our team's final"
 

@@ -1,10 +1,8 @@
-# Kickoff Companion. Public release Phase 4: the dependencies live here, locked in uv.lock, so one
-# command sets up any OS: `uv sync` (or just run start.ps1 / start.sh, which does it). requirements.txt
-# and requirements-dev.txt carry the same pins for plain pip; tests/test_packaging.py keeps them in step.
-# Freeze wave F6 (2026-10-21): the same file builds the package on PyPI, so `uvx kickoff-companion` runs the app
-# with nothing cloned: hatchling puts `app`, `static` and `.env.example` inside one `kickoff_companion` package
-# (packaging/pypi/, the entry point), so nothing lands at the top level of an environment, and the version is read
-# from app/__init__.py. `uv build` makes the wheel; the release workflow publishes it (trusted publishing).
+# Kickoff Companion. Public release Phase 4: the dependencies live here, locked in uv.lock, so one command sets it
+# up: `uv sync` (or just run start.ps1, which does it). requirements.txt and requirements-dev.txt carry the same pins
+# for plain pip; tests/test_packaging.py keeps them in step. Kickoff Companion 2.0 runs on Windows only: from a
+# checkout, or as the packaged program (`uv sync --group build`, then tools/package/build.py); the package on PyPI
+# stays at 1.0.1. The version is read from app/__init__.py.
 [project]
 name = "kickoff-companion"
 dynamic = ["version"]
@@ -20,7 +18,7 @@ classifiers = [
   "Environment :: Web Environment",
   "Framework :: FastAPI",
   "Intended Audience :: End Users/Desktop",
-  "Operating System :: OS Independent",
+  "Operating System :: Microsoft :: Windows",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -36,6 +34,7 @@ dependencies = [
   "cryptography==50.0.1",
   "zeroconf==0.151.5",
   "segno==1.6.6",
+  "trafilatura==2.3.1",
 ]
 
 [project.urls]
@@ -44,34 +43,12 @@ Repository = "https://github.com/Myerslabs/kickoff-companion"
 Issues = "https://github.com/Myerslabs/kickoff-companion/issues"
 Releases = "https://github.com/Myerslabs/kickoff-companion/releases"
 
-[project.scripts]
-kickoff-companion = "kickoff_companion:main"
-
 [build-system]
 requires = ["hatchling==1.27.0"]
 build-backend = "hatchling.build"
 
 [tool.hatch.version]
 path = "app/__init__.py"
-
-# The wheel: one package, kickoff_companion/, holding the entry point (packaging/pypi/kickoff_companion/), the app
-# package, the static files and the .env template, laid out as a checkout is, so app/paths.py finds the bundle
-# the usual way and the `installed` marker sends .env, data/ and logs/ to the app-data folder.
-[tool.hatch.build.targets.wheel]
-include = ["/packaging/pypi/kickoff_companion", "/app", "/static"]  # anchored: a folder named app or static anywhere else stays out
-exclude = ["**/__pycache__", "**/*.pyc"]
-
-[tool.hatch.build.targets.wheel.sources]
-"packaging/pypi" = ""
-"app" = "kickoff_companion/app"
-"static" = "kickoff_companion/static"
-
-[tool.hatch.build.targets.wheel.force-include]
-".env.example" = "kickoff_companion/.env.example"
-
-[tool.hatch.build.targets.sdist]
-include = ["/packaging/pypi", "/app", "/static", "/.env.example", "/README.md", "/LICENSE", "/pyproject.toml"]
-exclude = ["**/__pycache__", "**/*.pyc"]
 
 [dependency-groups]
 dev = [
@@ -80,7 +57,7 @@ dev = [
   "ruff==0.16.9",
 ]
 build = [
-  # The packaged program (public release Phase 10): `uv sync --group build`, then `python tools/package/build.py`
+  # The packaged program (public release Phase 10, Windows only in 2.0): `uv sync --group build`, then `python tools/package/build.py`
   "pyinstaller==6.22.3",
 ]
 

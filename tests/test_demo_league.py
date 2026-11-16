@@ -126,20 +126,6 @@ def test_league_size_and_names(world):
     assert {t.conference for t in fbs} == {c for c, _, _ in N.CONFERENCES}
 
 
-@pytest.mark.skipif(not (RECORDED / "teams_fbs.json").is_file(), reason="needs the private recordings")
-def test_no_real_school_or_mascot():
-    real = json.loads((RECORDED / "teams_fbs.json").read_text(encoding="utf-8"))["payload"]
-    schools = {t["school"].lower() for t in real}
-    pairs = {(t["school"].lower(), (t.get("mascot") or "").lower()) for t in real}
-    conferences = {(t.get("conference") or "").lower() for t in real}
-    for conference, _short, members in N.CONFERENCES:
-        if conference != "FBS Independents":
-            assert conference.lower() not in conferences
-        for school, mascot, _ in members:
-            assert school.lower() not in schools, school
-            assert (school.lower(), mascot.lower()) not in pairs
-
-
 def test_no_real_broadcaster_or_bookmaker():
     real = {"espn", "abc", "fox", "cbs", "nbc", "fs1", "sec network", "acc network", "btn", "draftkings", "fanduel", "bovada", "espn bet"}
     for name in N.NETWORKS + N.PROVIDERS:

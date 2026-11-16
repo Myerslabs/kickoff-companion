@@ -39,7 +39,7 @@ def route_live(fake: FakeCfbd, live_payload=None) -> None:
 def live_document(plays: int = 3, final: bool = False, extra_play=None) -> dict:
     """A live document in the spec's shape (no real sample exists on the Free tier yet)."""
     drive_plays = [
-        {"id": f"p{i}", "homeScore": 0, "awayScore": 7 if i >= 3 else 0, "period": 1, "clock": f"{14 - i}:{30:02d}", "wallClock": f"2026-09-26T19:{40 + i:02d}:00.000Z", "team": "Swampwater Tech", "down": 1 if i == 1 else 2, "distance": 10, "yardsToGoal": 75 - 12 * i, "yardsGained": 12 if i < 3 else 39, "playType": "Rush" if i < 3 else "Passing Touchdown", "playText": f"Play {i}"}
+        {"id": f"p{i}", "homeScore": 0, "awayScore": 7 if i >= 3 else 0, "period": 1, "clock": f"{14 - i}:{30:02d}", "wallClock": f"2026-09-26T19:{40 + i:02d}:00.000Z", "team": "Florida", "down": 1 if i == 1 else 2, "distance": 10, "yardsToGoal": 75 - 12 * i, "yardsGained": 12 if i < 3 else 39, "playType": "Rush" if i < 3 else "Passing Touchdown", "playText": f"Play {i}"}
         for i in range(1, plays + 1)
     ]
     if extra_play:
@@ -49,12 +49,12 @@ def live_document(plays: int = 3, final: bool = False, extra_play=None) -> dict:
         "status": "completed" if final else "in_progress",
         "period": 1,
         "clock": "11:30",
-        "possession": "Swampwater Tech",
+        "possession": "Florida",
         "down": 1,
         "distance": 10,
         "yardsToGoal": 65,
-        "teams": [{"teamId": 1, "team": "Diner Tech", "homeAway": "home", "points": 0}, {"teamId": 57, "team": "Swampwater Tech", "homeAway": "away", "points": 7 if plays >= 3 else 0}],
-        "drives": [{"id": "d1", "offense": "Swampwater Tech", "defense": "Diner Tech", "playCount": len(drive_plays), "yards": 75, "startPeriod": 1, "startClock": "15:00", "startYardsToGoal": 75, "result": "TD" if plays >= 3 else None, "pointsGained": 7 if plays >= 3 else 0, "plays": drive_plays}],
+        "teams": [{"teamId": 1, "team": "Texas State", "homeAway": "home", "points": 0}, {"teamId": 57, "team": "Florida", "homeAway": "away", "points": 7 if plays >= 3 else 0}],
+        "drives": [{"id": "d1", "offense": "Florida", "defense": "Texas State", "playCount": len(drive_plays), "yards": 75, "startPeriod": 1, "startClock": "15:00", "startYardsToGoal": 75, "result": "TD" if plays >= 3 else None, "pointsGained": 7 if plays >= 3 else 0, "plays": drive_plays}],
     }
 
 
@@ -64,7 +64,7 @@ def live_document(plays: int = 3, final: bool = False, extra_play=None) -> dict:
 def test_finished_game_normalizes_in_order_with_flags():
     plays = parse_records(Play, fixture_payload("plays"), context="t").records
     drives = parse_records(Drive, fixture_payload("drives"), context="t").records
-    timeline = events_from_finished(LAST_GAME, plays, drives, "Silver Dollar", "Swampwater Tech")
+    timeline = events_from_finished(LAST_GAME, plays, drives, "Fresno State", "Florida")
     kinds = [e.kind for e, _ in timeline]
     assert kinds.count("play") == len(plays) and kinds.count("drive") == len({p.drive_id for p in plays if p.drive_id})
     assert kinds[0] == "drive" and kinds[1] == "play"
@@ -86,9 +86,9 @@ def test_live_document_normalizes_and_junk_is_dropped():
     assert kinds == ["drive", "play", "play", "play", "status"]
     td = events[3].data
     assert td["scoring"] and "td" in td["flags"] and "explosive" in td["flags"] and td["offenseScore"] == 7 and td["homeScore"] == 0
-    assert events[1].data["clock"] == {"minutes": 13, "seconds": 30} and events[1].data["defense"] == "Diner Tech"
+    assert events[1].data["clock"] == {"minutes": 13, "seconds": 30} and events[1].data["defense"] == "Texas State"
     status = events[-1].data
-    assert status["status"] == "in_progress" and status["homeScore"] == 0 and status["awayScore"] == 7 and status["possession"] == "Swampwater Tech"
+    assert status["status"] == "in_progress" and status["homeScore"] == 0 and status["awayScore"] == 7 and status["possession"] == "Florida"
     assert events_from_live(parse_one(LiveGame, live_document(3, final=True), context="t"), datetime.now(timezone.utc))[-1].data["status"] == "final"
 
 
@@ -153,8 +153,8 @@ def test_replay_runs_a_finished_game_end_to_end_at_speed(app, client: TestClient
     assert state["meta"]["source"] == "replay" or data["mode"] in ("idle", "replay")
     assert data["status"] == "final" and data["counts"]["plays"] == plays and data["counts"]["drives"] == drives
     last = next(g for g in fixture_payload("games_team") if g["id"] == 526000600)
-    assert data["homeScore"] == last["homePoints"] and data["awayScore"] == last["awayPoints"] and data["home"] == "Silver Dollar" and data["away"] == "Swampwater Tech"
-    box = data["box"]["Swampwater Tech"]
+    assert data["homeScore"] == last["homePoints"] and data["awayScore"] == last["awayPoints"] and data["home"] == "Fresno State" and data["away"] == "Florida"
+    box = data["box"]["Florida"]
     assert box["plays"] > 60 and box["totalYards"] > 400 and box["thirdDown"]["of"] > 5
     assert box["successRate"] is None and box["successCounts"] is None  # the rate is CFBD's live-feed figure; a finished-game replay has none
     assert data["plays"][0]["period"] == 4 and data["lastPlay"]["success"] in (True, False)
@@ -298,22 +298,22 @@ def test_poller_waits_for_window_tier_and_clients_then_polls_records_and_dedupes
     assert len(recorded) >= 4 and first["kind"] == "plays" and first["payload"]["id"] == 526001015
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["counts"]["plays"] == len(recorded) and manifest["counts"]["box-teams"] >= 2 and manifest["counts"]["wp"] == 1
-    assert [s["status"] for s in manifest["statuses"]] == ["in_progress", "completed"] and manifest["home"] == "Swampwater Tech" and manifest["week"] == 4
+    assert [s["status"] for s in manifest["statuses"]] == ["in_progress", "completed"] and manifest["home"] == "Florida" and manifest["week"] == 4
     assert 12 in sleeps
     # the box poll ran with the first play poll and again at the final; its events reach the state
     assert fake_cfbd.count("/games/teams") >= 2 and fake_cfbd.count("/games/players") >= 2
     state = engine.state(0, 526001015)
-    assert state["boxScore"]["Swampwater Tech"]["totalYards"] > 400 and state["playerStats"]["Swampwater Tech"]["passing"][0]["stats"]["YDS"] > 0
+    assert state["boxScore"]["Florida"]["totalYards"] > 400 and state["playerStats"]["Florida"]["passing"][0]["stats"]["YDS"] > 0
     # the archive holds the final state of the game the app watched, and nothing else
     archive = app.state.settings.data_dir / "archive" / "526001015.json"
     saved = json.loads(archive.read_text(encoding="utf-8"))
-    assert saved["state"]["status"] == "final" and saved["state"]["counts"]["plays"] == 4 and saved["state"]["boxScore"]["Swampwater Tech"]["totalYards"] > 400
+    assert saved["state"]["status"] == "final" and saved["state"]["counts"]["plays"] == 4 and saved["state"]["boxScore"]["Florida"]["totalYards"] > 400
     assert sorted(p.name for p in archive.parent.glob("*.json")) == ["526001015.json"]
 
 
 def test_status_reports_the_quota_projection(app, client: TestClient, fake_cfbd: FakeCfbd):
     route_live(fake_cfbd)
-    client.portal.call(app.state.live.stop_background)  # the fixture's Diner Tech window is real time on 2026-09-26; the watcher must not open it
+    client.portal.call(app.state.live.stop_background)  # the fixture's Texas State window is real time on 2026-09-26; the watcher must not open it
     app.state.live.window, app.state.live.mode = None, "idle"  # it may already have, in the moment before it stopped
     data = client.get("/api/live/status").json()["data"]
     assert data["pollSeconds"] == 12 and data["projectedCallsPerGame"] == 1050 and data["projectedCallsPerGame"] < 2500

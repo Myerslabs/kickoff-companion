@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -12,6 +13,7 @@ from app.services.parts import Assembled
 from app.services.players import PlayerService
 
 router = APIRouter(tags=["players"])
+log = logging.getLogger("kickoff.players")
 
 
 def respond(result: Assembled) -> Any:
@@ -27,11 +29,22 @@ async def leaders(request: Request) -> Any:
     return respond(await service.leaders())
 
 
+@router.get("/api/season/players")
+async def season_players(request: Request) -> Any:
+    """The season in review's players (Wave 7, owner 2026-11-15: "at least every starter"): every player of ours with a stat
+    line by category, and every starter of the latest depth chart."""
+    service: PlayerService = request.app.state.players
+    return respond(await service.season_players())
+
+
 @router.get("/api/roster")
-async def roster(request: Request) -> Any:
+async def roster(request: Request, team: str | None = None) -> Any:
+    """Our roster, or with `team` any FBS team's (FEAT-5)."""
     from app.api.grades import attach_roster  # public release Phase 7: each row's stat grade
 
-    service: PlayerService = request.app.state.players
+    service = await request.app.state.players.scoped(team)
+    if service is None:
+        return error_response(404, "unknown_team", f"CFBD does not list {team} among this season's FBS teams.")
     result = await service.roster()
     if not result.all_failed:
         result.errors.extend(await attach_roster(request, result.data))
@@ -39,8 +52,11 @@ async def roster(request: Request) -> Any:
 
 
 @router.get("/api/recruiting")
-async def recruiting(request: Request) -> Any:
-    service: PlayerService = request.app.state.players
+async def recruiting(request: Request, team: str | None = None) -> Any:
+    """Our recruiting, or with `team` any FBS team's (FEAT-5)."""
+    service = await request.app.state.players.scoped(team)
+    if service is None:
+        return error_response(404, "unknown_team", f"CFBD does not list {team} among this season's FBS teams.")
     return respond(await service.recruiting())
 
 

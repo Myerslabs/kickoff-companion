@@ -18,13 +18,13 @@ JS = ROOT / "static" / "js"
 
 INJURIES = {
     "season": 2026,
-    "team": {"school": "Swampwater Tech"},
+    "team": {"school": "Florida"},
     "isUs": True,
     "counts": {"games": 5, "reports": 2},
     "games": [
-        {"gameId": 5, "week": 5, "homeAway": "home", "completed": False, "next": True, "date": "2026-10-03T19:00:00Z", "opponent": {"school": "Lake Effect"}, "notes": True, "reported": True, "source": "Conference report", "updatedAt": "2026-10-01", "rows": [{"name": "Zed Out", "position": "WR", "status": "Out", "note": "Knee"}, {"name": "Al Maybe", "position": "LB", "status": "Questionable", "note": None}], "unassigned": [{"name": "Who Knows", "position": "OL", "status": "Probable", "note": "hand"}]},
-        {"gameId": 4, "week": 4, "homeAway": "away", "completed": True, "opponent": {"school": "Diner Tech"}, "notes": False, "reported": False, "rows": [], "unassigned": []},
-        {"gameId": 3, "week": 3, "homeAway": "home", "completed": True, "opponent": {"school": "Silver Dollar"}, "notes": True, "error": "3.json is not valid JSON", "reported": False, "rows": [], "unassigned": []},
+        {"gameId": 5, "week": 5, "homeAway": "home", "completed": False, "next": True, "date": "2026-10-03T19:00:00Z", "opponent": {"school": "Charlotte"}, "notes": True, "reported": True, "source": "Conference report", "updatedAt": "2026-10-01", "rows": [{"name": "Zed Out", "position": "WR", "status": "Out", "note": "Knee"}, {"name": "Al Maybe", "position": "LB", "status": "Questionable", "note": None}], "unassigned": [{"name": "Who Knows", "position": "OL", "status": "Probable", "note": "hand"}]},
+        {"gameId": 4, "week": 4, "homeAway": "away", "completed": True, "opponent": {"school": "Texas State"}, "notes": False, "reported": False, "rows": [], "unassigned": []},
+        {"gameId": 3, "week": 3, "homeAway": "home", "completed": True, "opponent": {"school": "Fresno State"}, "notes": True, "error": "3.json is not valid JSON", "reported": False, "rows": [], "unassigned": []},
         {"gameId": 2, "week": 2, "homeAway": "neutral", "label": "Kickoff Classic", "completed": True, "opponent": {"school": "Gravel State"}, "notes": True, "reported": True, "rows": [], "unassigned": []},
         {"gameId": 1, "week": 1, "homeAway": "home", "completed": True, "opponent": None, "notes": True, "reported": True, "rows": [None, "junk", {"name": "Old Hurt", "status": "Doubtful"}], "unassigned": None},
     ],
@@ -54,7 +54,7 @@ scenarios.injuries = async () => {
   const bands = [...main.querySelectorAll("section.band")];
   assert.deepEqual(bands.map((b) => b.getAttribute("id")), ["injuries-5", "injuries-3", "injuries-2", "injuries-1"], "newest first; a played game with no report is in the line at the foot (the layout pass, 2026-10-22)");
   assert.equal(main.querySelector(".chips-row"), null, "no strip of week chips over the page");
-  assert.ok(text(bands[0].querySelector(".band__head")).includes("Next: Week 5 vs Lake Effect"));
+  assert.ok(text(bands[0].querySelector(".band__head")).includes("Next: Week 5 vs Charlotte"));
   assert.ok(text(bands[0]).includes("1 out, 1 questionable"));
   assert.ok(text(bands[0]).includes("Zed Out") && text(bands[0]).includes("Team not named in the report") && text(bands[0]).includes("Who Knows"));
   assert.deepEqual(bands.map((b) => b.getAttribute("data-collapsed")), ["false", "false", "false", "true"], "the next game and the last two shown open, the rest folded");
@@ -62,18 +62,18 @@ scenarios.injuries = async () => {
   assert.ok(quiet && text(quiet).startsWith("No report for one played game") && quiet.querySelector('a[href="#program=4"]'), "a played game with no report: one line, its link to the program");
   assert.ok(text(bands[1]).includes("could not be read"), "an unreadable notes file keeps its band and says so");
   assert.ok(text(bands[2].querySelector(".band__head")).includes("Kickoff Classic vs Gravel State"));
-  assert.ok(text(bands[2]).includes("Nobody from Swampwater Tech on the report"));
+  assert.ok(text(bands[2]).includes("Nobody from Florida on the report"));
   assert.ok(text(bands[3]).includes("Old Hurt"), "a bad row is skipped, a good one kept");
   assert.ok(t.includes("Newest week first"));
   view.unmount();
-  assert.equal(gameTitle({ week: 7, homeAway: "away", opponent: { school: "Lake Effect" } }), "Week 7 at Lake Effect");
+  assert.equal(gameTitle({ week: 7, homeAway: "away", opponent: { school: "Charlotte" } }), "Week 7 at Charlotte");
   assert.equal(gameTitle(null), "Game vs the opponent");
   assert.equal(countsLine([{ status: "Out" }, { status: "out" }, { status: "Probable" }, { status: "Not reported" }]), "2 out, 1 probable, 1 other");
   assert.equal(countsLine([]), "nobody listed");
   const { quietLine } = await import(moduleUrl("views/injuries.js"));
   assert.equal(quietLine([]), null);
   assert.equal(quietLine(null), null);
-  const two = quietLine([{ gameId: 7, week: 7, homeAway: "away", opponent: { school: "Lake Effect" } }, { gameId: "bad id", week: 6, opponent: null }]);
+  const two = quietLine([{ gameId: 7, week: 7, homeAway: "away", opponent: { school: "Charlotte" } }, { gameId: "bad id", week: 6, opponent: null }]);
   assert.ok(text(two).includes("2 played games") && two.querySelectorAll("a").length === 1 && text(two).includes("Week 6 vs the opponent"), text(two));
   // a broken answer never breaks the page
   clearEnvelopeCache();
@@ -99,25 +99,12 @@ scenarios.setup = async () => {
 };
 
 scenarios.leaders = async () => {
-  // the mock (owner 2026-10-20): a leader carries his value for the row on the pole; the headlines fit their row
-  const { fitHeadlines, programLeader } = await import(moduleUrl("views/program.js"));
+  // the mock (owner 2026-10-20): a leader carries his value for the row on the pole
+  const { programLeader } = await import(moduleUrl("views/program.js"));
   const lead = programLeader({ player: "Al One", playerId: "41", position: "QB", value: 1204 }, { format: "0f", stat: "YDS" });
   assert.deepEqual([lead.name, lead.playerId, lead.value, lead.line.hero], ["Al One", "41", 1204, "1,204 yds"]);
   assert.equal(programLeader({ player: "Bo", value: "x" }).value, null, "a damaged value is null, never a string");
   assert.equal(programLeader(null), null);
-  fitHeadlines(null);
-  fitHeadlines(document.createElement("div"));
-  const body = document.createElement("div");
-  const list = document.createElement("ul");
-  list.className = "news";
-  for (let i = 0; i < 3; i += 1) {
-    const li = document.createElement("li");
-    li.hidden = true;
-    list.append(li);
-  }
-  body.append(list);
-  fitHeadlines(body);
-  assert.ok([...list.children].every((li) => !li.hidden), "a body that sizes itself hides nothing");
 };
 """
 
@@ -131,11 +118,17 @@ def test_menu_pages_in_a_fake_browser(tmp_path: Path, name: str) -> None:
 def test_the_programs_bands_in_the_owners_order() -> None:
     src = (JS / "views" / "program.js").read_text(encoding="utf-8")
     body = src.split("function sections(data", 1)[1].split("\n}\n", 1)[0]
-    listed = re.findall(r"(\w+Band)\(", body.split("const listed = [", 1)[1].split("];", 1)[0])
-    # the mock (owner 2026-10-20): the notes beside the headlines, the recruits beside the availability report, common
-    # opponents over the radio beside last season, the two schools and the series last
-    assert listed == ["notesBand", "headlinesBand", "tapeBand", "visitorsBand", "availabilityBand", "leadersBand", "recruitingBand", "lineupsBand", "advancedBand", "tendenciesBand", "ppaBand", "commonBand", "radioBand", "lastSeasonBand", "twoSchoolsBand", "seriesBand"]
-    assert "const unplaced = [matchup(data)]" in body, "the matchup card was not on his canvas: it follows the order"
+    listed = re.findall(r"(\w+Band|\w+Bands)\(", body.split("const listed = [", 1)[1].split("];", 1)[0])
+    # the mock (owner 2026-10-20), one column since 2026-11-01: the notes, then the headlines; the recruits, then the
+    # availability report (reportBands); the radio, then Getting there (gamedayBands); the two schools and the series last
+    # the season as one line, Wave 2 (the owner's board of 2026-10-30): the like bands in their boxes, his order
+    assert listed == ["notesBand", "headlinesBand", "reportBands", "leadersBand", "lineupsBand", "tendenciesBand", "tripBand"], "the radio went to In Game (wave 3, 2026-11-01): Getting there alone closes the list"
+    boxes = re.findall(r"(\w+Box|reportBands)\(", body.split("const listed = [", 1)[1].split("];", 1)[0])
+    assert boxes == ["matchupBox", "weekBox", "reportBands", "talentBox", "schoolsBox"]
+    assert "pairRow(" not in src and "program-pair" not in src, "no pair rows: every band is a band of the page (one column, 2026-11-01)"
+    row = src.split("function reportBands(data)", 1)[1].split("\n}\n", 1)[0]
+    assert re.findall(r"(\w+Band)\(", row) == ["visitorsBand", "availabilityBand"], "Recruits on hand, then the Availability report"
+    assert "const unplaced = [];" in body, "the opponent card is gone: its head strip is on the cover, its table in The matchup"
     assert "watchBand" not in src and "pickerBand" not in src, "players to watch and prior weeks' programs are gone"
 
 

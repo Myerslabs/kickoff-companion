@@ -28,7 +28,7 @@ LAST_GAME = 526000600
 def route_program(fake: FakeCfbd) -> None:
     def games(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("games_team"))
         if params.get("team"):
             return httpx.Response(200, json=fixture_payload("games_opponent"))
@@ -62,12 +62,12 @@ def route_program(fake: FakeCfbd) -> None:
 
     def player_stats(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("stats_player_season_team"))
         return httpx.Response(200, json=team_player_stats(params.get("team")))
 
     def roster(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=fixture_payload("roster" if request.url.params.get("team") == "Swampwater Tech" else "roster_opponent"))
+        return httpx.Response(200, json=fixture_payload("roster" if request.url.params.get("team") == "Florida" else "roster_opponent"))
 
     fake.route("/games", handler=games)
     fake.route("/games/teams", handler=by_week("games_teams"))
@@ -83,6 +83,8 @@ def route_program(fake: FakeCfbd) -> None:
     fake.fixture("/stats/season", "stats_season_fbs")
     fake.fixture("/stats/season/advanced", "stats_season_advanced_fbs")
     fake.fixture("/ratings/sp", "ratings_sp")
+    fake.fixture("/ratings/elo", "ratings_elo")  # the cover on one team (2026-11-07): each side's Elo and FPI chips
+    fake.fixture("/ratings/fpi", "ratings_fpi")
     fake.fixture("/teams/matchup", "teams_matchup")
     fake.fixture("/venues", "venues")
     fake.fixture("/coaches", "coaches_opponent")
@@ -91,7 +93,7 @@ def route_program(fake: FakeCfbd) -> None:
 
     def recruits(request: httpx.Request) -> httpx.Response:
         year = request.url.params.get("year")
-        if request.url.params.get("team") == "Swampwater Tech":
+        if request.url.params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("recruiting_players" if year == "2026" else f"recruiting_players_{year}") if year in ("2022", "2023", "2024", "2025", "2026", "2027") else [])
         return httpx.Response(200, json=fixture_payload(f"recruiting_players_opponent_{year}") if year in ("2023", "2024", "2025", "2026") else [])
 
@@ -99,22 +101,22 @@ def route_program(fake: FakeCfbd) -> None:
 
     def ppa_season(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        if team == "Swampwater Tech":
+        if team == "Florida":
             return httpx.Response(200, json=fixture_payload("ppa_players_season"))
         if team:
-            return httpx.Response(200, json=fixture_payload("ppa_players_season_opponent") if team == "Diner Tech" else [])
+            return httpx.Response(200, json=fixture_payload("ppa_players_season_opponent") if team == "Texas State" else [])
         return httpx.Response(200, json=fixture_payload("ppa_players_season_all"))
 
     def usage(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        return httpx.Response(200, json=fixture_payload("player_usage") if team == "Swampwater Tech" else fixture_payload("player_usage_opponent") if team == "Diner Tech" else [])
+        return httpx.Response(200, json=fixture_payload("player_usage") if team == "Florida" else fixture_payload("player_usage_opponent") if team == "Texas State" else [])
 
     def returning(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        return httpx.Response(200, json=fixture_payload("player_returning") if team == "Swampwater Tech" else fixture_payload("player_returning_opponent") if team == "Diner Tech" else [])
+        return httpx.Response(200, json=fixture_payload("player_returning") if team == "Florida" else fixture_payload("player_returning_opponent") if team == "Texas State" else [])
 
     def ppa_games(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=fixture_payload("ppa_players_games") if request.url.params.get("team") == "Swampwater Tech" and request.url.params.get("week") == ROLES["LASTWEEK"] else [])
+        return httpx.Response(200, json=fixture_payload("ppa_players_games") if request.url.params.get("team") == "Florida" and request.url.params.get("week") == ROLES["LASTWEEK"] else [])
 
     fake.route("/ppa/players/season", handler=ppa_season)
     fake.route("/player/usage", handler=usage)
@@ -140,9 +142,11 @@ class FakeSites:
             return httpx.Response(200, json=json.loads((NWS / "points.json").read_text(encoding="utf-8")))
         if "weather.gov" in url:
             return httpx.Response(200, json=json.loads((NWS / "forecast.json").read_text(encoding="utf-8")))
-        for name in ("swampwatertech", "espn", "theathletic", "news.google"):
+        if "/robots.txt" in url:
+            return httpx.Response(404)  # FEAT-14: the copier asks first; no robots.txt means nothing is asked
+        for name in ("swampwatertech", "espn", "theathletic", "news.google", "cbssports.com/rss", "sports.yahoo.com/college-football/rss"):
             if name in url:
-                key = {"swampwatertech": "team", "espn": "espn", "theathletic": "athletic", "news.google": "google"}[name]
+                key = {"swampwatertech": "team", "espn": "espn", "theathletic": "athletic", "news.google": "google", "cbssports.com/rss": "cbs", "sports.yahoo.com/college-football/rss": "yahoo"}[name]
                 return httpx.Response(200, content=(FEEDS / f"{key}.xml").read_bytes(), headers={"content-type": "application/xml"})
         return httpx.Response(404)
 
@@ -176,7 +180,7 @@ def set_clock(app, when: datetime) -> None:
 
 def test_next_program_builds_itself(pclient: TestClient, fake_cfbd: FakeCfbd, program_app, sites: FakeSites):
     route_program(fake_cfbd)
-    set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))  # Wednesday of Diner Tech week
+    set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))  # Wednesday of Texas State week
     response = pclient.get("/api/program/next")
     assert response.status_code == 200
     body = response.json()
@@ -184,8 +188,8 @@ def test_next_program_builds_itself(pclient: TestClient, fake_cfbd: FakeCfbd, pr
     data = body["data"]
     game = data["game"]
     assert game["gameId"] == NEXT_GAME and game["week"] == 4 and game["homeIsUs"] and game["tv"] == facts.outlet(NEXT_GAME) and not game["completed"]
-    assert game["venue"] == "Swampwater Tech Memorial Stadium" and game["venueDetail"]["capacity"] == facts.capacity("Swampwater Tech")
-    assert data["us"]["school"] == "Swampwater Tech" and data["them"]["school"] == "Diner Tech" and data["them"]["apRank"] == facts.ap_rank("Diner Tech") and data["them"]["logo"]
+    assert game["venue"] == "Florida Memorial Stadium" and game["venueDetail"]["capacity"] == facts.capacity("Florida")
+    assert data["us"]["school"] == "Florida" and data["them"]["school"] == "Texas State" and data["them"]["apRank"] == facts.ap_rank("Texas State") and data["them"]["logo"]
     book = facts.line(NEXT_GAME)
     assert data["line"]["formatted"] == book["formattedSpread"] and data["line"]["overUnder"] == book["overUnder"]
     assert "provider" not in data["line"] and "Moneyline" not in json.dumps(data["line"])  # the line, never the book
@@ -213,7 +217,7 @@ def test_past_program_shows_the_final_box(pclient: TestClient, fake_cfbd: FakeCf
     set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
     data = pclient.get(f"/api/program/{LAST_GAME}").json()["data"]
     assert data["game"]["completed"] and (data["game"]["usPoints"], data["game"]["themPoints"]) == facts.scores(facts.last_game()) and not data["game"]["homeIsUs"]
-    assert data["them"]["school"] == "Silver Dollar"
+    assert data["them"]["school"] == "Fresno State"
     final = data["final"]
     assert final["available"] and final["us"]["totalYards"] > 300 and final["them"]["points"] == facts.scores(facts.last_game())[1]
     assert final["us"]["thirdDown"]["of"] and final["players"]["us"]["passing"][0]["stats"]["YDS"]
@@ -223,9 +227,9 @@ def test_past_program_shows_the_final_box(pclient: TestClient, fake_cfbd: FakeCf
     # both teams' season lines, so a player's row opens his card
     players = data["advancedBox"]["players"]
     assert players and all("playerId" in p for p in players)
-    box_ids = {(side, row["name"]): row["playerId"] for side, school in (("us", "Swampwater Tech"), ("them", "Silver Dollar")) for rows in final["players"][side].values() for row in rows}
-    matched = [p for p in players if (("us" if p["team"] == "Swampwater Tech" else "them"), p["player"]) in box_ids]
-    assert matched and all(p["playerId"] == box_ids[("us" if p["team"] == "Swampwater Tech" else "them", p["player"])] for p in matched)
+    box_ids = {(side, row["name"]): row["playerId"] for side, school in (("us", "Florida"), ("them", "Fresno State")) for rows in final["players"][side].values() for row in rows}
+    matched = [p for p in players if (("us" if p["team"] == "Florida" else "them"), p["player"]) in box_ids]
+    assert matched and all(p["playerId"] == box_ids[("us" if p["team"] == "Florida" else "them", p["player"])] for p in matched)
     assert sum(1 for p in players if p["playerId"]) >= len(matched)
 
 
@@ -239,7 +243,7 @@ def test_notes_file_feeds_schemes_and_availability(pclient: TestClient, fake_cfb
         "schemes": {"offense": "Spread", "defense": "4-2-5"},
         "sections": [{"heading": "Line movement", "paragraphs": ["Opened -1.5."]}, "junk"],
         "availability": [{"name": "A", "position": "WR", "status": "Out"}, {"name": "no status"}],
-        "lineups": {"source": "Ourlads", "us": {"team": "Swampwater Tech", "slots": [{"unit": "Offense", "slot": "QB", "players": [{"name": ROLES["QBNAME"], "number": 12}, {"name": "Tramell Jones Jr."}, "junk"]}, {"players": [{"name": "no slot"}]}]}, "them": None},
+        "lineups": {"source": "Ourlads", "us": {"team": "Florida", "slots": [{"unit": "Offense", "slot": "QB", "players": [{"name": ROLES["QBNAME"], "number": 12}, {"name": "Tramell Jones Jr."}, "junk"]}, {"players": [{"name": "no slot"}]}]}, "them": None},
     }), encoding="utf-8")
     notes = pclient.get("/api/program/next").json()["data"]["notes"]
     assert notes["present"] and notes["schemes"] == {"offense": "Spread", "defense": "4-2-5", "opponent": None, "source": None}
@@ -250,7 +254,7 @@ def test_notes_file_feeds_schemes_and_availability(pclient: TestClient, fake_cfb
     assert [s["slot"] for s in lineups["us"]["slots"]] == ["QB"]
     assert [p["name"] for p in lineups["us"]["slots"][0]["players"]] == [ROLES["QBNAME"], "Tramell Jones Jr."]
     assert lineups["us"]["slots"][0]["players"][0]["number"] == 12 and lineups["us"]["slots"][0]["players"][1]["number"] is None
-    # the season lines attach chips and the id by name (Hamilton is in the recorded Swampwater Tech player stats)
+    # the season lines attach chips and the id by name (Hamilton is in the recorded Florida player stats)
     qb = lineups["us"]["slots"][0]["players"][0]
     assert qb["playerId"] and qb["chips"] and qb["chips"][0].endswith("passing yards")
     assert "chips" in lineups["us"]["slots"][0]["players"][1]
@@ -272,7 +276,7 @@ def test_unknown_game_is_404_and_a_failed_part_is_reported(pclient: TestClient, 
 
 def test_weather_far_out_and_dead_service_degrade(pclient: TestClient, fake_cfbd: FakeCfbd, program_app, sites: FakeSites):
     route_program(fake_cfbd)
-    set_clock(program_app, datetime(2026, 9, 10, 16, 0, tzinfo=timezone.utc))  # sixteen days before Diner Tech
+    set_clock(program_app, datetime(2026, 9, 10, 16, 0, tzinfo=timezone.utc))  # sixteen days before Texas State
     weather = pclient.get("/api/program/next").json()["data"]["weather"]
     assert weather["available"] is False and "days away" in weather["error"]
     set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
@@ -289,9 +293,9 @@ def test_newspaper_on_a_weekday_has_headlines_and_no_slate(pclient: TestClient, 
     set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
     data = pclient.get("/api/newspaper").json()["data"]
     assert data["gameDay"] is False and "opensHere" not in data and data["slate"] == [] and data["slateNote"]
-    assert data["nextGame"]["gameId"] == NEXT_GAME and data["nextGame"]["opponent"] == "Diner Tech"
+    assert data["nextGame"]["gameId"] == NEXT_GAME and data["nextGame"]["opponent"] == "Texas State"
     assert len(data["news"]) >= 10 and all(h["title"] and h["source"] for h in data["news"])
-    assert set(data["feeds"]) == {"team", "espn", "athletic", "google"} and all(f["status"] == "ok" for f in data["feeds"].values())
+    assert set(data["feeds"]) == {"team", "espn", "athletic", "cbs", "yahoo", "google"} and all(f["status"] == "ok" for f in data["feeds"].values())
     # items 10-12 (owner 2026-10-13): the edition's ranked matchups need the week on any day, asked once and then cached
     asked = fake_cfbd.count("/lines")
     assert asked <= 1
@@ -304,7 +308,7 @@ def test_newspaper_on_game_day_carries_the_slate(pclient: TestClient, fake_cfbd:
     set_clock(program_app, datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc))  # 8 am Eastern on game day
     data = pclient.get("/api/newspaper").json()["data"]
     assert data["gameDay"] and data["gameId"] == NEXT_GAME
-    assert len(data["slate"]) >= 8 and data["slate"][0]["isUs"] and data["slate"][0]["home"]["school"] == "Swampwater Tech"
+    assert len(data["slate"]) >= 8 and data["slate"][0]["isUs"] and data["slate"][0]["home"]["school"] == "Florida"
     assert data["slate"][0]["line"]["formatted"] == facts.line(NEXT_GAME, "lines_week")["formattedSpread"] and 0 < data["slate"][0]["homeWinProbability"] < 1
     assert all(g["home"]["school"] and g["away"]["school"] for g in data["slate"])
     assert any(g["tv"] for g in data["slate"])
@@ -329,10 +333,10 @@ def test_newspaper_survives_dead_feeds(pclient: TestClient, fake_cfbd: FakeCfbd,
 def test_opponent_team_page(pclient: TestClient, fake_cfbd: FakeCfbd, program_app):
     route_program(fake_cfbd)
     set_clock(program_app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
-    response = pclient.get("/api/team/Diner%20Tech")
+    response = pclient.get("/api/team/Texas%20State")
     assert response.status_code == 200
     data = response.json()["data"]
-    assert data["team"]["school"] == "Diner Tech" and data["team"]["apRank"] == facts.ap_rank("Diner Tech") and data["team"]["isUs"] is False and data["team"]["record"]["wins"] == facts.record("Diner Tech", "records_all")["total"]["wins"]
+    assert data["team"]["school"] == "Texas State" and data["team"]["apRank"] == facts.ap_rank("Texas State") and data["team"]["isUs"] is False and data["team"]["record"]["wins"] == facts.record("Texas State", "records_all")["total"]["wins"]
     assert len(data["profile"]["rows"]) == 26 and data["profile"]["rows"][1]["nationalRank"]
     assert len(data["schedule"]) == 12 and data["schedule"][0]["opponent"]["school"]
     assert len(data["roster"]) == len(fixture_payload("roster_opponent")) and data["roster"][0]["headshotUrl"].startswith("/media/headshot/")
@@ -354,8 +358,8 @@ def test_program_carries_play_value(pclient: TestClient, fake_cfbd: FakeCfbd, pr
     data = pclient.get("/api/program/next").json()["data"]
     ppa = data["ppa"]
     assert ppa["available"] and ppa["season"]["us"]["games"] == len(fixture_payload("ppa_games")) and ppa["season"]["us"]["offense"]["overall"] is not None
-    assert [g["week"] for g in ppa["games"]["us"]] == [1, 2] and ppa["games"]["them"] == []  # the opponent fixture is Swampwater Tech-only
-    assert ppa["players"]["usWeek"] == int(ROLES["LASTWEEK"]) and ppa["players"]["us"] and all(p["opponent"] == "Silver Dollar" for p in ppa["players"]["us"])
+    assert [g["week"] for g in ppa["games"]["us"]] == [1, 2] and ppa["games"]["them"] == []  # the opponent fixture is Florida-only
+    assert ppa["players"]["usWeek"] == int(ROLES["LASTWEEK"]) and ppa["players"]["us"] and all(p["opponent"] == "Fresno State" for p in ppa["players"]["us"])
     assert data["parts"]["ppaUs"]["status"] == "ok"
     # tables wave 2: each game names its opponent's abbreviation for the small table (None for a school /teams/fbs lacks)
     abbr = {t["school"]: t["abbreviation"] for t in fixture_payload("teams_fbs") if t.get("abbreviation")}

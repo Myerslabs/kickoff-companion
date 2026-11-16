@@ -3,7 +3,6 @@
 // Back row, its switches as links (so Back steps through them) and the tapped team's row scrolled into view
 // on arrival. A poll list's full page is the Season polls band instead (#season=polls:<poll>).
 
-import { pollMs } from "../prefs.js";
 import { el, text } from "../ui/dom.js";
 import { centerRow, listState, listTitle, nationalApiUrl, nationalListBody, summaryText } from "../ui/national-sheet.js";
 import { nationalHref, nationalRoute } from "../ui/national-link.js";
@@ -46,7 +45,6 @@ export function createNationalView({ onStatus, arg, params } = {}) {
   let arrived = false;
   const view = poller({
     url,
-    refreshMs: pollMs(),
     onStatus,
     render: (envelope, container) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};

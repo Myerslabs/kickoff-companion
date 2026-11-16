@@ -108,7 +108,10 @@ class FailWindow:
         return active
 
 
-def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, tier: int, fail: FailWindow | None, mdns_name: str = "off"):
+NO_CLAUDE = "no-claude-in-the-test-league"  # the bug round (owner 2026-11-15, "Off unless asked"): a command never found
+
+
+def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, tier: int, fail: FailWindow | None, mdns_name: str = "off", *, claude: bool = False, lan_hostname: str = ""):
     import httpx
 
     import app.main as app_main
@@ -120,8 +123,9 @@ def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, t
     us = world.league.team(N.OUR_SCHOOL)
     settings = load_settings(
         env_file=None, cfbd_api_key=DEMO_KEY, cfbd_base_url=FAKE_BASE_URL, team=us.school, conference=us.conference,
-        season=world.season, host=host, port=port, lan_hostname="", mdns_name=mdns_name, data_dir=str(data_dir), log_dir=str(data_dir / "logs"),
+        season=world.season, host=host, port=port, lan_hostname=lan_hostname, mdns_name=mdns_name, data_dir=str(data_dir), log_dir=str(data_dir / "logs"),
         monthly_call_budget={0: 1000, 1: 5000}.get(tier, 30000),
+        **({} if claude else {"claude_command": NO_CLAUDE}),  # no real Claude Code run from the league unless --claude
     )
     from app.demo.facts import write_demo_facts
 
@@ -137,10 +141,10 @@ def build(world: World, clock: SimClock, data_dir: Path, port: int, host: str, t
         logo_transport=httpx.MockTransport(DemoSites.media_handler),
         wiki_transport=httpx.MockTransport(DemoSites.media_handler),
         wiki_lookups=False,  # Phase 17 #4: the made-up teams are not on Wikipedia; every header link is a search
-        updates_transport=httpx.MockTransport(DemoSites.media_handler),
         update_checks=False,  # Phase 16 wave 3: the demo never asks GitHub
     )
     state = application.state
+    state.demo_mode = True  # the league never holds the computer awake (ENH-32) and never switches a season (rollover R2); create_app leaves it False
     state.cfbd._clock = clock  # the engine, feeds, weather and every service read the client's clock
     state.cfbd._sleep = clock.sleep  # retry backoff in simulated seconds
     state.live._sleep = clock.sleep  # poll intervals, backoff and schedule checks in simulated seconds
@@ -257,6 +261,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--report", type=float, default=30.0, help="real seconds between status lines (default 30)")
     parser.add_argument("--verbose", action="store_true", help="show the app's INFO log lines on the console")
     parser.add_argument("--clean", action="store_true", help="delete the temp data folder on exit")
+    parser.add_argument("--claude", action="store_true", help="let the league use this computer's Claude Code (off by default: no real Claude runs)")
     parser.add_argument("--no-browser", action="store_true", help="do not open the demo in this computer's browser once it is up")
 
 
@@ -292,7 +297,7 @@ def run(args: argparse.Namespace) -> int:
     game = next_game(world)
     clock = SimClock(game.slot.start + timedelta(minutes=args.start), args.speed)
     fail = FailWindow(clock, game.slot.start + timedelta(minutes=args.fail_at), args.fail_for) if args.fail_at is not None else None
-    application, asgi, upstream, settings = build(world, clock, data_dir, args.port, args.host, args.tier, fail)
+    application, asgi, upstream, settings = build(world, clock, data_dir, args.port, args.host, args.tier, fail, claude=args.claude)
     if not args.verbose:
         for handler in logging.getLogger().handlers:
             if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
@@ -359,7 +364,7 @@ def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool =
     from app.serving import run_server
 
     season = demo_season()
-    say(f"Starting the demo: the made-up {season} league (built once, then cached in {CACHE_DIR}).")
+    say(f"Starting the demo: a sample {season} season with invented games (built once, then cached in {CACHE_DIR}).")
     say("The first start builds the league, about half a minute on most computers; the window is not stuck.")
     started = time.monotonic()
     world = load_world(season=season, seed=2026, cache_dir=CACHE_DIR)
@@ -367,17 +372,24 @@ def serve_embedded(home: Any, *, open_url: str | None = None, restarting: bool =
     game = next_game(world)
     clock = SimClock(game.slot.start + timedelta(minutes=EMBEDDED_START), EMBEDDED_SPEED)
     data_dir = Path(tempfile.mkdtemp(prefix="kickoff-demo-"))
+    saved_env = dict(os.environ)  # build() clears the settings' variables for the league; "Back to my team" in this process needs them (2.0 review)
     try:
-        application, asgi, _upstream, _settings = build(world, clock, data_dir, home.port, home.host, 2, None, mdns_name=home.mdns_name)
+        # the install's own LAN_HOSTNAME, so its name passes the host check in the demo too (2.0 review)
+        application, asgi, _upstream, _settings = build(world, clock, data_dir, home.port, home.host, 2, None, mdns_name=home.mdns_name, lan_hostname=getattr(home, "lan_hostname", "") or "")
         application.state.demo_mode = True
         application.state.home_data_dir = Path(home.data_dir)
         application.state.home_configured = not home.setup_needed
         for handler in logging.getLogger().handlers:
             if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.FileHandler):
                 handler.addFilter(ConsoleFilter())
-        say("This is the demo: a made-up league with a game under way. The demo page in the browser explains how to use your own team.")
+        say("This is the demo: a sample season that follows one team, with a game under way. The demo page in the browser explains how to use your own team.")
         return run_server(home, open_url=open_url, restarting=restarting, asgi=asgi, ready_note=ready_note)
     finally:
+        os.environ.clear()
+        os.environ.update(saved_env)
+        from app.logging_setup import shutdown_logging
+
+        shutdown_logging()  # the demo's log file is open in its scratch folder; Windows deletes nothing open (the CLI configures logging again)
         shutil.rmtree(data_dir, ignore_errors=True)
 
 

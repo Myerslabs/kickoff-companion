@@ -1,5 +1,5 @@
 """Phase 10a front end (Saturday readiness). Every JavaScript module parses under Node, the stale
-"Biscuit Belt and Top 25" wording is gone, and the Live sheet runs in a small fake browser under Node
+"SEC and Top 25" wording is gone, and the Live sheet runs in a small fake browser under Node
 against a state derived from the recorded live document (tests/fixtures/cfbd/live_plays.json):
 the wake lock, the stream watchdog and fallback poll, frames that cannot be parsed or drawn, the
 feed-health pill (contracts C1, C2), CFBD's success rate (C3), side sheets that follow the game,
@@ -64,11 +64,11 @@ def test_every_javascript_module_passes_node_check(tmp_path: Path):
 
 def test_stale_labels_are_gone():
     live = (STATIC_JS / "views" / "live.js").read_text(encoding="utf-8")
-    for stale in ("Biscuit Belt and Top 25", "No Biscuit Belt or Top 25 games", "Biscuit Belt, Top 25", "opens by itself 30 minutes before kickoff"):
+    for stale in ("SEC and Top 25", "No SEC or Top 25 games", "SEC, Top 25", "opens by itself 30 minutes before kickoff"):
         assert stale not in live, stale
     for name in OWNED:
         source = (STATIC_JS / name).read_text(encoding="utf-8")
-        assert "Biscuit Belt and Top 25" not in source and "Biscuit Belt, Top 25" not in source and "Biscuit Belt or Top 25" not in source, name
+        assert "SEC and Top 25" not in source and "SEC, Top 25" not in source and "SEC or Top 25" not in source, name
     # the ticker carries every FBS game; Phase 17 #25: the sheet no longer promises to open itself
     # wave F5 (owner 2026-10-20): the ticker has no "FBS scores" label; only the My teams one names itself
     assert "every FBS game" in live and "No FBS games" in live and '"My teams"' in live
@@ -91,7 +91,7 @@ def test_success_rate_row_is_not_repeated_in_the_feed_table():
 
 
 def live_state() -> dict:
-    """The recorded live document (Silver Dollar at home, Swampwater Tech away) plus the box polls, through the engine's own state builder."""
+    """The recorded live document (Fresno State at home, Florida away) plus the box polls, through the engine's own state builder."""
     game = parse_one(LiveGame, fixture_payload("live_plays"), context="test")
     assert game is not None
     received = datetime(2026, 9, 26, 20, 0, tzinfo=timezone.utc)
@@ -101,8 +101,8 @@ def live_state() -> dict:
     events += box_events(game.id, teams, players, received)
     for seq, event in enumerate(events, start=1):
         event.seq = seq
-    state = derive_state(events, game_id=game.id, home="Silver Dollar", away="Swampwater Tech", mode="live")
-    assert state["plays"] and state["box"].get("Swampwater Tech") and state["box"].get("Silver Dollar") and state["playerStats"]
+    state = derive_state(events, game_id=game.id, home="Fresno State", away="Florida", mode="live")
+    assert state["plays"] and state["box"].get("Florida") and state["box"].get("Fresno State") and state["playerStats"]
     return state
 
 
@@ -132,8 +132,8 @@ HARNESS = FAKEDOM_JS + r"""// --- shared data ----------------------------------
 const KICKOFF = "2026-09-26T19:30:00+00:00";
 const PROGRAM = {
   game: { id: 526001015, kickoff: KICKOFF, homeIsUs: false, venue: "Vaught-Hemingway Stadium", tv: "ESPN" },
-  us: { school: "Swampwater Tech", abbreviation: "SWT" },
-  them: { school: "Diner Tech", abbreviation: "MISS" },
+  us: { school: "Florida", abbreviation: "FLA" },
+  them: { school: "Texas State", abbreviation: "MISS" },
   line: {},
   pregame: { homeWinProbability: 0.6, usWinProbability: 0.4 },
   notes: { present: false, availability: [] },
@@ -149,18 +149,18 @@ const TICKER = { source: "scoreboard", games: [game("Alabama", "Georgia", 7, 10)
 function liveFrame(overrides = {}) {
   const s = clone(FIXTURE);
   s.status = "in_progress";
-  for (const team of ["Swampwater Tech", "Silver Dollar"]) {
+  for (const team of ["Florida", "Fresno State"]) {
     s.box[team].successCounts = null;
-    s.box[team].successRate = team === "Swampwater Tech" ? 0.375 : 0.388;
+    s.box[team].successRate = team === "Florida" ? 0.375 : 0.388;
   }
-  const scrimmage = s.plays.find((p) => p.offense === "Swampwater Tech" && /Rush|Pass/.test(p.playType || "")) || s.plays[0];
+  const scrimmage = s.plays.find((p) => p.offense === "Florida" && /Rush|Pass/.test(p.playType || "")) || s.plays[0];
   s.lastPlay = { ...scrimmage, success: true };
   return Object.assign(s, overrides);
 }
 
 function withNewPlay(frame, text) {
   const s = clone(frame);
-  const newest = { ...s.plays[0], id: `harness-${text}`, offense: "Swampwater Tech", defense: "Silver Dollar", text, flags: [], success: true };
+  const newest = { ...s.plays[0], id: `harness-${text}`, offense: "Florida", defense: "Fresno State", text, flags: [], success: true };
   s.plays = [newest, ...s.plays];
   s.counts = { ...s.counts, plays: s.counts.plays + 1 };
   return s;
@@ -230,7 +230,7 @@ scenarios.gameinfo = async () => {
   const status = { mode: "live", window: WINDOW_OPEN, feed: feed("ok") };
   const { view, container } = await mountLive({ status, program: withCrew });
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
-  const frame = liveFrame({ possession: "Swampwater Tech" });
+  const frame = liveFrame({ possession: "Florida" });
   latest().emit("state", frame);
   await settle();
   assert.equal(container.querySelector(".game-info"), null, "no game line on the page: In Game is one screen");
@@ -242,24 +242,24 @@ scenarios.gameinfo = async () => {
   const notes = sheetBody().querySelector(".notes-sheet");
   assert.ok(notes, "the Notes sheet");
   const order = notes.childNodes.map((n) => n.className || "");
-  assert.ok(order[0].includes("gamenotes"), `your own notes first: ${order.join(" | ")}`);
-  assert.ok(text(notes).includes("No notes from the host for this game yet."), text(notes).slice(0, 200));
+  assert.ok(order[order.length - 1].includes("gamenotes"), `Claude's on top, your own notes and the box last (owner 2026-11-14): ${order.join(" | ")}`);
+  assert.ok(!text(notes).includes("No notes from"), text(notes).slice(0, 200));
   const schemes = notes.querySelectorAll(".notes-sheet__scheme").map(text);
   assert.equal(schemes.length, 2, "a scheme line for each side");
-  assert.equal(schemes[0], "SWT Spread offense, 4-2-5 defense");
+  assert.equal(schemes[0], "FLA Spread offense, 4-2-5 defense");
   assert.ok(schemes[1].endsWith(" Pro style offense") && !schemes[1].includes("defense"), schemes[1]);
   const info = text(notes.querySelector(".game-info"));
   assert.ok(info.includes("Vaught-Hemingway Stadium") && info.includes("72°F, wind 8 mph"), info);
   assert.ok(info.includes("ABC: Pat Caller, Sam Color, Lee Field (sideline)"), info);
-  assert.ok(info.includes("SWT HC Head Us · OC Oc Us") && info.includes("HC Head Them") && !info.includes("DC"), info);
+  assert.ok(info.includes("FLA HC Head Us · OC Oc Us") && info.includes("HC Head Them") && !info.includes("DC"), info);
   assert.ok(!info.includes("Add "), "nothing missing, no hint");
-  assert.equal(notes.childNodes[notes.childNodes.length - 1], notes.querySelector(".game-info"), "the game line last");
+  assert.equal(notes.childNodes[notes.childNodes.length - 2], notes.querySelector(".game-info"), "the game line, then your own notes and the box last (owner 2026-11-14)");
   assert.ok(!RAW.test(text(notes)), text(notes));
   document.body.querySelector(".side-sheet__head button").click();
   assert.equal(layer(), null);
   const chart = container.querySelector("#live-chart");
   assert.equal(chart.querySelector(".band__head"), null, "no title bar (owner 2026-10-22)");
-  assert.equal(text(chart.querySelector(".shot-endzone .shot-endzone__team")), "SWT offense", "the end zone names the offense on the field");
+  assert.equal(text(chart.querySelector(".shot-endzone .shot-endzone__team")), "FLA offense", "the end zone names the offense on the field");
   assert.ok(chart.querySelector(".shot-endzone--us"), "in our color");
   assert.match(text(chart.querySelector(".shot-endzone__counts")), /^\d+ passes, \d+ runs(, \d+ sacks?)?$/, "the counts ride in the end zone: no room for a note on one screen");
   const field = chart.querySelector(".shot-field--both");
@@ -273,13 +273,13 @@ scenarios.gameinfo = async () => {
   latest().emit("state", frame);
   assert.ok(container.querySelector("#live-chart .shot-field--both"), "both across frames");
   // the chart follows the offense on the field (owner 2026-10-22), and keeps it through a kickoff or a break
-  latest().emit("state", liveFrame({ possession: "Silver Dollar" }));
+  latest().emit("state", liveFrame({ possession: "Fresno State" }));
   await settle();
-  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "SIL offense", "their ball, their chart");
+  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "FRE offense", "their ball, their chart");
   assert.ok(container.querySelector("#live-chart .shot-endzone--them"), "in their color");
   latest().emit("state", liveFrame({ possession: null }));
   await settle();
-  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "SIL offense", "no one has the ball: the last offense stays");
+  assert.equal(text(container.querySelector("#live-chart .shot-endzone__team")), "FRE offense", "no one has the ball: the last offense stays");
   view.unmount();
 
   // no crew and no staffs in the notes: a quiet hint where to add them; no program notes: where to add those
@@ -287,7 +287,7 @@ scenarios.gameinfo = async () => {
   const bare = await mountLive({ status, program: PROGRAM });
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600, feed: feed("ok") });
   const empty = liveFrame();
-  empty.shotChart = { "Swampwater Tech": { passes: { "deep-left": { attempts: "x" }, "short-left": null }, runs: "junk", unzoned: null, sacks: NaN } };
+  empty.shotChart = { "Florida": { passes: { "deep-left": { attempts: "x" }, "short-left": null }, runs: "junk", unzoned: null, sacks: NaN } };
   latest().emit("state", empty);
   await settle();
   toolButton(bare.container, "Notes").click();
@@ -317,7 +317,7 @@ scenarios.pure = async () => {
   assert.equal(live.staleLabel(null), "Stale, CFBD not answering");
   assert.equal(live.staleLabel(NaN), "Stale, CFBD not answering");
   const pill = (facts) => live.livePill(facts);
-  assert.deepEqual(pill({ delay: 45 }), { kind: "delayed", label: "Delayed 45 s" });
+  assert.deepEqual(pill({ delay: 45 }), { kind: "delayed", label: "Delayed 45 s", delay: 45 });
   assert.deepEqual(pill({ delay: 0 }), { kind: "live", label: "Live" });
   assert.deepEqual(pill({ delay: 45, streamDown: true }), { kind: "offline", label: "Offline" });
   assert.deepEqual(pill({ delay: 45, streamDown: true, polled: true }), { kind: "stale", label: "Polling, stream down" });
@@ -328,8 +328,8 @@ scenarios.pure = async () => {
   assert.deepEqual(pill({ delay: 45, feed: { state: "stale", staleSeconds: null } }), { kind: "stale", label: "Stale, CFBD not answering" });
   assert.deepEqual(pill({ delay: 45, feed: { state: "no_live_key" } }), { kind: "offline", label: "No live feed on this key" });
   assert.deepEqual(pill({ delay: 45, feed: { state: "waiting" } }), { kind: "quiet", label: "Waiting for CFBD" });
-  assert.deepEqual(pill({ delay: 45, feed: { state: "ok" } }), { kind: "delayed", label: "Delayed 45 s" });
-  assert.deepEqual(pill({ delay: 45, feed: { state: "idle" } }), { kind: "delayed", label: "Delayed 45 s" });
+  assert.deepEqual(pill({ delay: 45, feed: { state: "ok" } }), { kind: "delayed", label: "Delayed 45 s", delay: 45 });
+  assert.deepEqual(pill({ delay: 45, feed: { state: "idle" } }), { kind: "delayed", label: "Delayed 45 s", delay: 45 });
   assert.deepEqual(pill({ delay: 45, final: true, feed: { state: "stale", staleSeconds: 300 } }), { kind: "live", label: "Final" });
   assert.equal(live.clampDelay(47), 45);
   assert.equal(live.clampDelay(-10), 0);
@@ -368,20 +368,20 @@ scenarios.components = async () => {
   assert.equal(statTable({ columns, rows, sort: { key: "yds", dir: "sideways" } }).getSort().dir, "descending");
 
   // playLog: initial filter, onFilter, getFilter, junk records skipped.
-  const us = { name: "Swampwater Tech", abbr: "SWT" };
-  const them = { name: "Silver Dollar", abbr: "GRID" };
-  const plays = [{ id: "1", offense: "Swampwater Tech", text: "run" }, null, "junk", { id: "2", offense: "Silver Dollar", text: "pass" }];
+  const us = { name: "Florida", abbr: "FLA" };
+  const them = { name: "Fresno State", abbr: "FRES" };
+  const plays = [{ id: "1", offense: "Florida", text: "run" }, null, "junk", { id: "2", offense: "Fresno State", text: "pass" }];
   const filters = [];
   const log = playLog({ plays, us, them, filter: "them", onFilter: (id) => filters.push(id) });
   assert.equal(log.getFilter(), "them");
   assert.equal(log.querySelectorAll(".plays li.play").length, 1);
-  assert.equal(text(log.querySelector('.seg button[aria-pressed="true"]')), "GRID");
+  assert.equal(text(log.querySelector('.seg button[aria-pressed="true"]')), "FRES");
   log.querySelector('.seg button[data-filter="all"]').click();
   assert.deepEqual(filters, ["all"]);
   assert.equal(log.querySelectorAll(".plays li.play").length, 2);
   assert.equal(playLog({ plays, us, them, filter: "bogus" }).getFilter(), "all");
   assert.equal(playLog({ plays: "not a list", us, them }).querySelectorAll(".plays li.play").length, 0);
-  const kick = playLog({ plays: [{ id: "k", offense: "Swampwater Tech", down: 0, distance: 0, yardsToGoal: 65, text: "Kickoff" }], us, them });
+  const kick = playLog({ plays: [{ id: "k", offense: "Florida", down: 0, distance: 0, yardsToGoal: 65, text: "Kickoff" }], us, them });
   assert.ok(!text(kick).includes("0th"), "a kickoff has no down to show");
 
   // openSheet: update keeps the body's scroll and the tables' scroll; close runs once.
@@ -444,7 +444,7 @@ scenarios.components = async () => {
   assert.deepEqual(changes, [45, 55, 60]);
 
   // strip: setPill swaps the pill in place and ignores a repeat.
-  const s = strip({ us: { abbr: "SWT", points: 7 }, them: { abbr: "GRID", points: 3 }, status: "live", period: 2, clock: "5:00", pill: { kind: "delayed", label: "Delayed 30 s" } });
+  const s = strip({ us: { abbr: "FLA", points: 7 }, them: { abbr: "FRES", points: 3 }, status: "live", period: 2, clock: "5:00", pill: { kind: "delayed", label: "Delayed 30 s" } });
   const first = s.querySelector(".pill");
   s.setPill({ kind: "delayed", label: "Delayed 30 s" });
   assert.equal(s.querySelector(".pill"), first);
@@ -486,15 +486,15 @@ scenarios.components = async () => {
   empty.destroy();
 
   // successRow: CFBD's rate with no counts, a source label, and nothing undefined.
-  const row = successRow({ play: { text: "Run for 6", down: 1, distance: 10, yardsGained: 6, success: true }, offenseAbbr: "SWT", us: { abbr: "SWT", rate: 0.375, counts: null }, them: { abbr: "GRID", rate: null, counts: null }, source: "CFBD" });
+  const row = successRow({ play: { text: "Run for 6", down: 1, distance: 10, yardsGained: 6, success: true }, offenseAbbr: "FLA", us: { abbr: "FLA", rate: 0.375, counts: null }, them: { abbr: "FRES", rate: null, counts: null }, source: "CFBD" });
   assert.equal(text(row.querySelector(".success__source")), "Success rate, CFBD");
-  assert.equal(text(row.querySelector(".success__rate--us")), "SWT 38%");
-  assert.equal(text(row.querySelector(".success__rate--them")), "GRID –");
+  assert.equal(text(row.querySelector(".success__rate--us")), "FLA 38%");
+  assert.equal(text(row.querySelector(".success__rate--them")), "FRES –");
   assert.ok(!/\b(undefined|NaN|null)\b/.test(text(row)));
   const old = successRow({ play: null, us: null, them: undefined });
   assert.equal(old.querySelector(".success__source"), null);
   assert.ok(text(old).includes("No scrimmage play yet."));
-  const counted = successRow({ play: null, us: { abbr: "SWT", rate: 0.5, counts: { successes: 3, judged: 6 } } });
+  const counted = successRow({ play: null, us: { abbr: "FLA", rate: 0.5, counts: { successes: 3, judged: 6 } } });
   assert.equal(text(counted.querySelector(".success__rate--us small")), "3 of 6");
 };
 
@@ -536,10 +536,10 @@ scenarios.live = async () => {
   const extras = container.querySelector(".strip .strip__right .strip__extras");
   assert.ok(extras, "the strip's right side carries the extras");
   assert.match(text(extras.querySelector(".strip__wp .strip__wp-pct")), /^\d+%$/, "the win probability as a percentage");
-  assert.ok(text(extras.querySelector(".strip__wp")).includes("SWT to win"), text(extras));
+  assert.ok(text(extras.querySelector(".strip__wp")).includes("FLA to win"), text(extras));
   assert.equal(text(extras.querySelector(".strip__last .strip__last-label")), "Last play");
   const lastWords = text(extras.querySelector(".strip__last .strip__last-words"));
-  assert.ok(lastWords.includes("SWT") && /Q\d \d+:\d\d$/.test(lastWords), lastWords);
+  assert.ok(lastWords.includes("FLA") && /Q\d \d+:\d\d$/.test(lastWords), lastWords);
   assert.ok(["strip__last-who", "strip__last-ppa", "strip__last-when"].every((c) => extras.querySelector(`.${c}`)), "each part the line may drop is its own span");
   assert.equal(text(container.querySelector(".live-dock__play .live-dock__play-words")), lastWords, "the phone's moment in the ticker's place says the same play");
   const stage = container.querySelector(".stage");
@@ -548,13 +548,13 @@ scenarios.live = async () => {
   const halves = stage.querySelectorAll("#live-box .stage-box__half");
   assert.equal(halves.length, 2, "both teams' box scores side by side");
   assert.equal(stage.querySelectorAll(".stage-step").length, 0, "nothing steps: the short box holds still");
-  assert.deepEqual(halves.map((h) => text(h.querySelector(".stage-box__abbr"))), ["SWT", "SIL"], "each half headed by its team, at its first table's head");
+  assert.deepEqual(halves.map((h) => text(h.querySelector(".stage-box__abbr"))), ["FLA", "FRE"], "each half headed by its team, at its first table's head");
   for (const h of halves) {
     const tables = h.querySelectorAll(".stat-table");
     const caps = { Passing: 1, Rushing: 2, Receiving: 3 };
     assert.ok(tables.length >= 2 && tables.length <= 3, `passing, rushing and receiving only: ${tables.length}`);
     for (const t of tables) {
-      const head = text(t.querySelector("thead th")).replace(/^(SWT|SIL)/, "");
+      const head = text(t.querySelector("thead th")).replace(/^(FLA|SIL)/, "");
       const cap = Object.entries(caps).find(([name]) => head.includes(name));
       assert.ok(cap, `a short box category: ${head}`);
       assert.ok(t.querySelectorAll("tbody tr").length <= cap[1], `${cap[0]}: the top ${cap[1]}`);
@@ -575,22 +575,22 @@ scenarios.live = async () => {
   assert.equal(container.querySelector(".game-info"), null, "the game line left the page for the Notes sheet");
   assert.equal(container.querySelector(".live-tools"), null, "no tools row: the tools sit in the panel row");
   const row = container.querySelector(".remote");
-  assert.deepEqual(row.querySelectorAll(".remote__btn[data-id]").map((b) => b.dataset.id), ["box", "drives", "splits", "plays", "situation", "edges", "weather", "visitors", "injuries", "lineups", "scores", "value"], "the twelve panels");
-  assert.deepEqual(row.querySelectorAll(".remote__btn--tool").map(text), ["Delay 30 s", "Radio", "Notes", "Invite", "Big screen"], "then the five tools");
-  const bigScreen = row.querySelectorAll(".remote__btn--tool")[4];
+  assert.deepEqual(row.querySelectorAll(".remote__btn[data-id]").map((b) => b.dataset.id), ["box", "drives", "splits", "plays", "situation", "edges", "weather", "scores", "radio"], "the nine panels (wave 3, 2026-11-01: the radio in; Visitors, Injuries, Lineups and Play value out to the program)");
+  assert.deepEqual(row.querySelectorAll(".remote__btn--tool").map(text), ["Delay 30 s", "Pick a game", "Radio", "Notes", "Invite", "Big screen"], "then the six tools (Pick a game, 2026-11-02)");
+  const bigScreen = row.querySelectorAll(".remote__btn--tool")[5];
   assert.ok(bigScreen.tagName === "A" && bigScreen.getAttribute("href") === "#board", "the Big screen is a link");
-  assert.ok(row.querySelectorAll(".remote__btn").slice(-5).every((b) => b.className.includes("remote__btn--tool")), "the tools at the row's end");
-  assert.deepEqual(row.querySelectorAll(".remote__tools .remote__btn--tool").map(text), ["Delay 30 s", "Radio", "Notes", "Invite", "Big screen"], "pinned at the right end (owner 2026-10-22), the panels sliding beside them");
+  assert.ok(row.querySelectorAll(".remote__btn").slice(-6).every((b) => b.className.includes("remote__btn--tool")), "the tools at the row's end");
+  assert.deepEqual(row.querySelectorAll(".remote__tools .remote__btn--tool").map(text), ["Delay 30 s", "Pick a game", "Radio", "Notes", "Invite", "Big screen"], "pinned at the right end (owner 2026-10-22), the panels sliding beside them");
   assert.ok(!RAW.test(text(container)), "no raw value on the live sheet");
 
   // F9: CFBD's rate, the source label, the summary only for a judged play, no Success rate row in the feed table. Wave F5:
   // the win probability and the success row sit in the Situation panel, Team stats in the Box score panel.
   remoteButton(container, "situation").click();
   assert.equal(sheetTitle(), "Situation");
-  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Situation", "Win probability"], "the situation grid, then the chart");
+  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Situation", "Win probability", "Down and distance"], "the situation grid, then the chart, then board 5's grids (ENH-30)");
   assert.equal(text(sheetBody().querySelector("#live-wp .band__summary")), "Last play: success");
   assert.equal(text(sheetBody().querySelector("#live-wp .success__source")), "Success rate, CFBD");
-  assert.equal(text(sheetBody().querySelector("#live-wp .success__rate--us")), "SWT 38%");
+  assert.equal(text(sheetBody().querySelector("#live-wp .success__rate--us")), "FLA 38%");
   assert.ok(sheetBody().querySelector("#live-wp .wp__svg"), "the win probability chart in the panel");
   latest().emit("state", liveFrame({ lastPlay: { ...frame1.lastPlay, success: null } }));
   assert.equal(sheetBody().querySelector("#live-wp .band__summary"), null, "no verdict, no summary");
@@ -600,7 +600,7 @@ scenarios.live = async () => {
   const statCells = sheetBody().querySelectorAll("#live-stats td.txt").map(longWords);
   assert.equal(statCells.filter((t) => t === "Success rate").length, 1, "one success-rate row: the team table's, not the feed table's");
   assert.ok(statCells.includes("Standard downs") && statCells.includes("Passing downs"));
-  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Team stats", "Swampwater Tech", "Silver Dollar"], "Team stats first, then each team's box");
+  assert.deepEqual(sheetBody().querySelectorAll(".band").map((b) => text(b.querySelector(".band__title"))), ["Team stats", "Florida", "Fresno State"], "Team stats first, then each team's box");
   document.body.querySelector(".side-sheet__head button").click();
   assert.equal(layer(), null);
   assert.equal(container.querySelector(".live-ticker .ticker"), tickerNode, "the ticker survives a frame");
@@ -643,7 +643,7 @@ scenarios.live = async () => {
   remoteButton(container, "situation").click();
   const sit = sheetBody().querySelector(".tt-wrap");
   assert.ok(sit && sit.querySelector("table").className.includes("tt--tug"), "Situation is the Team stats kit with the bar");
-  assert.deepEqual(sit.querySelectorAll("tr.tt__head--a th").map(longWords), ["Situation", "Swampwater Tech", "Edge", "Silver Dollar"]);
+  assert.deepEqual(sit.querySelectorAll("tr.tt__head--a th").map(longWords), ["Situation", "Florida", "Edge", "Fresno State"]);
   assert.equal(sit.querySelectorAll("tbody tr").length, 8);
   remoteButton(container, "drives").click();
   const driveTable = sheetBody().querySelector(".tt-wrap");
@@ -656,19 +656,19 @@ scenarios.live = async () => {
   assert.ok(splitWraps.every((w) => w.dataset.size === "large"));
   assert.ok(text(sheetBody()).includes("PPA per play (no TD plays)") && text(sheetBody()).includes("Run success"));
   remoteButton(container, "box").click(); // wave F5: Team stats in the Box score panel
-  assert.deepEqual(sheetBody().querySelector("#live-stats .tt-wrap").querySelectorAll("tr.tt__head--a th").map(longWords), ["Statistic", "Swampwater Tech", "Edge", "Silver Dollar"], "Team stats: the schools head it at large");
+  assert.deepEqual(sheetBody().querySelector("#live-stats .tt-wrap").querySelectorAll("tr.tt__head--a th").map(longWords), ["Statistic", "Florida", "Edge", "Fresno State"], "Team stats: the schools head it at large");
   assert.equal(sheetBody().querySelectorAll("#live-stats .tt-wrap").length, 2, "Team stats and the feed's efficiency, both on the kit");
   assert.ok(!RAW.test(text(sheetBody())), "no raw value in a panel");
 
-  // Static panels are not rebuilt: Visitors fetches once.
-  route("/api/recruiting", () => envelope({ visitors: { home: [{ name: "Five Star", position: "QB", stars: 5, highSchool: "IMG", status: "Committed" }], away: [], opponent: "Silver Dollar" } }));
-  remoteButton(container, "visitors").click();
+  // A static panel is not rebuilt per play: the Radio (wave 3, 2026-11-01: In Game's own; Visitors, Injuries, Lineups and
+  // Play value left for the program) keeps its station list through three plays.
+  remoteButton(container, "radio").click();
   await settle();
-  assert.ok(text(sheetBody()).includes("Five Star"));
+  const radioBody = sheetBody();
+  assert.ok(radioBody && radioBody.querySelector("#program-radio"), "the station list opens wide over the stage");
   for (const label of ["p1", "p2", "p3"]) latest().emit("state", withNewPlay(frame2, label));
   await settle();
-  assert.equal(callsTo("/api/recruiting"), 1, "no refetch per play");
-  assert.ok(text(sheetBody()).includes("Five Star"));
+  assert.ok(sheetBody().querySelector("#program-radio"), "still there after the plays");
   document.body.querySelector(".side-sheet__head button").click();
 
   // F4: the feed health from pings drives both pills.
@@ -848,7 +848,7 @@ scenarios.ticker = async () => {
   const firstObserver = observers[observers.length - 1];
   remoteButton(container, "scores").click();
   assert.ok(text(sheetBody()).includes("Alabama"));
-  ticker = { source: "games", games: [...TICKER.games, game("Swampwater Tech State", "Miami", 3, 0)] };
+  ticker = { source: "games", games: [...TICKER.games, game("Florida State", "Miami", 3, 0)] };
   for (let i = 0; i < 4; i += 1) {
     await advance(15000);
     latest().emit("ping", { feed: feed("ok"), serverTime: new Date(now).toISOString() });
@@ -858,10 +858,10 @@ scenarios.ticker = async () => {
   assert.equal(firstObserver.disconnected, false, "the running line keeps its observer");
   assert.equal(second.querySelectorAll(".ticker__half:not(.ticker__half--clone) .ticker__game").length, 3);
   assert.equal(text(second.querySelector(".ticker__label")), "", "wave F5 (owner 2026-10-20): the national ticker has no label, whatever its source");
-  assert.ok(text(sheetBody()).includes("Swampwater Tech State"), "the open Scores sheet follows the ticker");
-  assert.ok(!text(container).includes("Biscuit Belt") && !text(document.body).includes("Top 25"));
+  assert.ok(text(sheetBody()).includes("Florida State"), "the open Scores sheet follows the ticker");
+  assert.ok(!text(container).includes("SEC") && !text(document.body).includes("Top 25"));
   // the My teams ticker still names itself, with the schedule's cadence when the scores come from it
-  ticker = { source: "games", mode: "mine", refreshMinutes: 20, games: [game("Swampwater Tech State", "Miami", 3, 0)] };
+  ticker = { source: "games", mode: "mine", refreshMinutes: 20, games: [game("Florida State", "Miami", 3, 0)] };
   for (let i = 0; i < 4; i += 1) {
     await advance(15000);
     latest().emit("ping", { feed: feed("ok"), serverTime: new Date(now).toISOString() });
@@ -932,7 +932,7 @@ scenarios.pregame = async () => {
 scenarios.held = async () => {
   const finalState = liveFrame({ status: "final" });
   const GID = finalState.gameId;
-  const HELD = { gameId: GID, home: "Diner Tech", away: "Swampwater Tech", kickoff: KICKOFF, finalAt: "2026-09-26T22:55:00Z", until: "2026-09-27T16:00:00Z", released: true };
+  const HELD = { gameId: GID, home: "Texas State", away: "Florida", kickoff: KICKOFF, finalAt: "2026-09-26T22:55:00Z", until: "2026-09-27T16:00:00Z", released: true };
   finalState.held = { until: HELD.until, finalAt: HELD.finalAt, kickoff: HELD.kickoff };
   let answer = { held: HELD, waiting: true };
   route("/api/live/final", () => envelope(answer));
@@ -1031,8 +1031,8 @@ scenarios.oldserver = async () => {
   latest().emit("hello", { delaySeconds: 30, mode: "live", gameId: 526000600 });
   const frame = clone(FIXTURE);
   frame.status = "in_progress";
-  frame.box["Swampwater Tech"].successCounts = { successes: 29, judged: 75 };
-  frame.box["Swampwater Tech"].successRate = 0.387;
+  frame.box["Florida"].successCounts = { successes: 29, judged: 75 };
+  frame.box["Florida"].successRate = 0.387;
   frame.lastPlay = { ...frame.plays[1], success: false };
   latest().emit("state", frame);
   assert.equal(shell(), "Delayed 30 s");
@@ -1175,7 +1175,7 @@ scenarios.board = async () => {
 scenarios.archive = async () => {
   const { createArchiveView } = await import(moduleUrl("views/archive.js"));
   const state = liveFrame({ status: "final" });
-  const good = { gameId: 526000600, week: 4, home: "Silver Dollar", away: "Swampwater Tech", homeIsUs: false, opponent: "Silver Dollar", usScore: 44, themScore: 39, kickoff: KICKOFF, savedAt: KICKOFF, state, winProbability: { available: false, note: "Not posted." }, ppa: { available: false }, final: { available: false }, notes: { present: false } };
+  const good = { gameId: 526000600, week: 4, home: "Fresno State", away: "Florida", homeIsUs: false, opponent: "Fresno State", usScore: 44, themScore: 39, kickoff: KICKOFF, savedAt: KICKOFF, state, winProbability: { available: false, note: "Not posted." }, ppa: { available: false }, final: { available: false }, notes: { present: false } };
   const junk = { gameId: 1, homeIsUs: "maybe", state: { drives: "x", plays: { a: 1 }, box: "zz", boxScore: [1], counts: "q", feedStats: 3 }, notes: { availability: "x", sources: "y", present: true }, ppa: { available: true, players: { us: "x", them: [null] }, teams: 4 }, winProbability: { available: true, series: "no" }, final: { players: 5 } };
   for (const [id, data] of [["526000600", good], ["1", junk]]) {
     route(`/api/archive/${id}`, () => envelope(data));
@@ -1197,7 +1197,7 @@ scenarios.archive = async () => {
   }
   // tables wave 3: each team's play value is In Game's two-team table with the tug bar (the defense's rows say allowed), the
   // school and mascot over each side at large as on Team stats; the players' tables give the position its own column
-  const valued = { ...good, us: { school: "Swampwater Tech", abbreviation: "SWT", mascot: "Mudcats" }, them: { school: "Silver Dollar", abbreviation: "SD", mascot: "Dealers" }, ppa: { available: true, teams: { us: { offense: { overall: 0.21, passing: 0.3, rushing: 0.1 }, defense: { overall: 0.05, passing: "x", rushing: null } }, them: { offense: { overall: -0.1 }, defense: "x" } }, players: { us: [{ playerId: "7", name: "Avery Passer", position: "QB", all: 0.4, pass: 0.5, rush: null }, null], them: [] } } };
+  const valued = { ...good, us: { school: "Florida", abbreviation: "FLA", mascot: "Mudcats" }, them: { school: "Fresno State", abbreviation: "SD", mascot: "Dealers" }, ppa: { available: true, teams: { us: { offense: { overall: 0.21, passing: 0.3, rushing: 0.1 }, defense: { overall: 0.05, passing: "x", rushing: null } }, them: { offense: { overall: -0.1 }, defense: "x" } }, players: { us: [{ playerId: "7", name: "Avery Passer", position: "QB", all: 0.4, pass: 0.5, rush: null }, null], them: [] } } };
   route("/api/archive/526000601", () => envelope(valued));
   const one = createArchiveView({ gameId: "526000601", onStatus: () => {} });
   const page = document.createElement("main");
@@ -1207,17 +1207,17 @@ scenarios.archive = async () => {
   assert.ok(!/\b(undefined|NaN|null)\b/.test(text(page)), text(page).slice(0, 300));
   const value = page.querySelector("#archive-ppa .tt-wrap");
   assert.ok(value && value.querySelector("td.tt__tug .tug"), "the play value table is the kit with the tug bar");
-  assert.deepEqual(value.querySelectorAll(".tt__team").map(longWords), ["Swampwater Tech Mudcats", "Silver Dollar Dealers"]);
+  assert.deepEqual(value.querySelectorAll(".tt__team").map(longWords), ["Florida Mudcats", "Fresno State Dealers"]);
   assert.ok(value.querySelectorAll("td.tt__label, td.tt__mid, td.txt").map(longWords).includes("Defense allowed, overall"), "the defense's rows say allowed");
-  assert.deepEqual(page.querySelectorAll("#archive-stats .tt__team").slice(0, 2).map(longWords), ["Swampwater Tech Mudcats", "Silver Dollar Dealers"], "Team stats wear the mascot heads too");
+  assert.deepEqual(page.querySelectorAll("#archive-stats .tt__team").slice(0, 2).map(longWords), ["Florida Mudcats", "Fresno State Dealers"], "Team stats wear the mascot heads too");
   const players = page.querySelector("#archive-ppa .twocol .stat-table-wrap");
   assert.deepEqual(players.querySelectorAll("thead th").map(longWords), ["Player", "Pos", "PPA per play", "PPA per pass", "PPA per rush"]);
   one.unmount();
   // the list sizes itself: the week and plays from medium, the win probability's source at large; newest first
   route("/api/archive", () => envelope({ games: [
     null, "x",
-    { gameId: 5, away: "Swampwater Tech", home: "Silver Dollar", awayAbbr: "SWT", homeAbbr: "SD", usScore: 1, themScore: 0, kickoff: "2026-09-05T23:00:00Z", week: 2, plays: 150, hasWinProbability: true },
-    { gameId: 6, away: "Diner Tech", home: "Swampwater Tech", awayAbbr: null, usScore: 10, themScore: 24, kickoff: "2026-09-19T23:00:00Z", week: 4, hasWinProbability: false },
+    { gameId: 5, away: "Florida", home: "Fresno State", awayAbbr: "FLA", homeAbbr: "SD", usScore: 1, themScore: 0, kickoff: "2026-09-05T23:00:00Z", week: 2, plays: 150, hasWinProbability: true },
+    { gameId: 6, away: "Texas State", home: "Florida", awayAbbr: null, usScore: 10, themScore: 24, kickoff: "2026-09-19T23:00:00Z", week: 4, hasWinProbability: false },
     { gameId: 7, home: 4, away: null, kickoff: 9, usScore: "x" },
   ], skipped: 1 }));
   const list = createArchiveView({ onStatus: () => {} });
@@ -1240,9 +1240,9 @@ scenarios.archive = async () => {
   assert.deepEqual(ids(), ["L 10-24", "W 1-0", "\u2013"], "by kickoff, a game without one last");
   const rowOf = (i) => wrap.querySelectorAll("tbody tr")[i].querySelectorAll("td");
   const small = rowOf(1)[2].querySelector(".sz-t--short");
-  assert.equal(text(small), "SWT at SD", "at small each school's abbreviation");
+  assert.equal(text(small), "FLA at SD", "at small each school's abbreviation");
   assert.equal(small.querySelectorAll(".team-link").length, 2, "still each team's link");
-  assert.ok(text(rowOf(0)[2].querySelector(".sz-t--short")).startsWith("DINE at "), "a school the server could not name: its first letters");
+  assert.ok(text(rowOf(0)[2].querySelector(".sz-t--short")).startsWith("TEXA at "), "a school the server could not name: its first letters");
   assert.deepEqual([text(rowOf(0)[5]), text(rowOf(1)[5])], ["From CFBD", "Saved at the final"]);
   heads[3].querySelector("button").click();
   assert.deepEqual(ids(), ["W 1-0", "L 10-24", "\u2013"], "the result sorts by its margin");

@@ -14,6 +14,8 @@
 // Phase 17 #29: the score strip no longer carries a second copy of the pill; both are pinned, so it showed twice.
 
 import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one builder, sized
+import { followingLine } from "../ui/follow.js"; // FEAT-1: In Game for any game
+import { pickGameSheet } from "../ui/pick-game.js"; // owner 2026-11-02: any team's game, picked from here
 import { screenLock } from "../awake.js";
 import { isUs, usLabel, usName, usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
@@ -22,8 +24,8 @@ import { DASH, el, flashChanges, fmtDate, fmtDateTime, fmtPct, fmtStat, fmtTime,
 import { edgesTable } from "../ui/edges.js";
 import { driveList } from "../ui/drive-bar.js";
 import { availabilityTable, editorial } from "../ui/editorial.js";
-import { lineupBlock } from "../ui/lineups_combined.js";
 import { fullName, weatherRow } from "../ui/matchup-card.js";
+import { radioBand } from "./program.js"; // wave 3 (2026-11-01): the radio's station list as a panel
 import { crewText, staffParts } from "../ui/game-staff.js";
 import { fillWiki, wikiLink } from "../ui/wiki-links.js";
 import { playLog } from "../ui/play-log.js";
@@ -35,6 +37,7 @@ import { radioStations } from "../ui/radio-stations.js";
 import { gameNotesPanel } from "../ui/game-notes.js";
 import { inviteBody, loadInvite } from "./invite.js";
 import { situationGrid } from "../ui/situation.js";
+import { ddPair } from "../ui/dd-grid.js";
 import { band, note, subhead } from "../ui/states.js";
 import { statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { driveSummaryTable, fourthDownTable, madeOf, splitsTable, teamValueTable, tendencyTable, visitorsTable } from "../ui/in-game-tables.js";
@@ -170,7 +173,7 @@ export function livePill({ displayError = false, streamDown = false, polled = fa
   if (feed?.state === "stale") return { kind: "stale", label: staleLabel(isNum(feed.staleSeconds) ? feed.staleSeconds + (isNum(feedAge) ? Math.max(0, feedAge) : 0) : null) };
   if (feed?.state === "no_live_key") return { kind: "offline", label: "No live feed on this key" };
   if (feed?.state === "waiting") return { kind: "quiet", label: "Waiting for CFBD" };
-  return isNum(delay) && delay > 0 ? { kind: "delayed", label: `Delayed ${delay} s` } : { kind: "live", label: "Live" };
+  return isNum(delay) && delay > 0 ? { kind: "delayed", label: `Delayed ${delay} s`, delay } : { kind: "live", label: "Live" }; // the top bar says "Live · every 12 s · 45 s delay" (ENH-4)
 }
 
 // --- helpers on a state frame --------------------------------------------------------------------
@@ -225,7 +228,7 @@ function mergedBox(state, team) {
  *  line keeps one line there, so the play shows for a moment where the ticker runs). */
 const PLAY_FLASH_MS = 6000;
 
-export function createLiveView({ onStatus, board = false } = {}) {
+export function createLiveView({ onStatus, board = false, panel = null } = {}) {
   const savedDelay = Number(getPrefs().delaySeconds ?? DEFAULT_DELAY); // the server's prefs always carry a delay; the device memory that was read here was never reached (freeze wave F1, F15)
   const state = {
     delay: isNum(savedDelay) && savedDelay >= 0 && savedDelay <= 120 ? clampDelay(savedDelay) : DEFAULT_DELAY,
@@ -588,25 +591,6 @@ export function createLiveView({ onStatus, board = false } = {}) {
     return el("div", {}, chart, el("p", { class: "note" }, why));
   }
 
-  function ppaBand(s) {
-    const a = gameAnalytics(s);
-    const p = a?.ppa;
-    // wave 2: the players' tables are the shared play value kit (ui/play-value.js), sized like the Pre-Game Program's
-    const side = (title, rows, them) => el("div", {}, subhead(title, { team: them ? themSide().name : usTeam(), side: them ? "them" : "us" }), rows.length ? playValueTable(rows, { onTap: (row) => openPlayer(row.playerId, { ...row, isUs: !them }), caption: `${title}, PPA per play` }) : note("No player values yet."));
-    let body;
-    if (s.status !== "final") body = note("Per-play PPA shows in the play log when the feed carries it. Player values post after the final.");
-    else if (!a) body = note(state.analyticsError ? `${state.analyticsError}. Retrying ${retryWords(s)}.` : "Loading play value.");
-    else if (!p?.available) body = note(p?.note || `CFBD has not posted play value for this game yet; the sheet checks again ${retryWords(s)}.`);
-    else body = el("div", {}, teamValueTable(p.teams, bothHeads()), twoCol(side(usWords(), records(p.players?.us), false), side(themSide().name, records(p.players?.them), true)));
-    const value = band({ title: "Play value", collapsible: false, summary: "PPA per play", body: () => body });
-    if (s.status !== "final" || !a?.advancedBox) return value;
-    // Phase 13: after the final, CFBD's advanced box score under the play value; wave 2: the schools and mascots head its
-    // two teams' table at large, and a player's row opens his card (as on the Pre-Game Program)
-    const us = usHeads();
-    const them = themHeads();
-    const box = () => advancedBoxBlock(a.advancedBox, { us: usTeam(), them: themSide().name, usAbbr: usAbbr(), themAbbr: themSide().abbr, usName: us.name || undefined, themName: them.name || undefined, onPlayer: (row) => (hasId(row.playerId) ? openPlayer(row.playerId, { ...row, boardLabel: "PPA per play", value: fmtStat(row.ppa, "+2f") }) : null) });
-    return [value, band({ id: "live-advanced-box", title: "Advanced box score", collapsible: false, foldable: true, summary: "by quarter, players' value", body: box })];
-  }
 
   /**
    * The live state before the first play (Phase 17 #25): the shape the server's state has at kickoff, with
@@ -878,6 +862,22 @@ export function createLiveView({ onStatus, board = false } = {}) {
     return band({ id: "live-stats", title: "Team stats", kind: "neutral", collapsible: false, summary: `${text(usBox.totalYards)} to ${text(themBox.totalYards)} yds`, state: s.counts?.plays ? { status: "ready", updatedText: statsNote } : { status: "empty", message: "Team stats appear after the first play." }, body: () => el("div", {}, teamStatsTable({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }), feedStatsTable(s)) }); // wave 2: the schools and mascots head it at large
   }
 
+  /** Board 5 (ENH-30, owner 2026-10-25): both offenses' success by down and distance in this game, from the released plays
+   *  (the live state's downDistance), the same grid the Pre-Game Program draws for the season. */
+  function downDistanceBand(s) {
+    const grids = s.downDistance && typeof s.downDistance === "object" ? s.downDistance : {};
+    const pair = ddPair(grids[usTeam()], grids[themSide().name], { usLabel: `${usWords()} offense`, themLabel: `${text(themSide().name)} offense`, usTeam: usTeam(), themTeam: themSide().name });
+    return band({
+      id: "live-dd",
+      title: "Down and distance",
+      kind: "neutral",
+      collapsible: false,
+      summary: "success, this game",
+      state: pair ? { status: "ready" } : { status: "empty", message: "The grid fills in with the first runs and passes." },
+      body: () => pair,
+    });
+  }
+
   /** The win probability chart with the last play's success and the fourth-down call (the Situation panel since wave F5). */
   function winProbabilityBand(s) {
     const usHome = s.home === usTeam();
@@ -1034,16 +1034,40 @@ export function createLiveView({ onStatus, board = false } = {}) {
       { id: "drives", label: "Drives", hint: `${isNum(s.counts?.drives) ? s.counts.drives : 0} drives`, body: () => band({ title: "Drives", collapsible: false, body: () => (drives.length ? el("div", {}, driveSummaryTable(s.driveSummary, bothHeads()), driveList({ drives, us: usSide(), them: themSide(), currentId: s.currentDriveId ?? null })) : note("Drives appear after kickoff.")) }) },
       { id: "splits", label: "Splits", hint: splitsHint(s), body: () => splitsBand(s) },
       { id: "plays", label: "Plays", hint: `${isNum(s.counts?.plays) ? s.counts.plays : 0} plays`, body: () => band({ title: "Play by play", collapsible: false, body: () => (plays.length ? playLog({ plays, us: usSide(), them: themSide(), freshIds: freshPlays(plays), filter: state.sheet?.filter || "all", onFilter: (id) => { if (state.sheet) state.sheet.filter = id; } }) : note("Plays appear after kickoff.")) }) },
-      { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => [band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }) }), winProbabilityBand(s)] }, // wave F5: the win probability chart left the page for this panel
+      { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => [band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { ...usHeads(), box: usBox }, them: { ...themHeads(), box: themBox } }) }), winProbabilityBand(s), downDistanceBand(s)] }, // wave F5: the win probability chart left the page for this panel; board 5's grids at the bottom
       { id: "edges", label: "Edges", hint: "season ranks", body: () => band({ title: "Matchup edges", collapsible: false, body: () => (edges.length ? edgesTable(edges, { usAbbr: usSide().abbr, themAbbr: themSide().abbr, usTeam: usTeam(), themTeam: themSide().name }) : note("Edges appear once both teams have played.")) }) }, // Phase 16 wave 3 (L-02)
       { id: "weather", label: "Weather", hint: "game site", body: () => band({ title: "Weather", collapsible: false, body: () => el("div", { style: { padding: "12px" } }, weather.available ? weatherRow({ kickoffText: fmtTime(p.game?.kickoff), tempF: weather.tempF, windMph: weather.windMph, windDir: typeof weather.windDir === "string" ? weather.windDir : null, sky: weather.sky, precipChance: weather.precipChance, indoors: Boolean(weather.dome), source: weather.source }) : weatherRow({ kickoffText: fmtTime(p.game?.kickoff), note: weather.error || "No forecast." })) }) },
-      { id: "visitors", label: "Visitors", hint: "recruits", body: () => visitorsBand() },
-      { id: "injuries", label: "Injuries", hint: "availability", body: () => band({ title: "Availability report", collapsible: false, body: () => (availability.length ? availabilityTable({ rows: availability, source: p.notes?.availabilitySource, updatedAt: p.notes?.availabilityUpdatedAt, teams: [{ school: usTeam(), abbreviation: usSide().abbr }, { school: themSide().name, abbreviation: themSide().abbr }] }) : note("No availability report for this game yet.")) }) },
       // 2026-10-02: who starts and who is behind them, from the notes file's published charts (ui/lineups.js)
-      { id: "lineups", label: "Lineups", hint: "starters, depth", body: () => [band({ title: "Lineups and depth", collapsible: false, body: () => lineupBlock({ lineups: p.notes?.lineups, us: p.us, them: p.them, availability, coaches: p.notes?.coaches, schemes: p.notes?.schemes, onPlayer: (row) => openPlayer(row.playerId, { ...row.player, name: row.name, position: row.slot, isUs: row.isUs !== false }) }) })] }, // freeze wave F4: the coordinators and schemes head each matchup
       { id: "scores", label: "Scores", hint: scoresHint(), body: () => scoresBand() },
-      { id: "value", label: "Play value", hint: gameAnalytics(s)?.ppa?.available ? "PPA" : "after the final", body: () => ppaBand(s) },
+      { id: "radio", label: "Radio", hint: "the station", body: () => radioBand() }, // wave 3 (owner 2026-11-01: "Moving this to in game as the main attraction"): the stations, opened wide over the stage; the player stays docked at the bottom
     ];
+  }
+
+  /** The stage's two bands with no panel of their own, as panels (owner 2026-10-28: every band its own flyout and page):
+   *  the menu opens them wide over In Game, and the band route draws them by themselves. */
+  function stageItems(s) {
+    if (!s || typeof s !== "object") return [];
+    const usHome = s.home === usTeam();
+    return [
+      { id: "score", label: "Score by quarter", hint: "the line score", body: () => band({ title: "Score by quarter", collapsible: false, body: () => scoreCell({ s, us: usSide(), them: themSide(), usHome, extra: triviaSlot() }) }) },
+      { id: "chart", label: "Shot chart", hint: "the offense on the field", body: () => chartCell(s) },
+    ];
+  }
+
+  /** A panel by its id: the remote's, else the stage's. */
+  function itemFor(id) {
+    return state.items.find((i) => i.id === id) || (state.stageItems || []).find((i) => i.id === id) || null;
+  }
+
+  /** The panel mode (views/band.js): the one panel by itself across the page, redrawn with every frame. */
+  function drawPanel(view) {
+    // the panel keeps the sorts and the play filter the reader picked across frames, as an open sheet does (no handle)
+    if (!state.sheet) state.sheet = { id: panel, handle: null, sorts: {}, filter: "all", page: true };
+    const item = Array.isArray(view.items) ? itemFor(panel) : null;
+    const node = item ? safeBody(item) : view.top || band({ title: "In Game", collapsible: false, state: { status: "empty", message: "This panel fills in once the game is under way." } });
+    const holder = el("div", { class: "live-panel-page" }, node); // inside the band page, which keeps the gutters
+    container.replaceChildren(holder);
+    fillWiki(holder);
   }
 
   /** The plays not seen in the last draw (none on the first draw of a game, so the list doesn't all slide in). */
@@ -1054,29 +1078,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     return seen instanceof Set && seen.size ? new Set(ids.filter((id) => !seen.has(id))) : new Set();
   }
 
-  function visitorsContent(v) {
-    // wave 2: each side's recruits a sized table (ui/in-game-tables.js): the high school, hometown and class at large
-    const side = (title, team, which, rows) => el("div", {}, subhead(title, { team, side: which }), visitorsTable(rows, { caption: title }));
-    return band({ title: "Recruits on hand", collapsible: false, body: () => el("div", {}, v.note ? note(text(v.note)) : null, twoCol(side(`Visiting ${usTeam()}`, usTeam(), "us", records(v.home)), side(`Visiting ${text(v.opponent)}`, typeof v.opponent === "string" ? v.opponent : null, "them", records(v.away)))) });
-  }
 
-  /** Recruits on hand: fetched when the sheet opens, kept ten minutes, never refetched per play. */
-  function visitorsBand() {
-    const cached = state.visitors;
-    if (cached && Date.now() - cached.at < VISITORS_TTL_MS) return visitorsContent(cached.data);
-    const host = band({ title: "Recruits on hand", collapsible: false, state: { status: "loading" }, skeleton: () => twoCol(statTableSkeleton(4), statTableSkeleton(4)) });
-    fetchJson("/api/recruiting")
-      .then((envelope) => {
-        const v = obj(envelope?.data?.visitors);
-        state.visitors = { data: v, at: Date.now() };
-        host.replaceWith(visitorsContent(v));
-      })
-      .catch((error) => {
-        console.warn(`In Game: the visitors did not load: ${error?.message || error}`);
-        host.replaceWith(band({ title: "Recruits on hand", collapsible: false, state: { status: "error", message: `${error?.message || "The request failed"}. Close the panel and open it again to retry.` } }));
-      });
-    return host;
-  }
 
   /** A panel that fails to draw shows an error inside the sheet instead of breaking the button. */
   function safeBody(item) {
@@ -1129,17 +1131,17 @@ export function createLiveView({ onStatus, board = false } = {}) {
    * detail: { id, steps: { items: [{ id, label }], where }, back: { label, onClick }, entryOf(id) }.
    */
   function openItemWide(detail) {
-    const first = state.items.find((i) => i.id === detail?.id);
+    const first = itemFor(detail?.id);
     if (!first || !container) return;
     closeSheet();
     state.seenPlays = null;
     const sheet = { id: first.id, handle: null, sorts: {}, filter: "all", wide: true };
     state.sheet = sheet;
     if (state.bar) state.bar.setActive(first.id);
-    const items = Array.isArray(detail.steps?.items) ? detail.steps.items.filter((i) => state.items.some((item) => item.id === i.id)) : [];
+    const items = Array.isArray(detail.steps?.items) ? detail.steps.items.filter((i) => Boolean(itemFor(i.id))) : [];
     const stepsFor = (id) => (items.length > 1 ? { items, index: items.findIndex((i) => i.id === id), where: detail.steps?.where || "", onStep: stepTo } : null);
     function stepTo(id) {
-      const item = state.items.find((i) => i.id === id);
+      const item = itemFor(id);
       if (!item || state.sheet !== sheet) return;
       sheet.id = id;
       sheet.sorts = {};
@@ -1148,6 +1150,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
       sheet.handle.setTitle(item.label);
       sheet.handle.setBody(() => safeBody(item));
       sheet.handle.setSteps(stepsFor(id));
+      sheet.handle.setOwn(ownFor(id));
       if (state.bar) state.bar.setActive(id);
       const entry = typeof detail.entryOf === "function" ? detail.entryOf(id) : null;
       if (entry && typeof CustomEvent === "function") document.dispatchEvent(new CustomEvent("kickoff:menu-mark", { detail: { mark: entry } }));
@@ -1158,6 +1161,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
       subtitle: `${usAbbr()} vs ${themSide().abbr}`,
       back: detail.back && typeof detail.back.onClick === "function" ? detail.back : null,
       steps: stepsFor(first.id),
+      own: ownFor(first.id),
       body: () => safeBody(first),
       onClose: () => {
         if (state.sheet !== sheet) return;
@@ -1168,6 +1172,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
       },
     });
     refreshPill();
+  }
+
+  /** The flyout's Own page: the panel by itself at #band=live:<id> (views/band.js). */
+  function ownFor(id) {
+    return typeof id === "string" && id ? { href: `#band=live:${id}` } : null;
   }
 
   function onLivePanel(event) {
@@ -1218,8 +1227,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
    */
   function refreshOpenSheet() {
     const open = state.sheet;
-    if (!open?.handle || !STATE_ITEMS.has(open.id)) return;
-    const item = state.items.find((i) => i.id === open.id);
+    if (!open?.handle || !(STATE_ITEMS.has(open.id) || open.id === "score" || open.id === "chart")) return;
+    const item = itemFor(open.id);
     if (!item) return;
     const hadError = state.sheetError;
     try {
@@ -1259,8 +1268,8 @@ export function createLiveView({ onStatus, board = false } = {}) {
       const them = usHome ? s.awayScore : s.homeScore;
       return { period: isNum(s.period) ? s.period : null, clock: typeof s.clock === "string" ? s.clock : s.clock && typeof s.clock === "object" && isNum(s.clock.minutes) ? `${s.clock.minutes}:${String(isNum(s.clock.seconds) ? s.clock.seconds : 0).padStart(2, "0")}` : null, score: isNum(us) && isNum(them) ? `${usAbbr()} ${us}, ${themSide().abbr} ${them}` : null };
     };
-    // freeze wave F5 (owner 2026-10-20): one Notes sheet: your own lines first (they are part of the program notes now), the
-    // program notes themselves, the schemes, then the game line with the crew and the coaches
+    // freeze wave F5 (owner 2026-10-20): one Notes sheet: the program notes, the schemes, the game line with the crew and the
+    // coaches, then your own lines and the box last (owner 2026-11-14: "Claude's always on top, then oldest first")
     const p = state.program;
     const n = obj(p?.notes);
     const schemes = obj(n.schemes);
@@ -1272,11 +1281,11 @@ export function createLiveView({ onStatus, board = false } = {}) {
       el(
         "div",
         { class: "notes-sheet" },
-        gameId ? gameNotesPanel({ gameId, getContext: context }) : el("p", { class: "note" }, "There is no game to write about yet."),
         n.present ? editorial({ byline: { author: n.author, writtenAt: n.writtenAt }, sources: records(n.sources), sections: records(n.sections) }) : el("p", { class: "note" }, "No program notes for this game yet. ", el("a", { href: "#program" }, "Add them on the Pre-Game Program"), "."),
         schemeLine(usAbbr(), schemes),
         schemeLine(themSide().abbr, obj(schemes.opponent)),
         gameInfo(p),
+        gameId ? gameNotesPanel({ gameId, getContext: context }) : el("p", { class: "note" }, "There is no game to write about yet."),
       );
     openSheet({ title: "Notes", body });
   }
@@ -1297,7 +1306,7 @@ export function createLiveView({ onStatus, board = false } = {}) {
     // freeze wave F5 (owner 2026-10-20: "where the touch is"): the five tools sit in the panel row at the bottom, buttons of
     // the same kind: the delay (Phase 7b), the radio (owner 2026-10-11: within reach at every moment), the Notes (Phase 19: your
     // own lines, part of the program notes now), Invite (Phase 18.6) and the Big screen (owner 2026-10-10: reached from here only)
-    state.tools = stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet });
+    state.tools = stageTools({ delayLabel: shortDelayLabel(), onDelay: () => openDelaySheet(), onPick: () => pickGameSheet(), onRadio: () => openSheet({ title: "Radio", body: () => radioStations() }), onNotes: openNotesSheet, onInvite: openInviteSheet });
     // the layout pass (owner 2026-10-22: "this should be on the bottom of the screen, right above the ticker"; "client or
     // server always sees the score"): the dock pinned at the bottom holds the score line, the ticker, then the panel row (or
     // the board's foot); on a phone the last play takes the ticker's place for a few seconds after each play
@@ -1330,6 +1339,19 @@ export function createLiveView({ onStatus, board = false } = {}) {
       // Public release Phase 5a: say what a bigger plan adds, instead of only a red pill.
       view.top = el("div", {}, el("p", { class: "note plan-note" }, "Play-by-play during the game shows with a Tier 2 CFBD key. The score, the box score after the final and the rest of the app work on your plan. ", el("a", { href: PLANS_URL, target: "_blank", rel: "noopener" }, "See CFBD's plans")), view.top);
     }
+    state.stageItems = stageItems(view.state); // the stage's bands as panels, for the menu's flyouts and the panel mode
+    if (panel) {
+      state.items = Array.isArray(view.items) ? view.items : [];
+      drawPanel(view);
+      refreshPill();
+      if (!pregame && state.live.status === "final") maybeLoadAnalytics();
+      return;
+    }
+    // FEAT-1: another game the host chose, and the way back to ours; before its kickoff too, from the program the pregame
+    // frame reads (Pick a game, 2026-11-02: a game picked days ahead shows its pregame screen with the way back)
+    const followedNow = pregame ? (state.program?.game && typeof state.program.game === "object" ? { ...emptyLive(state.program), team: followedTeam(null, state.program) } : null) : state.live;
+    const following = board ? null : followingLine(followedNow);
+    if (following) view.top = el("div", {}, following, view.top);
     if (frame.parentNode !== container) container.replaceChildren(frame);
     const sheet = Array.isArray(view.items); // the game sheet, live or still empty before kickoff
     if (board) frame.className = sheet ? "tv live-frame" : "tv live-frame tv--empty"; // no game yet: the sheet's own message, nothing else

@@ -1,8 +1,8 @@
 """The betting line as the app prints it: the spread and the over/under, never a book or a moneyline.
 
-  spread_text(formatted, spread)       "Saddle Sore -3.5", or "Pick'em" for a spread of zero (owner 2026-10-13: the
-                                       mock printed CFBD's own "Front Porch State -0"); None when there is no spread
-  short_spread(text, abbreviations)    the same with the favorite's abbreviation ("SADL -3.5") for a compact card
+  spread_text(formatted, spread)       "West Virginia -3.5", or "Pick'em" for a spread of zero (owner 2026-10-13: the
+                                       mock printed CFBD's own "Vanderbilt -0"); None when there is no spread
+  short_spread(text, abbreviations)    the same with the favorite's abbreviation ("WVU -3.5") for a compact card
   line_block(line, abbreviations)      {spread, formatted, short, overUnder, pickem} from a CFBD GameLine, or None
 """
 
@@ -30,7 +30,7 @@ def spread_text(formatted: Any, spread: Any) -> str | None:
 
 
 def short_spread(text: Any, abbreviations: dict[str, str] | None) -> str | None:
-    """'SADL -3.5' for 'Saddle Sore -3.5': the longest school the line starts with, by its abbreviation."""
+    """'WVU -3.5' for 'West Virginia -3.5': the longest school the line starts with, by its abbreviation."""
     if not isinstance(text, str) or not text:
         return None
     if text == PICKEM or not abbreviations:

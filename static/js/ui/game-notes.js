@@ -1,8 +1,9 @@
-// Your own notes during a game (Phase 19). A line box and an Add button; each note is stamped with the quarter, clock and
-// score when the page knows them, and the list reads back newest first with a small Remove on each. The same panel sits on
-// In Game's Notes sheet, at the top of the Pre-Game Program's notes, and on the Archive, where the notes line up with the
-// game afterwards. Freeze wave F5 (owner 2026-10-20: "if you write your own note then it should just go into the program
-// note, like note from Pat"): every line reads "Note from <your name>", the name from Settings ("the host" until set).
+// Your own notes during a game (Phase 19). Each note is stamped with the quarter, clock and score when the page knows them,
+// with a small Remove on each. Freeze wave F5 (owner 2026-10-20: "if you write your own note then it should just go into the
+// program note, like note from Pat"): every line reads "Note from <your name>", the name from Settings ("the host" until
+// set). Since 2026-11-14 (owner: "move this add a note to the bottom of the band", "Claude's always on top, then oldest
+// first"): the panel goes under Claude's notes on the Pre-Game Program's Program notes and In Game's Notes sheet, your notes
+// oldest first so a new one lands at the bottom, then the line box and the Add button last; no line while there are none.
 //
 //   gameNotesPanel({ gameId, getContext, name })   getContext() -> { period, clock, score } or null; returns the element
 //   noteAuthor(name)                               the name the lines carry: the one given, else Settings', else "the host"
@@ -58,8 +59,9 @@ export function gameNotesPanel({ gameId, getContext, name } = {}) {
   const list = el("ul", { class: "gamenotes__list" });
 
   function draw(notes) {
-    const rows = (Array.isArray(notes) ? notes : []).filter((n) => n && typeof n === "object" && typeof n.text === "string").slice().reverse();
-    list.replaceChildren(...(rows.length ? rows.map((n) => el("li", { class: "gamenotes__item" }, el("b", { class: "gamenotes__from" }, `Note from ${who}`), stamp(n) ? el("span", { class: "gamenotes__stamp" }, stamp(n)) : null, el("span", { class: "gamenotes__text" }, n.text), el("button", { class: "btn btn--quiet", type: "button", "aria-label": "Remove this note", onclick: () => remove(n.id) }, "Remove"))) : [el("li", { class: "note" }, `No notes from ${who} for this game yet.`)]));
+    const rows = (Array.isArray(notes) ? notes : []).filter((n) => n && typeof n === "object" && typeof n.text === "string"); // the order written: a new note at the bottom
+    list.replaceChildren(...rows.map((n) => el("li", { class: "gamenotes__item" }, el("b", { class: "gamenotes__from" }, `Note from ${who}`), stamp(n) ? el("span", { class: "gamenotes__stamp" }, stamp(n)) : null, el("span", { class: "gamenotes__text" }, n.text), el("button", { class: "btn btn--quiet", type: "button", "aria-label": "Remove this note", onclick: () => remove(n.id) }, "Remove"))));
+    list.hidden = !rows.length;
   }
 
   async function load() {
@@ -106,7 +108,8 @@ export function gameNotesPanel({ gameId, getContext, name } = {}) {
     },
   }, "Add the note");
 
-  host.append(input, el("p", { class: "settings__actions" }, add), said, list);
+  list.hidden = true; // until the notes come: no empty line (owner 2026-11-14)
+  host.append(list, input, el("p", { class: "settings__actions" }, add), said);
   load();
   return host;
 }

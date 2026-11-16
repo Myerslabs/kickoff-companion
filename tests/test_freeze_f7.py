@@ -283,10 +283,10 @@ def test_the_profiles_are_built_once_per_set_of_lists():
     stats: list = []
     league: list = []
     team: list = []
-    built = profiles_for(stats, league, team, "Biscuit Belt", "A")
-    assert profiles_for(stats, league, team, "Biscuit Belt", "A") is built
-    assert profiles_for(stats, league, team, "Biscuit Belt", "B") is not built, "another team, another set of edges"
-    assert profiles_for([], league, team, "Biscuit Belt", "A") is not built, "another list is another build"
+    built = profiles_for(stats, league, team, "SEC", "A")
+    assert profiles_for(stats, league, team, "SEC", "A") is built
+    assert profiles_for(stats, league, team, "SEC", "B") is not built, "another team, another set of edges"
+    assert profiles_for([], league, team, "SEC", "A") is not built, "another list is another build"
 
 
 def test_the_national_rank_tables_are_built_once_per_fetch(app, client: TestClient, fake_cfbd):
@@ -298,7 +298,7 @@ def test_the_national_rank_tables_are_built_once_per_fetch(app, client: TestClie
     keys = list(PageRanks._memo)
     assert len(keys) == 1
     assert client.get("/api/roster").status_code == 200 and list(PageRanks._memo) == keys, "the same parts, the same tables"
-    assert client.get("/api/team/Swampwater%20Tech").status_code == 200
+    assert client.get("/api/team/Florida").status_code == 200
     after_team = list(PageRanks._memo)
     assert keys[0] in after_team and len(after_team) <= 2, "the team page ranks over its own parts (the returning production too): one more set at most"
-    assert client.get("/api/team/Swampwater%20Tech").status_code == 200 and list(PageRanks._memo) == after_team
+    assert client.get("/api/team/Florida").status_code == 200 and list(PageRanks._memo) == after_team

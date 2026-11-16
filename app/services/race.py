@@ -19,7 +19,7 @@ A conference with divisions (the Sun Belt) reads as a top-two race; the title ga
 from __future__ import annotations
 
 import itertools
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -176,6 +176,42 @@ def status_of(lines: dict[str, Line], team: str) -> dict[str, Any]:
             reachable = True
             break
     return {"status": "alive" if reachable else "out", "exact": True}
+
+
+RANGE_MAX_GAMES = 12  # ENH-31: the conference games left that are played out game by game for the ranges (4,096 outcomes)
+
+
+def place_ranges(lines: dict[str, Line]) -> tuple[dict[str, tuple[int, int]], bool]:
+    """ENH-31 (board 6): each team's best and worst possible finishing place, ({team: (best, worst)}, exact). The best counts
+    ties in the team's favor, the worst against it. With RANGE_MAX_GAMES or fewer conference games left every outcome is
+    played out, so two teams that meet are never both credited the win; with more, the ends are counted from the records
+    (the team wins out and every other team loses out, and the other way round), which bounds the truth."""
+    left: list[Game] = []
+    seen: set[int] = set()
+    for line in lines.values():
+        for g in line.left:
+            if g.id not in seen:
+                seen.add(g.id)
+                left.append(g)
+    if len(left) > RANGE_MAX_GAMES:
+        out = {}
+        for team, line in lines.items():
+            others = [o for t, o in lines.items() if t != team]
+            out[team] = (_rank(line.best, [o.wins for o in others], False), _rank(line.wins, [o.best for o in others], True))
+        return out, False
+    best = {t: 10**6 for t in lines}
+    worst = {t: 0 for t in lines}
+    for outcome in itertools.product((True, False), repeat=len(left)):
+        finals = _finals(lines, left, outcome)
+        counts = Counter(finals.values())
+        above, places = 0, {}
+        for wins in sorted(counts, reverse=True):  # each win total's best and worst place, counted once per outcome
+            places[wins] = (1 + above, above + counts[wins])
+            above += counts[wins]
+        for team, wins in finals.items():
+            best[team] = min(best[team], places[wins][0])
+            worst[team] = max(worst[team], places[wins][1])
+    return {t: (best[t], worst[t]) for t in lines}, True
 
 
 def _verdict(lines: dict[str, Line], team: str, our_wins_total: int) -> tuple[int, int]:
@@ -375,6 +411,7 @@ def race(games: list[Game], team: str, conference: str, week: int | None = None,
         me = lines[team]
         week = me.left[0].week if me.left else None
     statuses = {t: status_of(lines, t) for t in lines}
+    ranges, exact = place_ranges(lines)  # ENH-31: board 6's bars
     ordered = _order(lines)
     standings = []
     for place, line in enumerate(ordered, start=1):
@@ -388,6 +425,8 @@ def race(games: list[Game], team: str, conference: str, week: int | None = None,
                 "losses": line.total_losses,
                 "left": len(line.left),
                 "best": line.best,
+                "bestPlace": ranges[line.team][0],
+                "worstPlace": ranges[line.team][1],
                 "status": statuses[line.team]["status"],
                 "isUs": line.team == team,
             }
@@ -401,8 +440,9 @@ def race(games: list[Game], team: str, conference: str, week: int | None = None,
         "spots": SPOTS,
         "week": week,
         "settled": not any(line.left for line in lines.values()),
+        "rangeExact": exact,
         "standings": standings,
-        "us": {"team": team, "place": next(s["place"] for s in standings if s["isUs"]), "confWins": me.wins, "confLosses": me.losses, "left": len(me.left), "best": me.best, "status": mine["status"], "exact": mine["exact"]},
+        "us": {"team": team, "place": next(s["place"] for s in standings if s["isUs"]), "confWins": me.wins, "confLosses": me.losses, "left": len(me.left), "best": me.best, "bestPlace": ranges[team][0], "worstPlace": ranges[team][1], "status": mine["status"], "exact": mine["exact"]},
         "lines": our_lines(lines, team, mine["status"]),
         "watch": watch,
         "helps": helps,

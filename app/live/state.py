@@ -14,7 +14,7 @@ import math
 import re
 from typing import Any
 
-from app.live.analysis import drive_summary, fourth_down, quarter_splits, shot_chart, tendencies
+from app.live.analysis import down_distance, drive_summary, fourth_down, quarter_splits, shot_chart, tendencies
 from app.live.events import LiveEvent, drive_result, drive_result_text, is_scrimmage
 from app.live.play_box import _subsequence, play_box
 from app.live.play_leaders import play_player_lines
@@ -281,6 +281,7 @@ def derive_state(events: list[LiveEvent], *, game_id: int, home: str | None, awa
         "drives": drive_list,
         "splits": quarter_splits(ordered_plays, sides),
         "tendencies": tendencies(ordered_plays, sides),
+        "downDistance": down_distance(ordered_plays, sides),  # board 5 (ENH-30): the Situation panel's grids, released plays only
         "shotChart": shot_chart(ordered_plays, sides),  # public release Phase 7b: pass zones and run lanes, released plays only
         "driveSummary": summary,
         "fourthDown": fourth,

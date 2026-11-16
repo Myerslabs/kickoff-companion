@@ -20,7 +20,7 @@
 // sorts the number column already says the number, so the value shows the rating; under Recruit rank the
 // value is a rank chip placed beside the row's button, never inside it.
 
-import { usSchool } from "../identity.js";
+import { otherTeam, otherTeamHead, withTeam } from "../ui/other-team.js";
 import { DASH, el, fitNames, fmtNum, fmtPct, fmtStat, fmtUsd, isNum, personName, recall, remember, settleNames, text, watchNames } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { recruitHref } from "../ui/player-card.js";
@@ -190,7 +190,7 @@ export function blueChipNote(bc) {
 function tableColumns() {
   const cols = [
     // 2026-10-10 (owner: "size them now"): the roster sizes itself by its own box, never scrolling sideways, its head pinned
-    // under the band's; size names the smallest size that still shows a column (docs/03-DESIGN.md, Table sizes)
+    // under the band's; size names the smallest size that still shows a column (the design rules, Table sizes)
     { key: "number", label: "No.", labelShort: "#" },
     // item 6: the name steps down with the table from CFBD's split ("K. Crawford", the surname), "(RS)" after whichever form shows
     { key: "name", label: "Player", kind: "text", person: { first: "firstName", last: "lastName", after: (row) => (row.redshirt === true ? " (RS)" : "") } },
@@ -212,8 +212,10 @@ function tableColumns() {
   return cols;
 }
 
-function render(envelope, container, state) {
-  const data = envelope.data || {};
+/** The Roster page's bands (wave 3 of the one-column page, owner 2026-11-01: the same bands on My Team): Roster breakdown,
+ *  Roster costs, Roster, Recruiting stars on the roster, Impact players. Position groups is gone (his inventory: dropped).
+ *  `state` keeps the position picked and the table's sort across refreshes. */
+export function rosterBands(data, state) {
   const players = (Array.isArray(data.players) ? data.players : []).filter((p) => p && typeof p === "object");
   const parts = data.parts || {};
   const recruitParts = Object.keys(parts).filter((k) => k.startsWith("recruits_")).map((k) => parts[k]);
@@ -243,9 +245,7 @@ function render(envelope, container, state) {
   };
   renderTable();
 
-  const page = el(
-      "div",
-      { class: "page roster" },
+  return [
       band({
         id: "roster-breakdown",
         title: "Roster breakdown",
@@ -257,19 +257,6 @@ function render(envelope, container, state) {
         body: () => el("div", {}, rosterGrid(players, { onPlayer: (p) => openPlayer(p.playerId, { ...p, isUs: p.isUs !== false }) }), typeof data.classesInferred === "string" && data.classesInferred ? el("p", { class: "note" }, data.classesInferred) : null), // post-freeze Wave 1: CFBD's classes not believed; the grid's note follows its size (ui/roster-grid.js); the star strip is once, in Recruiting stars on the roster (freeze wave F3)
       }),
       costsBand(data.costs, { id: "roster-costs" }), // Phase 17 Part 3b: rumored, from the Preseason page's load
-      band({
-        // Freeze wave F3 (one fact, one source): this is the roster sorted by rating, not the coaches' chart, so it is no longer
-        // called a depth chart; the chart of record is the Pre-Game Program's Lineups and depth, from the notes, and its
-        // starter and second man are badged here (`depth` on each player, from the next game's notes).
-        id: "roster-depth",
-        title: "Position groups",
-        collapsible: false,
-        foldable: true,
-        summary: `${players.length} players by rating; the coaches' chart is on the Pre-Game Program${players.some((p) => isNum(p.depth)) ? ", its order badged here" : ""}`,
-        state: partState(parts.roster, players.length > 0),
-        emptyText: "The roster loads the first time the app opens.",
-        body: () => depthChart(players),
-      }),
       band({
         id: "roster-table",
         title: "Roster",
@@ -291,18 +278,27 @@ function render(envelope, container, state) {
         body: () => el("div", {}, starStrip({ counts: data.starCounts || {}, average: data.average, note: `${rated} of ${players.length} players have a CFBD recruiting record. Walk-ons and older transfers have none.` }), blueChipNote(data.blueChip)),
       }),
       band({ id: "roster-impact", title: "Impact players", collapsible: false, foldable: true, summary: "season leaders, offense then defense", state: partState(parts.team, (impact.offense || []).length + (impact.defense || []).length > 0), emptyText: "Impact players appear after the first game.", body: () => el("div", { class: "roster-impact" }, subhead("Offense"), impactGrid("offense"), subhead("Defense"), impactGrid("defense")) }),
-  );
-  state.ui ??= {};
-  mountFlow(state.ui, container, page, { wide: ROSTER_WIDE }); // final pass: the flowing page with its section chips
+  ];
 }
 
-const ROSTER_WIDE = ["roster-breakdown", "roster-depth", "roster-table"]; // the grids and the sortable table take two columns
+function render(envelope, container, state) {
+  const data = envelope.data || {};
+  const page = el(
+      "div",
+      { class: "page roster" },
+      state.team ? otherTeamHead(data.team, "roster", "#roster") : null, // FEAT-5: another team's roster says whose it is
+      ...rosterBands(data, state),
+  );
+  state.ui ??= {};
+  mountFlow(state.ui, container, page, { wide: ROSTER_WIDE }); // the grids and the sortable table take the whole width
+}
 
-export function createRosterView({ onStatus } = {}) {
-  const state = { position: "", sort: null, ui: {} }; // kept across the hourly refresh (LRP-03)
+export const ROSTER_WIDE = ["roster-breakdown", "roster-table"]; // the grid and the sortable table keep the band's whole width (one column, 2026-11-01)
+
+export function createRosterView({ onStatus, params } = {}) {
+  const state = { position: "", sort: null, ui: {}, team: otherTeam(params) }; // kept across the hourly refresh (LRP-03); team: FEAT-5
   const view = poller({
-    url: "/api/roster",
-    refreshMs: 60 * 60 * 1000,
+    url: withTeam("/api/roster", state.team),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Roster", message, retry)),
@@ -310,7 +306,7 @@ export function createRosterView({ onStatus } = {}) {
       el(
         "div",
         { class: "page roster" },
-        band({ title: "Depth chart", collapsible: false, state: { status: "loading" }, skeleton: depthSkeleton }),
+        band({ title: "Roster breakdown", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(6, 6) }),
         band({ title: "Roster", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(12) }),
         band({ title: "Recruiting stars on the roster", collapsible: false, state: { status: "loading" }, skeleton: () => el("div", { class: "skel skel--row" }) }),
         band({ title: "Impact players", collapsible: false, state: { status: "loading" }, skeleton: () => impactSkeleton(6) }),

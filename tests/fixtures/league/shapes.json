@@ -16912,6 +16912,92 @@
   },
   "status": 200
  },
+ "playoffs_cfp_participants": {
+  "empty": false,
+  "endpoint": "/playoffs/cfp/participants",
+  "shape": {
+   "i": {
+    "k": {
+     "bidType": {
+      "t": [
+       "str"
+      ]
+     },
+     "committeeRank": {
+      "t": [
+       "int"
+      ]
+     },
+     "conferenceChampion": {
+      "t": [
+       "bool"
+      ]
+     },
+     "eliminatedRound": {
+      "t": [
+       "null",
+       "str"
+      ]
+     },
+     "firstRoundBye": {
+      "t": [
+       "bool"
+      ]
+     },
+     "outcome": {
+      "t": [
+       "str"
+      ]
+     },
+     "qualificationReason": {
+      "t": [
+       "str"
+      ]
+     },
+     "qualifyingConference": {
+      "t": [
+       "null",
+       "str"
+      ]
+     },
+     "seed": {
+      "t": [
+       "int"
+      ]
+     },
+     "team": {
+      "k": {
+       "conference": {
+        "t": [
+         "str"
+        ]
+       },
+       "id": {
+        "t": [
+         "int"
+        ]
+       },
+       "school": {
+        "t": [
+         "str"
+        ]
+       }
+      },
+      "t": [
+       "dict"
+      ]
+     }
+    },
+    "t": [
+     "dict"
+    ]
+   },
+   "t": [
+    "list"
+   ]
+  },
+  "status": 200
+ },
  "plays": {
   "empty": false,
   "endpoint": "/plays",

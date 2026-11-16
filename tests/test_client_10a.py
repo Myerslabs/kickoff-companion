@@ -37,7 +37,7 @@ GAMES = fixture_payload("games_team")
 BOX_TEAMS = fixture_payload("games_teams")
 LIVE = fixture_payload("live_plays")
 GAME_ID = 526001015
-BOX_PARAMS = {"year": 2026, "week": 4, "team": "Swampwater Tech"}
+BOX_PARAMS = {"year": 2026, "week": 4, "team": "Florida"}
 
 
 class Harness:
@@ -106,7 +106,7 @@ def test_4xx_half_open_probe_closes_the_breaker(harness):
             await harness.client.get("/records", {"week": "x"}, kind=DataKind.SCHEDULE)
         assert breaker.state(harness.clock()) == "closed", "CFBD answered, so the upstream is up"
         assert breaker.half_open is False and breaker.failures == 0
-        harness.upstream.route("/records", json=[{"team": "Swampwater Tech"}])
+        harness.upstream.route("/records", json=[{"team": "Florida"}])
         return await harness.client.get("/records", {"year": 2026}, kind=DataKind.SCHEDULE)
 
     fetched = run(scenario())
@@ -139,7 +139,7 @@ def test_cancelled_probe_lets_the_next_call_probe(harness):
             await probe
         assert breaker.half_open is False and breaker.state(harness.clock()) == "half_open"
 
-        harness.upstream.route("/records", json=[{"team": "Swampwater Tech"}])
+        harness.upstream.route("/records", json=[{"team": "Florida"}])
         return await harness.client.get("/records", kind=DataKind.SCHEDULE)
 
     fetched = run(scenario())
@@ -328,7 +328,7 @@ def test_general_failures_never_pause_the_live_lane(harness):
     async def scenario():
         for _ in range(BREAKER_THRESHOLD):
             with pytest.raises(CfbdUnavailable):
-                await harness.client.get("/recruiting/players", {"year": 2027, "team": "Swampwater Tech"}, kind=DataKind.RECRUITING)
+                await harness.client.get("/recruiting/players", {"year": 2027, "team": "Florida"}, kind=DataKind.RECRUITING)
         assert harness.client.breaker.state(harness.clock()) == "open"
         return await harness.client.get("/live/plays", {"gameId": GAME_ID}, kind=DataKind.LIVE, live=True, use_cache=False)
 
@@ -466,7 +466,7 @@ def test_empty_finished_game_answer_outside_the_settle_window_is_kept_six_hours(
 
 def test_settle_until_gives_one_hour_then_permanent(harness):
     harness.client.settle_until = harness.clock() + timedelta(hours=24)
-    versions = [[{"id": GAME_ID, "teams": [{"team": "Swampwater Tech", "points": n}]}] for n in (24, 27, 27)]
+    versions = [[{"id": GAME_ID, "teams": [{"team": "Florida", "points": n}]}] for n in (24, 27, 27)]
     harness.upstream.route("/games/players", sequence=[httpx.Response(200, json=v) for v in versions])
     key = cache_key("/games/players", BOX_PARAMS)
 
@@ -554,7 +554,7 @@ def test_finished_game_ttl_policy():
     assert is_empty_payload("") and not is_empty_payload(0) and not is_empty_payload(False)
 
 
-# --- CLAUDE.md rule 7: the quota guard before the breaker ------------------------------------------
+# --- the quota guard before the breaker ------------------------------------------
 
 
 def test_quota_blocked_call_never_touches_the_breaker(tmp_path):

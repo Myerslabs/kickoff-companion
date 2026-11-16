@@ -18,14 +18,14 @@ WINDOWS = sys.platform.startswith("win")
 datas = [
     (str(ROOT / "static"), "static"),  # the whole front end, fonts and icons included
     (str(ROOT / ".env.example"), "."),  # the template the setup page writes .env from
-    (str(ROOT / "app" / "radio_stations.json"), "app"),  # read beside app/services/stations.py's parent
-    (str(ROOT / "app" / "penalties.json"), "app"),  # Phase 17 #21: read beside app/live/penalties.py's parent
-    (str(ROOT / "app" / "facts" / "schools.json"), "app/facts"),  # the preloaded facts for every FBS school (2026-10-21), read by app/services/season_notes.py
-    *[(str(path), "app/facts") for path in sorted((ROOT / "app" / "facts").glob("*.json")) if path.name != "schools.json"],  # the preloading (2026-10-22): coaches, costs, the season load
     (str(ROOT / "tools" / "tray.ps1"), "tools"),  # Phase 16 wave 3: the tray icon for the packaged program on Windows
     (str(OUT / "demo-sources.sha1"), "app/demo"),  # the league cache's key, since no .py file ships
 ]
 datas += collect_data_files("tzdata")  # the time zones, with no system database to lean on
+sys.path.insert(0, str(HERE))
+from datafiles import app_datas  # noqa: E402
+
+datas += app_datas(ROOT)  # every file under app/ that is not Python: the facts, the map's grid, the prompts, the stations (2.0)
 
 a = Analysis(
     [str(HERE / "kickoff.py")],

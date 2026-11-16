@@ -4,6 +4,8 @@ drives, so it follows the spoiler delay like everything else and costs no calls:
 - Quarter splits per team: plays, yards, yards per play, success n of m, EPA per play (touchdown
   plays left out, since their EPA is mostly the score itself), 20+ yard plays, turnovers, third
   downs, and a few notes written from fixed thresholds (no model, no AI).
+- Down and distance per offense (board 5, ENH-30, owner 2026-10-25): success by down and distance as the program's
+  Tendencies band draws it for the season, here from the game's released plays (app/services/depth2.py's grid).
 - Tendencies by situation per offense: standard downs, passing downs, third down by distance,
   the red zone; pass rate and success on runs and on passes. Run or pass comes from the feed's
   rushPass tag, else from the play type; standard or passing down from the feed's downType tag,
@@ -24,6 +26,7 @@ import re
 from typing import Any
 
 from app.live.events import is_scrimmage
+from app.services.depth2 import down_distance_grid
 
 TURNOVER_RESULTS = frozenset({"INT", "INT TD", "FUMBLE", "FUMBLE TD"})
 DRIVE_POINTS = {"TD": 7, "FG": 3}  # when the feed sends no pointsGained; a touchdown counts the usual extra point
@@ -251,6 +254,19 @@ def tendencies(plays: list[dict[str, Any]], teams: tuple[str | None, str | None]
         ]
         for team in sides
     }
+
+
+def down_distance(plays: list[dict[str, Any]], teams: tuple[str | None, str | None]) -> dict[str, dict[str, Any]]:
+    """{team: the down-and-distance grid} per offense from the released runs and passes (kicks, penalties and kneels with
+    no run-or-pass call are left out; a play the feed did not judge is left out of its cell)."""
+    sides = [t for t in teams if t]
+    snaps: dict[str, list[dict[str, Any]]] = {t: [] for t in sides}
+    for play in plays:
+        offense = play.get("offense")
+        if offense not in snaps or not is_scrimmage(play.get("playType")) or rush_or_pass(play) is None:
+            continue
+        snaps[offense].append({"down": play.get("down"), "distance": play.get("distance"), "success": play.get("success")})
+    return {team: down_distance_grid(snaps[team]) for team in sides}
 
 
 def _drive_points(drive: dict[str, Any]) -> int:

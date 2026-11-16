@@ -30,7 +30,7 @@ function topThree(rows) {
   return new Set(rows.filter((r) => r && isNum(r.edge)).sort((a, b) => Math.abs(b.edge) - Math.abs(a.edge)).slice(0, 3));
 }
 
-/** A unit's head in its three forms: "Swampwater Tech offense", "SWT offense", "SWT off". */
+/** A unit's head in its three forms: "Florida offense", "SWT offense", "SWT off". */
 function unitHead(team, abbr, unit) {
   const school = typeof team === "string" && team.trim() ? team.trim() : text(abbr);
   return { long: `${school} ${unit}`, mid: `${text(abbr)} ${unit}`, short: `${text(abbr)} ${unit === "offense" ? "off" : "def"}` };

@@ -383,9 +383,37 @@ def make_question(rows: dict[str, dict[str, Any]], school: str, avoid: set[str],
     return None
 
 
-def pick_question(rows: dict[str, dict[str, Any]], schools: list[str], asked: list[dict[str, Any]], rng: random.Random, qid: str, today: date | None = None) -> Question | None:
+def written_question(extra: list[dict[str, Any]], schools: list[str], asked: list[dict[str, Any]], rng: random.Random, qid: str) -> Question | None:
+    """ENH-29: one of the questions Claude Code wrote and checked for this game's two schools (app/services/writing.py,
+    kind "trivia"), not asked today: four choices, the answer word for word one of them, the source as the fact."""
+    seen = {str(q.get("text") or "").strip().lower() for q in asked if isinstance(q, dict)}
+    pool = []
+    for row in extra if isinstance(extra, list) else []:
+        if not isinstance(row, dict):
+            continue
+        school, question, answer = row.get("team"), row.get("question"), row.get("answer")
+        choices = [c.strip() for c in row.get("choices") or [] if isinstance(c, str) and c.strip()]
+        if school not in schools or not isinstance(question, str) or not question.strip() or not isinstance(answer, str) or len(choices) != 4 or answer.strip() not in choices or len(set(choices)) != 4:
+            continue
+        if question.strip().lower() in seen:
+            continue
+        pool.append((school, question.strip(), choices, choices.index(answer.strip()), str(row.get("source") or "Checked on the web by Claude Code")))
+    if not pool:
+        return None
+    school, text, choices, answer, source = rng.choice(pool)
+    order = list(range(4))
+    rng.shuffle(order)
+    return Question(qid, "written", school, text, [choices[i] for i in order], order.index(answer), source)
+
+
+def pick_question(rows: dict[str, dict[str, Any]], schools: list[str], asked: list[dict[str, Any]], rng: random.Random, qid: str, today: date | None = None, extra: list[dict[str, Any]] | None = None) -> Question | None:
     """A new question about one of `schools` (a shuffled order; the school asked about least today first), skipping the
-    kinds already asked about that school today. None when every school is used up."""
+    kinds already asked about that school today. Claude's checked questions for the game come first (ENH-29), every other
+    one, so the facts' kinds still turn up. None when every school is used up."""
+    if extra and len(asked) % 2 == 0:
+        written = written_question(extra, schools, asked, rng, qid)
+        if written is not None:
+            return written
     counts = {s: sum(1 for q in asked if isinstance(q, dict) and q.get("school") == s) for s in schools}
     order = [s for s in schools if isinstance(s, str) and s in rows]
     rng.shuffle(order)

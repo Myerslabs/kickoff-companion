@@ -15,7 +15,7 @@
 //   LRP-16b our and the vs-opponent scopes show a 28 px headshot (the local /media/headshot cache; the
 //           number badge, abbreviation or initials when there is none) beside each name.
 //
-// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every board sizes itself by its own box.
+// Tables wave 3 (owner 2026-10-10, the design rules "Table sizes"): every board sizes itself by its own box.
 //   Ours: # | Player (face and name; the name alone at small, stepping down, item 6) | Pos (large and medium, decision 1) | the value | FBS rank
 //           (medium) | <conf> rank (large) | the details, each board's by the smallest size that still shows it
 //           (ui/stat-labels.js BOARD_SIZES). The chips have their own columns (rule 3), never the value's cell.
@@ -34,7 +34,6 @@ import { mountFlow, stopFlow } from "../ui/flow.js";
 import { ownColumns, rankChip, statTable, statTableSkeleton } from "../ui/stat-table.js";
 import { PPA_SCALE, twoTeamTable } from "../ui/two-team.js";
 import { boardDetail, statLabel } from "../ui/stat-labels.js";
-import { pollMs } from "../prefs.js";
 import { combinedState, errorPanel, fetchJson, poller } from "./common.js";
 import { openPlayer, pctLabel } from "./player.js";
 import { GRADE_NOTE, gradedTable } from "../ui/grade.js";
@@ -53,7 +52,7 @@ function gradesBand(state) {
     const shown = state.grades[group] ? null : state.grades[state.gradeShown]?.data ? state.gradeShown : null;
     const got = state.grades[shown || group];
     const label = (GRADE_GROUPS.find(([id]) => id === group) || [group, group])[1];
-    const seg = el("div", { class: "seg", role: "group", "aria-label": "Position" }, GRADE_GROUPS.map(([id, label]) => el("button", { type: "button", "aria-pressed": id === group ? "true" : "false", onclick: () => { if (id === state.gradeGroup) return; state.gradeGroup = id; remember(GRADE_KEY, id); draw(); load(); } }, label)));
+    const seg = el("div", { class: "seg", role: "group", "aria-label": "Position" }, GRADE_GROUPS.map(([id, label]) => el("button", { type: "button", "aria-pressed": id === group ? "true" : "false", onclick: () => { if (id === state.gradeGroup && !state.grades[id]?.error) return; if (state.grades[id]?.error) delete state.grades[id]; state.gradeGroup = id; remember(GRADE_KEY, id); draw(); load(); } }, label)));
     const data = got?.data || null;
     if (data && !shown) state.gradeShown = group;
     const rows = Array.isArray(data?.rows) ? data.rows : [];
@@ -92,7 +91,7 @@ function gradesBand(state) {
 }
 
 
-// Labels read the identity when drawn: the mascot ("Mudpuppies") and the conference ("Biscuit Belt top 10").
+// Labels read the identity when drawn: the mascot ("Gators") and the conference ("SEC top 10").
 const SCOPES = [
   { id: "team", label: () => usName() },
   { id: "opponent", label: () => "vs opponent" },
@@ -179,7 +178,7 @@ export function windowRows(board, scope) {
 }
 
 /** Move the window rows under a gap row in their own tbody (after the first draw and after every sort). Post-freeze Wave 3
- *  (ENH-8, tester report 2026-10-24): the row says nothing in words ("Swampwater Tech below the top 10" repeated what the
+ *  (ENH-8, tester report 2026-10-24): the row says nothing in words ("Florida below the top 10" repeated what the
  *  marked rows show); it is a quiet break with its meaning for a screen reader. */
 function splitWindow(wrap, label, span) {
   const table = wrap?.querySelector?.("table");
@@ -329,6 +328,7 @@ function versusTable(board, ctx) {
       usConf: confLabel(),
       themConf: confLabel(),
       centered: true,
+      bar: false, // ENH-34 (owner 2026-10-27): the bolder number says who leads; the bar under the place read as an arrow
       labelHead: "#",
       caption: `${text(board.label)}, ${text(ctx.usAbbr)} and ${text(ctx.oppAbbr)}`,
     }),
@@ -367,7 +367,7 @@ function scopeHas(board, scope) {
 function render(envelope, container, state) {
   const data = envelope.data || {};
   const boards = [...(Array.isArray(data.boards) ? data.boards : []), ...(Array.isArray(data.extraBoards) ? data.extraBoards : [])].filter((b) => b && typeof b === "object" && typeof b.id === "string");
-  // a team's school and mascot for the vs board's large head ("Swampwater Tech Mudpuppies"), the school alone without one
+  // a team's school and mascot for the vs board's large head ("Florida Gators"), the school alone without one
   const fullName = (team) => [team?.school, team?.mascot].filter((s) => typeof s === "string" && s.trim()).map((s) => s.trim()).join(" ") || null;
   const ctx = {
     us: typeof data.team?.school === "string" ? data.team.school : usSchool(),
@@ -431,7 +431,6 @@ export function createLeadersView({ onStatus, arg } = {}) {
   const state = { scope: asked.scope || (SCOPE_IDS.has(remembered) ? remembered : "team"), focus: asked.board, revealed: false, gradeGroup: GRADE_GROUPS.some(([id]) => id === group) ? group : "QB", grades: {} };
   const view = poller({
     url: "/api/season/leaders",
-    refreshMs: pollMs(),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Leaders", message, retry)),

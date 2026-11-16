@@ -4,7 +4,7 @@ optionally in the tray instead of a taskbar window).
 
 Started by start.ps1 (Tray mode is the default since 2026-10-23). Starts the server as a child process
 with no window and shows a tray icon with a menu: Open the app, Status page, Show the log, Quit. Quit
-stops the server. The server's own log stays in logs\app.log.
+stops the server. The server's own log stays in logs\app.log (or LOG_DIR in .env).
 
 Phase 16 wave 3: the packaged program uses it too. Its Desktop icon and Startup shortcut run this script with
 -Program (the program's .exe) instead of -Python; -Root is then the folder that holds .env, data and logs.
@@ -15,7 +15,9 @@ Post-freeze Wave 1 (owner 2026-10-25):
   script starts the server the same way, so no window stays open behind the icon. Windows Terminal ignored
   the old trick of hiding a console after it opened.
 - While the server starts, the icon's hover text counts the seconds ("starting, 12 s"); a notification says
-  when the data is ready and how long it took (/api/health server.ready_seconds).
+  when the data is ready and how long it took. BUG-17, ENH-18 (owner 2026-10-27): ready means the opening pages have
+  their data (or 30 s went by), the moment the server opens the browser on a start by hand; the note says whether it
+  did (/api/health server.open_seconds, server.browser_opened).
 - A start that fails opens a window with what happened, Copy the report, Show the log and, when another
   program holds the port, Use port N (saved in .env with --use-port, then started again). A copy that was
   already running is opened instead of a second one (exit code 6).
@@ -24,6 +26,7 @@ param(
     [string]$Python,
     [string]$Program,
     [Parameter(Mandatory = $true)][string]$Root,
+    [string]$Uv,
     [switch]$Login
 )
 if (-not $Python -and -not $Program) { throw "Give -Python (a checkout) or -Program (the packaged program)." }
@@ -38,6 +41,7 @@ Add-Type -Name Win32Window -Namespace Kickoff -MemberDefinition @'
 '@
 
 $AlreadyRunning = 6  # app/portcheck.py ALREADY_RUNNING
+$Relaunch = 8  # app/restart.py RELAUNCH: start the server again, with any new code (BUG-22)
 $SlowSeconds = 120
 
 function Read-EnvValue($name, $fallback) {
@@ -61,14 +65,34 @@ function Set-Address {
     $script:healthUrl = "http://127.0.0.1:$($script:port)/api/health"  # the server answers plain HTTP on its own computer
 }
 Set-Address
-$logFile = Join-Path $Root "logs\app.log"
-$reportFile = Join-Path $Root "data\startup-failure.json"
+
+# BUG-24: the data and log folders follow DATA_DIR and LOG_DIR in .env, as the server does (app/config.py): environment
+# variables like %LOCALAPPDATA% expand, ~ is the home folder, and a relative path is under the project folder.
+function Resolve-Folder($name, $default) {
+    $value = Read-EnvValue $name ""
+    if (-not $value) { return Join-Path $Root $default }
+    $value = [Environment]::ExpandEnvironmentVariables($value)
+    if ($value.StartsWith("~")) { $value = Join-Path $HOME $value.Substring(1).TrimStart('\', '/') }
+    if (-not [IO.Path]::IsPathRooted($value)) { $value = Join-Path $Root $value }
+    return $value
+}
+$dataDir = Resolve-Folder "DATA_DIR" "data"
+$logDir = Resolve-Folder "LOG_DIR" "logs"
+$logFile = Join-Path $logDir "app.log"
+$reportFile = Join-Path $dataDir "startup-failure.json"
+$syncFile = Join-Path $dataDir "update-sync.json"  # FEAT-13: an update from GitHub changed the packages
+if (-not $Uv) {
+    $found = Get-Command uv -ErrorAction SilentlyContinue
+    if ($found) { $Uv = $found.Source }
+    elseif (Test-Path -LiteralPath (Join-Path $env:USERPROFILE ".local\bin\uv.exe")) { $Uv = Join-Path $env:USERPROFILE ".local\bin\uv.exe" }
+}
 
 # A shortcut made before 2026-10-25 still opens a console: hide it when there is one (a start with no window has none).
 $console = [Kickoff.Win32Window]::GetConsoleWindow()
 if ($console -ne [IntPtr]::Zero) { [Kickoff.Win32Window]::ShowWindow($console, 0) | Out-Null }
 
-$env:KICKOFF_NO_PAUSE = "1"  # the packaged program never waits for Enter in a hidden window
+$env:KICKOFF_NO_PAUSE = "1"  # the server never waits for an answer in a hidden window (app/portcheck.py)
+$env:KICKOFF_RELAUNCH = "1"  # BUG-22: a restart exits with 8 and this tray starts the server again
 
 # A child with no window: the server, or the program asked to save a port.
 function New-Child([string[]]$Arguments) {
@@ -88,10 +112,11 @@ function New-Child([string[]]$Arguments) {
     return [System.Diagnostics.Process]::Start($info)
 }
 
-function Start-Server([switch]$First) {
+function Start-Server([switch]$First, [switch]$Restarted) {
     if (Test-Path -LiteralPath $reportFile) { Remove-Item -LiteralPath $reportFile -Force -ErrorAction SilentlyContinue }
     $serverArgs = @()
     if ($Login -and $First) { $serverArgs += "--login" }  # started at login: no browser unless Settings say Always
+    if ($Restarted) { $serverArgs += "--restarted" }  # the same server again: no browser, and the port may need a moment
     $script:server = New-Child $serverArgs
     $script:startedAt = Get-Date
     $script:ready = $false
@@ -123,6 +148,7 @@ function Exit-Tray([int]$WaitSeconds = 0) {
 }
 
 $script:quitting = $false
+$script:syncing = $null
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $open = $menu.Items.Add("Open the app")
 $open.add_Click({ Start-Process $script:appUrl })
@@ -145,22 +171,22 @@ $icon.add_DoubleClick({ Start-Process $script:appUrl })
 $http = New-Object System.Net.Http.HttpClient
 $http.Timeout = [TimeSpan]::FromSeconds(3)
 
-# The health answer is read with two patterns, not ConvertFrom-Json: Windows PowerShell refuses a document whose keys differ
-# only in case, and the health page is large and varied. ready_seconds is null until the key check and the team are done.
+# The health answer is read with patterns, not ConvertFrom-Json: Windows PowerShell refuses a document whose keys differ
+# only in case, and the health page is large and varied. open_seconds is null until the opening pages have their data
+# (or 30 s went by); browser_opened says whether the server opened the app then (a start by hand, Settings' choice).
 function Test-Ready([string]$Body, [int]$Seconds) {
-    $readyAt = $null
-    if ($Body -match '"ready_seconds":\s*(null|[0-9.]+)') {
-        if ($Matches[1] -eq "null") { return }  # listening, but not ready for data yet
-        $readyAt = [double]$Matches[1]
-    }
+    if ($Body -notmatch '"open_seconds":\s*([0-9.]+)') { return }  # listening, but the data is not ready yet
+    $took = [int][Math]::Round([double]$Matches[1])
     $setup = $Body -match '"setup_needed":\s*true'
+    $opened = $Body -match '"browser_opened":\s*true'
     $script:ready = $true
     $icon.Text = "Kickoff Companion (port $($script:port))"
-    $took = if ($null -ne $readyAt) { [int][Math]::Round($readyAt) } else { $Seconds }
     if ($setup) {
-        Show-Note "Running after $took s. Double-click the sun by the clock to finish the setup."
+        $next = if ($opened) { "The setup page is open in your browser." } else { "Double-click the sun by the clock to finish the setup." }
+        Show-Note "Running after $took s. $next"
     } else {
-        Show-Note "Ready after $took s. Double-click the sun by the clock to open the app."
+        $next = if ($opened) { "The app is open in your browser." } else { "Double-click the sun by the clock to open the app." }
+        Show-Note "Ready after $took s. $next"
     }
 }
 
@@ -177,7 +203,7 @@ function Get-Report([int]$Code) {
     $lines += "Kickoff Companion, $(Get-Date -Format 'yyyy-MM-dd HH:mm'), $([Environment]::OSVersion.VersionString)"
     if (Test-Path -LiteralPath $logFile) {
         $tail = Get-Content -LiteralPath $logFile -Tail 40 -Encoding UTF8 -ErrorAction SilentlyContinue
-        if ($tail) { $lines += ""; $lines += "The last lines of logs\app.log:"; $lines += $tail }
+        if ($tail) { $lines += ""; $lines += "The last lines of $($logFile):"; $lines += $tail }
     }
     $next = $null
     if ($report -and $report.nextPort) { $next = [int]$report.nextPort }
@@ -262,9 +288,34 @@ function Show-Failure([string]$Title, [int]$Code) {
     return [string]$form.Tag
 }
 
+function Start-Sync {
+    $info = New-Object System.Diagnostics.ProcessStartInfo
+    $info.FileName = $Uv
+    $info.WorkingDirectory = $Root
+    $info.Arguments = "sync --frozen --quiet --no-dev --inexact"
+    $info.UseShellExecute = $false
+    $info.CreateNoWindow = $true
+    try { return [System.Diagnostics.Process]::Start($info) } catch { return $null }
+}
+
 function Receive-Exit {
     if ($script:quitting) { return }
     $code = $script:server.ExitCode
+    if ($code -eq $Relaunch) {
+        # a restart from the app or an update: a fresh process loads the new code; an update that changed the packages
+        # gets them first, while no server holds them open
+        $script:syncing = $null
+        if ($Uv -and (Test-Path -LiteralPath $syncFile)) {
+            $icon.Text = "Kickoff Companion: updating the packages"
+            $script:syncing = Start-Sync
+        }
+        if (-not $script:syncing) {
+            $icon.Text = "Kickoff Companion: restarting"
+            Start-Server -Restarted
+        }
+        $timer.Start()
+        return
+    }
     if ($code -eq $AlreadyRunning) {
         $opened = if ($Login) { "" } else { " Your browser opens it." }  # at login the browser opens only if Settings say Always
         Show-Note "Kickoff Companion is already running, so this start stepped aside.$opened"
@@ -289,6 +340,16 @@ function Receive-Exit {
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 1000
 $timer.add_Tick({
+    if ($script:syncing) {
+        if (-not $script:syncing.HasExited) { return }
+        $synced = $script:syncing.ExitCode
+        $script:syncing = $null
+        if ($synced -eq 0) { Remove-Item -LiteralPath $syncFile -Force -ErrorAction SilentlyContinue }
+        else { Show-Note "The packages did not update (uv exit code $synced). Starting anyway; the log says more." ([System.Windows.Forms.ToolTipIcon]::Warning) }
+        $icon.Text = "Kickoff Companion: restarting"
+        Start-Server -Restarted
+        return
+    }
     if ($script:server.HasExited) {
         $timer.Stop()
         Receive-Exit

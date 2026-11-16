@@ -20,7 +20,7 @@ def league(fake_cfbd):
 
     def games(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("games_team"))
         if params.get("team"):
             return httpx.Response(200, json=fixture_payload("games_opponent"))
@@ -53,8 +53,8 @@ def test_a_bad_id_is_404(client, bad):
 
 
 def test_a_team_page_has_its_conference_standings(client):
-    data = client.get("/api/team/Diner%20Tech").json()["data"]
+    data = client.get("/api/team/Texas%20State").json()["data"]
     standings = data["standings"]
     assert standings["conference"] and standings["rows"]
     assert [r["place"] for r in standings["rows"]] == list(range(1, len(standings["rows"]) + 1))
-    assert [r["team"] for r in standings["rows"] if r["isUs"]] == ["Diner Tech"], "the page's team is marked"
+    assert [r["team"] for r in standings["rows"] if r["isUs"]] == ["Texas State"], "the page's team is marked"

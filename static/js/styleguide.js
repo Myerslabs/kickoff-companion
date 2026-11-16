@@ -13,6 +13,7 @@ import { installNationalLinks, listLink, nationalListBody, openNationalSheet } f
 import { openMatchupSheet } from "./ui/matchup-sheet.js"; // Phase 16 NV (UX-12)
 import { errorPanel } from "./views/common.js";
 import { commitsTable } from "./views/recruiting.js"; // tables wave 3, step 4: the page's own sized class table
+import { slowWords } from "./views/player.js"; // the player card's patience (owner 2026-11-15): the card's own words
 import { driveList, driveListSkeleton } from "./ui/drive-bar.js";
 import { boxTables as sharedBoxTables } from "./ui/box-columns.js";
 import { visitorsTable } from "./ui/in-game-tables.js";
@@ -40,7 +41,7 @@ import { ticker } from "./ui/ticker.js";
 import { successRow, winProbabilityChart, winProbabilitySkeleton } from "./ui/wp-chart.js";
 
 const live = sample.live || {};
-const US = { name: sample.team?.school || "Swampwater Tech", abbr: sample.team?.abbreviation || "SWT", ...(sample.team || {}) };
+const US = { name: sample.team?.school || "Florida", abbr: sample.team?.abbreviation || "FLA", ...(sample.team || {}) };
 const LIVE_THEM = { name: live.away?.school === US.name ? live.home?.school : live.away?.school };
 LIVE_THEM.abbr = (live.home?.school === LIVE_THEM.name ? live.home?.abbreviation : live.away?.abbreviation) || LIVE_THEM.name?.slice(0, 3)?.toUpperCase();
 const liveHomeIsUs = live.home?.school === US.name;
@@ -49,6 +50,8 @@ const liveThem = liveHomeIsUs ? live.away : live.home;
 const program = sample.program || {};
 const opponent = program.them || {};
 const profiles = sample.profiles || {};
+const SLOW_WORDS = slowWords({ team: "Kentucky" }); // the player card on a slow server, in the card's own words
+const SLOW_CARD = { waiting: SLOW_WORDS.waiting, failed: { lead: SLOW_WORDS.lead, detail: SLOW_WORDS.detail } };
 applyOpponentColors(liveThem);
 
 // --- helpers ---------------------------------------------------------------------------------
@@ -86,7 +89,7 @@ function boxTables(team) {
   return sharedBoxTables({ categories: live.playerStats?.[team] || {}, onTap: (row) => openCard(row.name, row.playerId, team !== US.name) });
 }
 
-// Tables wave 3 (owner 2026-10-10): the samples draw through the sized kits, as the pages do (docs/03-DESIGN.md, Table
+// Tables wave 3 (owner 2026-10-10): the samples draw through the sized kits, as the pages do (the design rules, Table
 // sizes); only the labelled Before samples stay unsized on purpose.
 
 /** The roster's sized columns (views/roster.js), the sample's fields. */
@@ -207,9 +210,9 @@ function tokensSection() {
   });
   const specs = [
     ["Display 44", "cond", "44px", "700", "5d 21h 04m"],
-    ["Strip score 28", "cond", "28px", "700", "SWT 44 · AUB 39"],
-    ["Strip 22", "cond", "22px", "600", "Q4 2:31 · AUB ball 3rd & 7 at SWT 41"],
-    ["H1 26", "cond", "26px", "700", "Diner Tech at Swampwater Tech"],
+    ["Strip score 28", "cond", "28px", "700", "FLA 44 · AUB 39"],
+    ["Strip 22", "cond", "22px", "600", "Q4 2:31 · AUB ball 3rd & 7 at FLA 41"],
+    ["H1 26", "cond", "26px", "700", "Texas State at Florida"],
     ["Stat 20", "cond", "20px", "600", "721  458  246  7.97"],
     ["Body 16", "body", "16px", "400", "Hamilton pass complete to Brooks III for 41 yards, touchdown."],
     ["Label 14", "body", "14px", "500", "Third down · Yards per play · Time of possession"],
@@ -242,7 +245,7 @@ function tokensSection() {
 function shellSection() {
   const demo = shell({ current: "live", status: { kind: "live", label: "Live" } });
   demo.main.append(el("p", { class: "note" }, "The base screen: the view goes here. Newspaper, Pre-Game Program, In Game and Season are the views; the Newspaper tab shows inline from 900 px, the others from 700 px. The Menu holds everything else."));
-  demo.setRadio({ station: "the station 98.1", state: "playing", detail: "Mudpuppies radio network", note: "Audio cannot be delayed", onToggle: () => {}, onClose: () => demo.setRadio(null) });
+  demo.setRadio({ station: "the station 98.1", state: "playing", detail: "Gators radio network", note: "Audio cannot be delayed", onToggle: () => {}, onClose: () => demo.setRadio(null) });
   const inlineDrawer = shell({ current: "program", status: { kind: "delayed", label: "Delayed 45 s" }, inlineDrawer: true }); // drawn open in the page: no history entry, no Tab trap
   inlineDrawer.openDrawer();
   return section(
@@ -255,7 +258,7 @@ function shellSection() {
     label("Radio panel, opened from the menu"),
     el("div", { class: "sg__frame" }, radioPanel({ sources: [{ id: "station", name: "the station web player", kind: "embed" }, { id: "tunein", name: "TuneIn", kind: "embed" }, { id: "site", name: "the station listen live page", kind: "link" }], currentId: "station", note: "Sources are tried in this order. The spoiler delay applies to data only." })),
     label("Radio mini-bar states"),
-    el("div", { class: "sg__stack" }, ["playing", "paused", "connecting", "error"].map((state) => el("div", { class: "sg__frame" }, radioBar({ station: "the station 98.1", state, detail: state === "error" ? "the web player refused to load, try TuneIn" : "Mudpuppies radio network" })))),
+    el("div", { class: "sg__stack" }, ["playing", "paused", "connecting", "error"].map((state) => el("div", { class: "sg__frame" }, radioBar({ station: "the station 98.1", state, detail: state === "error" ? "the web player refused to load, try TuneIn" : "Gators radio network" })))),
   );
 }
 
@@ -268,7 +271,7 @@ function stripSection() {
     "One line tall on wide screens, two on a phone. Score, period and clock, possession and down, timeouts, and the connection pill. Sticky under the top bar.",
     el("div", { class: "sg__stack" }, [
       el("div", { class: "sg__frame" }, strip({ ...liveProps, sticky: false })),
-      el("div", { class: "sg__frame" }, strip({ ...base, us: { abbr: US.abbr, points: null }, them: { abbr: opponent.abbreviation || "DINR", points: null }, status: "pre", kickoffText: `Kickoff ${fmtDate(program.date)}`, pill: { kind: "quiet", label: "Pregame" }, sticky: false })),
+      el("div", { class: "sg__frame" }, strip({ ...base, us: { abbr: US.abbr, points: null }, them: { abbr: opponent.abbreviation || "TXST", points: null }, status: "pre", kickoffText: `Kickoff ${fmtDate(program.date)}`, pill: { kind: "quiet", label: "Pregame" }, sticky: false })),
       el("div", { class: "sg__frame" }, strip({ ...liveProps, status: "final", pill: { kind: "live", label: "Live" }, sticky: false })),
       el("div", { class: "sg__frame" }, strip({ ...liveProps, pill: { kind: "stale", label: "Stale 2 min" }, sticky: false })),
       el("div", { class: "sg__frame" }, strip({ ...liveProps, pill: { kind: "offline", label: "Offline" }, sticky: false })),
@@ -333,7 +336,7 @@ function remoteItems() {
   const currentDrive = realDrives[realDrives.length - 1] || null;
   const visitors = sample.recruiting?.visitors || {};
   return [
-    { id: "box", label: "Box score", hint: "both teams", body: () => [band({ title: "Mudpuppies", kind: "us", collapsible: false, body: () => boxTables(US.name) }), band({ title: text(LIVE_THEM.name), kind: "them", collapsible: false, body: () => boxTables(LIVE_THEM.name) })] },
+    { id: "box", label: "Box score", hint: "both teams", body: () => [band({ title: "Gators", kind: "us", collapsible: false, body: () => boxTables(US.name) }), band({ title: text(LIVE_THEM.name), kind: "them", collapsible: false, body: () => boxTables(LIVE_THEM.name) })] },
     { id: "drives", label: "Drives", hint: `${realDrives.length} drives`, body: () => band({ title: "Drives", collapsible: false, body: () => driveList({ drives: live.drives || [], us: US, them: LIVE_THEM, currentId: currentDrive?.id || null }) }) },
     { id: "plays", label: "Plays", hint: `${text(live.plays?.length)} plays`, body: () => band({ title: "Play by play", collapsible: false, body: () => playLog({ plays: [...(live.plays || [])], us: US, them: LIVE_THEM }) }) },
     { id: "situation", label: "Situation", hint: `3rd ${text(usBox.thirdDown?.made)}-${text(usBox.thirdDown?.of)}`, body: () => band({ title: "Situation", collapsible: false, body: () => situationGrid({ us: { abbr: US.abbr, box: usBox }, them: { abbr: LIVE_THEM.abbr, box: themBox } }) }) },
@@ -353,7 +356,7 @@ function edgesTable() {
 function visitorsBlock(visitors) {
   // tables wave 2 (2026-10-10): In Game's sized recruits table (ui/in-game-tables.js)
   const side = (title, rows) => el("div", {}, el("h3", { style: { padding: "12px 12px 4px", color: "var(--fog)" } }, title), visitorsTable(rows, { caption: title }));
-  return el("div", {}, visitors.note ? note(visitors.note) : null, el("div", { class: "twocol" }, side("Visiting Swampwater Tech", visitors.home || []), side(`Visiting ${text(opponent.school)}`, visitors.away || [])));
+  return el("div", {}, visitors.note ? note(visitors.note) : null, el("div", { class: "twocol" }, side("Visiting Florida", visitors.home || []), side(`Visiting ${text(opponent.school)}`, visitors.away || [])));
 }
 
 function liveSection() {
@@ -408,7 +411,7 @@ function tableSection() {
     "table",
     "Stat table and roster",
     "Sticky header, tap a header to sort, every rank in its own column, row tap opens the player card. Each table sizes itself by its own box: large, medium or small, never a sideways scroll. The roster page is the same component with text columns; high school and stars fill in for players with a recruiting record.",
-    label(`Mudpuppies passing leaders: the position, the FBS rank and the ${text(US.conference)} rank in their own columns`),
+    label(`Gators passing leaders: the position, the FBS rank and the ${text(US.conference)} rank in their own columns`),
     statTable({ compact: true, sizes: true, columns, rows, sort: { key: "value", dir: "descending" }, onRowTap: (row) => openCard(row.player, row.playerId), caption: "Passing leaders" }),
     label(`Roster, ${text(sample.roster?.length)} players, sortable, every row on the page`),
     statTable({ compact: true, sizes: true, columns: ROSTER_SAMPLE_COLUMNS, rows: sample.roster || [], sort: { key: "number", dir: "ascending" }, onRowTap: (row) => openCard(row.name, row.playerId), caption: "Roster" }),
@@ -424,13 +427,17 @@ function cardSection() {
   return section(
     "card",
     "Player card",
-    "Slide-over from any player name, 600 px wide from 700 px up. Close, the name and the tabs stay on an opaque bar while the card scrolls. A 96 px headshot on navy when one loads, the number badge otherwise; a thin orange edge for Swampwater Tech, --opp for others; the team is a link in the bio line. Stars read as five drawn stars, then '94 · #123 nat'. Stats (season by season with a career row, a sparkline beside each heading once two games are in), Game log (Wk | Opp | Result | stats), Play value, History. While it loads: skeleton bars, never an empty-state sentence, and the answer fills the same card in place.",
-    el("div", { class: "sg__row" }, el("button", { class: "btn btn--primary", type: "button", onclick: () => openPlayerCard(props) }, "Open as slide-over"), el("button", { class: "btn", type: "button", onclick: () => { const close = openPlayerCard({ player: props.player, loading: true }); setTimeout(() => close.update(props), 1200); } }, "Open loading, fill after 1.2 s")),
+    "Slide-over from any player name, 600 px wide from 700 px up. Close, the name and the tabs stay on an opaque bar while the card scrolls. A 96 px headshot on navy when one loads, the number badge otherwise; a thin orange edge for Florida, --opp for others; the team is a link in the bio line. Stars read as five drawn stars, then '94 · #123 nat'. Stats (season by season with a career row, a sparkline beside each heading once two games are in), Game log (Wk | Opp | Result | stats), Play value, History. While it loads: skeleton bars, never an empty-state sentence, and the answer fills the same card in place. A slow server (owner 2026-11-15): after 20 s the loading card says the numbers are still coming from CFBD and keeps asking for up to 3 minutes; then the face, the name and one error block with Try again where the tabs go, never empty tabs.",
+    el("div", { class: "sg__row" }, el("button", { class: "btn btn--primary", type: "button", onclick: () => openPlayerCard(props) }, "Open as slide-over"), el("button", { class: "btn", type: "button", onclick: () => { const close = openPlayerCard({ player: props.player, loading: true }); setTimeout(() => close.update(props), 1200); } }, "Open loading, fill after 1.2 s"), el("button", { class: "btn", type: "button", onclick: () => { const close = openPlayerCard({ player: props.player, loading: true, note: SLOW_CARD.waiting }); setTimeout(() => close.update({ player: props.player, failed: { ...SLOW_CARD.failed, action: { label: "Try again", onClick: () => close.update(props) } } }), 1200); } }, "Open slow, time out after 1.2 s")),
     label("Inline: loading (name and number from the tapped row, skeleton bars)"),
     playerCard({ player: props.player, loading: true, inline: true }),
+    label("Inline: still loading after the first 20 s"),
+    playerCard({ player: props.player, loading: true, inline: true, note: SLOW_CARD.waiting }),
+    label("Inline: every round ran out (Try again asks again into the same card)"),
+    playerCard({ player: props.player, inline: true, failed: { ...SLOW_CARD.failed, action: { label: "Try again", onClick: () => {} } } }),
     label("Inline: the passing leader, number badge fallback, one recorded season"),
     playerCard({ ...props, inline: true }),
-    label("Inline: the Stats heading with its sparkline (stand-in values: Swampwater Tech's points by game from the sample trends)"),
+    label("Inline: the Stats heading with its sparkline (stand-in values: Florida's points by game from the sample trends)"),
     playerCard({ ...props, seasons: props.seasons ? { ...props.seasons, title: "Passing", trend: { values: sample.trends?.points || [], label: "pass yds", format: "0f" } } : null, inline: true }),
     recruitProps ? label("Inline: a freshman with a recruiting record, so high school, stars, and rating fill in") : null,
     recruitProps ? playerCard({ ...recruitProps, inline: true }) : null,
@@ -445,7 +452,7 @@ function compareSection() {
   return section(
     "compare",
     "Two-team table",
-    `Tale of the tape, Swampwater Tech and ${text(opponent.school)}: every data point in its own column, the national rank chips mirrored outward from the tug-of-war bar, sized by the table's own box (large, medium, small). Owner direction 2026-09-23: no graphics that span a page, so this table replaced the comparison bar and the bar chart.`,
+    `Tale of the tape, Florida and ${text(opponent.school)}: every data point in its own column, the national rank chips mirrored outward from the tug-of-war bar, sized by the table's own box (large, medium, small). Owner direction 2026-09-23: no graphics that span a page, so this table replaced the comparison bar and the bar chart.`,
     el("div", { class: "band" }, tape(rows)),
     label("Biggest edges, unit against unit by national rank"),
     el("div", { class: "band" }, edgesTable()),
@@ -458,7 +465,7 @@ function trendSection() {
   return section(
     "trends",
     "Trend sparkline",
-    "Last N games, current value labelled. Orange is Swampwater Tech, the opponent line uses the opponent's color.",
+    "Last N games, current value labelled. Orange is Florida, the opponent line uses the opponent's color.",
     el("div", { class: "band" }, trendRow({ label: "Points scored", values: trends.points || [] }), trendRow({ label: "Points allowed", values: trends.pointsAllowed || [], them: true })),
     states("Trends", { skeleton: trendSkeleton, emptyText: "Trends appear after two games.", body: () => el("div", {}, trendRow({ label: "Points scored", values: trends.points || [] })) }),
   );
@@ -481,7 +488,7 @@ function tickerSection() {
   return section(
     "ticker",
     "Ticker",
-    "Every other FBS game, scores only, collapsible. Shown here with Swampwater Tech's results because the scoreboard needs a paid tier. On the In Game sheet it lives behind the Scores button.",
+    "Every other FBS game, scores only, collapsible. Shown here with Florida's results because the scoreboard needs a paid tier. On the In Game sheet it lives behind the Scores button.",
     ticker({ games: tickerGames(), id: "sg-demo" }),
     label("Empty"),
     ticker({ games: [], id: "sg-empty" }),
@@ -500,14 +507,14 @@ function sliderSection() {
 
 function editorialSection() {
   const line = program.line || {};
-  const move = isNum(line.spread) && isNum(line.spreadOpen) ? `The line opened Swampwater Tech ${fmtStat(line.spreadOpen, "+1f")} and now sits at ${text(line.formatted)}. The total moved from ${fmtNum(line.overUnderOpen, 1)} to ${fmtNum(line.overUnder, 1)}.` : "No line movement to report.";
+  const move = isNum(line.spread) && isNum(line.spreadOpen) ? `The line opened Florida ${fmtStat(line.spreadOpen, "+1f")} and now sits at ${text(line.formatted)}. The total moved from ${fmtNum(line.overUnderOpen, 1)} to ${fmtNum(line.overUnder, 1)}.` : "No line movement to report.";
   const body = () =>
     editorial({
       byline: { author: "Claude (pre-game task)", writtenAt: "2026-09-24T22:00:00Z" },
       sources: [{ label: "Lines recorded 2026-09-20" }, { label: "BB availability report (not yet configured)" }],
       sections: [
         { heading: "Line movement", paragraphs: [move] },
-        { heading: "Pregame win probability", paragraphs: [`CFBD's model gives Swampwater Tech ${fmtPct(program.pregame?.homeWinProbability)} at home against ${text(opponent.school)}.`] },
+        { heading: "Pregame win probability", paragraphs: [`CFBD's model gives Florida ${fmtPct(program.pregame?.homeWinProbability)} at home against ${text(opponent.school)}.`] },
       ],
     });
   return section(
@@ -523,7 +530,7 @@ function editorialSection() {
       { name: "Example player B", position: "OL", status: "Questionable", note: "example row" },
       { name: "Example player C", position: "CB", status: "Probable", note: "example row" },
     ], source: "example", updatedAt: "2026-09-25T15:00:00Z" })),
-    label("Settings field for Pro Football Focus grades (X8). Disabled until a verified API exists; the grade column stays hidden."),
+    label("A player's grade block: the app's own grade, from CFBD stats."),
     el("div", { class: "band" }, gradeBlock({ grade: 76, label: "Very good", rank: 20, of: 144, groupName: "quarterbacks", basis: "efficiency", volume: { label: "passes a game", perGame: 31.4, needed: 14 }, components: [{ label: "Yards per attempt", value: 9.05, format: "1f", percentile: 73.3, weight: 0.2 }, { label: "Play value per pass (PPA)", value: 0.348, format: "2f", percentile: 82.3, weight: 0.25 }, { label: "Interception rate", value: 0.026, format: "pct", percentile: 45.8, weight: 0.15 }, { label: "Opponent-adjusted passing value", value: null, format: "2f", percentile: null, weight: 0.1 }] }), el("p", {}, "Roster chips: ", gradeChip({ grade: 93, label: "Elite" }), " ", gradeChip({ grade: 64 }), " ", gradeChip({ grade: 31 }), " ", gradeChip({ grade: null, reason: "Not enough plays to grade" })), el("div", { class: "form-field" }, el("label", { for: "sg-notes-command" }, "Notes command"), el("input", { id: "sg-notes-command", type: "text", disabled: true, placeholder: "claude" }), el("div", { class: "form-field__help" }, "A form field: .form-field, never .field, which belongs to the drive strip."))),
     states("Program notes", { skeleton: editorialSkeleton, emptyText: "Not written yet. The pre-game task runs on Thursday.", body }),
   );
@@ -550,7 +557,7 @@ function seasonSection() {
     { key: "conferenceRank", label: `${text(US.conference)} rank`, kind: "rank", of: "conferenceOf", size: "large", link: metricLink({ team: US.name, scope: "conference" }) },
   ];
   const nextGame = (sample.schedule || []).find((g) => !g.completed);
-  const scopeButtons = ["Mudpuppies", `vs ${text(opponent.school)}`, "BB", "National"].map((labelText, index) => el("button", { type: "button", "aria-pressed": index === 0 ? "true" : "false" }, labelText));
+  const scopeButtons = ["Gators", `vs ${text(opponent.school)}`, "BB", "National"].map((labelText, index) => el("button", { type: "button", "aria-pressed": index === 0 ? "true" : "false" }, labelText));
   const leadersBody = el("div", {});
   function renderLeaders(scope) {
     leadersBody.replaceChildren();
@@ -635,7 +642,7 @@ function programSection() {
   return section(
     "program",
     "Program spreads and the matchup card",
-    "The matchup card is the opponent at a glance: offense and defense with a rank chip under every value, a weather row at the foot. Then series history and opponent tendencies. Tendencies here use Silver Dollar's plays from week 3 because only that game is recorded.",
+    "The matchup card is the opponent at a glance: offense and defense with a rank chip under every value, a weather row at the foot. Then series history and opponent tendencies. Tendencies here use Fresno State's plays from week 3 because only that game is recorded.",
     el("div", { class: "spread spread--2" }, opponentMatchupCard(), el("div", { class: "sg__stack" }, el("div", { class: "band" }, el("div", { class: "band__head" }, el("h2", { class: "band__title" }, "Weather row, with a forecast (example values)")), el("div", { style: { padding: "12px" } }, weatherRow({ kickoffText: "3:30 PM", tempF: 84, windMph: 9, windDir: "SE", sky: "Partly cloudy", precipChance: 20, source: "National Weather Service, example" }))), el("div", { class: "band" }, el("div", { class: "band__head" }, el("h2", { class: "band__title" }, "Weather row, indoors (example)")), el("div", { style: { padding: "12px" } }, weatherRow({ kickoffText: "7:00 PM", tempF: 70, windMph: 0, indoors: true, source: "example" }))))),
     el(
       "div",
@@ -740,7 +747,7 @@ function teamSection() {
   return section(
     "team",
     "Team page",
-    "Swampwater Tech and any opponent: header with rank, record, conference, and location; tabs for Summary, Schedule, Roster, Coaches, and History. Summary is the four tiles and the Offense and Defense tables (the page's own builder). Roster has the star strip, impact players, a position picker, and the roster table. Tabs work here.",
+    "Florida and any opponent: header with rank, record, conference, and location; tabs for Summary, Schedule, Roster, Coaches, and History. Summary is the four tiles and the Offense and Defense tables (the page's own builder). Roster has the star strip, impact players, a position picker, and the roster table. Tabs work here.",
     el("div", { class: "sg__stack" }, header.root, host),
     label(`Opponent header, ${text(ole.school)}`),
     oppHeader.root,
@@ -780,15 +787,15 @@ function newspaperSection() {
   return section(
     "newspaper",
     "Newspaper",
-    `Saturday morning: headlines above the day's slate, every Top 25 or BB game as a card with ranks, records, kickoff, TV, line, and pregame win probability, Mudpuppies game first. Pregame, the Mudpuppies program opens with the same headlines on top. Week ${text(paper.week)}, ${fmtDateTime(paper.date)}, from the week-wide fixtures.`,
-    band({ id: "sg-news", title: "Mudpuppies news", collapsible: false, state: { status: "empty", message: paper.newsNote }, emptyText: paper.newsNote }),
+    `Saturday morning: headlines above the day's slate, every Top 25 or BB game as a card with ranks, records, kickoff, TV, line, and pregame win probability, Gators game first. Pregame, the Gators program opens with the same headlines on top. Week ${text(paper.week)}, ${fmtDateTime(paper.date)}, from the week-wide fixtures.`,
+    band({ id: "sg-news", title: "Gators news", collapsible: false, state: { status: "empty", message: paper.newsNote }, emptyText: paper.newsNote }),
     band({ id: "sg-slate", title: "Today's slate", collapsible: false, body: () => slateList({ games, usName: US.name, note: paper.slateNote }) }),
     label("Matchup preview card, one per slate game"),
     opponentMatchupCard(),
     label("Headline digest states (filled state uses example headlines to show the shape)"),
-    states("Mudpuppies news", { skeleton: newsSkeleton, emptyText: paper.newsNote, body: () => newsDigest({ items: [
-      { title: "Example headline from the SWT Athletics feed", url: "#", source: "SWT Athletics", publishedAt: new Date(Date.now() - 45 * 60000).toISOString() },
-      { title: "Example headline from ESPN's Swampwater Tech feed", url: "#", source: "ESPN", publishedAt: new Date(Date.now() - 3 * 3600000).toISOString() },
+    states("Gators news", { skeleton: newsSkeleton, emptyText: paper.newsNote, body: () => newsDigest({ items: [
+      { title: "Example headline from the FLA Athletics feed", url: "#", source: "FLA Athletics", publishedAt: new Date(Date.now() - 45 * 60000).toISOString() },
+      { title: "Example headline from ESPN's Florida feed", url: "#", source: "ESPN", publishedAt: new Date(Date.now() - 3 * 3600000).toISOString() },
     ] }) }),
     states("Today's slate", { skeleton: slateSkeleton, emptyText: "No Top 25 or BB games today.", body: () => slateList({ games }) }),
   );
@@ -859,8 +866,8 @@ function kitSection() {
     el("div", { style: { maxWidth: "560px" } }, statTable({ compact: true, sizes: true, columns: valueColumns, rows, onRowTap: () => {}, caption: "Linked chips in a tappable table" })),
     label("Press feedback: buttons sink 1px and darken; rows darken; hover only where a mouse hovers"),
     el("div", { class: "sg__row" }, el("button", { class: "btn", type: "button" }, "Button"), el("button", { class: "btn btn--primary", type: "button" }, "Primary"), el("button", { class: "btn btn--quiet", type: "button" }, "Quiet"),
-      el("div", { class: "seg", role: "group" }, el("button", { type: "button", "aria-pressed": "true" }, "Mudpuppies"), el("button", { type: "button", "aria-pressed": "false" }, "BB"), el("button", { type: "button", "aria-pressed": "false" }, "National")),
-      teamLink(them.school || "Diner Tech")),
+      el("div", { class: "seg", role: "group" }, el("button", { type: "button", "aria-pressed": "true" }, "Gators"), el("button", { type: "button", "aria-pressed": "false" }, "BB"), el("button", { type: "button", "aria-pressed": "false" }, "National")),
+      teamLink(them.school || "Texas State")),
     label("The side sheet: slides in, swaps in place, stacks, closes on a route change"),
     el("div", { class: "sg__row" }, el("button", { class: "btn", type: "button", onclick: openDemo }, "Open a side sheet")),
     label("A wide table in a narrow box sizes itself (owner 2026-10-10): the columns it has no room for drop, the words shorten, and it never scrolls sideways (420 px here: small)"),
@@ -870,17 +877,17 @@ function kitSection() {
     label("Designed states: an empty block, an error block with Try now, the table-shaped skeleton (a calm pulse), the error panel as one full-width band"),
     el("div", { class: "sg__states" },
       band({ title: "Drives", collapsible: false, body: () => stateBlock({ lead: "No drives yet", detail: "Drives appear after kickoff." }) }),
-      band({ title: "Ratings", collapsible: false, body: () => stateBlock({ kind: "error", lead: "Could not load Ratings.", detail: "The server answered 503. The app tries again every 15 min.", action: { label: "Try now", onClick: () => {} } }) }),
+      band({ title: "Ratings", collapsible: false, body: () => stateBlock({ kind: "error", lead: "Could not load Ratings.", detail: "The server answered 503. Try now, or tap Refresh beside the status pill.", action: { label: "Try now", onClick: () => {} } }) }),
       band({ title: "SP+", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(6, 5) }),
     ),
     errorPanel("Leaders", "The server did not answer in 20 s", () => {}),
     label("Sub-headings: one style; a team name is its link, with the team's edge"),
-    el("div", { class: "band" }, subhead("Series history"), subhead(US.name, { team: US.name, side: "us" }), subhead(them.school || "Diner Tech", { team: them.school || "Diner Tech", side: "them" })),
+    el("div", { class: "band" }, subhead("Series history"), subhead(US.name, { team: US.name, side: "us" }), subhead(them.school || "Texas State", { team: them.school || "Texas State", side: "them" })),
     label("Page elements: the Back row on sub-routes and 'On this page' (lists this page's sections, unfolds a folded one)"),
     el("div", { class: "sg__row" }, backRow(), page),
     label("Team logos (the dark-background variant on navy, a tile when there is none) and player faces (headshot, number, team, initials)"),
     el("div", { class: "sg__row" }, teamLogo(us, { size: 40 }), teamLogo(them, { size: 40 }), teamLogo({ school: "Coastal Carolina", abbreviation: "CCU", color: "#006F71" }, { size: 40 }), teamLogo({ school: "Texas A&M" }, { size: 28 }),
-      playerFace({ number: 2 }, { size: 44 }), playerFace({ name: "Trey Harlan" }, { them: true, abbr: them.abbreviation || "DINR", size: 44 }), playerFace({ name: "Mason Hamilton" }, { size: 44 })),
+      playerFace({ number: 2 }, { size: 44 }), playerFace({ name: "Trey Harlan" }, { them: true, abbr: them.abbreviation || "TXST", size: 44 }), playerFace({ name: "Mason Hamilton" }, { size: 44 })),
     note("Text size (Settings, per device) multiplies every type token by 1, 1.12 or 1.25; pull down at the top of any page (or press r) to refresh it."),
   );
   page.append(jumpList(document.body)); // read when opened, so it lists every section on this page
@@ -893,7 +900,7 @@ function demoList() {
   // A real 25-team list from the recorded poll (points), shaped as /api/national answers it.
   const poll = (Array.isArray(sample.polls) ? sample.polls : []).find((p) => Array.isArray(p?.top)) || { top: [] };
   const top = poll.top.filter((t) => t && isNum(t.rank));
-  const next = opponent.school || "Diner Tech";
+  const next = opponent.school || "Texas State";
   const rows = top.map((t) => ({ rank: t.rank, tied: top.filter((o) => o.rank === t.rank).length > 1, team: t.school, conference: t.conference, value: t.points, firstPlaceVotes: t.firstPlaceVotes, isUs: t.school === US.name, isFocus: false, isNext: t.school === next }));
   if (!rows.some((r) => r.isUs)) rows.push({ rank: 31, tied: false, team: US.name, conference: "BB", value: 120, isUs: true, isFocus: false, isNext: false });
   const us = rows.find((r) => r.isUs);
@@ -907,7 +914,7 @@ function demoList() {
 function demoPlayers() {
   const board = sample.leaders?.["passing:YDS"] || {};
   const ours = (Array.isArray(board.team) ? board.team : []).filter((r) => r && typeof r === "object").slice(0, 2);
-  const rows = Array.from({ length: 12 }, (_, i) => ({ rank: i + 1, tied: false, playerId: `demo${i}`, player: `National leader ${i + 1}`, position: "QB", team: i === 4 ? (opponent.school || "Diner Tech") : "FBS team", value: 2100 - i * 70, isUs: false, isNext: i === 4 }));
+  const rows = Array.from({ length: 12 }, (_, i) => ({ rank: i + 1, tied: false, playerId: `demo${i}`, player: `National leader ${i + 1}`, position: "QB", team: i === 4 ? (opponent.school || "Texas State") : "FBS team", value: 2100 - i * 70, isUs: false, isNext: i === 4 }));
   const beyond = ours.map((g) => ({ rank: g.nationalRank, tied: false, playerId: g.playerId, player: g.player, position: g.position, team: US.name, value: g.value, isUs: true }));
   return { metric: "board:passing:YDS", family: "board", key: "passing:YDS", label: board.label || "Passing yards", format: "0f", higherIsBetter: true, unit: "player", season: sample.season, year: sample.season, years: [sample.season], scope: "national", scopes: ["national", "conference"], tiesShare: true, rankSource: "local", population: "FBS players", of: ours[0]?.nationalOf ?? 358, rows, beyond, cut: 12, us: { team: US.name, rank: ours[0]?.nationalRank ?? null, player: ours[0]?.player ?? null, value: ours[0]?.value ?? null }, focus: null, parts: {} };
 }
@@ -932,13 +939,13 @@ function nationalSection() {
     ),
     label("The real thing, from this server: open a list in a side sheet (costs no CFBD call once the pages have loaded), or a quiet list link for a value without a chip"),
     el("div", { class: "sg__row" },
-      el("button", { class: "btn", type: "button", onclick: () => openNationalSheet({ metric: "advanced:defense_explosiveness", team: opponent.school || "Diner Tech" }) }, "Explosiveness allowed"),
+      el("button", { class: "btn", type: "button", onclick: () => openNationalSheet({ metric: "advanced:defense_explosiveness", team: opponent.school || "Texas State" }) }, "Explosiveness allowed"),
       el("button", { class: "btn", type: "button", onclick: () => openNationalSheet({ metric: "profile:ypp", scope: "conference" }) }, "Yards per play, BB"),
       el("button", { class: "btn", type: "button", onclick: () => openNationalSheet({ metric: "board:passing:YDS" }) }, "Passing yards"),
       listLink("bluechip:ratio", { label: "Blue-chip ratio" }),
     ),
     label("The matchup sheet (UX-12): any two FBS teams side by side from the cached all-FBS answers; Scores rows and slate cards open it"),
-    el("div", { class: "sg__row" }, el("button", { class: "btn", type: "button", onclick: () => openMatchupSheet({ away: opponent.school || "Diner Tech", home: US.name }) }, `${opponent.school || "Diner Tech"} at Swampwater Tech`)),
+    el("div", { class: "sg__row" }, el("button", { class: "btn", type: "button", onclick: () => openMatchupSheet({ away: opponent.school || "Texas State", home: US.name }) }, `${opponent.school || "Texas State"} at Florida`)),
   );
 }
 
@@ -964,12 +971,12 @@ function seasonKitSection() {
     opponentSp: { rank: [106, 118, 30, 20][index], rating: null },
     winPct: index < 2 ? { value: [0.991, 0.998][index], estimate: false, source: "postgame" } : { value: [0.47, 0.25][index - 2], estimate: true, source: "pregame Elo" },
   }));
-  const form = [{ result: "W", points: 66, opponentPoints: 21, opponent: "Swampwater Tech Atlantic" }, { result: "W", points: 52, opponentPoints: 3, opponent: "Campbell" }, { result: "L", points: 17, opponentPoints: 20, opponent: "Silver Dollar", homeAway: "away" }, { result: "W", points: 34, opponentPoints: 31, opponent: "Diner Tech" }, { result: "W", points: 41, opponentPoints: 10, opponent: "Sweet Tea State", homeAway: "away" }];
+  const form = [{ result: "W", points: 66, opponentPoints: 21, opponent: "Florida Atlantic" }, { result: "W", points: 52, opponentPoints: 3, opponent: "Campbell" }, { result: "L", points: 17, opponentPoints: 20, opponent: "Fresno State", homeAway: "away" }, { result: "W", points: 34, opponentPoints: 31, opponent: "Texas State" }, { result: "W", points: 41, opponentPoints: 10, opponent: "Ole Miss", homeAway: "away" }];
   const polls = [
-    { rank: 1, school: "Peach Fuzz Tech", conference: "Biscuit Belt", conferenceShort: "BB", points: 1500, change: 2, movement: "+2", previousRank: 3 },
-    { rank: 8, school: "Diner Tech", conference: "Biscuit Belt", conferenceShort: "BB", points: 1100, change: -3, movement: "-3", previousRank: 5 },
-    { rank: 18, school: US.name, conference: "Biscuit Belt", conferenceShort: "BB", points: 400, change: null, movement: "new", isUs: true },
-    { rank: 19, school: "Sweet Tea State", conference: "Biscuit Belt", conferenceShort: "BB", points: 380, change: 0, movement: "0", previousRank: 19 },
+    { rank: 1, school: "Missouri", conference: "SEC", conferenceShort: "BB", points: 1500, change: 2, movement: "+2", previousRank: 3 },
+    { rank: 8, school: "Texas State", conference: "SEC", conferenceShort: "BB", points: 1100, change: -3, movement: "-3", previousRank: 5 },
+    { rank: 18, school: US.name, conference: "SEC", conferenceShort: "BB", points: 400, change: null, movement: "new", isUs: true },
+    { rank: 19, school: "Ole Miss", conference: "SEC", conferenceShort: "BB", points: 380, change: 0, movement: "0", previousRank: 19 },
   ];
   const mv = (row) => (row.movement === "new" ? el("span", { class: "mv mv--new" }, "new") : el("span", { class: `mv${row.change > 0 ? " mv--up" : row.change < 0 ? " mv--down" : ""}` }, row.change > 0 ? `+${row.change}` : row.change < 0 ? `−${Math.abs(row.change)}` : "0"));
   return section(
@@ -1006,9 +1013,9 @@ function seasonKitSection() {
     label("Conference standings (Season and every team page share the builder): # | Team | the conference record | Overall | AP rank from medium | Last 5 at large; teams sort, place first"),
     el("div", { class: "spread spread--2" },
       ...[560, 390].map((width) => el("div", { class: "band tight", style: { maxWidth: `${width}px` } }, standingsTable([
-        { place: 1, team: "Diner Tech", abbreviation: sampleAbbr("Diner Tech"), conference: { wins: 3, losses: 0 }, overall: { wins: 6, losses: 1 }, apRank: 8, form },
+        { place: 1, team: "Texas State", abbreviation: sampleAbbr("Texas State"), conference: { wins: 3, losses: 0 }, overall: { wins: 6, losses: 1 }, apRank: 8, form },
         { place: 2, team: US.name, abbreviation: sampleAbbr(US.name), conference: { wins: 2, losses: 1 }, overall: { wins: 4, losses: 2 }, apRank: 18, isUs: true, form: form.slice(1) },
-        { place: 3, team: "Sweet Tea State", abbreviation: sampleAbbr("Sweet Tea State"), conference: { wins: 1, losses: 2 }, overall: { wins: 3, losses: 4 }, apRank: null, form: form.slice(2) },
+        { place: 3, team: "Ole Miss", abbreviation: sampleAbbr("Ole Miss"), conference: { wins: 1, losses: 2 }, overall: { wins: 3, losses: 4 }, apRank: null, form: form.slice(2) },
       ], { conference: "BB", rowClass: (row) => (row.isUs ? "is-us" : null) })))),
     label("Trend rows: the last game captioned 'last' with the season average; under two games the line waits"),
     el("div", { class: "band", style: { maxWidth: "440px" } }, trendRow({ label: "Points scored", values: sample.trends?.points || [], key: "sg-points" }), trendRow({ label: "Points allowed", values: sample.trends?.pointsAllowed || [], them: true }), trendRow({ label: "Yards per play", values: [7.2], format: "1f" })),
@@ -1084,7 +1091,7 @@ function program16Section() {
     "program16",
     "Program: two-team table, edges, leaders, cover states",
     "Phase 16. One two-team table everywhere on the program: value and a linked rank chip in one cell, a divider before the opponent, the better number bold and the other fog, an invisible chip where a row has no rank so values line up (DS-02). Every chip with a list behind it opens that national list.",
-    label("Before (DS-02): separate Nat columns, SWT's rank beside the opponent's value, a chip-less row drifts"),
+    label("Before (DS-02): separate Nat columns, FLA's rank beside the opponent's value, a chip-less row drifts"),
     el("div", { class: "band" }, statTable({ compact: true, columns: beforeColumns, rows: beforeRows, caption: "Before" })),
     label("After: twoTeamTable({ rows, usAbbr, themAbbr, usTeam, themTeam })"),
     el("div", { class: "band" }, p16TwoTeam({ rows: withNoRank, usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school, caption: "After" })),
@@ -1094,7 +1101,7 @@ function program16Section() {
     el("div", { class: "band" }, p16EdgesTable(program.edges || [], { usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school, limit: 6 })),
     label("Leaders grid (In Game's Leaders panel): a head row, a divider, the key number bold, even heights"),
     el("div", { class: "band" }, leadersGrid({ categories: leaders, usAbbr: US.abbr, themAbbr, className: "leaders--program" })),
-    label("Leaders side by side on the Pre-Game Program since the mock of 2026-10-20: each pair on the pole, the numbers outside the faces, the row in the middle (ui/leader-lines.js); the whole lines with ranks arrive from the server"),
+    label("Leaders side by side on the Pre-Game Program since the board of 2026-10-26 (BUG-14): each category in the Tale of the tape's kit, the two leaders pulled to the middle over it, the line over conference games under the stats (ui/leader-lines.js); the whole lines with ranks arrive from the server"),
     el("div", { class: "band" }, p16LeaderPairs((program.leaders || []).map((cat) => ({ label: cat.label, category: cat.category, stat: cat.stat, format: cat.format, us: p16Lead(cat.us), them: p16Lead(cat.them), more: null })), { usAbbr: US.abbr, themAbbr, usTeam: US.name, themTeam: opponent.school })),
     label("Cover states: a day out, inside the hour, under way, final with an Archive link, a TBD kickoff, loading"),
     el(
@@ -1169,7 +1176,7 @@ function peopleSection() {
 }
 
 // --- Tables wave 3 (owner 2026-10-10): every sized kit option, each table drawn in three fixed boxes ---------------------
-// The same table at about 1,100, 570 and 390 px shows the three steps at a glance (docs/03-DESIGN.md, Table sizes): large,
+// The same table at about 1,100, 570 and 390 px shows the three steps at a glance (the design rules, Table sizes): large,
 // medium and small are chosen by the table's own box, never the screen, so a phone shows the 390 box's size in all three.
 
 const SIZE_BOXES = [
@@ -1293,7 +1300,7 @@ function tableSizesSection() {
   return section(
     "sizes",
     "Table sizes (wave 3)",
-    "Every table sizes itself by its own box (docs/03-DESIGN.md, Table sizes): large shows everything, medium the national rank only and the middle words, small the values, the abbreviations and the shortest words, no chips. Nothing wraps and nothing scrolls sideways. Each sample below is one table drawn in three boxes; tap a head to sort, a chip to open its list, a name for the card.",
+    "Every table sizes itself by its own box (the design rules, Table sizes): large shows everything, medium the national rank only and the middle words, small the values, the abbreviations and the shortest words, no chips. Nothing wraps and nothing scrolls sideways. Each sample below is one table drawn in three boxes; tap a head to sort, a chip to open its list, a name for the card.",
     label("A national list: the rank is the list's own order (the chip at large and medium, a plain number at small, T for a tie); the position is its own column (sub with subLabel), gone at small; the team stays a link with its abbreviation at small (renderShort)"),
     sizeBoxes(listTable),
     label("Our board: the value, the FBS rank (from medium) and the conference rank (large) each in its own column, never a chip beside the number; Cmp, Att and Y/A at large only"),

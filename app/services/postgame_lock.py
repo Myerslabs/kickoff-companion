@@ -110,12 +110,13 @@ def records_after(games: list[Game], week: int) -> dict[str, dict[str, int]]:
     return out
 
 
-def news_for(items: list[dict[str, Any]], us: TeamMatcher, them: TeamMatcher | None, kickoff: datetime | None, limit: int = NEWS_LIMIT) -> list[dict[str, Any]]:
+def news_for(items: list[dict[str, Any]], us: TeamMatcher | None, them: TeamMatcher | None, kickoff: datetime | None, limit: int = NEWS_LIMIT, *, named: bool = True, until: datetime | None = None) -> list[dict[str, Any]]:
     """The articles about the game: a headline naming either team, published from kickoff to NEWS_WINDOW after it, newest
-    first, duplicates by title dropped. Without a kickoff, nothing (a date is what makes it about this game)."""
+    first, duplicates by title dropped. Without a kickoff, nothing (a date is what makes it about this game). Wave 6 hands
+    it the Sunday paper's stories, already about the game, with `named=False` (no name needed) and their own `until`."""
     if kickoff is None:
         return []
-    end = kickoff + NEWS_WINDOW
+    end = until or kickoff + NEWS_WINDOW
     seen: set[str] = set()
     kept: list[dict[str, Any]] = []
     for item in items:
@@ -125,7 +126,7 @@ def news_for(items: list[dict[str, Any]], us: TeamMatcher, them: TeamMatcher | N
         published = _parse(item.get("publishedAt"))
         if not isinstance(title, str) or not title.strip() or published is None or not (kickoff <= published <= end):
             continue
-        if not (us.matches(title) or (them is not None and them.matches(title))):
+        if named and not ((us is not None and us.matches(title)) or (them is not None and them.matches(title))):
             continue
         key = " ".join(title.lower().split())[:80]
         if key in seen:

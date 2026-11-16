@@ -395,7 +395,9 @@ scenarios.drawerItem = async () => {
   await land();
   drawer.querySelector('.drawer__item[data-entry="stats"]').click(); // the layout pass: Leaders is in the Stats group
   await land();
-  const item = [...drawer.querySelectorAll(".drawer__item")].find((a) => a.getAttribute("href") === "#leaders");
+  assert.equal(drawer.querySelector(".drawer__item--level"), null, "ENH-46 (owner 2026-11-10): a page's row opens the page, with no list of its bands in between");
+  await land();
+  const item = [...drawer.querySelectorAll(".drawer__item")].find((a) => a.getAttribute("href") === "#leaders"); // the whole page
   item.click();
   assert.ok(!open());
   assert.deepEqual(navigated, ["leaders"], "the app goes to the page (app.js onNavigate takes the menu's entry)");
@@ -454,10 +456,15 @@ scenarios.drawerLevels = async () => {
   menu.click();
   await land();
   assert.ok(open());
-  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "Season sits in My Teams: the menu opens there");
-  assert.equal(drawer.querySelector(".drawer__item.is-marked").dataset.entry, "season", "with Season marked");
-  assert.equal(nav.entries.length, 3, "the menu's entry and its list's");
-  assert.ok(!drawer.querySelector(".drawer__back").hasAttribute("hidden"), "‹ Menu at the head");
+  // ENH-46 (owner 2026-11-10: "I dont think we need a menu item for things on that page"): My Team is one row of My Teams
+  // that opens the page, so the menu opens on My Teams with that row marked
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "the menu opens on the list the page's row is in");
+  assert.equal(drawer.querySelector(".drawer__item.is-marked").dataset.entry, "season", "with the page's row marked");
+  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 0, "no row for a band of a page");
+  assert.equal(drawer.querySelectorAll(".drawer__item--level").length, 0, "and no list one level down");
+  assert.equal(drawer.querySelectorAll(".drawer__item--page").length, 10, "My Teams' ten pages"); // 1.46.0: Seasons
+  assert.equal(nav.entries.length, 3, "the menu's entry and My Teams'");
+  assert.equal(drawer.querySelector(".drawer__back span").textContent, "Menu", "‹ Menu at the head");
   nav.userBack();
   await land();
   assert.ok(open(), "Back goes up one level ...");
@@ -466,16 +473,15 @@ scenarios.drawerLevels = async () => {
   drawer.querySelector('.drawer__item[data-entry="game"]').click();
   await land();
   assert.equal(drawer.querySelector(".drawer__level b").textContent, "This week's game");
-  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 14, "the matchup's fourteen tables, each opening wide");
-  assert.deepEqual(drawer.querySelectorAll(".drawer__item--level").map((a) => a.dataset.entry), ["ingame", "afterfinal"], "and two lists one level down");
-  assert.equal(drawer.querySelectorAll(".drawer__heading").map((h) => h.textContent).join("|"), "The matchup|More");
-  drawer.querySelector('.drawer__item[data-entry="ingame"]').click();
-  await land();
-  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 12, "In Game's twelve panels");
-  assert.equal(drawer.querySelector(".drawer__back span").textContent, "This week's game", "‹ names the list above");
+  assert.deepEqual(drawer.querySelectorAll(".drawer__item--page").map((a) => a.dataset.entry), ["program:page", "live:page", "postgame"], "its three pages: the program, In Game, the Post-Game stop");
+  assert.equal(drawer.querySelectorAll(".drawer__heading").length, 0);
+  assert.equal(drawer.querySelector(".drawer__back span").textContent, "Menu", "‹ names the list above");
   key("Escape");
   await land();
-  assert.equal(drawer.querySelector(".drawer__level b").textContent, "This week's game", "Escape goes up one level");
+  assert.ok(open() && drawer.querySelector(".drawer__tiles"), "Escape goes up one level");
+  drawer.querySelector('.drawer__item[data-entry="new"]').click();
+  await land();
+  assert.equal(drawer.querySelectorAll(".drawer__item--wide").length, 10, "New, his testing list, keeps a row for each band under test");
   drawer.querySelector(".drawer__back").click();
   await land();
   assert.ok(drawer.querySelector(".drawer__tiles"), "‹ goes up one level");
@@ -643,7 +649,7 @@ scenarios.todoMenu = async () => {
   await land();
   const row = drawer.querySelector(".drawer__todo");
   assert.ok(row && row.parentNode.className.includes("drawer__list") && row.parentNode.childNodes[0] === row, "the To do row tops the list the menu opens on");
-  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "the menu still opens on the page's own list");
+  assert.equal(drawer.querySelector(".drawer__level b").textContent, "My Teams", "the menu still opens on the list the page's row is in");
   assert.ok(row.textContent.includes("2 things to look at"));
   row.click();
   await land();
@@ -768,8 +774,9 @@ def test_the_router_keeps_the_page_for_a_layers_entry():
     """D in app.js: a popstate onto the same route (a layer's entry) neither changes the page nor waits for a scroll to put
     back; the tabs and menu items go through goTo (a layer's entry is reused) or close the layers for the page showing."""
     app = (JS / "app.js").read_text(encoding="utf-8")
-    assert 'import { closeLayers, goTo, installLayerHistory, stepOverLeftovers } from "./ui/layers.js";' in app
-    pop = app[app.index('window.addEventListener("popstate", () => {'): app.index('window.addEventListener("hashchange", () => {')]
+    assert 'import { closeLayers, goTo, installLayerHistory, stepOverLeftovers, toTop } from "./ui/layers.js";' in app  # ENH-33: toTop
+    start = app.index('window.addEventListener("popstate", () => {')
+    pop = app[start: app.index('window.addEventListener("hashchange", () => {', start)]  # the router's own hashchange, after popstate (1.40.3 added one earlier in the file)
     assert "routeKey(" in pop and "=== currentKey) return;" in pop and pop.index("return;") < pop.index("restore = { pending: true };")
     nav = app[app.index("onNavigate: (id) => {"): app.index("onSearch:")]
     assert "goTo(id)" in nav and "closeLayers();" in nav

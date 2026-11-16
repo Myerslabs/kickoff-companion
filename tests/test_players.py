@@ -1,5 +1,5 @@
 """Leaders, roster, recruiting, and player cards from recorded fixtures: boards ranked locally
-across FBS only, the recruiting join, impact players, the notes-file visitors, cards for Swampwater Tech
+across FBS only, the recruiting join, impact players, the notes-file visitors, cards for Florida
 and opponent players, 404 for anyone else, malformed records skipped, and a failed part reported. Tables wave 3
 (decision 3): our card loads its earlier seasons from the team-season answers (one call per earlier year in its
 History, four at most, shared by every player of that team and year), a failed or empty season is skipped and
@@ -24,9 +24,9 @@ def route_players(fake: FakeCfbd) -> None:
 
     def player_stats(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech" and params.get("year") not in (None, "2026"):
+        if params.get("team") == "Florida" and params.get("year") not in (None, "2026"):
             return httpx.Response(200, json=past_team_stats(params.get("year")))  # decision 3: the card's earlier seasons
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("stats_player_season_team"))
         if params.get("team"):
             return httpx.Response(200, json=team_player_stats(params.get("team")))  # the next opponent is outside our conference
@@ -37,14 +37,14 @@ def route_players(fake: FakeCfbd) -> None:
 
     def roster(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") != "Swampwater Tech":
+        if params.get("team") != "Florida":
             return httpx.Response(200, json=fixture_payload("roster_opponent"))
         year = params.get("year")
         return httpx.Response(200, json=fixture_payload("roster" if year == "2026" else f"roster_{year}"))
 
     def recruits(request: httpx.Request) -> httpx.Response:
         year = request.url.params.get("year")
-        if request.url.params.get("team") not in (None, "Swampwater Tech"):
+        if request.url.params.get("team") not in (None, "Florida"):
             return httpx.Response(200, json=fixture_payload(f"recruiting_players_opponent_{year}") if year in ("2023", "2024", "2025", "2026") else [])
         name = "recruiting_players" if year == "2026" else f"recruiting_players_{year}"
         return httpx.Response(200, json=fixture_payload(name))
@@ -64,22 +64,22 @@ def route_players(fake: FakeCfbd) -> None:
 
     def ppa_season(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        if team == "Swampwater Tech":
+        if team == "Florida":
             return httpx.Response(200, json=fixture_payload("ppa_players_season"))
         if team:
-            return httpx.Response(200, json=fixture_payload("ppa_players_season_opponent") if team == "Diner Tech" else [])
+            return httpx.Response(200, json=fixture_payload("ppa_players_season_opponent") if team == "Texas State" else [])
         return httpx.Response(200, json=fixture_payload("ppa_players_season_all"))
 
     def usage(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        return httpx.Response(200, json=fixture_payload("player_usage") if team == "Swampwater Tech" else fixture_payload("player_usage_opponent") if team == "Diner Tech" else [])
+        return httpx.Response(200, json=fixture_payload("player_usage") if team == "Florida" else fixture_payload("player_usage_opponent") if team == "Texas State" else [])
 
     def returning(request: httpx.Request) -> httpx.Response:
         team = request.url.params.get("team")
-        return httpx.Response(200, json=fixture_payload("player_returning") if team == "Swampwater Tech" else fixture_payload("player_returning_opponent") if team == "Diner Tech" else [])
+        return httpx.Response(200, json=fixture_payload("player_returning") if team == "Florida" else fixture_payload("player_returning_opponent") if team == "Texas State" else [])
 
     def ppa_games(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=fixture_payload("ppa_players_games") if request.url.params.get("team") == "Swampwater Tech" and request.url.params.get("week") == ROLES["LASTWEEK"] else [])
+        return httpx.Response(200, json=fixture_payload("ppa_players_games") if request.url.params.get("team") == "Florida" and request.url.params.get("week") == ROLES["LASTWEEK"] else [])
 
     fake.route("/ppa/players/season", handler=ppa_season)
     fake.route("/player/usage", handler=usage)
@@ -98,9 +98,9 @@ def test_leaders_boards_in_every_scope(client: TestClient, fake_cfbd: FakeCfbd):
     body = response.json()
     assert body["errors"] == []
     data = body["data"]
-    assert data["team"]["abbreviation"] == "SWT"
+    assert data["team"]["abbreviation"] == "FLA"
     conf = {t["school"]: t["conference"] for t in fixture_payload("teams_fbs")}
-    assert data["opponent"]["school"] == "Diner Tech" and data["opponent"]["inConference"] is (conf["Diner Tech"] == conf["Swampwater Tech"])
+    assert data["opponent"]["school"] == "Texas State" and data["opponent"]["inConference"] is (conf["Texas State"] == conf["Florida"])
     boards = {b["id"]: b for b in data["boards"]}
     assert list(boards) == [b.id for b in BOARDS]
 
@@ -109,7 +109,7 @@ def test_leaders_boards_in_every_scope(client: TestClient, fake_cfbd: FakeCfbd):
     assert passing["team"][0]["nationalRank"] >= 1 and passing["nationalOf"] > 100
     assert passing["team"][0]["conferenceRank"] >= 1 and passing["conferenceOf"] > 16
     assert passing["team"][0]["headshotUrl"].startswith("/media/headshot/")
-    assert len(passing["opponent"]) >= 1 and all(row["team"] == "Diner Tech" for row in passing["opponent"])
+    assert len(passing["opponent"]) >= 1 and all(row["team"] == "Texas State" for row in passing["opponent"])
     assert len(passing["conference"]) == 10 and passing["conference"][0]["rank"] == 1
     assert len(passing["national"]) == 10 and passing["national"][0]["rank"] == 1
     assert all(row["team"] for row in passing["national"])
@@ -161,7 +161,7 @@ def test_malformed_stat_rows_are_skipped(client: TestClient, fake_cfbd: FakeCfbd
     junk = [None, 7, "x", {"player": "No id"}, {"playerId": "1", "category": "passing", "statType": "YDS", "stat": "not a number"}, {"playerId": "2", "category": None, "statType": "YDS", "stat": 5}]
 
     def dirty(request: httpx.Request) -> httpx.Response:
-        if request.url.params.get("team") == "Swampwater Tech":
+        if request.url.params.get("team") == "Florida":
             return httpx.Response(200, json=junk + fixture_payload("stats_player_season_team"))
         return original(request)
 
@@ -191,7 +191,7 @@ def test_roster_joins_recruiting_and_lists_impact_players(client: TestClient, fa
     assert len(data["impact"]["offense"]) == 3 and 2 <= len(data["impact"]["defense"]) <= 3  # a board with no entry yet (no interception in two games) adds no card
     assert data["impact"]["offense"][0]["board"] == "passing:YDS" and data["impact"]["offense"][0]["chips"][0].endswith("passing yards")
     assert len({p["playerId"] for p in data["impact"]["offense"]}) == 3
-    # five of Swampwater Tech's classes, plus the four nationwide classes behind the blue-chip rank (Phase 16 NV)
+    # five of Florida's classes, plus the four nationwide classes behind the blue-chip rank (Phase 16 NV)
     assert fake_cfbd.count("/recruiting/players") == 9 and fake_cfbd.count("/roster") == 1
 
 
@@ -222,7 +222,7 @@ def test_recruiting_classes_and_empty_visitors(client: TestClient, fake_cfbd: Fa
     assert current["commits"][0]["highSchool"] and current["commits"][0]["hometown"]
     assert data["classes"][1]["count"] == len(fixture_payload("recruiting_players_2027"))
     visitors = data["visitors"]
-    assert visitors["gameId"] == 526001015 and visitors["opponent"] == "Diner Tech"
+    assert visitors["gameId"] == 526001015 and visitors["opponent"] == "Texas State"
     assert visitors["home"] == [] and visitors["away"] == [] and visitors["error"] is None and "No visitors list" in visitors["note"]
 
 
@@ -272,7 +272,7 @@ def test_our_player_card(client: TestClient, fake_cfbd: FakeCfbd):
     assert response.status_code == 200
     data = response.json()["data"]
     player = data["player"]
-    assert player["name"] == qb["player"] and player["isUs"] is True and player["teamAbbr"] == "SWT"
+    assert player["name"] == qb["player"] and player["isUs"] is True and player["teamAbbr"] == "FLA"
     assert player["heightText"] and player["weight"] and player["hometown"]
     categories = [s["category"] for s in data["seasons"]]
     assert "passing" in categories and data["seasons"][0]["stats"]["YDS"] > 500
@@ -282,20 +282,20 @@ def test_our_player_card(client: TestClient, fake_cfbd: FakeCfbd):
     assert data["gameLog"][0]["lines"] == []  # week 1 box not recorded: an honest empty line, not a crash
     assert data["missingWeeks"] == []
     assert [h["year"] for h in data["history"]][-1] == 2026 and len(data["history"]) >= 1
-    assert data["parts"][f"box_Swampwater Tech_{last}"]["status"] == "ok"
+    assert data["parts"][f"box_Florida_{last}"]["status"] == "ok"
     # tables wave 3: each opponent's abbreviation ("at DT" at small), no postseason name in the regular season, our abbreviation
     # on every History row
     abbrs = {t["school"]: t.get("abbreviation") for t in fixture_payload("teams_fbs")}
     assert all(g["opponentAbbr"] == abbrs.get(g["opponent"]) for g in data["gameLog"]) and any(g["opponentAbbr"] for g in data["gameLog"])
     assert all(g["postseasonShort"] is None for g in data["gameLog"])
-    assert all(h["teamAbbr"] == "SWT" for h in data["history"])
+    assert all(h["teamAbbr"] == "FLA" for h in data["history"])
 
 
 def test_opponent_player_card_uses_the_opponent_roster(client: TestClient, fake_cfbd: FakeCfbd):
     route_players(fake_cfbd)
     opp_id = fixture_payload("roster_opponent")[0]["id"]
     data = client.get(f"/api/players/{opp_id}").json()["data"]
-    assert data["player"]["isUs"] is False and data["player"]["team"] == "Diner Tech"
+    assert data["player"]["isUs"] is False and data["player"]["team"] == "Texas State"
     assert data["history"] == [] and (data["player"]["highSchool"] is None or isinstance(data["player"]["highSchool"], str))
     assert fake_cfbd.count("/roster") == 2
 
@@ -304,8 +304,8 @@ def test_opponent_player_card_uses_the_opponent_roster(client: TestClient, fake_
 
 
 def _team_season_calls(fake: FakeCfbd) -> list[str]:
-    """The years of every team-season player stats call for Swampwater Tech, in the order made."""
-    return [str(r.url.params.get("year")) for r in fake.requests if r.url.path == "/stats/player/season" and r.url.params.get("team") == "Swampwater Tech"]
+    """The years of every team-season player stats call for Florida, in the order made."""
+    return [str(r.url.params.get("year")) for r in fake.requests if r.url.path == "/stats/player/season" and r.url.params.get("team") == "Florida"]
 
 
 def _roster_years(player_id: str) -> list[int]:
@@ -328,7 +328,7 @@ def test_our_card_loads_its_past_seasons(client: TestClient, fake_cfbd: FakeCfbd
     # one call per earlier season in the History, never more than the four the prior rosters cover, after this season's
     calls = _team_season_calls(fake_cfbd)  # the earlier seasons are asked together, in any order
     assert calls[0] == "2026" and sorted(calls[1:], reverse=True) == [str(y) for y in earlier] and len(earlier) <= PAST_SEASONS
-    assert [h["year"] for h in data["history"]] == years and all(h["teamAbbr"] == "SWT" for h in data["history"])
+    assert [h["year"] for h in data["history"]] == years and all(h["teamAbbr"] == "FLA" for h in data["history"])
     # the league plays last season, so 2025 has lines; the seasons before it come back empty: counted, never an error
     last = past_team_stats(2025)
     rushing = _lines(last, rb, "rushing")
@@ -437,11 +437,11 @@ def test_an_empty_past_season_is_counted_not_shown(client: TestClient, fake_cfbd
 
 def test_past_season_helpers_guard_their_input():
     history = [
-        {"year": 2026, "team": "Swampwater Tech"}, {"year": 2025, "team": "Swampwater Tech"}, {"year": 2025, "team": "Other"},
+        {"year": 2026, "team": "Florida"}, {"year": 2025, "team": "Florida"}, {"year": 2025, "team": "Other"},
         {"year": 2024, "team": " "}, {"year": True, "team": "X"}, {"year": "2023", "team": "X"}, {"year": 2021, "team": "Too Old"},
-        {"year": 2022, "team": "Swampwater Tech"}, {"year": 2023, "team": None}, {},
+        {"year": 2022, "team": "Florida"}, {"year": 2023, "team": None}, {},
     ]
-    assert past_team_seasons(history, 2026) == [(2025, "Swampwater Tech"), (2022, "Swampwater Tech")]
+    assert past_team_seasons(history, 2026) == [(2025, "Florida"), (2022, "Florida")]
     assert len(past_team_seasons([{"year": y, "team": "T"} for y in range(2010, 2026)], 2026)) == PAST_SEASONS == 4
     assert past_team_seasons([], 2026) == []
     rows = [PlayerStat.model_validate(r) for r in [

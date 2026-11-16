@@ -11,7 +11,7 @@
 //                                               metric is not a registry-shaped key (family:key, at most 60 chars).
 //   nationalRoute(route)                        { metric, team, year, scope } read back from a parsed national route.
 //   pollHref(poll, { team })                    the national list of a poll ("poll:AP"), or null for an unknown poll.
-//   pollsPageHref(poll)                         "#season=polls:AP", the Season polls band on that poll (Full page).
+//   pollsPageHref(poll)                         "#band=newspaper:np-polls?poll=AP", the Newspaper's Polls band on that poll (Full page).
 //   pollName(value)                             "AP Top 25" -> "AP", "Coaches Poll" -> "Coaches", "Playoff Committee Rankings" -> "CFP".
 //   metricLink({ team, year, scope, key })      a column hook for statTable: (row) => href from row[key] (default "metric"), or null.
 //   isListHref(href)                            true for a "#national=" link.
@@ -22,7 +22,7 @@
 
 export const ROUTE_IDS = new Set([
   "season", "leaders", "roster", "recruiting", "newspaper", "program", "team", "live", "archive",
-  "settings", "ratings", "glossary", "national", "radio", "injuries", "box", "preseason",
+  "settings", "ratings", "glossary", "national", "radio", "injuries", "box", "preseason", "stats",
 ]);
 
 export const METRIC_RE = /^[a-z]+:[A-Za-z0-9_:]+$/;
@@ -137,7 +137,7 @@ export function pollHref(poll, { team } = {}) {
 
 export function pollsPageHref(poll) {
   const short = pollName(poll);
-  return short ? `#season=${encodeURIComponent(`polls:${short}`)}` : "#season";
+  return short ? `#band=newspaper:np-polls?poll=${encodeURIComponent(short)}` : "#band=newspaper:np-polls"; // wave 3 (2026-11-01): the Polls band is the Newspaper's
 }
 
 /** A statTable link hook: the row's metric key (row.metric by default) as a national-list link. */

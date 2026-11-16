@@ -11,7 +11,7 @@
 // only when it reads cleanly as First Last). Above the matchups, how experienced each unit's starters are, the table the
 // band's whole width. Tables only (design rule 12).
 //
-//   lineupBlock({ lineups, us, them, availability, coaches, schemes, onPlayer })   the experience table, the formation (ui/formation.js)
+//   lineupBlock({ lineups, us, them, availability, coaches, schemes, onPlayer })   the experience table (the picture is ui/formation.js)
 //       and the matchup tables, or the empty note
 //   experienceBlock({ lineups, us, them })                       the starters' experience by unit, or null when no chart
 //   pairSlots(offense, defense) -> [{ off, def }]                the matchups by the slot map (exported for the tests)
@@ -24,7 +24,6 @@ import { DASH, el, isNum, obj, personName, str, text } from "./dom.js";
 import { note, subhead } from "./states.js";
 import { statTable } from "./stat-table.js";
 import { availabilityFor, hasLineups, lineupSlots, lineupStarters } from "./lineups.js";
-import { formationBlock } from "./formation.js";
 import { plainChip } from "./stat-labels.js";
 
 const CLASS_NUMBERS = { FR: 1, SO: 2, JR: 3, SR: 4, GR: 4 };
@@ -197,7 +196,7 @@ function matchupTable(pairs, { leftOwner, rightOwner, availability, onPlayer, ca
   return statTable({ compact: true, sortable: false, sizes: true, columns, rows, caption, rowClass: (row) => (row.a?.playerId || row.b?.playerId ? null : "is-static") });
 }
 
-/** The matchup's title over its table: "Swampwater Tech offense vs Diner Tech defense", each school its link. */
+/** The matchup's title over its table: "Florida offense vs Texas State defense", each school its link. */
 /** A matchup's head: each unit's name, and under it (freeze wave F4) its coordinator and its scheme from the notes. */
 function matchupHead(left, right, leftOwner) {
   const detail = (side) => (str(side.detail) ? el("small", { class: "lu-head__detail" }, side.detail) : null);
@@ -238,7 +237,7 @@ export function lineupBlock({ lineups, us, them, availability, coaches = null, s
   push(matchupHead({ name: `${usName} special teams`, school: usName }, { name: `${themName} special teams`, school: themName }, "us"), pairSame(slotsOf("us", "special teams"), slotsOf("them", "special teams")), "us", "them", `${usName} and ${themName} specialists`);
   if (!tables.length) return note("No chart written for either team yet.");
   // the formation mock (owner 2026-10-20): both matchups on a field between the experience table and the matchup tables
-  return el("div", { class: "lineups" }, experienceBlock({ lineups: l, us, them }), formationBlock({ lineups: l, us, them, schemes, availability, detail: detailOf, onPlayer }), tables);
+  return el("div", { class: "lineups" }, experienceBlock({ lineups: l, us, them }), tables); // the formation left for ui/formation.js alone (the picture, owner 2026-11-01)
 }
 
 /** How experienced each unit's starters are, one row per team and unit; null when no chart names a starter's class. */

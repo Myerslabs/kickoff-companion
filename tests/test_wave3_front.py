@@ -36,7 +36,7 @@ const GAME = (id, status, away, home, extra = {}) => ({ gameId: id, status, deta
 scenarios.scores = async () => {
   const { scoresTable, scoresSummary } = await import(moduleUrl("ui/scores.js"));
   const list = [
-    GAME(1, "final", ["Diner Tech", 21], ["Swampwater Tech", 28]),
+    GAME(1, "final", ["Texas State", 21], ["Florida", 28]),
     GAME(2, "live", ["Gravel State", 7], ["Harbor A&M", 10], { away: { school: "Gravel State", rank: 9, points: 7 } }),
     GAME(3, "pre", ["Lowland", null], ["Mesa", null]),
     GAME(4, "live", ["North Bend", 3], ["South Fork", 0]),
@@ -70,7 +70,7 @@ scenarios.scores = async () => {
 
 scenarios.tickerStar = async () => {
   const { ticker } = await import(moduleUrl("ui/ticker.js"));
-  const games = [GAME(1, "live", ["Diner Tech", 3], ["Mesa", 0], { star: true, isMine: true }), GAME(2, "live", ["Lowland", 0], ["Swampwater Tech", 7], { star: true, isUs: true }), GAME(3, "final", ["North Bend", 1], ["South Fork", 2])];
+  const games = [GAME(1, "live", ["Texas State", 3], ["Mesa", 0], { star: true, isMine: true }), GAME(2, "live", ["Lowland", 0], ["Florida", 7], { star: true, isUs: true }), GAME(3, "final", ["North Bend", 1], ["South Fork", 2])];
   const node = ticker({ games, id: "t", label: "FBS scores" });
   document.body.append(node);
   const stars = node.querySelectorAll(".ticker__star");
@@ -177,8 +177,8 @@ scenarios.swipe = async () => {
 
 scenarios.playLog = async () => {
   const { playLog } = await import(moduleUrl("ui/play-log.js"));
-  const us = { name: "Swampwater Tech", abbr: "SWT" };
-  const them = { name: "Diner Tech", abbr: "DT" };
+  const us = { name: "Florida", abbr: "FLA" };
+  const them = { name: "Texas State", abbr: "DT" };
   const play = (id, drive, offense, extra = {}) => ({ id, driveId: `d${drive}`, driveNumber: drive, period: 1, clock: { minutes: 10, seconds: id }, offense, down: 1, distance: 10, yardsToGoal: 60, yardsGained: 4, text: `Play ${id}`, success: false, ...extra });
   const plays = [
     play("6", 2, them.name, { yardsGained: -3 }),
@@ -229,7 +229,7 @@ scenarios.wpChart = async () => {
   for (const bad of [[null, "1:00"], [0, "1:00"], [2, "x"], [2, null], ["2", "1:00"]]) assert.equal(gameSeconds(...bad), null);
   // the scoreboard readings carry their period and clock
   const live = [{ homeWp: 0.5, period: 1, clock: { minutes: 15, seconds: 0 } }, { homeWp: 0.6, period: 1, clock: { minutes: 2, seconds: 0 } }, { homeWp: 0.7, period: 3, clock: { minutes: 10, seconds: 0 } }, { homeWp: "x" }, null];
-  const chart = winProbabilityChart({ series: live, homeIsUs: true, usAbbr: "SWT" });
+  const chart = winProbabilityChart({ series: live, homeIsUs: true, usAbbr: "FLA" });
   assert.equal(chart.querySelectorAll(".wp__tick").length, 3, "a tick between each pair of quarters");
   assert.deepEqual([...chart.querySelectorAll(".wp__cap")].map(text), ["Q1", "Q2", "Q3", "Q4"]);
   assert.equal(chart.querySelector(".wp__area"), null, "no shading");
@@ -268,19 +268,56 @@ scenarios.statusPill = async () => {
   assert.equal(agoText(7200), "2 h ago");
   assert.equal(agoText(null), null);
   const { shell } = await import(moduleUrl("ui/shell.js"));
+  // ENH-4 (the owner's board of 2026-10-27): the server's schedules for the page's bands
+  const asked = [];
+  route("/api/datastatus", (url) => {
+    asked.push(String(url));
+    return envelope({ view: "program", cadence: "hourly", cadenceSeconds: 3600, pageSeconds: 900, cfbd: { state: "answering", lastSuccessAt: iso(180000) }, bands: [
+      { band: "Cover: AP rank", changes: "weekly, Sun about 2 PM", checks: "Sun, every 20 min until it is out", dataFrom: iso(2 * 86400000), due: null },
+      { band: "Availability report", changes: "Claude, Wed and Thu", checks: "Wednesday, Thursday", dataFrom: null, due: "Due Wed" },
+      { band: "Series", changes: "after each meeting", checks: "monthly", dataFrom: null, due: null },
+      null, "junk",
+    ] });
+  });
   const page = shell({ current: "program" });
   document.body.append(page.root);
-  page.setStatus(fresh);
+  page.setStatus({ ...fresh, gameId: "401", kickoff: "2026-10-31T19:30:00Z" });
   const pill = page.root.querySelector(".topbar__status .pill--button");
   assert.equal(pill.tagName, "BUTTON");
   assert.equal(text(pill), "Updated 4 min ago");
+  assert.ok(pill.querySelector(".pill__dot--ok"), "the server connection as a dot");
+  await settle();
+  await settle();
+  assert.equal(text(page.root.querySelector(".topbar__status .pill")), "Updated 4 min ago", "no how-often on a page refreshed by hand (owner 2026-11-14)");
+  const refresh = page.root.querySelector(".topbar__status .pill-refresh");
+  assert.ok(refresh && refresh.getAttribute("aria-label") === "Refresh this page", "Refresh beside the pill");
+  let refreshed = 0;
+  document.addEventListener("kickoff:refresh", () => { refreshed += 1; });
+  refresh.click();
+  assert.equal(refreshed, 1, "Refresh asks app.js for the pull down's refresh");
+  assert.ok(asked[0].includes("view=program") && asked[0].includes("gameId=401") && asked[0].includes("kickoff="), asked[0]);
+  assert.deepEqual(page.root.querySelectorAll(".topbar__status .pill__word").map(text), ["Updated ", " ago"], "a phone keeps the 4 min");
   // the words age with the clock between refreshes
   await advance(3 * 60000);
   assert.equal(text(page.root.querySelector(".topbar__status .pill")), "Updated 7 min ago");
   page.root.querySelector(".topbar__status .pill").click();
+  await settle();
+  await settle();
   const card = document.body.querySelector(".status-card");
-  assert.ok(card, "the pill opens the status card");
-  assert.ok(text(card).includes("came fresh"));
+  assert.ok(card, "the pill opens the Data status card");
+  assert.ok(document.body.querySelector(".status-scrim"), "the page dims under it");
+  assert.equal(text(card.querySelector(".status-card__title")), "Data status");
+  assert.deepEqual(card.querySelectorAll(".ds-fact__name").map(text), ["Server", "This page", "CFBD"]);
+  assert.deepEqual(card.querySelectorAll(".ds-fact__state").map(text), ["Connected", "Updated 7 min ago", "Answering"]);
+  assert.ok(text(card).includes("Asks the server when you open the page or tap Refresh") && text(card).includes("Last call 3 min ago"));
+  assert.ok(!text(card).includes("came fresh"), "a fresh page needs no sentence");
+  const rows = card.querySelectorAll(".ds-table tbody tr");
+  assert.equal(rows.length, 3, "a damaged row is left out");
+  assert.equal(text(rows[0].querySelector("th")), "Cover: AP rank");
+  assert.ok(/^[A-Z][a-z]{2} \d{1,2}:\d{2}/.test(text(rows[0].querySelector(".ds-table__from"))), text(rows[0]));
+  assert.equal(text(rows[1].querySelector(".ds-due")), "Due Wed");
+  assert.equal(text(rows[2].querySelector(".ds-table__from")), "–", "no copy yet: a dash");
+  assert.ok(!RAW.test(text(card)), text(card));
   assert.equal(card.querySelector("a").getAttribute("href"), "/status");
   let retried = 0;
   document.addEventListener("kickoff:retry", () => { retried += 1; });

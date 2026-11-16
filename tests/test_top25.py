@@ -65,12 +65,12 @@ def test_a_live_game_or_a_broken_one_gets_no_headline():
 
 def test_our_games_are_kept_kind():
     """Owner 2026-10-13: "keep us kind". A loss of ours is never a joke, an upset of ours is never an upset story."""
-    lost = game(1, "final", team("Our U", 4, points=17, mascot="Mudpuppies"), team("Rival", None, points=24, mascot="Banjos"), us=True)
+    lost = game(1, "final", team("Our U", 4, points=17, mascot="Gators"), team("Rival", None, points=24, mascot="Longhorns"), us=True)
     line = H.write(lost, us="Our U", tz=ET)
     assert line["kind"] == "usLose" and line["kicker"] == "Our game"
     assert "stinks" not in line["text"].lower() and "grumbl" not in line["text"].lower()
     assert "Rival" in line["text"] and "24-17" in line["text"]
-    won = H.write({**lost, "away": team("Our U", 4, points=35, mascot="Mudpuppies")}, us="Our U", tz=ET)
+    won = H.write({**lost, "away": team("Our U", 4, points=35, mascot="Gators")}, us="Our U", tz=ET)
     assert won["kind"] == "usWin" and "35-24" in won["text"]
     every_template = " ".join(t for k in ("usPre", "usWin", "usLose") for t in H.TEMPLATES[k]).lower()
     assert "stinks" not in every_template and "grumbl" not in every_template
@@ -81,8 +81,8 @@ def test_no_betting_talk_and_names_never_break():
         for text in options:
             words = text.lower()
             assert not any(w in words for w in (" line", "odds", "spread", "favorite", "favored", "cover", " bet", "underdog", "pick")), (kind, text)
-    line = H.write(game(5, "final", team("Dust Devil State", None, points=33), team("Jackrabbit Junction", 3, points=21)), us=None, tz=ET)
-    assert f"No.{NB}3 Jackrabbit Junction" in line["text"]  # the number never leaves "No."
+    line = H.write(game(5, "final", team("Colorado", None, points=33), team("Baylor", 3, points=21)), us=None, tz=ET)
+    assert f"No.{NB}3 Baylor" in line["text"]  # the number never leaves "No."
     late = H.write(game(3, "pre", team("A", 9), team("B"), kickoff="2026-10-25T02:30:00Z"), us=None, tz=ET)
     assert f"10:30{NB}PM" in late["text"]
 
@@ -103,13 +103,13 @@ def test_a_game_keeps_its_headline_and_a_page_varies_them():
 
 
 def test_a_zero_spread_is_a_pickem():
-    assert spread_text("Front Porch State -0", None) == PICKEM  # the mock's "PORC -0"
-    assert spread_text("Front Porch State -0.0", -0.0) == PICKEM
+    assert spread_text("Vanderbilt -0", None) == PICKEM  # the mock's "VAN -0"
+    assert spread_text("Vanderbilt -0.0", -0.0) == PICKEM
     assert spread_text(None, 0) == PICKEM
-    assert spread_text("Saddle Sore -3.5", -3.5) == "Saddle Sore -3.5"
+    assert spread_text("West Virginia -3.5", -3.5) == "West Virginia -3.5"
     assert spread_text("Team 10 -7", -7) == "Team 10 -7"  # a school ending in a number is not a zero
     assert spread_text(None, None) is None and spread_text("", None) is None
-    assert short_spread("Saddle Sore -3.5", {"Saddle Sore": "SADL", "Saddle": "SAD"}) == "SADL -3.5"
+    assert short_spread("West Virginia -3.5", {"West Virginia": "WVU", "Saddle": "SAD"}) == "WVU -3.5"
     assert short_spread(PICKEM, {"A": "A"}) == PICKEM and short_spread(None, {}) is None
 
 
@@ -249,7 +249,12 @@ def test_a_past_week_is_settled_from_the_season_and_frozen(lclient: TestClient, 
     ours = [g for g in after["matchups"] if g["isUs"]]
     assert all(g["headline"]["kind"] in ("usWin", "usLose") for g in ours)  # our game: our own, kind wording
     jokes = [g for g in after["matchups"] if not g["isUs"]]
-    assert all(ROLES["US"] not in g["headline"]["text"] for g in jokes)
+    def others(g):  # ENH-25: a real school can carry our name inside its own (Florida State, South Florida)
+        text = g["headline"]["text"]
+        for side in ("home", "away"):
+            text = text.replace(str(g[side].get("school") or ""), "")
+        return text
+    assert all(ROLES["US"] not in others(g) for g in jokes)
 
 
 def test_sunday_nights_new_poll_never_rewrites_the_week_that_was_played(lclient: TestClient, league_app, settings: Settings):
@@ -260,12 +265,20 @@ def test_sunday_nights_new_poll_never_rewrites_the_week_that_was_played(lclient:
     league_app.state.test_clock["now"] = datetime(2026, 9, 27, 22, 0, tzinfo=timezone.utc)  # Sunday evening, still week 4
     league_app.state.cfbd.cache.clear()
     sunday = lclient.get("/api/newspaper?delay=0").json()["data"]
-    assert sunday["edition"]["key"] == "week-4" and sunday["rankedWeek"]["poll"]["week"] == 4
+    # Wave 6 (owner 2026-11-15): after our final the paper is the game's Sunday paper, with the same week's games
+    assert sunday["edition"]["key"] == "week-4-sunday" and sunday["edition"]["label"] == "Week 4 · Sunday paper" and sunday["rankedWeek"]["poll"]["week"] == 4
     assert {g["gameId"] for g in sunday["edition"]["matchups"]} == games
     top = lclient.get("/api/top25?delay=0").json()["data"]
     assert top["poll"]["week"] == 4 and {g["gameId"] for g in top["games"]} == games
     saved = Editions(settings.data_dir, settings.season).load("week-4")
     assert {g["gameId"] for g in saved["matchups"]} == games
+    assert saved["frozen"] is True, "the week's paper is kept as printed once its Sunday paper leads"
+    kept = Editions(settings.data_dir, settings.season).load("week-4-sunday")
+    assert kept is not None and {g["gameId"] for g in kept["matchups"]} == games and kept["frozen"] is False
+    week = lclient.get("/api/newspaper?delay=0&edition=week-4").json()["data"]
+    assert week["edition"]["key"] == "week-4" and week["edition"]["current"] is False, "the week's own paper still opens on Sunday"
+    listed = {e["key"]: e for e in week["editions"]}
+    assert listed["week-4-sunday"]["current"] is True and listed["week-4"]["current"] is False
 
 
 def test_the_week_reads_its_own_poll():

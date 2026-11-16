@@ -11,12 +11,11 @@ import { availabilityTable } from "../ui/editorial.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
 import { band, note } from "../ui/states.js";
 import { statTableSkeleton } from "../ui/stat-table.js";
-import { pollMs } from "../prefs.js";
 import { errorPanel, fetchJson, partState, poller } from "./common.js";
 
 const COUNTED = [["out", "out"], ["doubtful", "doubtful"], ["questionable", "questionable"], ["game-time decision", "game-time"], ["probable", "probable"]];
 
-/** "Week 7 at Lake Effect", "Week 2 vs Diner Tech", "Vrbo Fiesta Bowl vs Diner Tech". Exported for the tests. */
+/** "Week 7 at Charlotte", "Week 2 vs Texas State", "Vrbo Fiesta Bowl vs Texas State". Exported for the tests. */
 export function gameTitle(game) {
   const g = game && typeof game === "object" ? game : {};
   const opponent = typeof g.opponent?.school === "string" && g.opponent.school.trim() ? g.opponent.school.trim() : "the opponent";
@@ -131,7 +130,6 @@ export function createInjuriesView({ onStatus } = {}) {
   const state = { ui: {} };
   const view = poller({
     url: "/api/injuries",
-    refreshMs: pollMs(),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Injury Report", message, retry)),
@@ -142,9 +140,9 @@ export function createInjuriesView({ onStatus } = {}) {
 }
 
 /** Another team's report in its side sheet: our games against it, newest first. Loads on its own; never blocks the sheet. */
-export function injurySheetBand(school) {
+export function injurySheetBand(school, { id = undefined, title = "Injury report" } = {}) {
   const host = el("div", {}, note("Loading the availability reports…"));
-  const section = band({ title: "Injury report", collapsible: false, foldable: true, summary: "from our game notes", state: { status: "ready" }, body: () => host });
+  const section = band({ id, title, collapsible: false, foldable: true, summary: "from our game notes", state: { status: "ready" }, body: () => host });
   fetchJson(`/api/injuries?team=${encodeURIComponent(text(school))}`)
     .then((envelope) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};

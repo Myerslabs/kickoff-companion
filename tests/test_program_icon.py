@@ -1,4 +1,4 @@
-"""The program's icon (owner 2026-10-23, the board https://claude.ai/artifact/CAnmauKcs6mpTcndK3PBWQ, "as drawn, A and B
+"""The program's icon (owner 2026-10-23, the board "as drawn, A and B
 included"): the Myers Labs sun, the app's loading sun, on the app's charcoal tile, for the program, the tray, the
 browser tab on every page and the home-screen icons before a team is picked; the team's own home-screen icon stays the
 football. The drawing is the standard library's, like the team icons'."""
@@ -11,7 +11,6 @@ from pathlib import Path
 
 from app.services.icons import SUN, TILE, ico_bytes, sun_png
 from app.services.launcher import Launcher
-from tools.package import build
 
 ROOT = Path(__file__).resolve().parents[1]
 ICONS = ROOT / "static" / "icons"
@@ -69,7 +68,7 @@ def test_the_ico_holds_every_size_in_order():
 
 
 def test_the_drawn_files_ship_and_every_page_wears_the_sun_in_its_tab():
-    for name in ("icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "icon-256.png", "sun-32.png", "sun.svg", "kickoff.ico"):
+    for name in ("icon-180.png", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "sun-32.png", "sun.svg", "kickoff.ico"):
         assert (ICONS / name).is_file(), name
     size, channels, rows = decode((ICONS / "icon-192.png").read_bytes())
     assert size == 192 and pixel(rows, channels, 96, 96)[:3] == SUN, "the neutral home-screen icon is the sun now"
@@ -80,9 +79,7 @@ def test_the_drawn_files_ship_and_every_page_wears_the_sun_in_its_tab():
     assert 'rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png"' in index, "the team's home-screen icon stays"
 
 
-def test_the_program_the_tray_and_the_shortcuts_carry_it(tmp_path: Path):
-    files = build.write_staging(tmp_path / "out")
-    assert files["icon"].read_bytes() == (ICONS / "kickoff.ico").read_bytes(), "the program is built with the drawn .ico"
+def test_the_tray_and_the_shortcuts_carry_it(tmp_path: Path):
     tray = (ROOT / "tools" / "tray.ps1").read_text(encoding="utf-8")
     assert "ExtractAssociatedIcon($Program)" in tray and 'static\\icons\\kickoff.ico' in tray
     launcher = Launcher(ROOT, platform="win32", runner=lambda args: (0, ""))

@@ -34,11 +34,11 @@ def test_blue_chip_ratio_counts_four_and_five_stars_over_the_last_four_classes()
 
 
 def test_ppa_and_usage_rows_read_the_real_shape_and_drop_junk():
-    parsed = parse_records(PlayerSeasonPpa, fixture_payload("ppa_players_season") + [{"id": "x", "team": "Swampwater Tech", "averagePPA": {"all": "bad", "rush": None}, "totalPPA": {}}, {"id": "y", "team": "Swampwater Tech", "averagePPA": "bad"}, {"id": None}], context="t")
+    parsed = parse_records(PlayerSeasonPpa, fixture_payload("ppa_players_season") + [{"id": "x", "team": "Florida", "averagePPA": {"all": "bad", "rush": None}, "totalPPA": {}}, {"id": "y", "team": "Florida", "averagePPA": "bad"}, {"id": None}], context="t")
     assert parsed.skipped == 2  # a string where an object belongs, and no id
-    rows = ppa_season_rows(parsed.records, "Swampwater Tech")
+    rows = ppa_season_rows(parsed.records, "Florida")
     assert rows and rows[-1]["playerId"] == "x"  # the empty one sorts last
-    assert all(r["team"] == "Swampwater Tech" for r in rows) and set(rows[0]["average"]) == {"all", "pass", "rush", "firstDown", "secondDown", "thirdDown", "standardDowns", "passingDowns"}
+    assert all(r["team"] == "Florida" for r in rows) and set(rows[0]["average"]) == {"all", "pass", "rush", "firstDown", "secondDown", "thirdDown", "standardDowns", "passingDowns"}
     junk = next(r for r in rows if r["playerId"] == "x")
     assert junk["all"] is None and junk["plays"] is None and junk["average"]["rush"] is None
     # The season answer sends no play count; total over average gives it back, exact on the recording.
@@ -46,13 +46,13 @@ def test_ppa_and_usage_rows_read_the_real_shape_and_drop_junk():
     truth = facts.ppa_play_counts()
     assert plays and all(plays[name] == truth[name] for name in plays if name in truth and plays[name] is not None)
     # So the ten-play minimum now applies: a player with fewer plays no longer leads, and a row with no count stays.
-    ten = ppa_season_rows(parsed.records, "Swampwater Tech", 10)
+    ten = ppa_season_rows(parsed.records, "Florida", 10)
     assert ten and all(r["plays"] is None or r["plays"] >= 10 for r in ten) and len(ten) <= len(rows)
     few = [r for r in rows if isinstance(r["plays"], int) and r["plays"] < 10]
     assert all(r["name"] not in {t["name"] for t in ten} for r in few)
     assert {"Micah Jones", "Justin Williams"}.isdisjoint(r["name"] for r in ten) and all(r["plays"] is None or r["plays"] >= 10 for r in ten)
     assert any(r["playerId"] == "x" for r in ten)
-    usage = usage_rows(parse_records(PlayerUsage, fixture_payload("player_usage") + [{"id": "y", "team": "Swampwater Tech", "usage": None}], context="t").records, "Swampwater Tech")
+    usage = usage_rows(parse_records(PlayerUsage, fixture_payload("player_usage") + [{"id": "y", "team": "Florida", "usage": None}], context="t").records, "Florida")
     assert usage and 0 <= usage[0]["overall"] <= 1 and next(r for r in usage if r["playerId"] == "y")["overall"] is None
 
 
@@ -61,12 +61,12 @@ def test_ratings_rows_rank_every_team_and_keep_ours():
     elo = parse_records(TeamElo, fixture_payload("ratings_elo"), context="t").records
     fpi = parse_records(TeamFPI, fixture_payload("ratings_fpi"), context="t").records
     talent = parse_records(TeamTalent, fixture_payload("talent") + [{"team": "Nowhere", "talent": "x"}, "junk"], context="t").records
-    rows = ratings_rows(sp, elo, fpi, talent, {"Swampwater Tech": "Biscuit Belt"})
-    swt = next(r for r in rows if r["team"] == "Swampwater Tech")
-    assert len(rows) > 100 and rows[0]["sp"]["rank"] == 1 and swt["conference"] == "Biscuit Belt"
+    rows = ratings_rows(sp, elo, fpi, talent, {"Florida": "SEC"})
+    swt = next(r for r in rows if r["team"] == "Florida")
+    assert len(rows) > 100 and rows[0]["sp"]["rank"] == 1 and swt["conference"] == "SEC"
     assert swt["sp"]["rating"] is not None and swt["spOffense"]["rank"] and swt["spDefense"]["rank"]
     assert swt["elo"]["rank"] and swt["fpi"]["rank"] and swt["talent"]["rank"]
-    assert talent_lookup(talent)["Swampwater Tech"]["of"] == len(fixture_payload("talent"))
+    assert talent_lookup(talent)["Florida"]["of"] == len(fixture_payload("talent"))
 
 
 # --- routes -----------------------------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_ratings_route(app, client: TestClient, fake_cfbd: FakeCfbd):
     body = client.get("/api/ratings").json()
     assert body["errors"] == []
     data = body["data"]
-    assert data["team"] == "Swampwater Tech" and data["us"]["team"] == "Swampwater Tech" and data["counts"]["sp"] == len(data["rows"]) and data["counts"]["talent"] > 100
+    assert data["team"] == "Florida" and data["us"]["team"] == "Florida" and data["counts"]["sp"] == len(data["rows"]) and data["counts"]["talent"] > 100
     assert data["rows"][0]["sp"]["rank"] == 1
 
 
@@ -94,7 +94,7 @@ def test_leaders_carry_play_value_and_usage_boards(client: TestClient, fake_cfbd
     extra = {b["id"]: b for b in body["data"]["extraBoards"]}
     ppa = extra["ppa:all"]
     assert ppa["format"] == "+2f" and ppa["team"] and ppa["opponent"] and ppa["national"] and ppa["conference"]
-    assert all(e["isUs"] for e in ppa["team"]) and all(e["team"] == "Diner Tech" for e in ppa["opponent"])
+    assert all(e["isUs"] for e in ppa["team"]) and all(e["team"] == "Texas State" for e in ppa["opponent"])
     assert ppa["national"][0]["rank"] == 1 and ppa["national"][0]["value"] >= ppa["national"][-1]["value"]
     assert [c["key"] for c in ppa["detailColumns"]] == ["plays", "pass", "rush"] and "plays" in ppa["team"][0]["detail"]
     usage = extra["usage:overall"]
@@ -108,7 +108,7 @@ def test_our_player_card_carries_ppa_usage_recruit_and_category_game_log(client:
     assert body["errors"] == []
     data = body["data"]
     assert data["ppa"]["season"]["playerId"] == rb and data["ppa"]["season"]["average"]["rush"] is not None and data["ppa"]["teamRank"] and data["ppa"]["teamOf"]
-    assert data["ppa"]["games"] and data["ppa"]["games"][0]["week"] == int(ROLES["LASTWEEK"]) and data["ppa"]["games"][0]["opponent"] == "Silver Dollar"
+    assert data["ppa"]["games"] and data["ppa"]["games"][0]["week"] == int(ROLES["LASTWEEK"]) and data["ppa"]["games"][0]["opponent"] == "Fresno State"
     assert data["usage"]["playerId"] == rb and 0 <= data["usage"]["overall"] <= 1
     signed = [r for name in ("recruiting_players", "recruiting_players_2022", "recruiting_players_2023", "recruiting_players_2024", "recruiting_players_2025")
               for r in fixture_payload(name) if r.get("athleteId") == rb]
@@ -132,7 +132,7 @@ def test_opponent_player_card_gets_its_recruit_line_and_play_value(client: TestC
         opp_id = next(iter(roster_ids))
     body = client.get(f"/api/players/{opp_id}").json()
     data = body["data"]
-    assert data["player"]["team"] == "Diner Tech" and data["player"]["isUs"] is False
+    assert data["player"]["team"] == "Texas State" and data["player"]["isUs"] is False
     assert "recruit" in data["player"] and "ppa" in data and "usage" in data and fake_cfbd.count("/recruiting/players") >= 4
 
 
@@ -152,13 +152,13 @@ def test_program_and_team_page_carry_talent_recruiting_and_play_value(pclient_pr
     body = pclient.get("/api/program/next").json()
     assert body["errors"] == []
     r = body["data"]["recruiting"]
-    assert r["us"]["school"] == "Swampwater Tech" and r["them"]["school"] == "Diner Tech"
+    assert r["us"]["school"] == "Florida" and r["them"]["school"] == "Texas State"
     assert r["us"]["talent"]["rank"] and r["them"]["talent"]["rank"] and r["us"]["talentOf"] > 100
     assert 0 <= r["us"]["blueChip"]["ratio"] <= 1 and 0 <= r["them"]["blueChip"]["ratio"] <= 1
     assert r["us"]["returning"]["percentPPA"] == facts.returning()["percentPPA"] and r["them"]["returning"]["percentPPA"] is not None
     ppa = body["data"]["ppa"]
     assert ppa["seasonLeaders"]["us"] and ppa["seasonLeaders"]["them"] and ppa["usage"]["us"]
-    team = pclient.get("/api/team/Diner%20Tech").json()["data"]
+    team = pclient.get("/api/team/Texas%20State").json()["data"]
     assert team["recruiting"]["talent"]["rank"] and team["recruiting"]["blueChip"]["signees"] > 0 and team["playValue"]["players"] and team["playValue"]["usage"]
 
 

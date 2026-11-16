@@ -12,13 +12,15 @@ def write_env(path, body: str, encoding: str = "utf-8") -> None:
     path.write_text(body, encoding=encoding)
 
 
-def test_defaults_load_with_only_a_key():
+def test_defaults_load_with_only_a_key(monkeypatch):
+    monkeypatch.delenv("SEASON", raising=False)  # the test review: the tests pin 2026; this one is about the calendar's season
+    monkeypatch.delenv("CLAUDE_COMMAND", raising=False)
     settings = load_settings(env_file=None, cfbd_api_key=TEST_KEY)
-    assert settings.team == "Swampwater Tech"
+    assert settings.team == "Florida"
     from app.config import default_season
 
     assert settings.season == default_season()  # follows the calendar when SEASON is not set
-    assert settings.conference == "Biscuit Belt"
+    assert settings.conference == "SEC"
     assert settings.host == "0.0.0.0"
     assert settings.port == 8642
     assert settings.timezone == "America/New_York"
@@ -52,8 +54,8 @@ def test_a_missing_key_team_or_conference_means_setup_mode(monkeypatch):
         monkeypatch.setenv("CFBD_API_KEY", value)
         assert load_settings(env_file=None, team="X", conference="Y").setup_needed
     monkeypatch.setenv("CFBD_API_KEY", TEST_KEY)
-    assert load_settings(env_file=None, team="Swampwater Tech", conference=" ").setup_needed
-    assert not load_settings(env_file=None, team="Swampwater Tech", conference="Biscuit Belt").setup_needed
+    assert load_settings(env_file=None, team="Florida", conference=" ").setup_needed
+    assert not load_settings(env_file=None, team="Florida", conference="SEC").setup_needed
 
 
 @pytest.mark.parametrize("bad", ["short", "has space inside" + "x" * 20])
@@ -143,13 +145,13 @@ def test_multiple_problems_are_reported_together(monkeypatch):
 
 def test_values_are_normalised(monkeypatch):
     monkeypatch.setenv("CFBD_API_KEY", f"  {TEST_KEY}  ")
-    monkeypatch.setenv("TEAM", "  Swampwater Tech ")
+    monkeypatch.setenv("TEAM", "  Florida ")
     monkeypatch.setenv("LAN_HOSTNAME", "Football.LocalDomain.")
     monkeypatch.setenv("LOG_LEVEL", "debug")
     monkeypatch.setenv("TIMEZONE", " America/Chicago ")
     settings = load_settings(env_file=None)
     assert settings.cfbd_api_key.get_secret_value() == TEST_KEY
-    assert settings.team == "Swampwater Tech"
+    assert settings.team == "Florida"
     assert settings.lan_hostname == "football.localdomain"
     assert settings.log_level == "DEBUG"
     assert settings.timezone == "America/Chicago"
@@ -164,7 +166,7 @@ def test_blank_radio_sources_falls_back_to_default(monkeypatch):
 
 def test_env_file_is_read_and_reported(tmp_path):
     env = tmp_path / ".env"
-    write_env(env, f"CFBD_API_KEY={TEST_KEY}\nPORT=9000\nTEAM=Swampwater Tech\n")
+    write_env(env, f"CFBD_API_KEY={TEST_KEY}\nPORT=9000\nTEAM=Florida\n")
     settings = load_settings(env_file=env)
     assert settings.port == 9000
     assert settings.env_file_used == env

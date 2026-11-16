@@ -14,13 +14,13 @@ import pytest
 from app.services import notes_paste, readiness
 from app.services.notes import NotesFile, notes_path
 
-GAME = {"gameId": 41, "home": "Swampwater Tech", "away": "Diner Tech", "kickoff": "2026-10-31T23:00:00Z"}
+GAME = {"gameId": 41, "home": "Florida", "away": "Texas State", "kickoff": "2026-10-31T23:00:00Z"}
 
 
 class Who:
-    school = "Swampwater Tech"
-    name = "Mudpuppies"
-    conference = "Biscuit Belt"
+    school = "Florida"
+    name = "Gators"
+    conference = "SEC"
 
 
 def test_a_part_prompt_asks_for_that_part_alone():
@@ -30,7 +30,7 @@ def test_a_part_prompt_asks_for_that_part_alone():
     assert "1. \"visitors\"" in prompt and "2. \"sources\"" in prompt and "never invent a player" in prompt
     two = notes_paste.build_parts_prompt(Who(), GAME, 2026, ["lineups", "availability", "bogus"])
     assert "the injury report and both depth charts" in two, "in the notes' own order, unknown names dropped"
-    assert "{team}" not in two and "{opponent}" not in two and "Diner Tech" in two
+    assert "{team}" not in two and "{opponent}" not in two and "Texas State" in two
 
 
 def test_parts_are_read_from_a_list_or_a_comma_list():
@@ -50,7 +50,7 @@ def _read(tmp_path: Path) -> dict:
 
 
 def test_a_part_is_merged_and_the_rest_kept(tmp_path: Path):
-    _write(tmp_path, {"gameId": 41, "author": "First run", "sections": [{"heading": "Coaching", "paragraphs": ["Kept."]}], "availability": [{"team": "Swampwater Tech", "name": "A Back", "status": "Out"}], "sources": [{"label": "Old", "url": "https://a.example/one"}]})
+    _write(tmp_path, {"gameId": 41, "author": "First run", "sections": [{"heading": "Coaching", "paragraphs": ["Kept."]}], "availability": [{"team": "Florida", "name": "A Back", "status": "Out"}], "sources": [{"label": "Old", "url": "https://a.example/one"}]})
     update = NotesFile.model_validate({"visitors": {"home": [{"name": "Big Recruit", "stars": 5}], "source": "A site"}, "availability": [], "sources": [{"label": "Old", "url": "https://a.example/one"}, {"label": "New", "url": "https://b.example/two"}]})
     assert notes_paste.merge_parts(tmp_path, 41, update, ["visitors"]) is True
     saved = _read(tmp_path)
@@ -92,7 +92,7 @@ def test_a_part_is_due_only_once_it_is_published():
 def test_the_to_do_names_what_can_be_had_and_says_what_its_run_starts():
     status = {"season": 2026, "preseason": [], "coachesSaved": 136, "coachesOf": 136, "costsSaved": 136, "factsSaved": 136}
     notes = NotesFile.model_validate({"sections": [{"heading": "H", "paragraphs": ["p"]}], "coaches": {"us": {"headCoach": "X"}}})
-    game = {"gameId": 41, "opponent": "Diner Tech", "kickoff": "2026-10-31T23:00:00Z"}
+    game = {"gameId": 41, "opponent": "Texas State", "kickoff": "2026-10-31T23:00:00Z"}
     monday = datetime(2026, 10, 26, 12, tzinfo=timezone.utc)
     result = readiness.readiness(status, notes, game, monday, command_found=True)
     item = result["items"][0]

@@ -7,16 +7,17 @@ an old payload exists, the old payload is served and labelled stale with its age
 There are two breaker lanes: live=True calls (the game-day poller) have their own, so a dead
 season endpoint never pauses the live poll, and a failing live feed never pauses the rest.
 
-Rules from docs/02-ARCHITECTURE.md, "CFBD client rules".
+The rules, "CFBD client rules".
 """
 
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 import random
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
@@ -73,6 +74,20 @@ ESSENTIAL_KINDS = frozenset({DataKind.TICKER, DataKind.SCHEDULE})  # allowed in 
 # refreshing in the background"). Cache rows are never deleted, so stable data is kept already; an expired copy of these
 # kinds is now served at once while one background call refreshes it, instead of making the page wait for CFBD.
 REVALIDATE_KINDS = frozenset({DataKind.TEAMS, DataKind.ROSTER, DataKind.RECRUITING, DataKind.REFERENCE, DataKind.HISTORY})
+PACED: contextvars.ContextVar[bool] = contextvars.ContextVar("cfbd_paced", default=False)  # ENH-27: inside paced_calls()
+
+
+@contextmanager
+def paced_calls() -> Iterator[None]:
+    """ENH-27: every CFBD call made inside this block (and the tasks it starts) is a paced background load, held to the
+    month's target. The nightly warm and the every-game sweep run their services inside one."""
+    token = PACED.set(True)
+    try:
+        yield
+    finally:
+        PACED.reset(token)
+
+
 # ENH-3 ("In Game gets server priority during a live window"): inside a live window the page calls that reach CFBD run
 # two at a time, so a burst of page loads never crowds the live poll, and the background refreshes wait for the game.
 LIVE_WINDOW_GENERAL_SLOTS = 2
@@ -293,6 +308,7 @@ class CfbdClient:
         self._endpoint_locks: dict[str, asyncio.Lock] = {}  # CFBD answers 429 to concurrent calls on one endpoint (seen 2026-09-23)
         self._busy_until: dict[str, datetime] = {}  # endpoints resting after CFBD said busy (Phase 13)
         self._revalidating: dict[str, asyncio.Task[Any]] = {}  # ENH-2: background refreshes of stable data, one per key
+        self._writes: set[asyncio.Future[Any]] = set()  # BUG-19: cache writes still on their thread, a cancelled read's too
         self._live_gate = asyncio.Semaphore(LIVE_WINDOW_GENERAL_SLOTS)  # ENH-3: page calls inside a live window
         self._empty_answers: dict[str, int] = {}  # cached finished-game keys that answered empty, and how many times in a row
         self._reconcile_lock = asyncio.Lock()
@@ -362,6 +378,7 @@ class CfbdClient:
         max_age: timedelta | None = None,
         prewarm: bool = False,
         background: bool = False,
+        paced: bool = False,
     ) -> Fetched:
         """Fetch one endpoint. Returns fresh data, cached data, or stale data with a reason.
 
@@ -375,8 +392,12 @@ class CfbdClient:
         An expired copy of a stable kind (REVALIDATE_KINDS) is served at once while one background call refreshes it
         (`background` marks that call); inside a live window the refresh waits for a later ask.
 
+        `paced` (or a `paced_calls()` block around the call) marks the server's own background loads, which keep to the
+        month's target (ENH-27); a cached copy is served stale when the pace holds them back.
+
         Raises QuotaBlocked, CfbdUnavailable, or CfbdRequestError when there is nothing to return.
         """
+        paced = paced or background or prewarm or PACED.get()
         canonical = canonical_params(params)
         key = cache_key(endpoint, canonical)
         now = self._clock()
@@ -404,7 +425,7 @@ class CfbdClient:
             try:
                 # The slate and the schedule are essential (freeze wave F2): in RESTRICTED mode they go on with the live calls,
                 # so a free key, which has no live calls, still shows Saturday's scores in its last 10%.
-                quota_status = self.quota.check(live=live, now=now, reconciling=endpoint == "/info", essential=kind in ESSENTIAL_KINDS)
+                quota_status = self.quota.check(live=live, now=now, reconciling=endpoint == "/info", essential=kind in ESSENTIAL_KINDS, paced=paced)
                 self._scale = self.ttl_scale(quota_status)
                 if schedule is not None and self._scale > 1:
                     schedule = lean_schedule(schedule)  # the free profile looks once a week where the full one looks daily
@@ -471,9 +492,7 @@ class CfbdClient:
                             ttl.total_seconds() / 60,
                             "empty answer" if is_empty_payload(payload) else "game still settling",
                         )
-                    await asyncio.to_thread(
-                        self.cache.put, key, endpoint, canonical, payload, fetched_at=fetched_at, ttl=ttl
-                    )
+                    await self._write(self.cache.put, key, endpoint, canonical, payload, fetched_at=fetched_at, ttl=ttl)
                 if endpoint == "/info":
                     self._apply_info(payload, now)  # every /info answer is a reconciliation
                 else:
@@ -491,7 +510,7 @@ class CfbdClient:
         """ENH-2: whether a background refresh could reach CFBD now. When the quota guard or the open breaker would refuse
         it, the expired copy goes the usual way instead and is labelled stale with the reason."""
         try:
-            self.quota.check(live=False, now=now, reconciling=False, essential=kind in ESSENTIAL_KINDS)
+            self.quota.check(live=False, now=now, reconciling=False, essential=kind in ESSENTIAL_KINDS, paced=True)
         except QuotaBlocked:
             return False
         return self.breaker.state(now) == "closed"  # an open lane serves the copy as stale, with its reason, the usual way
@@ -532,7 +551,7 @@ class CfbdClient:
         budget-scaled: ten minutes when empty, an hour while the game settles, then permanent."""
         if kind is DataKind.FINISHED_GAME:
             return finished_game_ttl(payload, now, self._settle_until() if self._settling(endpoint, params) else None, lean=quota_status is not None and self.ttl_scale(quota_status) > 1)
-        ttl = ttl_for(kind, now.astimezone(self.settings.tzinfo), game_day=self.game_day)
+        ttl = ttl_for(kind, now.astimezone(self.settings.tzinfo), game_day=self.game_day, lean=getattr(self, "_scale", 1) > 1)
         if kind is DataKind.TICKER and self.ticker_ttl is not None:
             ttl = self.ticker_ttl  # final pass: the ticker service sets its cadence (5 min paid, 20 min Free), so the slate is not refetched at 5 on the Free tier
         if ttl is not None and ttl != NO_CACHE and kind is not DataKind.TICKER:  # the ticker cadence is the owner's approved figure on every tier
@@ -772,6 +791,18 @@ class CfbdClient:
             "live_window": self.live_window,
         }
 
+    async def _write(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
+        """BUG-19: a cache write on its thread. Cancelling the read that asked for it cannot stop the thread, so the write
+        is kept in `_writes` until it lands; settle_writes() waits for every one (the shutdown, a test's clean slate)."""
+        future = asyncio.ensure_future(asyncio.to_thread(fn, *args, **kwargs))
+        self._writes.add(future)
+        future.add_done_callback(self._writes.discard)
+        return await asyncio.shield(future)
+
+    async def settle_writes(self) -> None:
+        while self._writes:
+            await asyncio.gather(*list(self._writes), return_exceptions=True)
+
     async def aclose(self) -> None:
         self._closed = True
         for task in list(self._revalidating.values()):  # ENH-2: background refreshes end with the client
@@ -779,6 +810,7 @@ class CfbdClient:
             with suppress(asyncio.CancelledError, Exception):
                 await task
         self._revalidating.clear()
+        await self.settle_writes()  # BUG-19: no write lands after the database closes
         task = self._reconcile_task
         if task is not None and not task.done():
             task.cancel()

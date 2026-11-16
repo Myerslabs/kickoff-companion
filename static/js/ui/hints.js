@@ -87,7 +87,7 @@ function entryFor(node) {
 }
 
 function mark(node) {
-  if (node.dataset.hint || node.closest(".hint-pop, .gloss")) return;
+  if (node.dataset.hint || node.closest(".hint-pop, .gloss, .no-hints")) return; // .no-hints: a list of the page's own bands (ENH-4), not stats
   const entry = entryFor(node);
   if (!entry) return;
   const sortButton = node.tagName === "TH" ? node.querySelector("button") : null;

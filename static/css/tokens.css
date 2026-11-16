@@ -1,4 +1,4 @@
-/* Kickoff Companion design tokens. Locked in Phase 2; see docs/03-DESIGN.md. The surface, text and
+/* Kickoff Companion design tokens. Locked in Phase 2. The surface, text and
    team colors below are the defaults; static/js/theme.js repaints them from the team's own colors.
    Load order on every page: tokens.css, components.css, then the page's own stylesheet.
    Breakpoints (CSS cannot put these in variables):
@@ -45,6 +45,7 @@
      what is active (the current tab, primary buttons, focus); --team-primary is the primary as a fill. */
   --team-accent: #FA4616;
   --team-primary: #0021A5;
+  --on-team: #FFFFFF; /* BUG-26 (owner 2026-10-27): the text on a --team-primary fill, white in both themes (the light theme's --chalk is near black) */
   --team-us: #3D6BFF;
 
   /* the opponent, set at runtime from CFBD and contrast-checked; neutral until then */

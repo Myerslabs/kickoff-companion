@@ -91,7 +91,8 @@ def set_note(chosen: teamset.TeamSet, count: int) -> str | None:
 def season_picker(chosen: teamset.TeamSet, teams: list[Team], picked: str) -> dict[str, Any]:
     """The Season page's selection window (the layout pass, board 9, owner 2026-10-22: "I want my teams, and season to
     combine"): every followed team in the arrows' order (the home team, the other primary teams, then the secondary ones),
-    each with its abbreviation and colors for its chip, the team picked, and the line on what a Tier 2 key adds."""
+    each with its abbreviation and colors for its chip, the team picked, and the line on what a Tier 2 key adds. A team
+    picked that is not followed (FEAT-5: any team) comes last, with the role "viewing"."""
     meta = {t.school: t for t in teams if isinstance(t, Team) and t.school}
     rows = []
     for school in [*chosen.primaries, *chosen.secondary]:
@@ -103,6 +104,17 @@ def season_picker(chosen: teamset.TeamSet, teams: list[Team], picked: str) -> di
             "altColor": team.alternate_color if team else None,
             "conference": team.conference if team else None,
             "role": chosen.role(school),
+            "known": team is not None or not meta,
+        })
+    if picked and picked not in [r["school"] for r in rows]:
+        team = meta.get(picked)
+        rows.append({
+            "school": picked,
+            "abbreviation": team.abbreviation if team else None,
+            "color": team.color if team else None,
+            "altColor": team.alternate_color if team else None,
+            "conference": team.conference if team else None,
+            "role": "viewing",
             "known": team is not None or not meta,
         })
     return {"teams": rows, "picked": picked, "home": chosen.home, "allowed": chosen.allowed, "note": set_note(chosen, len(rows)), "plansUrl": plan.PLANS_URL}

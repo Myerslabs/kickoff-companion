@@ -100,7 +100,7 @@ export function teamHeader({ team = {}, season, location, facts = [], tabs = [],
       el(
         "div",
         {},
-        el("div", { class: "team-head__conf" }, [season, t.conference].filter(Boolean).map(text).join(" ")),
+        el("div", { class: "team-head__conf" }, season ? `${text(season)} ` : null, typeof t.conference === "string" && t.conference.trim() ? el("a", { class: "conf-link", href: `#conference=${encodeURIComponent(t.conference.trim())}`, title: `The ${t.conference.trim()} page` }, t.conference.trim()) : null), // the conference page (2026-11-02): the name leads there
         el("div", { class: "team-head__name" }, isNum(t.apRank) ? `#${t.apRank} ` : null, t.school ? wikiLink("school", { team: t.school }, text(t.school)) : text(null)),
         el("div", { class: "team-head__rec" }, rec ? `${rec}${confRec ? ` (${confRec})` : ""}` : "–", squares ? el("span", { class: "team-head__form" }, el("span", { class: "team-head__form-label" }, "Last 5"), squares) : null),
       ),

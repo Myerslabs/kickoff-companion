@@ -24,6 +24,7 @@ from app.cache import DataKind
 from app.cfbd.models import Game
 from app.services import notes_paste
 from app.services.notes import notes_path
+from app.services.notes_layout import program_figures
 from app.services.notes_task import NotesRunner
 
 router = APIRouter(tags=["notes"])
@@ -46,6 +47,11 @@ def _game_dict(game: Game) -> dict[str, Any]:
     return {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": game.start_date}
 
 
+async def with_figures(state: Any, info: dict[str, Any]) -> dict[str, Any]:
+    """Wave 5: a full notes run or prompt names the program's figures it may put in the layout's strip."""
+    return {**info, "figures": await program_figures(getattr(state, "program", None), info.get("gameId"))}
+
+
 def _not_on_schedule(game_id: int | None, schedule_ok: bool = True) -> Any:
     if not schedule_ok:
         return error_response(503, "upstream", "The schedule could not be read from CFBD, so the game cannot be checked. Try again in a minute.")
@@ -65,7 +71,8 @@ async def notes_start(body: RunRequest, request: Request) -> Any:
     if game is None:
         return _not_on_schedule(body.gameId, ok)
     parts = notes_paste.parse_parts(body.parts or [])
-    status = await runner.start(_game_dict(game), request.app.state.settings.claude_command, mode=f"parts:{','.join(parts)}" if parts else "full")
+    info = _game_dict(game) if parts else await with_figures(request.app.state, _game_dict(game))
+    status = await runner.start(info, request.app.state.settings.claude_command, mode=f"parts:{','.join(parts)}" if parts else "full")
     if status.get("error") and not status.get("running"):
         return envelope(status, source="live", errors=[{"code": "notes_not_started", "message": status["error"]}])
     return envelope(status, source="live")
@@ -82,7 +89,7 @@ async def notes_prompt(request: Request, gameId: int | None = None, parts: str |
     runner: NotesRunner = request.app.state.notes
     _template, custom = notes_paste.read_template(request.app.state.settings.data_dir)
     asked = notes_paste.parse_parts(parts or "")
-    prompt = runner.build_prompt(_game_dict(game), f"parts:{','.join(asked)}" if asked else "full")
+    prompt = runner.build_prompt(_game_dict(game) if asked else await with_figures(request.app.state, _game_dict(game)), f"parts:{','.join(asked)}" if asked else "full")
     path = notes_path(request.app.state.settings.data_dir, game.id)  # Phase 17 #12: the path chip copies this
     return envelope({**_game_dict(game), "prompt": prompt, "custom": custom, "chars": len(prompt), "path": str(path)}, source="live")
 
@@ -114,7 +121,8 @@ async def notes_save(body: PasteRequest, request: Request) -> Any:
         if parts:  # post-freeze Wave 1: one band's part, merged into the notes already there
             changed = notes_paste.merge_parts(request.app.state.settings.data_dir, game.id, reading.notes, parts)
             return envelope({**reading.as_dict(), "saved": True, "parts": parts, "changed": changed}, source="live")
-        notes_paste.save_notes(request.app.state.settings.data_dir, game.id, reading.notes)
+        changed = notes_paste.merge_notes(request.app.state.settings.data_dir, game.id, reading.notes)  # owner 2026-10-30: a whole answer builds on the week's notes
+        return envelope({**reading.as_dict(), "saved": True, "changed": changed}, source="live")
     except notes_paste.NotesUnreadable as exc:
         return error_response(409, "notes_unreadable", f"The notes already saved for this game could not be read, so nothing was merged: {exc}.")
     except OSError as exc:

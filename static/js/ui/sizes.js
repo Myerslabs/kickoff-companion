@@ -273,7 +273,7 @@ export function knownLabels() {
 
 /** A table at width 100% grows past its wrap only when its content must: its own width is the measure. (Not scrollWidth:
     a linked chip's invisible 44 px press area pokes a few pixels past the last cell and would count as an overflow.) */
-function fits(wrap, table) {
+export function fits(wrap, table) {
   const wide = isNum(table.offsetWidth) && table.offsetWidth > 0 ? table.offsetWidth : table.scrollWidth;
   const room = wrap.clientWidth;
   return isNum(wide) && isNum(room) && wide <= room + 1;
@@ -285,13 +285,13 @@ function fits(wrap, table) {
  * A kit with a step between two sizes (medium with the abbreviations) passes its own list.
  * null without a layout engine (nothing measured, nothing applied).
  */
-export function fitSize(wrap, table, apply, steps = SIZES) {
+export function fitSize(wrap, table, apply, steps = SIZES, check = null) {
   if (!wrap || !table || !isNum(wrap.clientWidth) || wrap.clientWidth <= 0) return null;
   let last = null;
   for (const size of steps) {
     apply(size);
     last = size;
-    if (fits(wrap, table)) return size;
+    if (fits(wrap, table) && (typeof check !== "function" || check())) return size; // check: a fixed table's own test (the roster grid's cells)
   }
   return last;
 }

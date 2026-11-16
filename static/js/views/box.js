@@ -135,7 +135,6 @@ export function createBoxView({ onStatus, gameId } = {}) {
   }
   return poller({
     url: `/api/box/${id}`,
-    refreshMs: 5 * 60 * 1000,
     onStatus,
     render,
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Box score", message, retry)),

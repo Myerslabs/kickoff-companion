@@ -29,8 +29,8 @@ from app.main import create_app
 TEST_KEY = "TESTKEY-" + "q7" * 20
 
 # The demo team the tests follow (app/demo/names.py), and its conference.
-TEAM = "Swampwater Tech"
-CONFERENCE = "Biscuit Belt"
+TEAM = "Florida"
+CONFERENCE = "SEC"
 TEAM_FEED_URL = "https://swampwatertech.example.invalid/rss?path=football"  # the school's own feed (made-up host)
 
 CACHE = PROJECT_ROOT / ".pytest_cache" / "demo-league"
@@ -38,8 +38,10 @@ CACHE = PROJECT_ROOT / ".pytest_cache" / "demo-league"
 ENV_KEYS = [
     "CFBD_API_KEY", "CFBD_BASE_URL", "TEAM", "SEASON", "CONFERENCE", "HOST", "PORT", "LAN_HOSTNAME", "TIMEZONE",
     "MONTHLY_CALL_BUDGET", "QUOTA_HARD_STOP_PCT", "LIVE_POLL_SECONDS", "RADIO_SOURCES", "LOG_LEVEL",
-    "LOG_DIR", "DATA_DIR", "TEAM_FEED_URL", "MDNS_NAME",
+    "LOG_DIR", "DATA_DIR", "TEAM_FEED_URL", "MDNS_NAME", "CLAUDE_COMMAND",
 ]
+TEST_SEASON = 2026  # the test review (owner 2026-11-15): the fixtures are 2026's; the calendar's season would move to 2027 on March 1
+NO_CLAUDE = "no-claude-in-the-tests"  # the test review (owner 2026-11-15, "Never found unless asked"): no test starts a real run
 
 
 _LEAGUE: dict[str, Any] = {}
@@ -196,6 +198,8 @@ def clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CONFERENCE", CONFERENCE)
     monkeypatch.setenv("TEAM_FEED_URL", TEAM_FEED_URL)
     monkeypatch.setenv("MDNS_NAME", "off")  # tests never announce on the network
+    monkeypatch.setenv("SEASON", str(TEST_SEASON))  # every settings a test builds is 2026's unless it names its own season
+    monkeypatch.setenv("CLAUDE_COMMAND", NO_CLAUDE)  # Claude Code is never found unless a test names a command of its own
     monkeypatch.setattr("app.main.WARM_DELAY_SECONDS", 3600)  # freeze wave F7: the warm-up comes 2 s after the start; a test that counts calls never wants it
     monkeypatch.setattr("app.services.season_notes.SHIPPED_FACTS", Path("tests") / "no-shipped-facts.json")  # the preloaded facts (2026-10-21) stay out of every test but the one that reads the shipped file on purpose
     for name in ("SHIPPED_COACHES", "SHIPPED_COSTS", "SHIPPED_PRESEASON"):  # the preloading (2026-10-22): the shipped season files too
@@ -211,6 +215,7 @@ def settings(tmp_path: Path) -> Settings:
         conference=CONFERENCE,
         log_dir=str(tmp_path / "logs"),
         data_dir=str(tmp_path / "data"),
+        season=2026,  # rollover R1: the fixtures are 2026's; the calendar's season would move the suite to 2027 on March 1
     )
 
 
@@ -272,6 +277,26 @@ def route_depth2(fake: FakeCfbd) -> None:
     fake.fixture("/rushing/plays", "rushing_plays_opponent")
     fake.fixture("/passing/plays", "passing_plays_opponent")
     fake.fixture("/game/box/advanced", "game_box_advanced")
+
+
+def quiet_background(app: Any, client: Any) -> None:
+    """BUG-19: stop every job that reads CFBD behind the pages (the live engine's schedule watch, Claude's schedule, the
+    housekeeping loop), let the start-up checks finish and drain the background refreshes. A test that clears the cache
+    and then sets its own clock calls this first, so no read begun with the old routes writes into the cleared cache."""
+    import asyncio
+
+    async def quiet() -> None:
+        await app.state.live.stop_background()
+        await app.state.claude_schedule.stop()
+        await app.state.maintenance.stop()
+        checks = getattr(app.state, "startup_checks", None)
+        if checks is not None and not checks.done():
+            await asyncio.gather(checks, return_exceptions=True)
+        while app.state.cfbd._revalidating:
+            await asyncio.gather(*list(app.state.cfbd._revalidating.values()), return_exceptions=True)
+        await app.state.cfbd.settle_writes()  # a cancelled read's cache write still lands on its thread: wait for it
+
+    client.portal.call(quiet)
 
 
 def settle_refreshes(app: Any, client: Any) -> None:

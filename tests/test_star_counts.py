@@ -7,7 +7,7 @@ from app.services.stats_extra import star_counts
 
 
 def recruit(stars):
-    return Recruit.model_validate({"id": "1", "name": "A Recruit", "stars": stars, "year": 2026, "committedTo": "Swampwater Tech"})
+    return Recruit.model_validate({"id": "1", "name": "A Recruit", "stars": stars, "year": 2026, "committedTo": "Florida"})
 
 
 def test_star_counts_cover_the_last_four_classes():
@@ -19,7 +19,7 @@ def test_star_counts_cover_the_last_four_classes():
 
 
 def signee(stars, position, rating=0.9):
-    return Recruit.model_validate({"id": "1", "name": "A Recruit", "stars": stars, "position": position, "rating": rating, "year": 2026, "committedTo": "Swampwater Tech"})
+    return Recruit.model_validate({"id": "1", "name": "A Recruit", "stars": stars, "position": position, "rating": rating, "year": 2026, "committedTo": "Florida"})
 
 
 def test_recruit_sides_split_offense_and_defense():

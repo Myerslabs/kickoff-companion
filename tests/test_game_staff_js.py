@@ -20,21 +20,21 @@ scenarios.links = async () => {
   const { fillWiki } = await import(moduleUrl("ui/wiki-links.js"));
   const notes = { coaches: { us: { headCoach: "Ann Head", offensiveCoordinator: "Bo Offense", defensiveCoordinator: null }, them: { headCoach: "Dee Head" } } };
   const line = document.createElement("div");
-  line.append(teamStaff(notes, "us", { abbr: "SWT", school: "Swampwater Tech" }), teamStaff(notes, "them", { abbr: "BLUE", school: "Bluegrass Bottoms" }));
+  line.append(teamStaff(notes, "us", { abbr: "FLA", school: "Florida" }), teamStaff(notes, "them", { abbr: "TEX", school: "Texas" }));
   document.body.append(line);
   const links = line.querySelectorAll("a.wiki-link--coach");
   assert.deepEqual(links.map((a) => a.textContent), ["Ann Head", "Bo Offense", "Dee Head"], "every coach named is a link; a missing one is left out");
   assert.ok(links.every((a) => a.getAttribute("href").startsWith("https://en.wikipedia.org/w/index.php?search=")), "a search until the server answers, so a tap never dead-ends");
-  assert.deepEqual(links.map((a) => a.dataset.team), ["Swampwater Tech", "Swampwater Tech", "Bluegrass Bottoms"]);
-  assert.ok(text(line).includes("SWT HC Ann Head · OC Bo Offense") && text(line).includes("BLUE HC Dee Head"));
+  assert.deepEqual(links.map((a) => a.dataset.team), ["Florida", "Florida", "Texas"]);
+  assert.ok(text(line).includes("FLA HC Ann Head · OC Bo Offense") && text(line).includes("TEX HC Dee Head"));
   // the server's answer points each link at the coach's own page
   const asked = [];
   globalThis.fetch = async (url) => {
     asked.push(String(url));
-    return { ok: true, status: 200, json: async () => ({ data: { coaches: { "Ann Head|Swampwater Tech": { page: "https://en.wikipedia.org/wiki/Ann_Head" } } } }) };
+    return { ok: true, status: 200, json: async () => ({ data: { coaches: { "Ann Head|Florida": { page: "https://en.wikipedia.org/wiki/Ann_Head" } } } }) };
   };
   await fillWiki(line);
-  assert.ok(asked[0].includes("coach=Ann+Head%7CSwampwater+Tech") || asked[0].includes("coach=Ann%20Head%7CSwampwater%20Tech"), asked[0]);
+  assert.ok(asked[0].includes("coach=Ann+Head%7CFlorida") || asked[0].includes("coach=Ann%20Head%7CFlorida"), asked[0]);
   assert.equal(links[0].getAttribute("href"), "https://en.wikipedia.org/wiki/Ann_Head");
   assert.ok(links[1].getAttribute("href").includes("search="), "a coach the server has no page for keeps its search");
   assert.deepEqual(staffParts({}, "us", "X"), []);
@@ -56,14 +56,14 @@ scenarios.staff = async () => {
   assert.equal(crewText({ broadcast: { network: "ESPN" } }, {}), null, "a network with no voices is no crew");
   assert.equal(staffText(notes, "us"), "HC Ann Head · OC Bo Offense · DC Cy Defense");
   assert.equal(staffText(notes, "them"), "HC Dee Head");
-  const usLine = teamStaff(notes, "us", { abbr: "SWT", school: "Swampwater Tech" });
-  const themLine = teamStaff(notes, "them", { abbr: "DT", school: "Diner Tech" });
-  assert.equal(text(usLine), "SWT HC Ann Head · OC Bo Offense · DC Cy Defense");
+  const usLine = teamStaff(notes, "us", { abbr: "FLA", school: "Florida" });
+  const themLine = teamStaff(notes, "them", { abbr: "DT", school: "Texas State" });
+  assert.equal(text(usLine), "FLA HC Ann Head · OC Bo Offense · DC Cy Defense");
   assert.equal(text(themLine), "DT HC Dee Head");
   assert.ok(usLine.className.includes("cover__staff--us") && themLine.className.includes("cover__staff--them"));
   assert.equal(text(teamStaff(notes, "them", {})), "HC Dee Head", "no abbreviation: the roles alone");
   for (const bad of [null, undefined, "junk", 7, [], { coaches: "x" }, { coaches: { us: [], them: 5 } }, { broadcast: { sideline: "x", playByPlay: 9 } }]) {
-    assert.equal(teamStaff(bad, "us", { abbr: "SWT" }), null);
+    assert.equal(teamStaff(bad, "us", { abbr: "FLA" }), null);
     assert.equal(teamStaff(bad, "them", { abbr: "DT" }), null);
     assert.equal(crewText(bad, null), null);
   }
@@ -79,12 +79,12 @@ scenarios.staff = async () => {
   const shared = teamStaff({ coaches: { them: { headCoach: "Dee Head", offensiveCoordinator: "Kyle Example and AJ Second" } } }, "them", { abbr: "DT" });
   assert.equal(text(shared), "DT HC Dee Head · OC Kyle Example");
   // the cover: the crew joins the when line; each team's coaches sit under its own block, level with the when line
-  const node = cover({ us: { school: "Swampwater Tech", abbreviation: "SWT" }, them: { school: "Diner Tech", abbreviation: "DT" }, date: "2026-10-10T16:45:00Z", venue: "Example Field", tv: "ABC", crew: crewText(notes, { tv: "ABC" }), staff: { us: usLine, them: themLine } });
+  const node = cover({ us: { school: "Florida", abbreviation: "FLA" }, them: { school: "Texas State", abbreviation: "DT" }, date: "2026-10-10T16:45:00Z", venue: "Example Field", tv: "ABC", crew: crewText(notes, { tv: "ABC" }), staff: { us: usLine, them: themLine } });
   assert.ok(text(node.querySelector(".cover__when")).includes("on ESPN: Pat Caller, Lee Analyst"));
   const faceoff = node.querySelector(".cover__faceoff");
   assert.ok(faceoff.querySelector(".cover__staff--us") === usLine && faceoff.querySelector(".cover__staff--them") === themLine, "the coaches are cells of the face-off grid");
   assert.ok(!node.querySelector(".cover__details") && !node.querySelector(".game-staff__bar"), "the old combined coaches line is gone");
-  const plain = cover({ us: { school: "Swampwater Tech" }, them: { school: "Diner Tech" }, date: "2026-10-10T16:45:00Z", tv: "ABC", crew: "  ", staff: { us: "not a node", them: 5 }, details: "not a node" });
+  const plain = cover({ us: { school: "Florida" }, them: { school: "Texas State" }, date: "2026-10-10T16:45:00Z", tv: "ABC", crew: "  ", staff: { us: "not a node", them: 5 }, details: "not a node" });
   assert.ok(text(plain.querySelector(".cover__when")).includes("on ABC") && !plain.querySelector(".cover__staff"));
   assert.ok(!RAW.test(text(node)) && !RAW.test(text(plain)));
 };

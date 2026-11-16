@@ -160,6 +160,14 @@ function lateText(minutes) {
 }
 
 // Phase 14: the publication schedules and when each source actually changed.
+/** ENH-27: "8,214 allowed by today of 20,000; background loads going" (or waiting until tomorrow). */
+function targetText(quota) {
+  if (typeof quota.target !== "number" || quota.target <= 0) return "none (MONTHLY_CALL_TARGET is 0)";
+  const allowed = typeof quota.pace_allowed === "number" ? `${quota.pace_allowed.toLocaleString()} allowed by today of ${quota.target.toLocaleString()}` : quota.target.toLocaleString();
+  const state = quota.paced_open === false ? "background loads wait until tomorrow; pages and live games still load" : "background loads going";
+  return `${allowed}; ${state}`;
+}
+
 // Where the calls go (freeze wave F2): this month's ledger by endpoint, the top rows, and the last days in one line.
 function renderCalls(data) {
   const info = obj(data);
@@ -317,6 +325,7 @@ function render(data) {
     ["Calls used this month", typeof quota.used === "number" && typeof quota.budget === "number"
       ? `${quota.used.toLocaleString()} of ${quota.budget.toLocaleString()} (${text(quota.pct_used)}%)` : DASH],
     ["Calls left", typeof quota.remaining === "number" ? quota.remaining.toLocaleString() : DASH],
+    ["Target for background loads", targetText(quota)], // ENH-27: two thirds of the month, kept in step with the calendar
     ["Mode", quota.mode],
     ["Resets", localDate(quota.reset_at)],
     ["Checked with CFBD", quota.reconciled === true ? localTime(quota.reconciled_at) : quota.reconciled === false ? "not yet" : DASH],
@@ -338,6 +347,7 @@ function render(data) {
     ["CFBD key", config.api_key_configured === true ? "configured" : config.api_key_configured === false ? "missing" : DASH],
     ["Settings file", config.env_file],
     ["Monthly call budget", typeof config.monthly_call_budget === "number" ? config.monthly_call_budget.toLocaleString() : DASH],
+    ["Monthly target", typeof config.monthly_call_target === "number" ? config.monthly_call_target.toLocaleString() : DASH],
     ["Hard stop", typeof config.quota_hard_stop_pct === "number" ? `${config.quota_hard_stop_pct}%` : DASH],
     ["Live poll", typeof config.live_poll_seconds === "number" ? `every ${config.live_poll_seconds} s` : DASH],
     ["Radio sources", sources],

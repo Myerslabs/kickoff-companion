@@ -1,9 +1,11 @@
-// The wide flyout (the layout pass, owner 2026-10-22, board 4: https://claude.ai/artifact/4VVfYTQpLu1oyz8dz9xosZ): a table
+// The wide flyout (the layout pass, owner 2026-10-22, board 4): a table
 // opened by itself from the menu, about 83% of the screen, over the page the reader was on. Its head carries "‹ the list it
 // came from" (which reopens the menu there), the table's name with the game it is about, and ×; under it the table's own
 // summary line; at its foot previous and next through the list (a swipe left or right does the same).
 //
-//   openWide({ title, subtitle, back, steps, body })   the flyout (ui/remote.js openSheet, wide); returns its handle
+//   openWide({ title, subtitle, back, steps, own, body })   the flyout (ui/remote.js openSheet, wide); returns its handle, with
+//                            setSteps(steps) and setOwn(own). own: { href } is the table's own page (owner 2026-10-28, "each
+//                            band has its own flyout, and page"), the Own page button in the head (views/band.js)
 //   pagerFor(steps)          the foot: { items: [{ id, label }], index, where, onStep(id) } -> "‹ prev · 2 of 14 · next ›"
 //   liftBand(node)           a band shown alone: its own head goes (the flyout's head says it), its summary and tools rise
 //                            to the flyout's summary row, it is always unfolded, and its id goes (the page may hold the same)
@@ -11,6 +13,7 @@
 
 import { el, text } from "./dom.js";
 import { icon } from "./icons.js";
+import { goTo } from "./layers.js";
 import { openSheet } from "./remote.js";
 
 const SWIPE_PX = 70;
@@ -72,6 +75,26 @@ function backButton(back, close) {
   );
 }
 
+/** "Own page" in the head: the table by itself across the page; the flyout's history entry becomes that page. */
+export function ownButton(own) {
+  const href = own && typeof own.href === "string" && own.href.startsWith("#") ? own.href : null;
+  if (!href) return null;
+  return el(
+    "a",
+    {
+      class: "btn flyout-own",
+      href,
+      "aria-label": "Own page: this table by itself",
+      onclick: (event) => {
+        event.preventDefault();
+        goTo(href);
+      },
+    },
+    icon("page"),
+    el("span", {}, "Own page"),
+  );
+}
+
 /** A swipe left steps to the next table, a swipe right to the previous one; on the first table a swipe right closes the
  *  flyout, the way every sheet closes. Rows that scroll sideways keep their own swipes (as ui/dom.js swipeToClose does). */
 function swipeSteps(layer, holder, close) {
@@ -108,18 +131,20 @@ function swipeSteps(layer, holder, close) {
 }
 
 /**
- * openWide({ title, subtitle, back: { label, onClick }, steps: { items, index, where, onStep }, body, onClose })
- * The flyout, with its head, summary row and foot. The handle is openSheet's, plus setSteps(steps) to move the foot along.
+ * openWide({ title, subtitle, back: { label, onClick }, steps: { items, index, where, onStep }, own: { href }, body, onClose })
+ * The flyout, with its head, summary row and foot. The handle is openSheet's, plus setSteps(steps) to move the foot along
+ * and setOwn(own) for the table now shown.
  */
-export function openWide({ title, subtitle = null, back = null, steps = null, body = null, onClose } = {}) {
+export function openWide({ title, subtitle = null, back = null, steps = null, own = null, body = null, onClose } = {}) {
   let handle = null;
   const holder = { current: steps };
   const lead = backButton(back, () => handle?.close());
-  handle = openSheet({ title, body, onClose, wide: true, lead, subtitle, foot: pagerFor(steps), swipeClose: false });
+  handle = openSheet({ title, body, onClose, wide: true, lead, subtitle, tools: ownButton(own), foot: pagerFor(steps), swipeClose: false });
   handle.setSteps = (next) => {
     holder.current = next;
     handle.setFoot(pagerFor(next));
   };
+  handle.setOwn = (next) => handle.setTools(ownButton(next));
   swipeSteps(handle.layer, holder, () => handle.close());
   return handle;
 }

@@ -1,6 +1,6 @@
 """Phase 12: game-day comfort and a deeper Live sheet. Quarter splits, tendencies, the drive
 summary and the fourth-down break-even from released plays; "Sync to my TV"; the build id that
-tells an open tablet about new code; replay in its own store space; any Mudpuppies game day counts as
+tells an open tablet about new code; replay in its own store space; any Gators game day counts as
 game day in the cache; the Newspaper's slate and scores on a bye Saturday; the live engine on the
 status page; the keep-screen-on setting; the home-screen manifest and icons; the front-end
 helpers under Node."""
@@ -26,7 +26,7 @@ from app.live.analysis import down_type, drive_summary, ep_table, fg_table, four
 from app.live.engine import WINDOW_AFTER, WINDOW_BEFORE, GameWindow, LiveEngine
 from app.live.events import LiveEvent, events_from_live
 from app.live.state import derive_state
-from tests.conftest import PROJECT_ROOT, FakeCfbd, fixture_payload
+from tests.conftest import PROJECT_ROOT, FakeCfbd, fixture_payload, quiet_background
 from tests.test_live import LAST_GAME, route_live
 from tests.test_phase8 import KICKOFF, NEXT_GAME, quiet_engine, set_clock
 from tests.test_program import pclient, program_app, route_program, sites  # noqa: F401 - fixtures used below
@@ -40,7 +40,7 @@ FIELD_GOAL = fg_table(parse_records(FieldGoalEp, fixture_payload("metrics_fg_ep"
 def recorded_state() -> dict[str, Any]:
     game = parse_one(LiveGame, fixture_payload("live_plays"), context="t")
     assert game is not None
-    return derive_state(events_from_live(game, SEEN), game_id=LAST_GAME, home="Silver Dollar", away="Swampwater Tech", ep_tables={"firstDown": FIRST_DOWN, "fieldGoal": FIELD_GOAL})
+    return derive_state(events_from_live(game, SEEN), game_id=LAST_GAME, home="Fresno State", away="Florida", ep_tables={"firstDown": FIRST_DOWN, "fieldGoal": FIELD_GOAL})
 
 
 def snap(offense: str, period: int, gained: int, *, success: bool | None = None, ppa: float | None = None, down: int = 1, distance: int = 10, ytg: int = 60, play_type: str = "Rush", **extra: Any) -> dict[str, Any]:
@@ -54,7 +54,7 @@ def test_quarter_splits_on_the_recorded_game_add_up():
     state = recorded_state()
     splits = state["splits"]
     assert splits["periods"] == ["Q1", "Q2", "Q3", "Q4"]
-    for team in ("Swampwater Tech", "Silver Dollar"):
+    for team in ("Florida", "Fresno State"):
         by = splits["teams"][team]
         assert sum(by[p]["plays"] for p in splits["periods"]) == by["Game"]["plays"] == state["box"][team]["plays"]
         assert sum(by[p]["yards"] for p in splits["periods"]) == by["Game"]["yards"]
@@ -146,7 +146,7 @@ def test_drive_summary_counts_points_three_and_outs_turnovers_and_chances():
 def test_the_recorded_game_carries_drive_efficiency():
     state = recorded_state()
     summary = state["driveSummary"]
-    assert summary["Swampwater Tech"]["drives"] >= 10 and summary["Swampwater Tech"]["points"] >= 14
+    assert summary["Florida"]["drives"] >= 10 and summary["Florida"]["points"] >= 14
     assert all("successCounts" in d for d in state["drives"])
 
 
@@ -237,13 +237,13 @@ def live_engine_with_plays(app, client: TestClient, now: datetime, feed_lag: flo
     quiet_engine(app, client)
     set_clock(app, now)
     engine: LiveEngine = app.state.live
-    window = GameWindow(NEXT_GAME, "Swampwater Tech", "Diner Tech", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
+    window = GameWindow(NEXT_GAME, "Florida", "Texas State", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
     engine.window = window
     engine._open_window(window)
     events = []
     for i in range(12):  # a snap every 30 s, each reaching the feed feed_lag + i seconds later
         wall = now - timedelta(seconds=400 - 30 * i)
-        events.append(LiveEvent(f"play:{i}", "play", NEXT_GAME, wall + timedelta(seconds=feed_lag + i), {"id": str(i), "period": 2, "clock": {"minutes": 10 - i // 2, "seconds": 0}, "offense": "Swampwater Tech", "down": 1 + i % 3, "distance": 10, "yardsToGoal": 60, "wallclock": wall.isoformat().replace("+00:00", "Z"), "text": f"RESULT {i}", "yardsGained": 9}))
+        events.append(LiveEvent(f"play:{i}", "play", NEXT_GAME, wall + timedelta(seconds=feed_lag + i), {"id": str(i), "period": 2, "clock": {"minutes": 10 - i // 2, "seconds": 0}, "offense": "Florida", "down": 1 + i % 3, "distance": 10, "yardsToGoal": 60, "wallclock": wall.isoformat().replace("+00:00", "Z"), "text": f"RESULT {i}", "yardsGained": 9}))
     client.portal.call(engine.publish, events)
     return engine
 
@@ -281,7 +281,7 @@ def test_sync_without_snap_times(app, client: TestClient):
     now = KICKOFF + timedelta(minutes=40)
     set_clock(app, now)
     engine: LiveEngine = app.state.live
-    window = GameWindow(NEXT_GAME, "Swampwater Tech", "Diner Tech", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
+    window = GameWindow(NEXT_GAME, "Florida", "Texas State", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
     engine.window = window
     engine._open_window(window)
     client.portal.call(engine.publish, [LiveEvent("play:1", "play", NEXT_GAME, now, {"id": "1", "wallclock": "not a time"}), LiveEvent("play:2", "play", NEXT_GAME, now, {"id": "2", "wallclock": None})])
@@ -325,7 +325,7 @@ def test_a_replay_never_touches_the_games_real_event_log(app, client: TestClient
             break
         time.sleep(0.05)
     assert engine.store.count(LAST_GAME) == 5
-    window = GameWindow(LAST_GAME, "Silver Dollar", "Swampwater Tech", 3, SEEN, SEEN - WINDOW_BEFORE, SEEN + WINDOW_AFTER)
+    window = GameWindow(LAST_GAME, "Fresno State", "Florida", 3, SEEN, SEEN - WINDOW_BEFORE, SEEN + WINDOW_AFTER)
     engine._open_window(window)  # a real window: the real log again
     assert engine.store_key(LAST_GAME) == LAST_GAME and engine.state(0, LAST_GAME)["counts"]["plays"] == 5
 
@@ -334,11 +334,11 @@ def test_a_replay_never_touches_the_games_real_event_log(app, client: TestClient
 
 
 def test_any_game_day_of_ours_counts_as_game_day_in_the_cache():
-    friday = datetime(2026, 11, 27, 12, 0)  # Swampwater Tech at Swampwater Tech State
-    assert ttl_for(DataKind.SCHEDULE, friday) == timedelta(hours=1)  # other teams play Fridays (Phase 14)
+    friday = datetime(2026, 11, 27, 12, 0)  # Florida at Florida State
+    assert ttl_for(DataKind.SCHEDULE, friday) == timedelta(minutes=15)  # ENH-27: Thursday to Saturday every 15 minutes
     assert ttl_for(DataKind.SCHEDULE, friday, game_day=True) == timedelta(minutes=15)
-    assert ttl_for(DataKind.SEASON_STATS, friday, game_day=True) == timedelta(hours=1)
-    assert ttl_for(DataKind.SEASON_STATS, datetime(2026, 11, 25, 12, 0)) == timedelta(hours=6)
+    assert ttl_for(DataKind.SCHEDULE, datetime(2026, 11, 24, 12, 0)) == timedelta(hours=1)  # a Tuesday: kickoff times get announced
+    assert ttl_for(DataKind.LINES, datetime(2026, 11, 24, 12, 0), game_day=True) == timedelta(minutes=15)  # our game on a weekday
     assert ttl_for(DataKind.SCHEDULE, datetime(2026, 11, 28, 12, 0)) == timedelta(minutes=15)  # Saturdays as before
 
 
@@ -370,14 +370,14 @@ def test_the_newspaper_shows_the_slate_on_a_bye_saturday(pclient: TestClient, fa
 
     def games(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=bye_schedule())
         if params.get("week"):
-            return httpx.Response(200, json=[g for g in fixture_payload("games_week") if "Swampwater Tech" not in (g.get("homeTeam"), g.get("awayTeam"))])
+            return httpx.Response(200, json=[g for g in fixture_payload("games_week") if "Florida" not in (g.get("homeTeam"), g.get("awayTeam"))])
         return httpx.Response(200, json=fixture_payload("games_opponent"))
 
     fake_cfbd.route("/games", handler=games)
-    pclient.portal.call(program_app.state.live.stop_background)  # its schedule read on real 2026-09-26 would cache the Diner Tech game
+    quiet_background(program_app, pclient)  # BUG-19: a schedule read begun before the bye routes would cache the Texas State game after the clear
     program_app.state.cfbd.cache.clear()
     set_program_clock(program_app, datetime(2026, 9, 26, 14, 0, tzinfo=timezone.utc))
     data = pclient.get("/api/newspaper").json()["data"]
@@ -387,7 +387,7 @@ def test_the_newspaper_shows_the_slate_on_a_bye_saturday(pclient: TestClient, fa
     watch = [g for g in data["slate"] if g["watch"]]
     order = [g["watch"] or "z" for g in data["slate"]]
     assert order == sorted(order, key=lambda w: {"next": 0, "future": 1}.get(w, 2))  # pinned first
-    opponents = {g.get("homeTeam") if g.get("awayTeam") == "Swampwater Tech" else g.get("awayTeam") for g in bye_schedule()}
+    opponents = {g.get("homeTeam") if g.get("awayTeam") == "Florida" else g.get("awayTeam") for g in bye_schedule()}
     assert all((g["home"]["school"] in opponents or g["away"]["school"] in opponents) for g in watch)
 
 
@@ -418,7 +418,7 @@ def test_the_ticker_takes_its_week_from_the_calendar(app, client: TestClient, fa
     fake_cfbd.route("/games", handler=games)
     set_clock(app, datetime(2026, 9, 26, 14, 0, tzinfo=timezone.utc))
     data = client.get("/api/ticker").json()["data"]
-    assert data["week"] == 4 and data["games"]  # not the next Mudpuppies week
+    assert data["week"] == 4 and data["games"]  # not the next Gators week
     fake_cfbd.route("/calendar", status=500, json={"message": "down"})
 
 
@@ -463,12 +463,12 @@ def test_the_status_page_reports_the_live_engine(app, client: TestClient):
     assert live["status"] == "ok" and data["engine"]["mode"] in ("idle", "live")
     now = KICKOFF + timedelta(minutes=40)
     app.state.cfbd._clock = lambda: now
-    window = GameWindow(NEXT_GAME, "Swampwater Tech", "Diner Tech", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
+    window = GameWindow(NEXT_GAME, "Florida", "Texas State", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
     engine.window = window
     engine._open_window(window)
     app.state.cfbd.capabilities.live_plays = True
     live = next(c for c in client.get("/api/health").json()["data"]["checks"] if c["name"] == "live")
-    assert live["status"] == "ok" and "Diner Tech at Swampwater Tech" in live["detail"] and "waiting" in live["detail"]
+    assert live["status"] == "ok" and "Texas State at Florida" in live["detail"] and "waiting" in live["detail"]
     engine._poll_succeeded(now - timedelta(minutes=5))
     engine._feed_error = "ReadTimeout"
     health = client.get("/api/health").json()["data"]

@@ -22,7 +22,8 @@
 //     (from medium) | Status. A table of players, so it sorts.
 
 import { usSchool } from "../identity.js";
-import { el, fmtDate, fmtPct, isNum, recall, remember, str, text } from "../ui/dom.js";
+import { otherTeam, otherTeamHead, withTeam } from "../ui/other-team.js";
+import { el, fmtDate, fmtPct, isNum, str, text } from "../ui/dom.js";
 import { nationalHref } from "../ui/national-link.js";
 import { band, note, revealBand, subhead } from "../ui/states.js";
 import { mountFlow, stopFlow } from "../ui/flow.js";
@@ -41,7 +42,6 @@ export function classRankText(rank) {
   return ` Class rank #${rank.rank}${of} nationally${points ? `${points}, 247Sports composite)` : ""}.`;
 }
 
-const CLASS_KEY = "recruiting:class";
 
 /** A commit's national-rank chip link: the row's list key once stream NV sends it (recruit:<year>). */
 function recruitLink(row) {
@@ -261,20 +261,22 @@ function reveal(container, state) {
   flash.classList.add("flash");
 }
 
-function render(envelope, container, state) {
-  const data = envelope.data || {};
+/** The Recruiting page's bands (wave 3 of the one-column page, owner 2026-11-01: The class and Where they're from on My Team
+ *  too): the class with its switch, Where they're from, and, on the page itself, the visitors. `redraw` is what a class
+ *  switch calls (the page draws itself again; another page draws these bands again). */
+export function recruitingBands(data, state, { visitors: withVisitors = true, redraw = () => {} } = {}) {
   const classes = rows(data.classes);
   const parts = data.parts || {};
   const team = typeof data.team === "string" ? data.team : typeof data.team?.school === "string" ? data.team.school : usSchool();
-  const current = classes.find((c) => String(c.year) === String(state.year)) || classes[0] || null;
-  const buttons = classes.map((cls) => el("button", { type: "button", "aria-pressed": current && cls.year === current.year ? "true" : "false", onclick: () => { state.year = cls.year; remember(CLASS_KEY, cls.year); render(envelope, container, state); } }, `${text(cls.year)} (${text(cls.count)})`));
+  // owner 2026-11-01 ("Always start with the current class, which is 2027 in this case"): the class being recruited, the latest
+  // year, opens first; a tap switches for the visit, nothing is remembered
+  const current = classes.find((c) => String(c.year) === String(state.year)) || classes.slice().sort((a, b) => Number(b.year) - Number(a.year))[0] || null;
+  const buttons = classes.map((cls) => el("button", { type: "button", "aria-pressed": current && cls.year === current.year ? "true" : "false", onclick: () => { state.year = cls.year; redraw(); } }, `${text(cls.year)} (${text(cls.count)})`));
   const visitors = data.visitors && typeof data.visitors === "object" ? data.visitors : {};
   const part = current ? parts[current.partName] : null;
   const kickoff = typeof visitors.date === "string" && visitors.date ? fmtDate(visitors.date) : null;
   const commits = current ? rows(current.commits) : [];
-  const page = el(
-      "div",
-      { class: "page recruiting" },
+  return [
       band({
         id: "recruiting-class",
         title: current ? `${text(current.year)} class` : "Recruiting class",
@@ -303,14 +305,27 @@ function render(envelope, container, state) {
             body: () => whereBoth(classes),
           })
         : null,
-      band({
-        id: "recruiting-visitors",
-        title: visitors.opponent ? `Visitors, ${text(visitors.opponent)} week` : "Visitors this week",
-        collapsible: false,
-        summary: kickoff && kickoff !== "–" ? `kickoff ${kickoff}` : "",
-        state: partState(parts.schedule, true),
-        body: () => visitorsBlock(visitors, team),
-      }),
+      withVisitors
+        ? band({
+            id: "recruiting-visitors",
+            title: visitors.opponent ? `Visitors, ${text(visitors.opponent)} week` : "Visitors this week",
+            collapsible: false,
+            summary: kickoff && kickoff !== "–" ? `kickoff ${kickoff}` : "",
+            state: partState(parts.schedule, true),
+            body: () => visitorsBlock(visitors, team),
+          })
+        : null,
+  ].filter(Boolean);
+}
+
+function render(envelope, container, state) {
+  const data = envelope.data || {};
+  const team = typeof data.team === "string" ? data.team : typeof data.team?.school === "string" ? data.team.school : usSchool();
+  const page = el(
+      "div",
+      { class: "page recruiting" },
+      state.team ? otherTeamHead({ ...(data.team && typeof data.team === "object" ? data.team : {}), school: team }, "recruiting", "#recruiting") : null, // FEAT-5
+      ...recruitingBands(data, state, { redraw: () => render(envelope, container, state) }),
   );
   state.ui ??= {};
   mountFlow(state.ui, container, page, { wide: ["recruiting-class", "recruiting-where"] }); // final pass: the flowing page with its section chips; 2026-10-16: the pies get the room
@@ -318,12 +333,11 @@ function render(envelope, container, state) {
 }
 
 /** The view. `arg` is the route's focus ("national", "2027", "where", "visitors"). */
-export function createRecruitingView({ onStatus, arg } = {}) {
+export function createRecruitingView({ onStatus, arg, params } = {}) {
   const asked = parseRecruitingArg(arg);
-  const state = { year: asked.year ?? recall(CLASS_KEY, null), part: asked.part, revealed: false, sorts: {} }; // sorts: the reader's order, kept across refreshes
+  const state = { year: asked.year ?? null, part: asked.part, revealed: false, sorts: {}, team: otherTeam(params) }; // sorts: the reader's order, kept across refreshes; team: FEAT-5
   const view = poller({
-    url: "/api/recruiting",
-    refreshMs: 60 * 60 * 1000,
+    url: withTeam("/api/recruiting", state.team),
     onStatus,
     render: (envelope, container) => render(envelope, container, state),
     renderError: (message, container, retry) => container.replaceChildren(errorPanel("Recruiting", message, retry)),

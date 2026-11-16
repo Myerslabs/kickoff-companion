@@ -71,7 +71,7 @@ export function closeAllSheets(reason) {
  * working (placeLayers, components.css); a phone keeps the whole screen. A sheet takes one history entry (ui/layers.js):
  * Back closes it and stays on the page, and closing it by hand takes the entry back out. close(reason) is "self" (the
  * default), "route" or "history"; only "self" moves the history.
- * The wide flyout (the layout pass, owner 2026-10-22, board 4: https://claude.ai/artifact/4VVfYTQpLu1oyz8dz9xosZ): `wide`
+ * The wide flyout (the layout pass, owner 2026-10-22, board 4): `wide`
  * makes it about 83% of the screen (a phone's whole width), with `lead` (the "back to the list" button) at the head's left,
  * `subtitle` under the title, the × at its right as drawn, and `foot` (previous and next) pinned at its foot. The handle
  * adds setSubtitle(text) and setFoot(node).

@@ -15,7 +15,7 @@ import { usLabel } from "../identity.js";
 import { DASH, el, fmtSigned, isNum, records, text } from "./dom.js";
 import { twoTeamTable } from "./two-team.js";
 
-/** "Passing: Swampwater Tech offense vs Gravy Boat State defense" -> "Passing". */
+/** "Passing: Florida offense vs Alabama defense" -> "Passing". */
 function unitName(label) {
   const s = typeof label === "string" ? label.trim() : "";
   if (!s) return DASH;

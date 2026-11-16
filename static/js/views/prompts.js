@@ -7,7 +7,7 @@
 // the answer and, where Claude Code's command is found on the server, Run. At the top, "Run everything that is missing"
 // (the same run as `python -m app prompts`) with each step's progress, then what the schedule will run next and what it
 // ran lately (moved here from Settings; the switch stays there). A guest sees the cards and no buttons.
-// The layout pass, board 8 (owner 2026-10-22, https://claude.ai/artifact/Ezvp4EKTJ4Rx1YxbZaPmG3; "visually it's ok, but I
+// The layout pass, board 8 (owner 2026-10-22; "visually it's ok, but I
 // want to do the pre-loading of the data, so the preloaded data should show its date from the data that gets downloaded
 // with the program"): at a glance (five tiles: red missing, gold partly loaded or preloaded, green loaded, each with its
 // day) with the one run under them; this week's notes first and largest, its five parts as checks; the four season loads
@@ -17,6 +17,7 @@
 //   createPromptsView({ onStatus })   the shared poller view on /api/prompts (views/common.js)
 //   promptCards(data, onChange)       the cards (exported for the tests)
 
+import { getClaudeCode } from "../ui/claude-get.js";
 import { DASH, el, fmtDate, fmtDateTime, isNum, obj, str, text } from "../ui/dom.js";
 import { band, note, subhead } from "../ui/states.js";
 import { stopFlow } from "../ui/flow.js";
@@ -141,7 +142,7 @@ function runRows(seasonRun, kind) {
   return el("ul", { class: "prompts__runlist" }, mine.map((b) => el("li", { class: `prompts__runitem is-${text(b.state)}` }, `${text(b.key)}: ${STATE_WORDS[b.state] || text(b.state)}${str(b.error) ? ` (${b.error})` : ""}`)));
 }
 
-function card({ id, title, what, state, when, missing, tools, extra, checks = null, tile = null }) {
+function card({ id, title, what, state, when, missing, tools, extra, more = null, checks = null, tile = null }) {
   const section = band({
     id,
     title,
@@ -155,7 +156,9 @@ function card({ id, title, what, state, when, missing, tools, extra, checks = nu
       missing ? el("p", { class: "prompts__missing" }, text(missing)) : null,
       el("p", { class: "note" }, what),
       checks,
-      el("div", { class: "prompts__foot" }, tools, extra),
+      // ENH-20 (P5): the conference lists (more) and the buttons sit together at the card's foot, the buttons last, so the
+      // cards of a row end on one line; a run's progress (extra) follows the buttons
+      el("div", { class: "prompts__end" }, more, el("div", { class: "prompts__foot" }, tools, extra)),
     ),
   });
   section._tile = { label: tile || title, state, day: when, cover: typeof missing === "string" ? missing.split(" · ")[0] : null };
@@ -240,14 +243,16 @@ export function promptCards(data, onChange) {
       what: "Head coach, offensive and defensive coordinator for your primary and secondary teams and the next opponent. The game's own notes still win when they name someone else.",
       state: coachesState, when: dayOf(coachesState, s.coaches, "coaches"), missing: coachesOf ? `${ratio(s.coachesSaved)}${coachesState === "preloaded" ? ", with the program" : ""} · one conference at a time` : null,
       tools: seasonTools({ kind: "coaches", key: "all", label: "Coaches", run: true, commandFound: found, running: busy, onChange }),
-      extra: el("div", {}, conferenceRows("coaches", s.coaches, onChange), runRows(seasonRun, "coaches")),
+      more: conferenceRows("coaches", s.coaches, onChange),
+      extra: runRows(seasonRun, "coaches"),
     }),
     card({
       id: "prompts-costs", title: "Roster costs",
       what: "Rumored roster costs (revenue sharing and NIL): a total for each team you follow, position groups and players for the primary teams.",
       state: costsState, when: dayOf(costsState, s.costs, "costs"), missing: coachesOf ? `${ratio(s.costsSaved)}${count(shipped.costs) ? ` (${count(shipped.costs)} with the program)` : ""} · one conference at a time` : null,
       tools: seasonTools({ kind: "costs", key: "all", label: "Roster costs", run: true, commandFound: found, running: busy, onChange }),
-      extra: el("div", {}, conferenceRows("costs", s.costs, onChange), runRows(seasonRun, "costs")),
+      more: conferenceRows("costs", s.costs, onChange),
+      extra: runRows(seasonRun, "costs"),
     }),
     card({
       id: "prompts-facts", title: "School history and facts", tile: "School facts",
@@ -261,7 +266,8 @@ export function promptCards(data, onChange) {
         }
         if (typeof onChange === "function") onChange();
       } }, "Run the missing with Claude Code")) : null,
-      extra: el("div", {}, note("One prompt per conference: copy it, paste the answer, done."), conferenceRows("facts", s.facts, onChange), runRows(seasonRun, "facts")),
+      more: el("div", {}, note("One prompt per conference: copy it, paste the answer, done."), conferenceRows("facts", s.facts, onChange)),
+      extra: runRows(seasonRun, "facts"),
     }),
   ];
 }
@@ -357,7 +363,8 @@ function scheduleBand(data) {
       { class: "prompts__schedule" },
       el("p", { class: "note" }, s.enabled === true
         ? "Claude Code runs the prompts by itself: the notes when the publishers post, the season load in August, the coaches after the coaching changes, the costs after each portal window. The switch is in Profile, Claude and loading data."
-        : s.commandFound === true ? "Switched off in Profile, Claude and loading data. Nothing runs by itself." : "Off: Claude Code's command is not on the server computer. Install it and the schedule turns on by itself; Profile, Claude and loading data has the switch."),
+        : s.commandFound === true ? "Off until you turn it on in Profile, Claude and loading data. Nothing runs by itself until then." : "Off: Claude Code is not installed on the server computer."),
+      s.enabled !== true && s.commandFound !== true ? getClaudeCode({ compact: true }) : null,
       s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
       s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
       // board 8: a short table, what runs next and when, then what ran lately
@@ -371,7 +378,6 @@ export function createPromptsView({ onStatus } = {}) {
   const ui = {};
   const view = poller({
     url: "/api/prompts",
-    refreshMs: 60000, // a run's progress comes with the loading bar (ui/run-bar.js); the page rebuilds once it ends
     onStatus,
     render: (envelope, container) => {
       const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};

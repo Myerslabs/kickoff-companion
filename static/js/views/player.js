@@ -7,7 +7,7 @@
 // and the right vs/at (LRP-11); Play value numbers as numbers; each Stats heading with a sparkline of that
 // stat by game (LRP-16 c, GX-13 restrained).
 //
-// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every table on the card sizes itself by its own box
+// Tables wave 3 (owner 2026-10-10, the design rules "Table sizes"): every table on the card sizes itself by its own box
 // (about 600 px from a 700 px screen, a phone's width below). The stat columns follow ui/stat-labels.js (CATEGORY_SIZES for
 // the seasons, GAME_SIZES for the game log); the opponent reads "at DT" at small, still its team link; a bowl's week is
 // "Bowl" or its playoff round ("CFP" at small), its whole name on hover; the game log's result shows from medium (a phone
@@ -20,7 +20,7 @@ import { DASH, el, fmtDate, fmtStat, isNum, teamLink, text } from "../ui/dom.js"
 import { cardHeading, openPlayerCard, playerCard } from "../ui/player-card.js";
 import { categoryColumns, categoryTitle, normalizeStat, statLabel, trendKey } from "../ui/stat-labels.js";
 import { statTable } from "../ui/stat-table.js";
-import { fetchJson } from "./common.js";
+import { fetchPatient } from "./common.js";
 import { gradeBlock, gradeValue } from "../ui/grade.js";
 
 const RATE_KEYS = /^(YPA|YPC|YPR|AVG|PCT|YPP|QBR)$/i;
@@ -216,7 +216,8 @@ function extraPanels(data) {
   );
   const grade = data.grade && typeof data.grade === "object" ? data.grade : null; // public release Phase 7
   const graded = gradeValue(grade);
-  return [{ label: graded === null ? "Stat grade" : `Grade ${Math.round(graded)}`, body: gradeBlock(grade) }, { label: "Play value", body }];
+  const gradeTab = { label: graded === null ? "Stat grade" : `Grade ${Math.round(graded)}`, body: gradeBlock(grade) };
+  return [gradeTab, { label: "Play value", body }];
 }
 
 /** What the loading card already knows from the row that was tapped. */
@@ -258,37 +259,99 @@ export function cardPropsFrom(data) {
   };
 }
 
-/** Open the card for a player id. `fallback` is a row from a board for players without a card.
- *  Returns the card's close function (with .update, see ui/player-card.js). */
+/** A value a board row can show: a finite number, or words that are not a dash or a stray "null". */
+function realValue(value) {
+  if (isNum(value)) return true;
+  if (typeof value !== "string") return false;
+  const t = text(value);
+  return t !== DASH && !/^(undefined|null|nan|-?infinity)$/i.test(t);
+}
+
+/** The short stat list of a player with no full card, from the board row that was tapped: only the values the row really
+ *  has (owner 2026-11-15: no "Value –" row). Exported for the tests. */
+export function rowStats(row) {
+  const r = row && typeof row === "object" ? row : {};
+  const detail = r.detail && typeof r.detail === "object" && !Array.isArray(r.detail) ? r.detail : {};
+  const label = typeof r.boardLabel === "string" && text(r.boardLabel) !== DASH ? text(r.boardLabel) : "Value";
+  return [
+    ...(realValue(r.value) ? [{ label, value: text(r.value) }] : []),
+    ...Object.entries(detail).filter(([, v]) => realValue(v)).map(([k, v]) => ({ label: statLabel(k, r.category), value: text(v) })),
+  ];
+}
+
+/** "Kentucky's numbers", or "this player's numbers" when the row names no team. Exported for the tests. */
+export function whoseNumbers(row) {
+  const team = row && typeof row === "object" && typeof row.team === "string" ? text(row.team) : DASH;
+  return team !== DASH ? `${team}'s numbers` : "this player's numbers";
+}
+
+/** The words of the card's wait and of its time-out (owner 2026-11-15). Exported for the tests. */
+export function slowWords(row) {
+  const whose = whoseNumbers(row);
+  return {
+    waiting: `Still gathering ${whose} from CFBD. The first open of a team's card can take a minute or two; it keeps working.`,
+    lead: `${whose.charAt(0).toUpperCase()}${whose.slice(1)} are still coming in from CFBD.`,
+    detail: "The server keeps working on them, so another try is usually quick.",
+  };
+}
+
+/** A message as one sentence: a period added only when it has no end of its own ("The operation was aborted. ." was seen). */
+function sentence(message, fallback) {
+  const t = typeof message === "string" ? text(message) : DASH;
+  const words = t === DASH ? fallback : t;
+  return /[.!?]$/.test(words) ? words : `${words}.`;
+}
+
+/**
+ * Open the card for a player id. `fallback` is the row that was tapped: the loading card's name and number, and for a
+ * player with no full card (a 404) the short card built from it. Returns the card's close function (with .update, see
+ * ui/player-card.js).
+ *
+ * The player card's patience (owner 2026-11-15, after Grant Godfrey's card gave up at 15 s while the server fetched
+ * Kentucky's numbers game by game): the card waits like a page, asking again after each FETCH_TIMEOUT_MS round up to
+ * SLOW_TRIES rounds (fetchPatient; the server's locks make a second ask wait for the same CFBD calls); after the first round
+ * the loading card says the numbers are still coming from CFBD. Still nothing: the face and the name, then the time-out in
+ * plain words with Try again, which asks again into the same card; any other failure but a 404 the same block with the
+ * server's own words. Closing the card stops the wait and says nothing.
+ */
 export async function openPlayer(playerId, fallback = null) {
   const row = fallback && typeof fallback === "object" ? fallback : null;
   const them = row ? row.isUs === false : false; // our rows say isUs (LRP-07); only a row that says otherwise is the opponent
-  const card = openPlayerCard({ player: rowPlayer(playerId, row), them, loading: true });
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-  try {
-    if (playerId === null || playerId === undefined || String(playerId).trim() === "") throw Object.assign(new Error("No player id on this row"), { status: 404 });
-    // Phase 15: a player found by search on another FBS team names the team, so the server reads its roster.
-    const teamQuery = row && typeof row.team === "string" && row.team && row.isUs !== true ? `?team=${encodeURIComponent(row.team)}` : "";
-    const envelope = await fetchJson(`/api/players/${encodeURIComponent(playerId)}${teamQuery}`, controller.signal);
-    card.update(cardPropsFrom(envelope?.data));
-  } catch (error) {
-    if (row) {
-      const detail = Object.entries(row.detail && typeof row.detail === "object" ? row.detail : {}).map(([k, v]) => ({ label: statLabel(k, row.category), value: text(v) }));
-      card.update({
-        player: rowPlayer(playerId, row),
-        seasonStats: [{ label: text(row.boardLabel || "Value"), value: text(row.value) }, ...detail],
-        gameLog: [],
-        history: [],
-        them,
-        note: error?.status === 404 ? "Full cards exist for our team and the next opponent only." : `${error?.message || "Could not load the card"}.`,
+  const player = rowPlayer(playerId, row);
+  const words = slowWords(row);
+  const card = openPlayerCard({ player, them, loading: true });
+  const closed = () => card.signal?.aborted === true;
+  let seq = 0;
+  const load = async () => {
+    const mine = ++seq;
+    const current = () => mine === seq && !closed();
+    const tryAgain = { label: "Try again", onClick: () => { card.update({ player, them, loading: true }); load(); } };
+    try {
+      if (playerId === null || playerId === undefined || String(playerId).trim() === "") throw Object.assign(new Error("No player id on this row"), { status: 404 });
+      // Phase 15: a player found by search on another FBS team names the team, so the server reads its roster.
+      const teamQuery = row && typeof row.team === "string" && row.team && row.isUs !== true ? `?team=${encodeURIComponent(row.team)}` : "";
+      const envelope = await fetchPatient(`/api/players/${encodeURIComponent(playerId)}${teamQuery}`, {
+        current,
+        signal: card.signal,
+        onSlow: (round) => {
+          if (round === 1 && current()) card.update({ player, them, loading: true, note: words.waiting }); // once: the words stay through the later rounds
+        },
       });
-    } else {
-      card.update({ player: { name: "Player" }, seasonStats: [], gameLog: [], history: [], note: `${error?.message || "Could not load the card"}.` });
+      if (!current()) return;
+      card.update(cardPropsFrom(envelope?.data));
+    } catch (error) {
+      if (!current()) return; // closed while it waited, or a newer try took over: nothing to say
+      if (error?.status === 404) {
+        // no full card for this player: the short card from the row, as before, with only its real values
+        card.update({ player, seasonStats: rowStats(row), gameLog: [], history: [], them, note: row ? "Full cards exist for our team and the next opponent only." : sentence(error?.message, "Could not load the card") });
+      } else if (error?.name === "AbortError" || error?.name === "TimeoutError") {
+        card.update({ player, them, failed: { lead: words.lead, detail: words.detail, action: tryAgain } }); // every round ran out
+      } else {
+        card.update({ player, them, failed: { lead: "Could not load the card.", detail: sentence(error?.message, "The request failed"), action: tryAgain } });
+      }
     }
-  } finally {
-    clearTimeout(timeout);
-  }
+  };
+  await load();
   return card;
 }
 

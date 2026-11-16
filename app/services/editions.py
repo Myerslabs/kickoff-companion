@@ -30,34 +30,58 @@ from app.services.answers import atomic_write
 
 log = logging.getLogger("kickoff.editions")
 
-KEY = re.compile(r"^(?:week-(\d{1,2})|postseason)$")
+KEY = re.compile(r"^(?:week-(\d{1,2})|postseason)(-sunday)?$")  # Wave 6 (owner 2026-11-15): a game's Sunday paper is "<week>-sunday"
 POSTSEASON = "postseason"
+OFFSEASON_KEY = re.compile(r"^offseason-\d{4}-\d{2}-\d{2}$")  # rollover R3: the off-season paper of the week turning that Monday
+
+
+def offseason_key(turn: Any) -> str:
+    """'offseason-2027-01-11': the off-season paper that turned over on that Monday (never kept as an edition)."""
+    return f"offseason-{turn.date().isoformat()}"
+
+
+def is_offseason(key: Any) -> bool:
+    return isinstance(key, str) and bool(OFFSEASON_KEY.match(key))
+SUNDAY = "-sunday"
 FORMAT = 1
 
 
-def key_for(week: Any, season_type: Any) -> str | None:
-    """The file name of a week's edition: 'week-7', 'postseason' (bowl season is one CFBD week), or None."""
+def key_for(week: Any, season_type: Any, sunday: bool = False) -> str | None:
+    """The file name of a week's edition: 'week-7', 'postseason' (bowl season is one CFBD week), their Sunday papers
+    'week-7-sunday' and 'postseason-sunday', or None."""
+    tail = SUNDAY if sunday else ""
     if str(season_type or "regular") == POSTSEASON:
-        return POSTSEASON
+        return POSTSEASON + tail
     if isinstance(week, int) and not isinstance(week, bool) and 0 <= week <= 99:
-        return f"week-{week}"
+        return f"week-{week}{tail}"
     return None
 
 
+def is_sunday(key: Any) -> bool:
+    return isinstance(key, str) and bool(KEY.match(key)) and key.endswith(SUNDAY)
+
+
+def week_key(key: Any) -> str | None:
+    """A Sunday paper's week paper ('week-7-sunday' -> 'week-7'); a week paper's own key; None for anything else."""
+    return key.removesuffix(SUNDAY) if isinstance(key, str) and KEY.match(key) else None
+
+
 def label_for(key: str) -> str:
-    """'Week 7' or 'Bowl season'."""
+    """'Week 7', 'Week 7 · Sunday paper', 'Bowl season' or 'Bowl season · Sunday paper'."""
     match = KEY.match(key or "")
     if not match:
         return "This week"
-    return "Bowl season" if key == POSTSEASON else f"Week {int(match.group(1))}"
+    name = "Bowl season" if key.startswith(POSTSEASON) else f"Week {int(match.group(1))}"
+    return f"{name} · Sunday paper" if match.group(2) else name
 
 
-def order_of(key: str) -> tuple[int, int]:
-    """Where an edition falls in the season: regular weeks in order, then bowl season."""
+def order_of(key: str) -> tuple[int, int, int]:
+    """Where an edition falls in the season: regular weeks in order, each week's Sunday paper after it, then bowl season."""
     match = KEY.match(key)
     if not match:
-        return (2, 0)
-    return (1, 0) if key == POSTSEASON else (0, int(match.group(1)))
+        return (2, 0, 0)
+    sunday = 1 if match.group(2) else 0
+    return (1, 0, sunday) if key.startswith(POSTSEASON) else (0, int(match.group(1)), sunday)
 
 
 def _content(edition: dict[str, Any]) -> str:

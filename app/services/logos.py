@@ -1,6 +1,6 @@
 """Team logos (Phase 16, audit G3-10, P-08, DS-07): fetched once from CFBD's logo CDN, stored under
 data/logos/, and served by our own route (/media/logo/{team_id}?v=light|dark) so the tablet never
-talks to a third-party host (CLAUDE.md, Environment 5). Modelled on the headshot store.
+talks to a third-party host (assets are self-hosted). Modelled on the headshot store.
 
 CFBD's /teams/fbs lists each team's logos at fixed paths keyed by the team id (recorded 2026-09-20:
 https://cdn.collegefootballdata.com/logos/500/57.png and logos-dark/500/57.png, sizes 16 to 500),

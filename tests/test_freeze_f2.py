@@ -61,7 +61,7 @@ class ScheduleHarness:
         self.client = CfbdClient(self.settings, self.db, transport=self.upstream.transport, clock=self.clock)
         self.client.quota.mark_reconcile_attempt(self.clock())
         self.client.quota.needs_reconcile = False
-        self.upstream.route("/ratings/sp", handler=lambda _r: httpx.Response(200, json=[{"team": "Swampwater Tech", "rating": 20.1}]))
+        self.upstream.route("/ratings/sp", handler=lambda _r: httpx.Response(200, json=[{"team": "Florida", "rating": 20.1}]))
 
     def get_sp(self):
         return asyncio.run(self.client.get("/ratings/sp", {"year": 2026}, kind=DataKind.SEASON_STATS))

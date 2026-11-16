@@ -96,13 +96,25 @@ scenarios.hold = async () => {
   bar.watchRun();
   await advance(0);
   await advance(10000);
-  assert.equal(asked(), start, "a drawn page holds its refreshes while Claude Code loads");
+  assert.equal(asked(), start, "a drawn page asks nothing while Claude Code loads");
+  let loaded = 0;
+  document.addEventListener("kickoff:data-loaded", () => { loaded += 1; });
   answer = IDLE("2026-10-16T15:00:00Z");
   await advance(5000);
-  assert.equal(asked(), start + 1 + 0, "one refresh at the end...");
-  await advance(3000);
-  assert.ok(asked() >= start + 3, "...then its own pace again");
+  assert.equal(loaded, 1, "the end of the run is announced (app.js puts it in the To do)");
+  await advance(60000);
+  assert.equal(asked(), start, "manual refresh (owner 2026-11-14): no refresh at the end, none on a timer");
+  await view.refresh();
+  assert.equal(asked(), start + 1, "Refresh asks");
   view.unmount();
+  // the one live page (the Trivia page) still asks on its timer
+  const live = poller({ url: "/api/thing", live: true, refreshMs: 1000, render: (env, c) => c.replaceChildren(document.createTextNode(`n ${env.data.n}`)), renderError: () => {}, renderLoading: () => document.createElement("p") });
+  live.mount(main);
+  await advance(0);
+  const before = asked();
+  await advance(3000);
+  assert.ok(asked() >= before + 2, "a live page keeps its pace");
+  live.unmount();
 };
 
 scenarios.pie = async () => {

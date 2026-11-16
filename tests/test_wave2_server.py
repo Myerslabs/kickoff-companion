@@ -12,8 +12,8 @@ from app.cache import DataKind
 from app.cfbd import client as client_module
 from tests.test_client import Harness, run
 
-TEAMS = [{"id": 1, "school": "Swampwater Tech", "mascot": "Mudpuppies"}]
-NEWER = [{"id": 1, "school": "Swampwater Tech", "mascot": "Mudpuppies", "color": "#0021A5"}]
+TEAMS = [{"id": 1, "school": "Florida", "mascot": "Gators"}]
+NEWER = [{"id": 1, "school": "Florida", "mascot": "Gators", "color": "#0021A5"}]
 
 
 def test_an_expired_stable_copy_is_served_at_once_and_refreshed_behind_it(tmp_path):

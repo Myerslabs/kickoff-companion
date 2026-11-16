@@ -39,15 +39,13 @@ def mark_archived(rows: Any, archived: set[int]) -> None:
 
 @router.get("/api/season/overview")
 async def season_overview(request: Request, team: str | None = None) -> Any:
-    """The Season page. `team` (Season with My Teams, board 9) names another team the reader follows; a name outside the
-    team set answers 404, so a typed address never spends calls on a team nobody follows."""
+    """The Season page. `team` (Season with My Teams, board 9) names another team; since FEAT-5 (owner 2026-10-25: "I also
+    want to see every team the way I see my team") any FBS team, followed or not. A name CFBD's FBS list lacks answers 404."""
     service: SeasonService = request.app.state.season
     settings = request.app.state.settings
     teams = await service.fbs_teams()
     chosen = teamset.current(settings, getattr(request.app.state, "prefs", None), service.client, teams.records if teams.ok else None)
     picked = team.strip() if isinstance(team, str) and team.strip() else settings.team
-    if picked != settings.team and picked not in chosen.mine():
-        return error_response(404, "not_followed", f"{picked} is not one of your teams. Add it under My teams in Settings, then open it here.")
     try:
         result = await service.overview(picked if picked != settings.team else None)
     except UnknownTeam:

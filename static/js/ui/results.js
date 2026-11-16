@@ -54,6 +54,14 @@ export function resultRows(locked, data) {
       them: { expected: show(them?.value, them?.format || pair.fmt), result: show(pair.result(themBox), pair.fmt) },
     };
   }).filter((m) => m.us.expected !== DASH || m.them.expected !== DASH || m.us.result !== DASH || m.them.result !== DASH);
+  // owner 2026-11-01 ("Some of these need to be adjusted to season average instead of season"): a player's season line is his
+  // per-game average at kickoff, from the record of the day; his total where the lock has no record
+  const played = (side) => {
+    const r = obj(obj(obj(L.records)[side]).total);
+    const n = [r.wins, r.losses, r.ties].filter(isNum).reduce((a, b) => a + b, 0);
+    return n > 0 ? n : null;
+  };
+  const perGame = (value, side) => (isNum(value) ? (played(side) ? fmtNum(value / played(side), 1) : fmtNum(value)) : DASH);
   const players = [];
   for (const row of Array.isArray(L.leaders) ? L.leaders : []) {
     if (!row || typeof row !== "object") continue;
@@ -61,7 +69,7 @@ export function resultRows(locked, data) {
       const p = obj(row[side]);
       if (!str(p.player)) continue;
       const line = gameLine(obj(final.players)[side], str(row.category) ? row.category : "", str(row.stat) ? row.stat : "", p.playerId);
-      players.push({ side, label: str(row.label) ? row.label : text(row.stat), player: p.player, playerId: p.playerId, position: str(p.position) ? p.position : null, season: isNum(p.value) ? fmtNum(p.value) : DASH, game: isNum(line) ? fmtNum(line) : DASH });
+      players.push({ side, label: str(row.label) ? row.label : text(row.stat), player: p.player, playerId: p.playerId, position: str(p.position) ? p.position : null, season: perGame(p.value, side), game: isNum(line) ? fmtNum(line) : DASH });
     }
   }
   return { measures, players };
@@ -131,6 +139,6 @@ export function resultsBand({ locked, data, id = "program-results" } = {}) {
     foldable: true,
     summary: `locked at kickoff · ${verdict.result}`,
     state: { status: "ready" },
-    body: () => el("div", { class: "results" }, note("What the program said at kickoff, beside what the game did. A season number is a per-game average; a player's season line is his total."), game, teams, watch, obj(L.notes).author ? el("p", { class: "note" }, `The notes were by ${text(L.notes.author)}.`) : null),
+    body: () => el("div", { class: "results" }, note("What the program said at kickoff, beside what the game did. A season number is a per-game average, a player's season line too (his total over the games played at kickoff)."), game, teams, watch, obj(L.notes).author ? el("p", { class: "note" }, `The notes were by ${text(L.notes.author)}.`) : null),
   });
 }

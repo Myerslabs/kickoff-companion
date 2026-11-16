@@ -14,12 +14,13 @@ import asyncio
 import logging
 import re
 import shutil
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.services import notes_paste
+from app.services import claude_signin, notes_paste
 
 log = logging.getLogger("kickoff.notes")
 
@@ -28,6 +29,40 @@ PROMPT_LEAD = "The task follows."  # the words on the command line; the prompt i
 SHIM_SCRIPT = re.compile(r'"%dp0%\\([^"]+?\.js)"')  # npm's claude.cmd: "%dp0%\node_modules\@anthropic-ai\claude-code\cli.js" %*
 MAX_RUN_SECONDS = 20 * 60
 ALLOWED_TOOLS = "WebSearch,WebFetch"  # the tool researches and answers; the app writes the file
+DENIED_TOOLS = "Bash,Edit,Write,NotebookEdit,Read,Glob,Grep,Task"  # for a Claude Code too old to list --tools
+HELP_SECONDS = 20
+_help_cache: dict[tuple[str, ...], str | None] = {}
+
+
+def _read_help(prefix: list[str]) -> str | None:
+    """The command's own `--help`, or None when it cannot be read (a missing or broken command)."""
+    try:
+        done = subprocess.run([*prefix, "--help"], capture_output=True, text=True, encoding="utf-8", errors="replace", stdin=subprocess.DEVNULL, timeout=HELP_SECONDS, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False)  # noqa: S603 - the resolved Claude Code command
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("Could not read %s --help (%s); the lockdown flags go in unchecked", prefix[-1], exc)
+        return None
+    text = f"{done.stdout}\n{done.stderr}"
+    return text if "--print" in text or "--output-format" in text else None
+
+
+def _lists(help_text: str, flag: str) -> bool:
+    return any(token.strip(",[]<>") == flag for token in help_text.split())
+
+
+async def lockdown_args(prefix: list[str]) -> list[str]:
+    """Security review 2026-11-01: the runners hand Claude Code web pages and a visitor's question, so besides
+    `--allowedTools` (which only skips the prompt for those two) the built-in tools are cut to web search and fetch,
+    no MCP server loads and no session is kept. Flags the installed command's `--help` does not list are left out;
+    with no `--tools`, the file and shell tools are denied by name."""
+    key = tuple(prefix)
+    if key not in _help_cache:
+        _help_cache[key] = await asyncio.to_thread(_read_help, prefix)
+    help_text = _help_cache[key]
+    args = ["--tools", ALLOWED_TOOLS] if help_text is None or _lists(help_text, "--tools") else ["--disallowedTools", DENIED_TOOLS]
+    for flag in ("--strict-mcp-config", "--no-session-persistence"):
+        if help_text is None or _lists(help_text, flag):
+            args.append(flag)
+    return args
 
 
 def scratch_dir(data_dir: Path) -> Path:
@@ -78,10 +113,11 @@ class NotesRunner:
 
     def build_prompt(self, game: dict[str, Any], mode: str = "full") -> str:
         who = self.who() if callable(self.who) else None
+        learned = notes_paste.learning_text(self.data_dir, game.get("gameId"), self.season)  # FEAT-6: every run builds on the reviews
         if mode == "injuries":
-            return notes_paste.build_injury_prompt(who, game, self.season, self.tz)
+            return notes_paste.build_injury_prompt(who, game, self.season, self.tz) + learned
         if mode.startswith("parts:"):  # post-freeze Wave 1: one band's part of the notes, merged into the rest
-            return notes_paste.build_parts_prompt(who, game, self.season, notes_paste.parse_parts(mode.removeprefix("parts:")), self.tz)
+            return notes_paste.build_parts_prompt(who, game, self.season, notes_paste.parse_parts(mode.removeprefix("parts:")), self.tz) + learned
         return notes_paste.build_prompt(self.data_dir, who, game, self.season, self.tz)
 
     # --- the command ------------------------------------------------------------------------------------
@@ -169,7 +205,7 @@ class NotesRunner:
             return self.status(command)
         prompt = self.build_prompt(game, mode)
         self.mode = mode
-        self.model = model if mode == "injuries" else None
+        self.model = model if mode in ("injuries", "parts:availability") else None  # the small runs take the lookup model
         self.changed = None
         self.game_id = game_id
         self.started_at = _now()
@@ -186,7 +222,8 @@ class NotesRunner:
     async def _run(self, executable: str, prompt: str, game_id: int) -> None:
         # the prompt goes on stdin (freeze wave F6, B7): a command line holds 32,767 characters on Windows, 8,191 through
         # a .cmd shim, and a notes prompt with the depth charts and the notes is longer than the latter
-        args = [*self.command_args(executable), "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]
+        prefix = self.command_args(executable)
+        args = [*prefix, "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text", *await lockdown_args(prefix)]
         if self.model:
             args += ["--model", self.model]
         log.info("Notes task started for game %s with %s", game_id, executable)
@@ -209,8 +246,11 @@ class NotesRunner:
             log.warning("Notes task failed to start: %s", exc)
         finally:
             self.process = None
-            if self.error is None and self.exit_code not in (0, None):
-                self.error = f"the tool exited with code {self.exit_code}"
+            if self.exit_code == 0:
+                claude_signin.succeeded()
+            elif self.error is None and self.exit_code is not None:
+                # 2026-11-15: a signed-out Claude Code says so in its log; its words, not the bare exit code
+                self.error = claude_signin.from_log(path) or f"the tool exited with code {self.exit_code}"
             if self.error is None:
                 self._save_answer(path, header, game_id)
             self.finished_at = _now()
@@ -238,7 +278,7 @@ class NotesRunner:
             elif parts:
                 self.changed = notes_paste.merge_parts(self.data_dir, game_id, reading.notes, parts)
             else:
-                notes_paste.save_notes(self.data_dir, game_id, reading.notes)
+                self.changed = notes_paste.merge_notes(self.data_dir, game_id, reading.notes)  # owner 2026-10-30: builds on the week's notes
         except notes_paste.NotesUnreadable as exc:
             self.error = f"{'the injury report' if self.mode == 'injuries' else notes_paste.parts_words(parts)} was not merged: {exc}"
             return

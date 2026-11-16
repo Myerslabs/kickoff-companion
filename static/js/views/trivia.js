@@ -11,7 +11,6 @@
 
 import { el, fmtDate, isNum, records, str, text } from "../ui/dom.js";
 import { band, note } from "../ui/states.js";
-import { pollMs } from "../prefs.js";
 import { endDay, forgetName, join, joinCard, leave, mark, rename, teamName } from "../ui/trivia.js";
 import { errorPanel, fetchJson, poller } from "./common.js";
 
@@ -267,14 +266,14 @@ export function createTriviaView({ onStatus } = {}) {
   const make = () =>
     poller({
       url: `/api/trivia?name=${encodeURIComponent(teamName())}`,
-      refreshMs: Math.min(pollMs(), 30 * 1000),
+      live: true, // the game-day trivia, live like In Game: the one page still asked on a timer (owner 2026-11-14)
+      refreshMs: 30 * 1000,
       staleAfterMs: 30 * 1000,
       onStatus,
       render: (envelope, target) => render(envelope, target, state),
       renderError: (message, target, retry) => target.replaceChildren(errorPanel("Trivia", message, retry)),
       renderLoading: () => el("div", { class: "page" }, band({ title: "Trivia", collapsible: false, state: { status: "loading" } })),
       loadingDetail: "The board, today's questions and your score",
-      holdDuringRuns: false,
     });
   function remake() {
     if (!container) return;

@@ -6417,6 +6417,164 @@
       "title": "Up and down October",
       "detail": "Back-to-back losses to Missouri (45-17) and South Carolina (38-19), then the upset in Austin"
      }
+    ],
+    "predictedRecord": {
+     "overall": "7-5",
+     "conference": "4-5",
+     "source": "ESPN FPI, 6.74 wins (SEC 4.21, summed from its game odds), Aug 23, 2026, via Saturday Down South"
+    },
+    "projectedStarters": {
+     "offense": [
+      {
+       "slot": "QB",
+       "name": "Aaron Philo",
+       "position": "QB"
+      },
+      {
+       "slot": "RB",
+       "name": "Jadan Baugh",
+       "position": "RB"
+      },
+      {
+       "slot": "WR",
+       "name": "Dallas Wilson",
+       "position": "WR"
+      },
+      {
+       "slot": "WR",
+       "name": "Vernell Brown III",
+       "position": "WR"
+      },
+      {
+       "slot": "WR",
+       "name": "Eric Singleton Jr.",
+       "position": "WR"
+      },
+      {
+       "slot": "TE",
+       "name": "Lacota Dippre",
+       "position": "TE"
+      },
+      {
+       "slot": "LT",
+       "name": "Bryce Lovett",
+       "position": "OL"
+      },
+      {
+       "slot": "LG",
+       "name": "Knijeah Harris",
+       "position": "OL"
+      },
+      {
+       "slot": "C",
+       "name": "Harrison Moore",
+       "position": "OL"
+      },
+      {
+       "slot": "RG",
+       "name": "TJ Shanahan Jr.",
+       "position": "OL"
+      },
+      {
+       "slot": "RT",
+       "name": "Emeka Ugorji",
+       "position": "OL"
+      }
+     ],
+     "defense": [
+      {
+       "slot": "NT",
+       "name": "Brendan Bett",
+       "position": "DL"
+      },
+      {
+       "slot": "DT",
+       "name": "Jeramiah McCloud",
+       "position": "DL"
+      },
+      {
+       "slot": "EDGE",
+       "name": "Jayden Woods",
+       "position": "JACK"
+      },
+      {
+       "slot": "LB",
+       "name": "Myles Graham",
+       "position": "ILB"
+      },
+      {
+       "slot": "LB",
+       "name": "Aaron Chiles",
+       "position": "ILB"
+      },
+      {
+       "slot": "LB",
+       "name": "Jaden Robinson",
+       "position": "ILB"
+      },
+      {
+       "slot": "CB",
+       "name": "Ben Hanks III",
+       "position": "CB"
+      },
+      {
+       "slot": "CB",
+       "name": "Cormani McClain",
+       "position": "CB"
+      },
+      {
+       "slot": "STAR",
+       "name": "Kanye Clark",
+       "position": "STAR"
+      },
+      {
+       "slot": "S",
+       "name": "Bryce Thornton",
+       "position": "S"
+      },
+      {
+       "slot": "S",
+       "name": "DJ Coleman",
+       "position": "S"
+      }
+     ]
+    },
+    "stars": [
+     {
+      "name": "Jadan Baugh",
+      "position": "RB",
+      "honor": "ESPN preseason first-team All-American",
+      "why": "The workhorse back Florida's offense runs through in Jon Sumrall's first season.",
+      "source": "https://floridagators.com/news/2026/8/13/football-baugh-tabbed-as-espn-preseason-first-team-all-american"
+     },
+     {
+      "name": "Vernell Brown III",
+      "position": "WR",
+      "honor": "Preseason All-SEC third team, return specialist (media and coaches)",
+      "why": "A starting receiver who also returns punts, a big-play threat in two phases.",
+      "source": "https://floridagators.com/news/2026/7/24/football-baugh-brown-iii-and-woods-earn-nods-to-preseason-all-sec-teams"
+     },
+     {
+      "name": "Jayden Woods",
+      "position": "JACK",
+      "honor": "Preseason All-SEC third team, defensive line (media and coaches)",
+      "why": "The starting JACK, Florida's lead pass rusher off the edge.",
+      "source": "https://floridagators.com/news/2026/7/24/football-baugh-brown-iii-and-woods-earn-nods-to-preseason-all-sec-teams"
+     },
+     {
+      "name": "Myles Graham",
+      "position": "LB",
+      "honor": "Butkus Award watch list",
+      "why": "A returning starter Sumrall named as a leader; he anchors the middle of Brad White's defense.",
+      "source": "https://floridagators.com/news/2026/8/13/football-butkus-award-names-myles-graham-to-preseason-watch-list"
+     },
+     {
+      "name": "Harrison Moore",
+      "position": "C",
+      "honor": "Rimington Trophy watch list",
+      "why": "The Georgia Tech transfer takes over at center on a line with three new starters.",
+      "source": "https://floridagators.com/news/2026/8/6/football-moore-placed-on-rimington-trophy-watchlist"
+     }
     ]
    },
    "injuries": [],
@@ -6462,6 +6620,50 @@
     {
      "label": "Wikipedia, 2026 SEC season (media poll)",
      "url": "https://en.wikipedia.org/wiki/2026_Southeastern_Conference_football_season"
+    },
+    {
+     "label": "Saturday Down South: ESPN's FPI predicts the outcome for every game of Florida's 2026 season (Aug 23, 2026)",
+     "url": "https://www.saturdaydownsouth.com/news/college-football/espns-fpi-predicts-the-outcome-for-every-game-of-floridas-2026-season/"
+    },
+    {
+     "label": "OnlyGators: Florida football depth chart, Week 1 vs. FAU (Aug 31, 2026)",
+     "url": "https://www.onlygators.com/08/31/2026/florida-football-depth-chart-week-1-new-look-gators-set-to-begin-2026-season-vs-fau/"
+    },
+    {
+     "label": "The Independent Florida Alligator: Sumrall talks depth chart, Week 1 ahead of Florida debut (Aug 31, 2026)",
+     "url": "https://www.alligator.org/article/2026/08/sumrall-talks-depth-chart-and-week-1"
+    },
+    {
+     "label": "WCJB: Sumrall amped for first game, UF depth chart released (Sep 1, 2026)",
+     "url": "https://www.wcjb.com/2026/09/01/sumrall-amped-first-game-uf-depth-chart-released/"
+    },
+    {
+     "label": "Florida Gators: 2026 Football Roster (name spellings and positions)",
+     "url": "https://floridagators.com/sports/football/roster"
+    },
+    {
+     "label": "Florida Gators: Baugh Tabbed as ESPN Preseason First-Team All-American (Aug 13, 2026)",
+     "url": "https://floridagators.com/news/2026/8/13/football-baugh-tabbed-as-espn-preseason-first-team-all-american"
+    },
+    {
+     "label": "Florida Gators: Baugh, Brown III and Woods Earn Nods to Preseason All-SEC Teams (media, Jul 24, 2026)",
+     "url": "https://floridagators.com/news/2026/7/24/football-baugh-brown-iii-and-woods-earn-nods-to-preseason-all-sec-teams"
+    },
+    {
+     "label": "Florida Gators: Baugh, Brown III and Woods Placed on Coaches Preseason All-SEC Team (Aug 19, 2026)",
+     "url": "https://floridagators.com/news/2026/8/19/football-baugh-brown-iii-and-woods-placed-on-coaches-preseason-all-sec-team"
+    },
+    {
+     "label": "Florida Gators: Doak Walker Award Names Baugh to Preseason Watch List (Aug 18, 2026)",
+     "url": "https://floridagators.com/news/2026/8/18/Doak-Walker-Award-Names-Baugh-to-Preseason-Watch-List"
+    },
+    {
+     "label": "Florida Gators: Butkus Award Names Myles Graham to Preseason Watch List (Aug 13, 2026)",
+     "url": "https://floridagators.com/news/2026/8/13/football-butkus-award-names-myles-graham-to-preseason-watch-list"
+    },
+    {
+     "label": "Florida Gators: Moore Placed on Rimington Trophy Preseason Watch List (Aug 6, 2026)",
+     "url": "https://floridagators.com/news/2026/8/6/football-moore-placed-on-rimington-trophy-watchlist"
     }
    ],
    "conference": "SEC",

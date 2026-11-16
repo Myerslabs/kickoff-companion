@@ -1,0 +1,225 @@
+{
+ "5348": {
+  "name": "Mercedes-Benz Stadium",
+  "checkedAt": "2026-10-30",
+  "address": "1 AMB Drive NW, Atlanta, GA 30313",
+  "parking": [
+   {
+    "name": "Official lots and decks",
+    "detail": "Buy ahead at parking.mercedesbenzstadium.com; lots often sell out. Prices vary by event; each lot's hours come with the booking."
+   },
+   {
+    "name": "The Home Depot Backyard (1 Backyard Way)",
+    "detail": "Tailgate lot beside the stadium; opens 4.5 hours before the event. No RVs, buses or trailers."
+   },
+   {
+    "name": "Lot 17, Blue Lot, North Gate 1",
+    "detail": "Official lots on Mangum St SW and Northside Dr NW that allow tailgating; no oversized vehicles."
+   },
+   {
+    "name": "Silver, Red and Orange Decks",
+    "detail": "Official garages next to the stadium; no tailgating. Height limit 6'8\" (Orange Deck 8'2\")."
+   },
+   {
+    "name": "Marshalling Yard RV/Bus lot",
+    "detail": "The official RV and bus lot, about 0.7 mi from the stadium; tailgating allowed."
+   },
+   {
+    "name": "Yellow Lot (465 Ivan Allen Jr Blvd NW)",
+    "detail": "Official tailgate lot about 0.8 mi away; free ADA shuttle to Vine City station by Gate 1."
+   },
+   {
+    "name": "Centennial Yards Tailgating Lot (175 Ted Turner Dr SW)",
+    "detail": "Not run by the stadium; tailgating allowed, RVs and buses when space allows."
+   }
+  ],
+  "tailgating": [
+   "Only in The Home Depot Backyard and lots that allow it, for event ticket holders; stay in front of or behind your space.",
+   "Tailgating ends 30 minutes after the event start; up to 4 people may then stay at the spot. No overnight parking.",
+   "One 10' x 10' tent per space, weighted down, no stakes; take it down before going in.",
+   "Propane or natural gas grills only: no charcoal, fryers, wood stoves or open fires.",
+   "No single-serve glass, drinking games, or underage or excessive drinking. Generators 6500 W or less on a plywood base.",
+   "One space per hangtag, no saving spaces; lots close 2 hours after the event."
+  ],
+  "gates": "Most fans can use any gate. Floor-seat holders use the floor line near Gate 1; suite and club guests use the North Club Entrance or any gate.",
+  "bagPolicy": "One clear plastic, vinyl or PVC bag up to 12\" x 6\" x 12\" or a one-gallon clear freezer bag; a small bag up to 4.5\" x 6.5\" only alongside a clear bag. All other bags are prohibited.",
+  "entry": [
+   "Florida-Georgia tickets are digital, in the Mercedes-Benz Stadium app.",
+   "Delta Fly-Through lanes let enrolled fans enter by facial recognition instead of a ticket.",
+   "Not allowed: outside food and drink, umbrellas 33 in. or longer, signs or flags over 3' x 5', poles, selfie sticks, drones, noisemakers, weapons.",
+   "Smoke-, vape- and tobacco-free, including the gate plazas.",
+   "Bag storage (Mobile Locker Co.) at Gate 1 on Northside Dr and Gate 2 on Andrew Young Intl Blvd, 2 hours before to 1.5 hours after."
+  ],
+  "transit": [
+   "MARTA to SEC District station (formerly GWCC/CNN Center), next to the stadium; Vine City is the other close stop. $2.50 each way.",
+   "Tap a bank card or phone wallet at MARTA faregates (old Breeze cards no longer work). No drinking alcohol on trains.",
+   "Rideshare Zone 1: GWCC Bus Lane C on Northside Dr, for Gate 1 and heading north; about a 10-minute walk.",
+   "Rideshare Zone 2: Broad St between Trinity Ave and Mitchell St, for Gates 2 to 4; about a 10-minute walk.",
+   "Expect heavy traffic on I-75, I-85 and I-20 into downtown."
+  ],
+  "accessibility": [
+   "ADA parking in most official lots and decks, booked at parking.mercedesbenzstadium.com, first come, first served.",
+   "Free ADA shuttle from the Blue and Yellow Lots to Vine City MARTA station, closest to Gate 1.",
+   "Accessible drop-off: Northside Dr in front of The Home Depot Backyard, or Andrew Young Intl Blvd at the Georgia International Plaza or Red Deck.",
+   "Mobility Ambassadors arrange wheelchair escorts from the entries to seats and back; no wheelchairs out to the lots.",
+   "Assistive listening devices and sensory kits at Guest Services (near Sections 116 and 244) with a government ID; sensory room too."
+  ],
+  "gameDay": [
+   "Florida vs Georgia, Sat Oct 31, 2026: kickoff 3:30 p.m. ET on ABC; Georgia is the designated home team.",
+   "Gates open at 2 p.m. By the stadium's rules the Backyard opens 4.5 hours before the start and tailgating ends 30 minutes after it (about 11 a.m. and 4 p.m.).",
+   "Buy parking ahead at parking.mercedesbenzstadium.com; the stadium says lots often sell out before the event.",
+   "First Florida-Georgia game in Atlanta while EverBank Stadium is renovated; Tampa hosts in 2027.",
+   "Florida Alumni Association's Gator Nation headquarters: Wild Leap, 125 Ted Turner Dr SW, a few blocks from the stadium."
+  ],
+  "sources": [
+   {
+    "label": "Mercedes-Benz Stadium: Georgia vs Florida event page",
+    "url": "https://www.mercedesbenzstadium.com/events/university-of-georgia-vs-university-of-florida"
+   },
+   {
+    "label": "Mercedes-Benz Stadium: Parking and transportation",
+    "url": "https://www.mercedesbenzstadium.com/parking-and-transportation"
+   },
+   {
+    "label": "Mercedes-Benz Stadium: Lot info",
+    "url": "https://parking.mercedesbenzstadium.com/lot-info"
+   },
+   {
+    "label": "Mercedes-Benz Stadium: Parking and tailgate guidelines",
+    "url": "https://www.mercedesbenzstadium.com/parking-tailgate-guidelines"
+   },
+   {
+    "label": "Mercedes-Benz Stadium: Guidelines and bag policy",
+    "url": "https://www.mercedesbenzstadium.com/guidelines"
+   },
+   {
+    "label": "Mercedes-Benz Stadium: Accessibility",
+    "url": "https://www.mercedesbenzstadium.com/accessibility"
+   },
+   {
+    "label": "Florida Gators: The Opening Kickoff, Florida vs Georgia (Oct 29, 2026)",
+    "url": "https://floridagators.com/news/2026/10/29/football-the-opening-kickoff-no-17-gators-vs-no-3-georgia-storied-rivalry-hits-the-atl-for-first-time"
+   },
+   {
+    "label": "Florida Gators: 2026 Florida vs Georgia ticket information",
+    "url": "https://floridagators.com/sports/2026/5/28/florida-georgia-ticket-information"
+   },
+   {
+    "label": "Florida Times-Union via Yahoo Sports: what fans can expect in Atlanta (Oct 23, 2026)",
+    "url": "https://sports.yahoo.com/articles/florida-georgia-2026-fans-expect-090039089.html"
+   }
+  ]
+ },
+ "3634": {
+  "name": "Ben Hill Griffin Stadium",
+  "checkedAt": "2026-10-30",
+  "address": "121 Gale Lemerand Drive, Gainesville, FL 32611",
+  "parking": [
+   {
+    "name": "Reserved lots (Gator Boosters)",
+    "detail": "Reserved campus lots and UAA RV lots are for Gator Boosters at set levels; digital passes. Boosters office (800) 344-2867 option 3."
+   },
+   {
+    "name": "Public general lots",
+    "detail": "A limited number of non-reserved lots, first come, first served; they fill fast. Cars on sidewalks are towed."
+   },
+   {
+    "name": "Lot 113 (visiting team fans)",
+    "detail": "$30, paid in the Passport app. Questions: UF TAPS 352-392-7275."
+   },
+   {
+    "name": "Lot 109 (public disabled parking)",
+    "detail": "South of Archer Rd on Gale Lemerand Dr; non-reserved disabled parking with a free lift-equipped shuttle to the stadium."
+   },
+   {
+    "name": "Game Day Shuttle lots",
+    "detail": "Celebration Pointe (behind Regal Cinemas), UF Park and Ride #2 (3497 Hull Rd), Garage 109; $20 adult, $10 under 12 on game day."
+   },
+   {
+    "name": "Gators RV City (Lot 78, Florida Park)",
+    "detail": "Opens 4 p.m. Friday, RVs out by noon Sunday; the only UAA RV lot allowing overnight stays. Other UAA RV lots empty after the game."
+   },
+   {
+    "name": "Public RV parking",
+    "detail": "For RVs without a Boosters pass, call UF Transportation and Parking Services, 352-392-8048."
+   },
+   {
+    "name": "Charter buses",
+    "detail": "Park on Village Drive, north of Museum Road."
+   }
+  ],
+  "tailgating": [
+   "Set up from 6 a.m. on game day (8 a.m. in UAA lots); everything cleared by 3 a.m. after the game.",
+   "Open outdoor campus areas, first come, first served; none in garages, on rooftops or non-designated spaces; no saving spots.",
+   "Tents up to 12' x 10', no ground stakes, not inside a parking space; keep walkways, ramps, fire lanes and roads clear.",
+   "Grills attended, on level ground, 25 ft from buildings, vehicles and structures; no open fires, fire pits or ground fires.",
+   "Alcohol 21+ only, 6 a.m. game day to 3 a.m.; open containers stay in the tailgate area. Tobacco-free campus.",
+   "Bring your own muffled generator (no campus outlets); no portable toilets, no drones; personal golf carts kept out of the secured area."
+  ],
+  "gates": "All gates open 2 hours before kickoff (2026). Enter at the gate on your ticket; free Express Entry by face at Gates 1, 4, 7, 8, 12 and 16 and the Skybox and Champions Club lobbies.",
+  "bagPolicy": "One clear plastic, vinyl or PVC bag up to 12\" x 6\" x 12\" (or a one-gallon clear storage bag) plus a clutch up to 4.5\" x 6.5\". Other bags (purses, fanny packs, camera bags, seatbacks) are refused; no bag check at the gates.",
+  "entry": [
+   "Mobile tickets only, in the Florida Gators app; add them to Apple Wallet or Google Pay. Screenshots are not accepted.",
+   "No re-entry once your ticket is scanned (medical pass at the first aid stations; weather delays excepted).",
+   "One empty, commercially branded plastic water bottle up to 20 oz; fill it at the stations inside.",
+   "Not allowed: outside food or drink, umbrellas, strollers, flags, noisemakers, selfie sticks, video cameras, laser pointers, tobacco and vapes.",
+   "Seat cushions up to 16\" with no back or pockets are fine. Concessions and Sportshops are cashless.",
+   "Bag and no-bag lines at each entry; all bags searched. Ticket help at the O'Connell Center Gate 1 ticket office."
+  ],
+  "transit": [
+   "Game Day Shuttle (UAA): park at Celebration Pointe, UF Park and Ride #2 (3497 Hull Rd) or Garage 109; $20 adult, $10 under 12.",
+   "Shuttles run from 3 hours before kickoff until kickoff; returns start in the 4th quarter. Drop-off at Van Fleet Hall.",
+   "RTS is not running Gator Aider game-day buses in the 2026 season.",
+   "Rideshare: dedicated pick-up and drop-off on Woodlawn Drive by Flavet Field (UFPD, Sept 2026).",
+   "Closed to cars 3 hours before kickoff to 2 hours after: University Ave (Gale Lemerand to NW 17th St), Gale Lemerand and Stadium Rd.",
+   "Gale Lemerand north of Museum Rd needs a parking pass from 5 hours out; Fletcher Dr is one way north. UAA's Waze routes each lot."
+  ],
+  "accessibility": [
+   "Public disabled parking: Lot 109, or any open disabled space outside the three reserved areas; reserved disabled lots are full.",
+   "Free lift-equipped shuttle from Lot 109: 3 hours before kickoff until kickoff, again from the 4th quarter; drops at Van Fleet Hall.",
+   "Golf carts at Gate 18 take guests on to their gate; after the game carts stop at Gates 1, 2, 3, 4 and 7 for 30 minutes.",
+   "EZ Event Ride: free pick-up and drop-off from non-reserved lots around campus, before and after the game, first come, first served.",
+   "Family restrooms on the west side (Gate 2 corridor between sections 6 and 8, behind section 15); nursing suite between Gates 15 and 16.",
+   "Only trained service dogs are allowed in the stadium."
+  ],
+  "gameDay": [],
+  "sources": [
+   {
+    "label": "Florida Gators: Florida-South Carolina, What You Need to Know (Oct 9, 2026)",
+    "url": "https://floridagators.com/news/2026/10/9/football-florida-south-carolina-what-you-need-to-know"
+   },
+   {
+    "label": "Florida Gators: Football parking (map updated Sept 8, 2026)",
+    "url": "https://floridagators.com/sports/2015/12/10/_facilities_parking_football_.aspx"
+   },
+   {
+    "label": "Florida Gators: UF game day tailgating policy",
+    "url": "https://floridagators.com/sports/2023/9/14/uf-tailgating-policies.aspx"
+   },
+   {
+    "label": "Florida Gators: Shuttles for football game days",
+    "url": "https://floridagators.com/sports/2015/12/10/_facilities_shuttles_.aspx"
+   },
+   {
+    "label": "Florida Gators: Clear bag policy",
+    "url": "https://floridagators.com/sports/2016/4/11/clear-bag-policy.aspx"
+   },
+   {
+    "label": "Florida Gators: Game day policies",
+    "url": "https://floridagators.com/sports/2015/12/10/_gameday_policies_.aspx"
+   },
+   {
+    "label": "Florida Gators: Ben Hill Griffin Stadium (address)",
+    "url": "https://floridagators.com/sports/2020/4/4/ben-hill-griffin-stadium"
+   },
+   {
+    "label": "RTS: UF Gator football game day (2026)",
+    "url": "https://go-rts.com/?p=12564"
+   },
+   {
+    "label": "WCJB: UFPD game day safety and traffic changes (Sept 5, 2026)",
+    "url": "https://www.wcjb.com/2026/09/05/gator-football-season-opener-ufpd-prepares-game-day-safety-traffic-changes/"
+   }
+  ]
+ }
+}

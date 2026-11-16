@@ -8,7 +8,7 @@ r"""The made-up league's developer tool (public release Phase 2).
         Write every twin as JSON, in the recorded envelope, to look at.
 
     .\.venv\Scripts\python tools\make_league.py --signatures
-        Private repo only: rebuild tests/fixtures/league/shapes.json from the recordings in
+        Where CFBD recordings are kept (not in this repository): rebuild tests/fixtures/league/shapes.json from the recordings in
         tests/fixtures/cfbd/. The shapes keep field names and JSON types, never a value.
 """
 
@@ -34,7 +34,7 @@ CACHE = ROOT / "data" / "demo"
 
 def signatures() -> int:
     if not RECORDED.is_dir():
-        print(f"No recordings at {RECORDED}: this only runs in the private repo.", file=sys.stderr)
+        print(f"No recordings at {RECORDED}: this needs CFBD recordings, which this repository does not ship.", file=sys.stderr)
         return 1
     out: dict[str, dict] = {}
     for path in sorted(RECORDED.glob("*.json")):

@@ -6,7 +6,6 @@ For the main routes: the warm latency (four calls each, the median of the last t
 and whether the answer came compressed. Then a first open: the page, every script it leads to (the static imports, followed)
 and the stylesheets, how many files, how much on the wire, and their cache headers. The usual target is the demo
 (`python -m app --demo --no-browser`, http://127.0.0.1:8650); a real install works the same (the label names the run).
-The numbers of 2026-10-20 are in docs/02-ARCHITECTURE.md, "Speed on the home network".
 """
 
 from __future__ import annotations

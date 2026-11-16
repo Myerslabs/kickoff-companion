@@ -14,15 +14,38 @@ from pathlib import Path
 import pytest
 
 from tests.fakedom import needs_node, run_scenario
-from tests.test_paper_js import MATCHUPS
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+# the ranked games of a week (the old Newspaper test's, kept here when the paper's test moved to FEAT-14's layout)
+def team(school: str, abbr: str, rank: int | None, points: int | None = None, lines: list[int] | None = None, color: str = "#336699") -> dict:
+    return {"school": school, "abbreviation": abbr, "mascot": "Things", "rank": rank, "apRank": rank, "color": color, "altColor": "#ffffff", "record": {"wins": 5, "losses": 1}, "conferenceRecord": {"wins": 3, "losses": 1}, "points": points, "lineScores": lines, "headCoach": "A Coach", "form": []}
+
+
+def game(gid: int, status: str, away: dict, home: dict, *, headline: dict | None = None, us: bool = False, **extra) -> dict:
+    return {
+        "gameId": gid, "week": 8, "seasonType": "regular", "bowl": None, "kickoff": "2026-10-24T19:30:00Z", "startTimeTbd": False, "neutralSite": False,
+        "conferenceGame": True, "conference": "Big 12", "venue": "Iowa State Stadium", "tv": "Snack Sports", "status": status, "detail": "Q2 7:02" if status == "live" else None,
+        "period": 2 if status == "live" else None, "clock": "7:02" if status == "live" else None, "isUs": us, "href": "#live" if us else f"#box={gid}",
+        "away": away, "home": home, "line": {"spread": -3.5, "formatted": "Iowa State -3.5", "short": "ISU -3.5", "overUnder": 58.5, "pickem": False},
+        "homeWinProbability": 0.61, "weather": None, "headline": headline, **extra,
+    }
+
+
+MATCHUPS = [
+    game(1, "final", team("West Virginia", "WVU", 2, 54, [6, 10, 0, 24, 7, 7]), team("Iowa State", "ISU", 20, 47, [3, 14, 13, 10, 7, 0]), headline={"kind": "overtime", "kicker": "Overtime", "text": "No. 2 West Virginia outlasts No. 20 Iowa State, 54-47, in 2 overtimes"}),
+    game(2, "live", team("Mississippi State", "MSST", 6, 2), team("Purdue", "PUR", 18, 0)),
+    game(3, "pre", team("UCLA", "UCLA", 9), team("Michigan State", "MSU", None), headline={"kind": "preLate", "kicker": "Late show", "text": "No. 9 UCLA visits Michigan State, 10:30 PM kickoff; brew the coffee"}),
+    game(4, "live", team("Florida", "FLA", None), team("Texas", "TEX", 12), us=True),
+    game(5, "final", team("North Texas", "UNT", None, 19), team("Memphis", "MEM", 25, 3), headline={"kind": "finalUpset", "kicker": "Upset", "text": "North Texas sends No. 25 Memphis home grumbling, 19-3"}),
+]
 
 TOP25 = {
     "season": 2026, "week": 8, "seasonType": "regular", "label": "Week 8", "poll": {"name": "AP Top 25", "week": 8, "teams": 25},
     "delaySeconds": 30, "weather": "cfbd",
     "games": [{**g, "weather": {"tempF": 57.2, "windMph": 10.6, "windDir": "ESE", "sky": None, "indoors": False}} for g in MATCHUPS] + [{"junk": True}],
-    "offThisWeek": [{"school": "Crab Cake", "rank": 5}, {"school": "Seagull Shores", "rank": 10}, None],
+    "offThisWeek": [{"school": "SMU", "rank": 5}, {"school": "Florida State", "rank": 10}, None],
     "counts": {"live": 2, "pre": 1, "final": 2}, "note": None, "parts": {},
 }
 
@@ -47,7 +70,7 @@ scenarios.top25 = async () => {
   installWindow();
   const fixture = JSON.parse(readFileSync(process.argv[4], "utf8"));
   const { setIdentity } = await import(moduleUrl("identity.js"));
-  setIdentity({ school: "Swampwater Tech", mascot: "Mudpuppies", label: "SWT", name: "Mudpuppies" });
+  setIdentity({ school: "Florida", mascot: "Gators", label: "FLA", name: "Gators" });
   const { main, view } = await mounted(fixture);
   const t = text(main);
   assert.ok(!RAW.test(t), t.slice(0, 400));
@@ -79,12 +102,12 @@ scenarios.top25 = async () => {
     // the when in two lines: the day and time, then the stadium and the TV
     assert.ok(card.querySelector(".cover__when-day") && card.querySelector(".cover__when-place"));
   }
-  assert.equal(cards[0].getAttribute("aria-label"), "Saddle Sore at Prairie Fire");
+  assert.equal(cards[0].getAttribute("aria-label"), "West Virginia at Iowa State");
   // a final: the points alone (the sides say who is who), "Final · 2 OT", never one side's Won or Lost; its score opens
   // the box score; the abbreviations stay in the score's label
   const finalScore = cards[0].querySelector(".cover__score");
   assert.equal(text(finalScore), "54 · 47");
-  assert.equal(finalScore.getAttribute("aria-label"), "Final: SADL 54, EMBR 47");
+  assert.equal(finalScore.getAttribute("aria-label"), "Final: WVU 54, ISU 47");
   assert.ok(text(cards[0].querySelector(".cover__middle")).includes("Final · 2 OT"));
   assert.ok(!/\bWon\b|\bLost\b/.test(text(cards[0])));
   assert.equal(cards[0].querySelector("a.cover__middle--link").getAttribute("href"), "#box=1");
@@ -96,14 +119,14 @@ scenarios.top25 = async () => {
   assert.ok(cards[3].className.includes("top25-card--us") && text(cards[3].querySelector(".cover__kicker")).includes("Our game"));
   assert.equal(cards[3].querySelector("a.cover__middle--link").getAttribute("href"), "#live");
   // the cover's facts: the line by abbreviation, the head coaches, the weather, the win probability in both colors
-  assert.ok(text(cards[2]).includes("EMBR -3.5") && text(cards[2]).includes("A Coach") && text(cards[2]).includes("O/U"));
+  assert.ok(text(cards[2]).includes("ISU -3.5") && text(cards[2]).includes("A Coach") && text(cards[2]).includes("O/U"));
   assert.ok(text(cards[2].querySelector(".top25-weather")).includes("57°F") && text(cards[2].querySelector(".top25-weather")).includes("wind 11 mph ESE"));
   assert.ok(cards[2].querySelector(".cover__wpbar--teams"));
   // no headlines on this page (owner)
   assert.ok(!t.includes("brew the coffee") && !t.includes("grumbling"));
   // off this week: a line, no card
   const off = main.querySelector(".top25-off");
-  assert.ok(text(off).includes("Off this week") && text(off).includes("No. 5 Crab Cake") && text(off).includes("Seagull Shores"));
+  assert.ok(text(off).includes("Off this week") && text(off).includes("No. 5 SMU") && text(off).includes("Florida State"));
   view.unmount();
 
   // no poll yet: the note, no cards
@@ -139,7 +162,7 @@ scenarios.filters = async () => {
   installWindow();
   const fixture = JSON.parse(readFileSync(process.argv[4], "utf8"));
   const { setIdentity } = await import(moduleUrl("identity.js"));
-  setIdentity({ school: "Swampwater Tech", mascot: "Mudpuppies", label: "SWT", name: "Mudpuppies" });
+  setIdentity({ school: "Florida", mascot: "Gators", label: "FLA", name: "Gators" });
   const { main, view } = await mounted(fixture);
   const cards = () => main.querySelectorAll(".top25-card");
   assert.equal(cards().length, 5);
@@ -177,15 +200,15 @@ scenarios.tabs = async () => {
   assert.deepEqual(VIEWS.map((v) => v.id), ["newspaper", "program", "live", "season", "top25"], "Top 25 right after Season (owner)");
   assert.deepEqual(TABS.map((v) => v.id), ["newspaper", "program", "live"], "the layout pass (owner 2026-10-22): three tabs; Season and Top 25 in the menu only");
   for (const v of VIEWS) assert.ok(findPath(MENU, (entry) => entry.page === v.id), `${v.id} in the menu`);
-  assert.deepEqual(findPath(MENU, (entry) => entry.page === "top25"), ["national", "top25"], "Top 25 under National");
-  assert.deepEqual(findPath(MENU, (entry) => entry.page === "season"), ["teams", "season"], "Season under My Teams");
+  assert.deepEqual(findPath(MENU, (entry) => entry.page === "top25"), ["national", "top25"], "Top 25 under National: one row that opens the page, the picks a band on it (ENH-46, 2026-11-10)");
+  assert.deepEqual(findPath(MENU, (entry) => entry.page === "season"), ["teams", "season"], "Season under My Teams: one row that opens the page (ENH-46, 2026-11-10)");
 };
 """
 
 # Pages reached from inside another page rather than from the menu: a team (any team name), a box score (any game), a
 # national list (any rank chip), the radio (the Pre-Game Program's radio band; the menu's Radio tile opens the stations),
 # and the Profile's two older addresses (#settings and #setup open the Profile, which the menu holds).
-CONTEXT_ROUTES = {"team", "box", "national", "radio", "settings", "setup", "myteams"}  # myteams: the old address, the Season page now (board 9)
+CONTEXT_ROUTES = {"team", "box", "national", "radio", "settings", "setup", "myteams", "story", "band", "blame", "picks"}  # blame: the old Circle of Blame address, My Team's wheel now (wave 3, 2026-11-01);  # myteams: the old address, the Season page now (board 9); story: the Newspaper's reader (FEAT-14); band: a band's own page, the flyout's Own page (owner 2026-10-28)
 
 
 @pytest.fixture(scope="module")
@@ -225,6 +248,14 @@ def test_every_page_is_in_the_menu() -> None:
     assert built, "app.js BUILT"
     routes = set(re.findall(r"^\s{2}(\w+): \(", built.group(1), re.M))
     assert {"newspaper", "top25", "season", "settings", "profile"} <= routes
-    menu = set(re.findall(r'page: "(\w+)"', tree))
+    # a row written pageRow("<page>") opens that page of the catalog, at the catalog's address (ENH-46, 2026-11-10)
+    catalog = (ROOT / "static" / "js" / "ui" / "band-catalog.js").read_text(encoding="utf-8")
+    rows = set(re.findall(r'pageRow\("([\w-]+)"', tree))
+    assert {"season", "newspaper", "top25", "program", "live", "stats-passing"} <= rows
+    addresses = {key.strip('"'): route for key, route in re.findall(r'^  ("?[\w-]+"?): \{[^\n]*?route: "(\w+)', catalog, re.M)}
+    addresses |= {key: route for key, route in re.findall(r'^  (\w+): \{\n(?:    [^\n]*\n)*?    route: "(\w+)', catalog, re.M)}
+    unknown = sorted(rows - set(addresses))
+    assert not unknown, f"rows of pages the catalog does not name: {unknown}"
+    menu = set(re.findall(r'page: "(\w+)"', tree)) | {addresses[row] for row in rows}
     missing = sorted(routes - menu - CONTEXT_ROUTES)
     assert not missing, f"pages the menu cannot reach: {missing}"

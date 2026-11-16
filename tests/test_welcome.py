@@ -77,33 +77,33 @@ def test_a_key_is_checked_then_the_team_saved_and_the_server_restarts(setup_app)
     assert data["plan"]["monthlyLimit"] == 1000 and " of 1,000 calls" in data["plan"]["forecast"]["text"]  # the guard learned the key's limit too
     assert fake.requests[-1].headers["Authorization"] == f"Bearer {NEW_KEY}"
     teams = client.get("/api/welcome/teams").json()["data"]
-    assert any(t["school"] == "Swampwater Tech" and t["conference"] == "Biscuit Belt" for t in teams["teams"])
-    assert "Biscuit Belt" in teams["conferences"] and len(teams["states"]) > 5
+    assert any(t["school"] == "Florida" and t["conference"] == "SEC" for t in teams["teams"])
+    assert "SEC" in teams["conferences"] and len(teams["states"]) > 5
     assert fake.requests[-1].headers["Authorization"] == f"Bearer {NEW_KEY}"  # the checked key, before any restart
-    refused = client.post("/api/welcome/finish", json={"team": "Swampwater Tech", "liked": {"teams": ["Silo City"]}})
+    refused = client.post("/api/welcome/finish", json={"team": "Florida", "liked": {"teams": ["USC"]}})
     assert refused.status_code == 422 and refused.json()["errors"][0]["code"] == "tier2_needed"
     assert client.post("/api/welcome/finish", json={"team": "Nowhere U"}).status_code == 422
-    done = client.post("/api/welcome/finish", json={"team": "swampwater tech"})
+    done = client.post("/api/welcome/finish", json={"team": "florida"})
     assert done.status_code == 200 and done.json()["data"]["restarting"] is True and NEW_KEY not in done.text
     assert restart.requested()
     text = env.read_text(encoding="utf-8")
-    assert f"CFBD_API_KEY={NEW_KEY}" in text and "TEAM=Swampwater Tech" in text and "CONFERENCE=Biscuit Belt" in text
+    assert f"CFBD_API_KEY={NEW_KEY}" in text and "TEAM=Florida" in text and "CONFERENCE=SEC" in text
     assert "# The name the server announces" in text  # a new .env starts from .env.example, comments and all
     after = load_settings(env_file=env)
-    assert not after.setup_needed and after.team == "Swampwater Tech" and after.api_key_configured
+    assert not after.setup_needed and after.team == "Florida" and after.api_key_configured
 
 
 def test_liked_teams_need_tier_2_and_are_saved_with_the_settings(setup_app):
     app, client, fake, _ = setup_app
     fake.route("/info", json=info(2))
     assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is True
-    bad = client.post("/api/welcome/finish", json={"team": "Swampwater Tech", "liked": {"teams": ["Not A School"]}})
+    bad = client.post("/api/welcome/finish", json={"team": "Florida", "liked": {"teams": ["Not A School"]}})
     assert bad.status_code == 422 and bad.json()["errors"][0]["code"] == "bad_liked"
-    liked = {"teams": ["silo city", "Swampwater Tech"], "conferences": ["Gravy Ten"], "states": ["Ohio"]}
-    done = client.post("/api/welcome/finish", json={"team": "Swampwater Tech", "liked": liked})
+    liked = {"teams": ["usc", "Florida"], "conferences": ["Big Ten"], "states": ["Ohio"]}
+    done = client.post("/api/welcome/finish", json={"team": "Florida", "liked": liked})
     assert done.status_code == 200
     prefs = PrefsStore(app.state.settings.data_dir).prefs
-    assert prefs.likedTeams == ["Silo City"] and prefs.likedConferences == ["Gravy Ten"] and prefs.likedStates == ["Ohio"]  # the main team is not also liked
+    assert prefs.likedTeams == ["USC"] and prefs.likedConferences == ["Big Ten"] and prefs.likedStates == ["Ohio"]  # the main team is not also liked
 
 
 @pytest.mark.parametrize(
@@ -160,7 +160,7 @@ def test_junk_keys_are_refused_before_any_call(setup_app, key):
 
 def test_finish_needs_a_key_first(setup_app):
     _, client, _, _ = setup_app
-    assert client.post("/api/welcome/finish", json={"team": "Swampwater Tech"}).json()["errors"][0]["code"] == "key_needed"
+    assert client.post("/api/welcome/finish", json={"team": "Florida"}).json()["errors"][0]["code"] == "key_needed"
     assert client.get("/api/welcome/teams").status_code == 409
 
 
@@ -236,20 +236,21 @@ def test_the_cli_serves_again_after_a_restart(tmp_path: Path, monkeypatch):
 
     monkeypatch.delenv("TEAM", raising=False)
     monkeypatch.delenv("CONFERENCE", raising=False)
+    monkeypatch.delenv("KICKOFF_RELAUNCH", raising=False)  # BUG-22: under a launcher a restart is a fresh process instead
     env = tmp_path / ".env"
-    env.write_text(f"CFBD_API_KEY={TEST_KEY}\nTEAM=Swampwater Tech\nCONFERENCE=Biscuit Belt\nDATA_DIR={(tmp_path / 'data').as_posix()}\nLOG_DIR={(tmp_path / 'logs').as_posix()}\n", encoding="utf-8")
+    env.write_text(f"CFBD_API_KEY={TEST_KEY}\nTEAM=Florida\nCONFERENCE=SEC\nDATA_DIR={(tmp_path / 'data').as_posix()}\nLOG_DIR={(tmp_path / 'logs').as_posix()}\n", encoding="utf-8")
     seen: list[tuple[str, bool]] = []
     answers = iter([restart.RESTART, 0])
 
     def fake_run(settings, **kwargs):
         seen.append((settings.team, kwargs.get("restarting", False)))
         if len(seen) == 1:
-            set_values(env, {"TEAM": "Silo City", "CONFERENCE": "Gravy Ten"})  # what the welcome page writes
+            set_values(env, {"TEAM": "USC", "CONFERENCE": "Big Ten"})  # what the welcome page writes
         return next(answers)
 
     monkeypatch.setattr("app.serving.run_server", fake_run)
     assert cli.main(["--no-browser"], env_file=env) == 0
-    assert seen == [("Swampwater Tech", False), ("Silo City", True)]  # the second serve reads the new .env
+    assert seen == [("Florida", False), ("USC", True)]  # the second serve reads the new .env
 
 
 def test_plan_profiles_and_forecast():
@@ -278,3 +279,17 @@ def test_the_demo_page_takes_the_key_where_it_says_one_is_needed() -> None:
     assert "/api/welcome/key" not in demo, "the demo server never sees the key; the setup page checks it"
     welcome = (static / "js" / "welcome.js").read_text(encoding="utf-8")
     assert 'window.sessionStorage.getItem("kickoff.setup.key")' in welcome and 'window.sessionStorage.removeItem("kickoff.setup.key")' in welcome and "await checkKey();" in welcome
+
+
+def test_a_key_below_tier_2_keeps_the_saved_picks(setup_app):
+    """The 2.0 review: Finish on a Free key saves the home team and leaves the picks a Tier 2 key made for later."""
+    app, client, fake, _ = setup_app
+    fake.route("/info", json=info(2))
+    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is True
+    liked = {"teams": ["usc"], "conferences": ["Big Ten"], "states": ["Ohio"]}
+    assert client.post("/api/welcome/finish", json={"team": "Florida", "primaryTeams": ["Georgia"], "liked": liked, "tickerMode": "mine"}).status_code == 200
+    fake.route("/info", json=info(0))  # the key is now a Free one
+    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is False
+    assert client.post("/api/welcome/finish", json={"team": "Florida", "primaryTeams": [], "liked": {}, "tickerMode": "national"}).status_code == 200
+    prefs = PrefsStore(app.state.settings.data_dir).prefs
+    assert prefs.primaryTeams == ["Georgia"] and prefs.likedTeams == ["USC"] and prefs.likedConferences == ["Big Ten"] and prefs.tickerMode == "mine"

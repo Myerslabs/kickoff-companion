@@ -104,6 +104,14 @@ def _win_pct(line: Any) -> float:
 # --- parts: see app/services/parts.py ------------------------------------------------------------
 
 
+def next_opponent(game: Game | None, team: str) -> str | None:
+    """The other side of the team's next game, or None (the season is over, or the game is damaged)."""
+    if game is None:
+        return None
+    other = game.away_team if game.home_team == team else game.home_team if game.away_team == team else None
+    return other if isinstance(other, str) and other.strip() else None
+
+
 def standings_rows(records: list[TeamRecords], teams: dict[str, dict[str, Any]], ap: dict[str, int], conference: str | None, team: str | None) -> list[dict[str, Any]]:
     """One conference's standings: conference record first, then conference wins, then the overall record.
     Phase 17 #2: shared by the Season page (our conference) and every team page (that team's conference)."""
@@ -265,7 +273,7 @@ class SeasonService:
             "advanced": self._advanced(parts["advanced"].records),
             "ratings": self._ratings(parts["sp"].records, parts["elo"].records, parts["fpi"].records, fbs),
             "trends": self._trends(completed, boxes),
-            "resume": resume(parts["schedule"].records, parts["games"].records, team, parts["sp"].records, parts["rankings"].records),  # Phase 13
+            "resume": resume(parts["schedule"].records, parts["games"].records, team, parts["sp"].records, parts["rankings"].records, next_team=next_opponent(next_game, team), teams=teams),  # Phase 13; ENH-19: the poll path's games and the next opponent's line
             "playoff": playoff_block(parts["rankings"].records, parts["games"].records, team, teams, records=parts["records"].records, sp=parts["sp"].records),  # Phase 15; the picture (2026-10-20)
             "lastSeason": {"year": self.settings.season - 1, "rows": last_season(profile["rows"], last_profiles, team, self.settings.season)},  # Phase 15
             "roadAhead": road_ahead(parts["schedule"].records, parts["games"].records, team, parts["sp"].records, poll_ranks.get("AP", {}), fbs),  # Phase 15

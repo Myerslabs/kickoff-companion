@@ -5,8 +5,8 @@ CFBD call: the games come from the schedule the program caches. Our own report l
 next one; another team's lists our games against it (the notes cover our games only).
 
 Each report row belongs to one of the game's two teams: its own `team` field (the notes prompt asks for it since
-2026-10-10), else the school named at the start of its note ("Lake Effect. Ankle, ..."), the longest name winning so a
-note that starts "Lake Effect State" never reads as Lake Effect. A row that names neither team is kept apart, never guessed. A team
+2026-10-10), else the school named at the start of its note ("Iowa. Ankle, ..."), the longest name winning so a
+note that starts "Iowa State" never reads as Iowa. A row that names neither team is kept apart, never guessed. A team
 named at the start of the note is taken off the note, which then reads as the injury alone.
 """
 
@@ -46,9 +46,9 @@ SEPARATORS = ".;:,-–—"
 
 
 def _leads(text: str, name: str) -> bool:
-    """A note that opens with the school's name as its own lead: the note ends there or punctuation follows ("Lake Effect.
-    Ankle", "Lake Effect; ankle", "Lake Effect - ankle"). Never the start of a longer name ("Lake Effect St. Knee") and
-    never a name followed by a parenthesis ("Lake Effect (OH)")."""
+    """A note that opens with the school's name as its own lead: the note ends there or punctuation follows ("Iowa.
+    Ankle", "Iowa; ankle", "Iowa - ankle"). Never the start of a longer name ("Iowa St. Knee") and
+    never a name followed by a parenthesis ("Miami (OH)" for Miami)."""
     if not text.startswith(name):
         return False
     rest = text[len(name):]
@@ -79,7 +79,7 @@ def _match(text: str | None, sides: dict[str, list[str]], *, exact: bool) -> str
 
 def row_team(row: AvailabilityRow, sides: dict[str, list[str]]) -> tuple[str | None, bool]:
     """The school a row belongs to, and whether that came from the note (so the note can lose its leading name). The `team`
-    field must be one of the school's names whole ("Lake Effect St." is no Lake Effect); then the note's lead."""
+    field must be one of the school's names whole ("Iowa St." is no Iowa); then the note's lead."""
     school = _match(row.team, sides, exact=True)
     if school:
         return school, False
@@ -88,7 +88,7 @@ def row_team(row: AvailabilityRow, sides: dict[str, list[str]]) -> tuple[str | N
 
 
 def _strip_name(note: str | None, names: list[str]) -> str | None:
-    """'Lake Effect. Ankle, hurt in the opener' -> 'Ankle, hurt in the opener' (the team is the page's or the band's)."""
+    """'Iowa. Ankle, hurt in the opener' -> 'Ankle, hurt in the opener' (the team is the page's or the band's)."""
     text = _clean(note)
     if not text:
         return None

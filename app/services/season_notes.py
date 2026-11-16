@@ -37,7 +37,7 @@ from typing import Annotated, Any
 from pydantic import ValidationError, field_validator
 
 from app.cfbd.models import DropBad
-from app.services.answers import atomic_write
+from app.services.answers import atomic_write, join_sources, keep_filled
 from app.services.notes import NotesModel, NoteSource
 
 log = logging.getLogger("kickoff.season")
@@ -233,11 +233,45 @@ class Injury(NotesModel):
     expectedReturn: str | None = None
 
 
+class PredictedRecord(NotesModel):
+    """ENH-13: one preseason projection of the regular season, "7-5" and "4-4", and who made it."""
+
+    overall: str | None = None
+    conference: str | None = None
+    source: str | None = None
+
+
+class Starter(NotesModel):
+    slot: str  # "QB", "LT", "X", "DE", "CB", "FS"
+    name: str
+    position: str | None = None
+
+
+class ProjectedStarters(NotesModel):
+    """ENH-13: the starting lineup projected or announced before the season, eleven a side."""
+
+    offense: Annotated[list[Starter], DropBad] = []
+    defense: Annotated[list[Starter], DropBad] = []
+
+
+class Star(NotesModel):
+    """ENH-13: a player to know, with a preseason honor a source printed."""
+
+    name: str
+    position: str | None = None
+    honor: str | None = None  # "Biletnikoff Award watch list", "Preseason All-SEC", "Breakout pick"
+    why: str | None = None
+    source: str | None = None
+
+
 class Outlook(NotesModel):
     summary: str | None = None
     predictions: Annotated[list[Item], DropBad] = []
     positionBattles: Annotated[list[Item], DropBad] = []
     storylines: Annotated[list[Item], DropBad] = []
+    predictedRecord: PredictedRecord | None = None  # ENH-13
+    projectedStarters: ProjectedStarters | None = None  # ENH-13
+    stars: Annotated[list[Star], DropBad] = []  # ENH-13
 
 
 class PreseasonTeam(NotesModel):
@@ -402,6 +436,14 @@ class SeasonNotes:
         files[path] = (stamp, data)
         return data
 
+    def _write(self, path: Path, text: str) -> None:
+        """Write a season file whole and forget its decoded copy: two saves inside one clock tick with the same length
+        (a coordinator's name for another of the same length) would otherwise read back the first."""
+        atomic_write(path, text)
+        self._files.pop(path, None)
+        if path == self.preseason_path:
+            self._preseason_cache = None
+
     # --- coaches ----------------------------------------------------------------------------------------
 
     def _own_coaches(self) -> dict[str, Any]:
@@ -428,6 +470,7 @@ class SeasonNotes:
         """Keep the teams of this conference the answer names (spelled as CFBD spells them); returns what was kept."""
         by_lower = {s.lower(): s for s in schools}
         data = self._own_coaches()  # the install's own file: the shipped rows stay in the shipped file
+        shipped = shipped_for_season(SHIPPED_COACHES, self.season).get("teams", {})
         kept: list[str] = []
         unknown: list[str] = []
         when = _now()
@@ -436,17 +479,16 @@ class SeasonNotes:
             if school is None:
                 unknown.append(row.school)
                 continue
+            before = data["teams"].get(school) or shipped.get(school) or {}  # owner 2026-10-30: a name left out keeps the one before
             data["teams"][school] = {
+                **keep_filled({"headCoach": row.headCoach, "offensiveCoordinator": row.offensiveCoordinator, "defensiveCoordinator": row.defensiveCoordinator}, {k: before.get(k) for k in ("headCoach", "offensiveCoordinator", "defensiveCoordinator")}),
                 "conference": conference,
-                "headCoach": row.headCoach,
-                "offensiveCoordinator": row.offensiveCoordinator,
-                "defensiveCoordinator": row.defensiveCoordinator,
                 "savedAt": when,
-                "sources": [s.model_dump(exclude_none=True) for s in batch.sources][:6],
+                "sources": join_sources([s.model_dump(exclude_none=True) for s in batch.sources], before.get("sources"), limit=6),
             }
             kept.append(school)
         data["batches"][conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
-        atomic_write(self.coaches_path, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        self._write(self.coaches_path, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
         log.info("Coaches saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
 
@@ -466,7 +508,7 @@ class SeasonNotes:
                 raw = self._read(old)
                 if raw:
                     try:
-                        atomic_write(self.facts_file, json.dumps(raw, indent=1, ensure_ascii=False) + "\n")
+                        self._write(self.facts_file, json.dumps(raw, indent=1, ensure_ascii=False) + "\n")
                         log.info("The season's facts file moved to %s", self.facts_file)
                     except OSError as exc:
                         log.warning("The season's facts could not be copied to %s: %s", self.facts_file, exc)
@@ -500,13 +542,15 @@ class SeasonNotes:
         except ValidationError:
             log.warning("The saved facts for %s could not be read; shown as not loaded.", school)
             return None
-        return {**facts.model_dump(), "conference": row.get("conference"), "savedAt": row.get("savedAt"), "checkedAt": row.get("checkedAt"), "shipped": bool(row.get("shipped")), "marks": self._own_facts()["marks"].get(school, [])}
+        season = row.get("season") if isinstance(row.get("season"), int) and not isinstance(row.get("season"), bool) else None
+        return {**facts.model_dump(), "conference": row.get("conference"), "season": season, "savedAt": row.get("savedAt"), "checkedAt": row.get("checkedAt"), "shipped": bool(row.get("shipped")), "marks": self._own_facts()["marks"].get(school, [])}
 
     def save_facts(self, batch: FactsBatch, conference: str, schools: list[str]) -> dict[str, Any]:
         """Keep the teams of this conference the answer names (spelled as CFBD spells them) in the install's own file,
         over the shipped facts; returns what was kept."""
         by_lower = {s.lower(): s for s in schools}
         data = self._own_facts()
+        shipped = shipped_facts(SHIPPED_FACTS).get("teams", {})
         kept: list[str] = []
         unknown: list[str] = []
         when = _now()
@@ -517,12 +561,16 @@ class SeasonNotes:
                 continue
             dump = row.model_dump(exclude_none=True)
             dump.pop("school", None)
-            data["teams"][school] = {**dump, "conference": conference, "savedAt": when, "checkedAt": when, "sources": [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)][:8]}
+            new_sources = [s.model_dump(exclude_none=True) for s in (row.sources or batch.sources)]
+            dump.pop("sources", None)
+            before = data["teams"].get(school) or shipped.get(school) or {}  # owner 2026-10-30: a fact left out keeps the one before
+            kept_row = keep_filled(dump, {k: v for k, v in before.items() if k not in ("sources", "conference", "savedAt", "checkedAt", "shipped", "season")})
+            data["teams"][school] = {**kept_row, "conference": conference, "season": self.season, "savedAt": when, "checkedAt": when, "sources": join_sources(new_sources, before.get("sources"), limit=8)}  # season: the test review, the records entering that season
             kept.append(school)
         data["batches"][conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
         for school in kept:
             data["marks"].pop(school, None)  # a fresh row answers the trivia's marks against the old one
-        atomic_write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        self._write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
         log.info("School facts saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "unknown": unknown, "missing": [s for s in schools if s not in kept]}
 
@@ -536,7 +584,7 @@ class SeasonNotes:
         marks = data["marks"].setdefault(school, [])
         marks.append({"kind": str(kind or ""), "question": str(question or "")[:300], "note": str(note or "")[:300], "at": str(at or _now())})
         data["marks"][school] = marks[-20:]
-        atomic_write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+        self._write(self.facts_file, json.dumps(data, indent=1, ensure_ascii=False) + "\n")
         log.info("A trivia mark against %s's %s was kept in the facts file", school, kind)
 
     @staticmethod
@@ -586,6 +634,7 @@ class SeasonNotes:
         raw = self._read(self.costs_path)
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         batches = raw.get("batches") if isinstance(raw.get("batches"), dict) else {}
+        shipped = shipped_for_season(SHIPPED_COSTS, self.season).get("teams", {})
         kept: list[str] = []
         when = _now()
         for row in batch.teams:
@@ -595,10 +644,14 @@ class SeasonNotes:
             if school.lower() not in wanted:
                 row = row.model_copy(update={"positions": [], "players": []})
             sources = row.sources or batch.sources
-            teams[school] = {**row.model_copy(update={"school": school, "sources": sources[:6]}).model_dump(exclude_none=True), "conference": conference, "savedAt": when}
+            before = teams.get(school) or shipped.get(school) or {}  # owner 2026-10-30: a figure left out keeps the one before
+            dump = row.model_copy(update={"school": school}).model_dump(exclude_none=True)
+            new_sources = dump.pop("sources", None) or [s.model_dump(exclude_none=True) for s in sources]
+            kept_row = keep_filled(dump, {k: v for k, v in before.items() if k not in ("sources", "conference", "savedAt", "checkedAt", "shipped")})
+            teams[school] = {**kept_row, "sources": join_sources(new_sources, before.get("sources"), limit=6), "conference": conference, "savedAt": when}
             kept.append(school)
         batches[conference] = {"savedAt": when, "teams": len(kept), "of": len(schools), "author": batch.author}
-        atomic_write(self.costs_path, json.dumps({"teams": teams, "batches": batches}, indent=1, ensure_ascii=False) + "\n")
+        self._write(self.costs_path, json.dumps({"teams": teams, "batches": batches}, indent=1, ensure_ascii=False) + "\n")
         log.info("Roster costs saved for %s: %d of %d teams", conference, len(kept), len(schools))
         return {"kept": kept, "missing": [s for s in schools if s not in kept]}
 
@@ -652,9 +705,14 @@ class SeasonNotes:
         teams = raw.get("teams") if isinstance(raw.get("teams"), dict) else {}
         meta = raw.get("meta") if isinstance(raw.get("meta"), dict) else {}
         team.school = school
-        teams[school] = team.model_dump(mode="json", exclude_none=True)
+        # owner 2026-10-30: a part the new answer leaves empty keeps what the install, else the shipped load, had
+        before = teams.get(school) if isinstance(teams.get(school), dict) else (shipped_for_season(SHIPPED_PRESEASON, self.season).get("teams", {}).get(school) or {})
+        new = team.model_dump(mode="json", exclude_none=True)
+        new_sources = new.pop("sources", [])
+        old = {k: v for k, v in before.items() if k != "sources"} if isinstance(before, dict) else {}
+        teams[school] = {**keep_filled(new, old), "sources": join_sources(new_sources, before.get("sources") if isinstance(before, dict) else None, limit=40)}
         meta[school] = {"savedAt": _now(), "author": author}
-        atomic_write(self.preseason_path, json.dumps({"season": self.season, "teams": teams, "meta": meta}, indent=1, ensure_ascii=False) + "\n")
+        self._write(self.preseason_path, json.dumps({"season": self.season, "teams": teams, "meta": meta}, indent=1, ensure_ascii=False) + "\n")
         log.info("Preseason saved for %s", school)
 
     def age(self, school: Any, name: Any, today: date) -> tuple[int | None, str | None]:

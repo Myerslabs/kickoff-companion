@@ -225,7 +225,7 @@ scenarios.twoTeam = async () => {
     { label: "1", higherIsBetter: true, us: side("Case Tumbleweed", 90), them: side("Case Tumbleweed", 80) },
     { label: "2", higherIsBetter: true, us: side("Cortez Tumbleweed", 70), them: side("Thaddeus Quillfeather-Brannock", 60) },
   ];
-  const wrap = twoTeamTable({ rows, usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech", centered: true, labelHead: "#" });
+  const wrap = twoTeamTable({ rows, usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State", centered: true, labelHead: "#" });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   // compared within each side: ours read Ca./Co., theirs keep C. (no Cortez on their side)
@@ -252,7 +252,7 @@ scenarios.twoTeam = async () => {
   const face = (n) => { const s = document.createElement("span"); s.className = "leader-who"; s.append("face ", personNameOf(n)); return s; };
   const { personName } = await import(moduleUrl("ui/dom.js"));
   const personNameOf = (n) => personName(n);
-  const drawn = twoTeamTable({ rows: [{ label: "1", us: { value: 1, who: face("Case Tumbleweed"), whoName: "Case Tumbleweed", onWho: () => {} }, them: { value: 2, who: face("Cortez Tumbleweed"), whoName: "Cortez Tumbleweed" } }], usAbbr: "SWT", themAbbr: "DT", centered: true });
+  const drawn = twoTeamTable({ rows: [{ label: "1", us: { value: 1, who: face("Case Tumbleweed"), whoName: "Case Tumbleweed", onWho: () => {} }, them: { value: 2, who: face("Cortez Tumbleweed"), whoName: "Cortez Tumbleweed" } }], usAbbr: "FLA", themAbbr: "DT", centered: true });
   const ours = drawn.querySelector("td.tt__who--us");
   assert.ok(ours.querySelector(".tt__t--long .leader-who .pn") && ours.querySelector(".tt__t--short .pn") && !ours.querySelector(".tt__t--short .leader-who"));
   assert.equal(ours.querySelector("button").getAttribute("title"), "Open Case Tumbleweed's card");
@@ -297,7 +297,7 @@ scenarios.cards = async () => {
   assert.equal(loose.querySelector(".pn").dataset.pn, undefined);
   // the leader cards: fitted names, settled within each side
   const { leadersGrid } = await import(moduleUrl("ui/leaders.js"));
-  const grid = leadersGrid({ categories: [{ id: "passing", label: "Passing", us: { name: "Case Tumbleweed", line: "1 yds" }, them: { name: "Case Tumbleweed", line: "2 yds" } }, { id: "rushing", label: "Rushing", us: { name: "Cortez Tumbleweed", line: "3 yds" }, them: null }], usAbbr: "SWT", themAbbr: "DT" });
+  const grid = leadersGrid({ categories: [{ id: "passing", label: "Passing", us: { name: "Case Tumbleweed", line: "1 yds" }, them: { name: "Case Tumbleweed", line: "2 yds" } }, { id: "rushing", label: "Rushing", us: { name: "Cortez Tumbleweed", line: "3 yds" }, them: null }], usAbbr: "FLA", themAbbr: "DT" });
   assert.ok(!RAW.test(text(grid)), text(grid));
   assert.deepEqual(grid.querySelectorAll(".leader--us .leader__name .pn[data-fit]").map((n) => pnText(n, "initial")), ["Ca. Tumbleweed", "Co. Tumbleweed"]);
   assert.deepEqual(grid.querySelectorAll(".leader--them .leader__name .pn").map((n) => pnText(n, "initial")), ["C. Tumbleweed"]);
@@ -312,9 +312,9 @@ scenarios.roster = async () => {
   // the Roster page: its table and the depth cards from CFBD's split, "(RS)" after whichever form shows
   const { clearEnvelopeCache } = await import(moduleUrl("views/common.js"));
   clearEnvelopeCache();
-  const player = (over) => ({ playerId: "r1", number: 12, team: "Swampwater Tech", position: "QB", classYear: "JR", isUs: true, rating: 0.9, ...over });
+  const player = (over) => ({ playerId: "r1", number: 12, team: "Florida", position: "QB", classYear: "JR", isUs: true, rating: 0.9, ...over });
   route("/api/roster", () => envelope({
-    season: 2026, team: { school: "Swampwater Tech" },
+    season: 2026, team: { school: "Florida" },
     players: [
       player({ name: "Ambrose Kettle Pond", firstName: "Ambrose", lastName: "Kettle Pond", redshirt: true }),
       player({ playerId: "r2", number: 9, name: "Case Tumbleweed", firstName: "Case", lastName: "Tumbleweed" }),
@@ -331,12 +331,8 @@ scenarios.roster = async () => {
   const table = main.querySelector("#roster-table .stat-table-wrap");
   const cell = table.querySelectorAll("tbody tr").map((tr) => tr.querySelector("td.st__person")).find((td) => pnText(td).startsWith("Ambrose"));
   assert.deepEqual(["full", "initial", "last"].map((f) => pnText(cell, f)), ["Ambrose Kettle Pond (RS)", "A. Kettle Pond (RS)", "Kettle Pond (RS)"]);
-  const qbCard = main.querySelectorAll(".depth-card").find((c) => text(c.querySelector("h3")) === "QB");
-  const cardNames = qbCard.querySelectorAll(".depth-row__name .pn[data-fit]");
-  assert.equal(cardNames.length, 3, "every depth row's name is fitted in its row");
-  const byFull = Object.fromEntries(cardNames.map((n) => [pnText(n), [pnText(n, "initial"), pnText(n, "last")]]));
-  assert.deepEqual(byFull["Ambrose Kettle Pond (RS)"], ["A. Kettle Pond (RS)", "Kettle Pond (RS)"]);
-  assert.deepEqual(byFull["Case Tumbleweed"], ["Ca. Tumbleweed", "Ca. Tumbleweed"], "two on one card who would read alike: a second letter, never the shared surname alone");
+  // the depth cards (Position groups) left the page with his inventory (wave 3, 2026-11-01); the chart's own naming is the cards scenario's
+  assert.equal(main.querySelector(".depth-card"), null, "no position groups on the Roster page");
 };
 """
 

@@ -87,9 +87,9 @@ def test_wave_b_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
 def test_the_program_and_the_header_use_the_new_bands() -> None:
     js = Path(__file__).resolve().parents[1] / "static" / "js"
     program = (js / "views" / "program.js").read_text(encoding="utf-8")
-    assert "resultsSlot(data, state)" in program and "twoSchoolsBand({ us: data.us, them: data.them, facts: data.facts })" in program
-    assert '"program-results", "program-schools"' in program, "both span two columns"
+    assert "resultsSlot(data, state)" in program and "twoSchoolsBody({ us: data.us, them: data.them, facts: data.facts })" in program  # the line, Wave 2: inside The two schools and the series
+    assert "PROGRAM_WIDE" not in program and "state.flow = flow(page);" in program, "one column (wave 2, 2026-11-01): no wide list, every band capped at the reading width"
     team = (js / "views" / "team.js").read_text(encoding="utf-8")
-    assert team.count("headerFacts(team, data.facts)") == 2, "the page and the sheet"
+    assert team.count("headerFacts(team, data.facts)") == 1, "the sheet (the team page's header went with its tabs: a team's page is My Team's, wave 3 2026-11-01)"
     app = (js / "app.js").read_text(encoding="utf-8")
     assert 'id: "today"' in app and "startTodayNote().catch" in app and 'title: "On this day"' in app

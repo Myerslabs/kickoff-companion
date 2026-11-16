@@ -32,14 +32,14 @@ def test_the_inferred_class_comes_from_the_recruiting_class_then_last_season():
 
 
 def _one_class(fake: FakeCfbd) -> None:
-    """Swampwater Tech's 2026 roster with every player listed as year 1, the rest of the league as recorded."""
+    """Florida's 2026 roster with every player listed as year 1, the rest of the league as recorded."""
     flat = [{**row, "year": 1} for row in fixture_payload("roster")]
 
     def roster(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech" and params.get("year") == "2026":
+        if params.get("team") == "Florida" and params.get("year") == "2026":
             return httpx.Response(200, json=flat)
-        if params.get("team") != "Swampwater Tech":
+        if params.get("team") != "Florida":
             return httpx.Response(200, json=fixture_payload("roster_opponent"))
         return httpx.Response(200, json=fixture_payload(f"roster_{params.get('year')}"))
 
@@ -75,7 +75,7 @@ def test_a_believable_roster_costs_no_extra_call(client: TestClient, fake_cfbd: 
 def test_the_team_page_infers_them_too(client: TestClient, fake_cfbd: FakeCfbd):
     route_players(fake_cfbd)
     _one_class(fake_cfbd)
-    body = client.get("/api/team/Swampwater%20Tech").json()
+    body = client.get("/api/team/Florida").json()
     data = body["data"]
     assert data["classesInferred"] == INFERRED_NOTE
     assert len({p["classYear"] for p in data["roster"]} - {None}) >= 3

@@ -167,6 +167,7 @@ def r_venues(world: World, params: Params, now: datetime) -> list[dict]:
 def r_coaches(world: World, params: Params, now: datetime) -> list[dict]:
     team = team_by(world, p_str(params, "team"))
     year = p_int(params, "year")
+    first, last = p_int(params, "minYear"), p_int(params, "maxYear")  # ENH-11: the program asks for every coach since 1990
     teams = [team] if team else world.league.fbs
     out = []
     for t in teams:
@@ -175,7 +176,7 @@ def r_coaches(world: World, params: Params, now: datetime) -> list[dict]:
             continue
         seasons = []
         for y in range(c.hire_year, world.season + 1):
-            if year is not None and y != year:
+            if (year is not None and y != year) or (first is not None and y < first) or (last is not None and y > last):
                 continue
             if y in world.seasons:
                 records = [r for r in world.final(y, now) if t.id in (r.slot.home, r.slot.away)]
@@ -828,6 +829,29 @@ def r_player_portal(world: World, params: Params, now: datetime) -> list[dict]:
         "season": tr.season, "firstName": tr.first, "lastName": tr.last, "position": tr.position, "origin": tr.origin,
         "destination": tr.destination, "transferDate": as_iso(tr.date), "rating": tr.rating, "stars": tr.stars, "eligibility": tr.eligibility,
     } for tr in world.league.transfers if tr.season == year]
+
+
+def r_playoff_participants(world: World, params: Params, now: datetime) -> list[dict]:
+    """The season's twelve once the bracket is out (the first-round games announced): the seeds the league drew, the
+    committee rank the same, byes for the top four, conference champions among them (FEAT-17)."""
+    year = p_int(params, "year") or world.season
+    data = world.seasons.get(year)
+    seeds = getattr(data, "playoff_seeds", None) if data is not None else None
+    if not seeds or not any(r.slot.playoff for r in select_games(world, {"year": str(year), "seasonType": "postseason"}, now)):
+        return []
+    league = world.league
+    champs = {r.slot.home if (r.home_points or 0) > (r.away_points or 0) else r.slot.away for r in data.records if r.slot.week == 15 and r.slot.season_type == "regular"}
+    out = []
+    for tid, seed in sorted(seeds.items(), key=lambda kv: kv[1]):
+        t = league.by_id[tid]
+        champion = tid in champs
+        out.append({
+            "team": {"id": t.id, "school": t.school, "conference": t.conference}, "committeeRank": seed, "seed": seed,
+            "bidType": "automatic" if champion else "at_large", "qualificationReason": "Conference champion automatic qualifier" if champion else "CFP selection committee at-large selection",
+            "conferenceChampion": champion, "qualifyingConference": t.conference if champion else None, "firstRoundBye": seed <= 4,
+            "outcome": None, "eliminatedRound": None,
+        })
+    return out
 
 
 def r_player_search(world: World, params: Params, now: datetime) -> list[dict]:

@@ -26,7 +26,7 @@ def test_full_file_parses(tmp_path: Path):
         "gameId": 5,
         "author": "Claude (pre-game task)",
         "writtenAt": "2026-09-24T22:00:00Z",
-        "sources": [{"label": "Biscuit Belt availability report", "url": "https://example.invalid/report"}],
+        "sources": [{"label": "SEC availability report", "url": "https://example.invalid/report"}],
         "sections": [{"heading": "Line movement", "paragraphs": ["Opened at -1.5, now -3."]}],
         "availability": [{"name": "Player A", "position": "WR", "status": "Out", "note": "knee"}],
         "visitors": {"home": [{"name": "Recruit A", "stars": 4}], "away": [], "source": "example"},
@@ -68,7 +68,7 @@ def test_lineups_parse_with_bad_slots_and_names_dropped(tmp_path: Path):
     write(tmp_path, 11, {
         "lineups": {
             "source": "Ourlads", "updatedAt": "2026-09-26",
-            "us": {"team": "Swampwater Tech", "scheme": "Spread option", "slots": [
+            "us": {"team": "Florida", "scheme": "Spread option", "slots": [
                 {"unit": "Offense", "slot": "QB", "players": [{"name": "Mason Hamilton", "number": 12, "classYear": "RS SO"}, {"name": "Tramell Jones Jr."}, {"number": 3}, "junk", None]},
                 {"unit": "Defense", "players": [{"name": "no slot label"}]},
                 {"slot": "PK", "players": "not a list"},
@@ -89,7 +89,7 @@ def test_lineups_parse_with_bad_slots_and_names_dropped(tmp_path: Path):
 
 
 def test_lineups_of_the_wrong_shape_are_reported(tmp_path: Path):
-    write(tmp_path, 12, {"lineups": {"us": "Swampwater Tech"}})
+    write(tmp_path, 12, {"lineups": {"us": "Florida"}})
     notes, error = load_notes(tmp_path, 12)
     assert notes is None and error.startswith("12.json: lineups.us")
     write(tmp_path, 13, {"lineups": []})

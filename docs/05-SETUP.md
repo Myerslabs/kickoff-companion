@@ -1,6 +1,6 @@
-# Setup on Windows, macOS and Linux
+# Setup on Windows
 
-Kickoff Companion runs on a computer in your home (the host) and shows on any phone, tablet or computer on the same Wi-Fi (the viewers). The host needs to be on during games. Windows 10 or later, macOS, and Linux all work, the Steam Deck included.
+Kickoff Companion runs on a computer in your home (the host) and shows on any phone, tablet or computer on the same Wi-Fi (the viewers). The host needs to be on during games: a Windows 10 or 11 computer. Kickoff Companion 2.0 runs on Windows only; on macOS and Linux, [1.0.1](https://github.com/Myerslabs/kickoff-companion/releases/tag/v1.0.1) keeps working.
 
 To try it first with no key and no setup, run the demo (section 9).
 
@@ -8,58 +8,31 @@ There are two ways to get it: **the download**, a packaged program with nothing 
 
 ## 1. Get the program
 
-**The download.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take the archive for your system. A `.sha256` file beside each archive holds its checksum.
+**The download.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take `KickoffCompanion-<version>-windows-x64.zip`. The `.sha256` file beside it holds its checksum. Unzip it anywhere and double-click `KickoffCompanion.exe`. Until the program is signed, Windows says it protected your PC the first time: **More info**, then **Run anyway**.
 
-| System | Archive | Then |
-|---|---|---|
-| Windows | `KickoffCompanion-<version>-windows-x64.zip` | Unzip it anywhere and double-click `KickoffCompanion.exe`. The first time, Windows says it protected your PC, because the program is not signed: **More info**, then **Run anyway**. |
-| macOS | `KickoffCompanion-<version>-macos-arm64.tar.gz` | Unpack it, then right-click `KickoffCompanion`, **Open**, and **Open** again (unsigned, so once). On macOS 15 Sequoia and later that right-click way is gone: double-click it once, let macOS say it cannot verify it, then open **System Settings**, **Privacy & Security**, scroll down to the line about `KickoffCompanion` and choose **Open Anyway**, then **Open**. Or take the uv line below, which needs none of that. Not yet tried on a Mac; say how it went. |
-| Linux, Steam Deck | `KickoffCompanion-<version>-linux-x64.tar.gz` | Unpack it, then run `./KickoffCompanion` in a terminal, or double-click it and choose Run. |
-
-The program is the server. On Windows it runs behind a sun icon by the clock since 0.25.0 (double-click the sun to open the app; its menu has the status page, the log and Quit, and Quit stops the server; Tray mode in Settings brings the window back). On macOS and Linux the window that opens stays open during the game, and closing it stops the server. The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, so a new version of the program replaces the old folder and loses nothing:
-
-| System | Your files |
-|---|---|
-| Windows | `%LOCALAPPDATA%\Kickoff Companion` (`C:\Users\<you>\AppData\Local\Kickoff Companion`) |
-| macOS | `~/Library/Application Support/Kickoff Companion` |
-| Linux, Steam Deck | `$XDG_DATA_HOME/kickoff-companion`, else `~/.local/share/kickoff-companion` |
+The program is the server. It runs behind a sun icon by the clock (double-click the sun to open the app; its menu has the status page, the log and Quit, and Quit stops the server; Tray mode in Settings brings the window back). The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, `%LOCALAPPDATA%\Kickoff Companion` (`C:\Users\<you>\AppData\Local\Kickoff Companion`), so a new version of the program replaces the old folder and loses nothing.
 
 Settings, About, shows the folder with an **Open the folder** button (on the server computer itself). To keep everything beside the program instead, on a USB stick say, put an empty file named `portable` next to it before the first start. `DATA_DIR` and `LOG_DIR` in `.env` still move those two folders wherever they say.
 
-**The one line (uv).** With uv installed (section 2, one command), the package on PyPI starts the server with nothing cloned and nothing else installed:
-
-```
-uvx kickoff-companion
-```
-
-The first start downloads the package and keeps it; `uvx kickoff-companion@latest` takes the newest version. Your files live in the app-data folder of the table above, as for the download, and the first start opens the demo the same way. A computer that ran the download before shares that folder with `uvx`, so `uvx` opens where the download left off: the setup page if **Use my own team** was chosen there, your team once the key is in. Start at login (section 8), the tray icon and the Desktop icon are not offered this way; the download and the code have them, and Settings says so.
-
 **The code.** Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
 
-**The short way: double-click.** In the folder, double-click the launcher for your system:
-
-| System | Double-click |
-|---|---|
-| Windows | `Kickoff Companion.cmd` |
-| macOS | `Kickoff Companion.command` (if macOS says it cannot open a downloaded file: right-click it, Open, then Open again) |
-| Linux, Steam Deck | `Kickoff Companion.sh` (choose Execute or Run if the file manager asks) |
-
-The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a made-up league with a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
+**The short way: double-click** `Kickoff Companion.cmd` in the folder. The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a sample season that follows one team, with invented games, players and scores and a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
 
 ## 2. Install uv (the code only)
 
 The download needs nothing here. For the code, [uv](https://docs.astral.sh/uv/) installs the right Python and every package for you. It needs no admin rights and does not change the system's Python. The launchers and the start scripts install it on the first start when it is missing.
 
-| System | Command |
-|---|---|
-| Windows (PowerShell) | `powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 \| iex"` |
-| macOS, Linux, Steam Deck | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
+In PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
 
 Prefer plain pip? Make a virtual environment named `.venv` in the folder and install `requirements.txt` into it; the start scripts use it the same way.
 
 ## 3. Configure (in the browser)
 
-Nothing to edit. A fresh install opens the demo first; **Use my own team** on its welcome page (`/demo`) opens the setup page (`/welcome`). **Demo** on the menu's **Setup** page switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
+Nothing to edit. A fresh install opens the demo first; **Use my own team** on its page (`/demo`) opens the setup page (`/welcome`). **Demo** on the menu's **Setup** page switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
 
 1. **Your CFBD key.** Get one free at [collegefootballdata.com/key](https://collegefootballdata.com/key): sign up with an email address and CFBD mails it. Paste it and the page checks it with CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
 2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and only its colors and mascot theme the app. The conference comes along.
@@ -79,10 +52,7 @@ You can still set everything in `.env` by hand; `.env.example` lists every setti
 
 ## 4. Start
 
-| System | The download | The code |
-|---|---|---|
-| Windows | `KickoffCompanion.exe` | `Kickoff Companion.cmd`, or `.\start.ps1` (right-click it, Run with PowerShell) |
-| macOS, Linux | `./KickoffCompanion` (or double-click it) | `Kickoff Companion.command` or `Kickoff Companion.sh`, or `./start.sh` |
+The download: `KickoffCompanion.exe`. The code: `Kickoff Companion.cmd`, or `.\start.ps1` (right-click it, Run with PowerShell).
 
 From the code, the first start downloads Python and the packages, which takes a minute. Then the server checks `.env`, prints the address viewers use with a QR code for it, and opens the app in this computer's browser. Keep the window open; Ctrl+C stops it. The log is in `logs/app.log` (under your files, section 1). If the download stops with a message (another copy already running, say), the window waits for Enter so you can read it.
 
@@ -90,7 +60,7 @@ The browser opens when you start the server by hand. Settings, "Open the app on 
 
 ## 5. Let viewers reach the host (firewall)
 
-**The download on Windows asks for itself:** the first start shows a Windows Security dialog for Kickoff Companion, publisher Myers Labs; **Allow** is the whole step. The code gets the same dialog for Python the first time it listens; the rules below are for when that was dismissed, or when the server starts at login before anyone can answer. On macOS and Linux both ways need the steps below.
+**The download on Windows asks for itself:** the first start shows a Windows Security dialog for Kickoff Companion, publisher Myers Labs; **Allow** is the whole step. The code gets the same dialog for Python the first time it listens; the rules below are for when that was dismissed, or when the server starts at login before anyone can answer.
 
 The server listens on `PORT` (default 8642) for the app, and on UDP 5353 to answer for its network name (section 6).
 
@@ -103,15 +73,11 @@ New-NetFirewallRule -DisplayName "Kickoff Companion (network name)" -Direction I
 
 These rules cover networks marked Private. If Windows shows your home network as Public (Settings, Network and internet, your connection), switch it to Private, or add `Public` to `-Profile`.
 
-**macOS.** The first start may ask whether Python may accept incoming connections. Click Allow. If you missed it: System Settings, Network, Firewall, Options.
-
-**Linux.** Most desktops have no firewall switched on, the Steam Deck included. With ufw: `sudo ufw allow 8642/tcp` and `sudo ufw allow 5353/udp`. With firewalld: `sudo firewall-cmd --permanent --add-port=8642/tcp --add-service=mdns && sudo firewall-cmd --reload`.
-
 ## 6. The address viewers use
 
 The server announces itself on the home network as **kickoff.local**, so viewers open `http://kickoff.local:8642`. iPhone, iPad, Mac, Linux and Windows 10 or later find it by name with no router setup.
 
-- Some Android phones do not resolve `.local` names. Use the number address the server prints (for example `http://192.168.1.20:8642`); it always works.
+- Some Android phones do not resolve `.local` names. Use the number address the server prints (for example `http://192.0.2.20:8642`); it always works.
 - Two installs on one network need different names: set `MDNS_NAME` in `.env` (for example `MDNS_NAME=den` gives `den.local`). `MDNS_NAME=off` announces nothing.
 - If your router can hold local DNS names, set `LAN_HOSTNAME` to one and the server shows that name first.
 
@@ -138,31 +104,25 @@ For a tailgate hotspot or a venue's Wi-Fi, turn on **Away from home** in Setting
 
 In the app, open Settings:
 
-- **Start at login** starts the server when you log in. On Windows that is a shortcut in the Startup folder, on Linux a systemd user service (`~/.config/systemd/user/kickoff-companion.service`), on macOS a LaunchAgent (`~/Library/LaunchAgents/com.kickoff-companion.server.plist`). It takes effect at the next login.
-- **Desktop icon** makes a double-click launcher. On Linux it also goes in the app menu.
-- **Tray mode** (Windows only) is on by default since 0.25.0: the server runs behind a tray icon by the clock with no window (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too, and since 1.0.0 the start window closes by itself. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
+- **Start at login** starts the server when you log in: a shortcut in the Startup folder. It takes effect at the next login.
+- **Desktop icon** makes a double-click launcher.
+- **Tray mode** is on by default: the server runs behind a tray icon by the clock with no window (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too, and since 1.0.0 the start window closes by itself. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
 
 With the download, the login item and the icon start the program itself; with the code, the start script.
 
 ## 9. Demo mode
 
-`uv run python -m app --demo` runs the whole app against a made-up league with no key and no network, then serves it at `http://127.0.0.1:8650/`. Add `--host 0.0.0.0` to look at it from a tablet. `--demo --help` lists the options.
+A fresh install opens the demo by itself. From the code, `uv run python -m app --demo` also runs the whole app against the test league (the FBS schools with invented games, players and numbers) with no key and no network, beside your own install, then serves it at `http://127.0.0.1:8650/`. Add `--host 0.0.0.0` to look at it from a tablet. `--demo --help` lists the options.
 
-## 10. The Steam Deck
+## 10. Claude Code (optional)
 
-1. Switch to Desktop Mode (Steam button, Power, Switch to Desktop) and open Konsole.
-2. `git clone` the repository into your home folder, then install uv with the curl command in section 2. It installs into `~/.local/bin`, so the read-only system is not touched.
-3. Configure (section 3) and run `./start.sh`.
-4. To browse on the Deck itself, open the setup page in Firefox and follow the Linux steps.
-5. Start at login (section 8) installs a user service, which also runs in Game Mode once the Deck is logged in. While a game is on, the server holds the Deck awake through `systemd-inhibit` (any Linux with systemd does the same; the status page's housekeeping line says whether it is held). Game Mode has its own sleep timer: for game day keep the Deck plugged in and set sleep to Never in Settings, Power, to be sure.
+With [Claude Code](https://claude.com/claude-code) installed and signed in on the host, Settings, Claude and loading data, can let it run on a schedule: the game notes and the injury reports before each game, the newspaper's editor, and a few pieces of its own. It is off until you turn it on there, and each run uses your own Claude plan. Without it, every prompt works by copy and paste (section 3, Game notes). `CLAUDE_COMMAND` in `.env` names the command when it is not on the PATH.
 
 ## 11. Updating
 
 **The download:** take the new archive from the Releases page, delete the old program folder, unpack the new one, start it. Your files are in the app-data folder (section 1) and stay. With a `portable` file beside the program, move `portable`, `.env`, `data` and `logs` into the new folder first.
 
-**The code:** `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
-
-**The uv line:** `uvx kickoff-companion@latest`. Your files are in the app-data folder and stay.
+**The code:** Settings, About, shows new commits on GitHub and **Update now** brings them in and restarts the server. Or `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
 
 ## 12. If something is wrong
 
@@ -175,4 +135,4 @@ With the download, the login item and the icon start the program itself; with th
 | "Port 8642 is taken" | A copy of Kickoff Companion already running is opened instead of a second one. Another program on the port is named, with the next free port offered: **Use port 8643** (behind the sun icon) or Enter (in a window) saves it in `.env`, and each device scans the new QR code on the status page once. `--use-port N` saves a port by hand. |
 | How long does a start take? | The sun icon's hover text counts the seconds while it starts, and a notification says when the data is ready. `logs/app.log` has "Ready for data after" and "First data after" lines. |
 | Windows says it protected your PC | The download is not signed. **More info**, then **Run anyway**; Windows asks once per download. |
-| Where are my files? | Settings, About, shows the folder and opens it; `--check` prints it too. Section 1 lists the app-data folder for each system. |
+| Where are my files? | Settings, About, shows the folder and opens it; `--check` prints it too. Section 1 names the app-data folder. |

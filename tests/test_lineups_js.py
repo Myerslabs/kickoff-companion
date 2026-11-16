@@ -25,7 +25,7 @@ const lineups = () => ({
   source: "Published depth charts",
   updatedAt: "2026-10-01",
   us: {
-    team: "Swampwater Tech", scheme: "Spread option", source: "Mudpuppies Wire", sourceUrl: "https://example.invalid/uf", updatedAt: "2026-10-01",
+    team: "Florida", scheme: "Spread option", source: "Gators Wire", sourceUrl: "https://example.invalid/uf", updatedAt: "2026-10-01",
     slots: [
       { unit: "Offense", slot: "QB", players: [{ name: "Mason Hamilton", number: 12, classYear: "RS SO", playerId: "4536127", chips: ["917 passing yards", "7 TD", "2 INT", "72% completions"] }, { name: "Tramell Jones Jr.", number: 9, classYear: "RS FR", playerId: null, chips: [] }] },
       { unit: "Offense", slot: "RB", players: [{ name: "Lucas Griffin", number: 13, classYear: "JR", chips: ["600 rushing yards", "83 CAR"] }, { name: "Dante Clayborn", number: 20 }, { name: "Cameron Wilson", number: 21 }, { name: "Landon Merriweather", number: 24 }] },
@@ -36,7 +36,7 @@ const lineups = () => ({
     ],
   },
   them: {
-    team: "Sweet Tea State", source: "Ourlads", updatedAt: "2026-09-26",
+    team: "Ole Miss", source: "Ourlads", updatedAt: "2026-09-26",
     slots: [
       { unit: "Defense", slot: "JACK", players: [{ name: "Darius Smithers", number: 19, classYear: "RS SR" }, { name: "Malik Bryant", number: 12 }] },
       { unit: "Offense", slot: "QB", players: [{ name: "Austin Simmons", number: 13, playerId: "9", chips: ["947 passing yards"] }] },
@@ -44,8 +44,8 @@ const lineups = () => ({
   },
 });
 const availability = [{ name: "Kane Clayborn", position: "STAR", status: "Questionable", note: "ankle" }, { name: "Darius Smithers", status: "Out" }, null, { name: 5 }];
-const us = { school: "Swampwater Tech", abbreviation: "SWT" };
-const them = { school: "Sweet Tea State", abbreviation: "MIZ" };
+const us = { school: "Florida", abbreviation: "FLA" };
+const them = { school: "Ole Miss", abbreviation: "MIZ" };
 
 scenarios.helpers = async () => {
   const { lineupSlots, lineupStarters, lineupSummary, availabilityFor } = await import(moduleUrl("ui/lineups.js"));
@@ -110,15 +110,13 @@ scenarios.programBands = async () => {
   assert.equal(root.querySelector("#program-depth"), null, "the depth chart is part of the lineups now (Phase 19)");
   assert.equal(text(starters.querySelector(".band__title")), "Lineups");
   assert.ok(text(starters.querySelector(".band__summary")).includes("Published depth charts"));
-  assert.ok(text(starters).includes("Mason Hamilton") && text(starters).includes("917 passing yards") && !starters.querySelector(".lu-next") && !text(starters).includes("Tramell Jones"), "the starters with their chips; the depth behind them is not drawn (the mock, owner 2026-10-20)");
-  assert.ok(text(starters).includes("Experience of the starters"));
-  // 2026-10-10: lineups as matchups, one table per pairing, each starter beside the man he faces; the tables size themselves
-  const sized = [...starters.querySelectorAll(".stat-table-wrap[data-size]")];
-  assert.ok(sized.length >= 2, "the experience table and every matchup table declare sizes");
-  assert.ok(starters.querySelector(".lu-head") && text(starters.querySelector(".lu-head")).includes("offense") && text(starters.querySelector(".lu-head")).includes("defense"), "the matchup's title names both units");
-  assert.ok(starters.querySelector("td.st__wrap.st__min-large"), "the season chips wrap in their cell and show at large only");
-  assert.ok(starters.querySelector("td .sz-t--short button.lu-name .pn"), "item 6: the starter's name alone at small, still his button");
-  assert.ok(starters.querySelector(".avail--questionable"), "the program hands the availability report to the block");
+  // the picture alone (the owner's marks on the Lineups board, 2026-11-01): both matchups on the field, each man his number, his
+  // position and surname; no stats, no tables, the depth behind the starters not drawn
+  assert.equal(starters.querySelectorAll(".formation__matchup").length, 2, "their defense over our offense, then ours over theirs");
+  assert.ok(text(starters).includes("Hamilton") && starters.querySelector("button.formation__man") && !text(starters).includes("917 passing yards") && !text(starters).includes("Tramell Jones"), text(starters).slice(0, 300));
+  assert.ok(!starters.querySelector(".stat-table-wrap") && !text(starters).includes("Experience of the starters"), "the experience table and the matchup tables are gone");
+  assert.ok(starters.querySelector(".formation__half--defense") && starters.querySelector(".formation__half--offense"), "each half labeled on the field");
+  assert.ok(starters.querySelector(".formation__man--listed .formation__status"), "the program hands the availability report to the picture");
   // the order on the page: notes, availability, lineups and depth, then the rest
   const ids = [...root.querySelectorAll("section.band")].map((s) => s.getAttribute("id") || "");
   assert.ok(ids.indexOf("program-availability") < ids.indexOf("program-lineups"), ids.join(","));

@@ -2,7 +2,7 @@
 // fourth-down choice, each team's play value and the recruits on hand. In Game's side panels draw them, and the game-day
 // board draws the same panels inline in four narrow panes.
 //
-// Table sizes, wave 2 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): each table sizes itself by its own box, so the
+// Table sizes, wave 2 (owner 2026-10-10; the design rules, Table sizes): each table sizes itself by its own box, so the
 // 780 px side sheet, a phone and a board pane follow the same steps. Large has whole heads and stat names, medium the
 // middle names, small the shortest names, the made-of counts as "3-8" and the surname. Every two-team table is the shared
 // kit with the tug-of-war bar (rule 9), leaning by the real margin (no national ranks here). A table of stat names keeps
@@ -43,7 +43,7 @@ export function madeShort(value) {
   return value && isNum(value.made) && isNum(value.of) && value.of > 0 ? `${value.made}-${value.of}` : DASH;
 }
 
-/** One side's block from a server map keyed by school ({ "Swampwater Tech": {...} }), or {}. */
+/** One side's block from a server map keyed by school ({ "Florida": {...} }), or {}. */
 function blockFor(map, side) {
   const team = obj(side).team;
   return typeof team === "string" && team ? obj(obj(map)[team]) : {};

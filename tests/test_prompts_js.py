@@ -94,6 +94,12 @@ scenarios.page = async () => {
   assert.ok(!checks[0].className.includes("--ok") && !checks[1].className.includes("--ok") && checks[2].className.includes("--ok"), "the written notes and the injury report missing, the depth charts there");
   // the season loads in even cards
   assert.deepEqual([...main.querySelector(".load-season").children].map((b) => b.getAttribute("id")), ["prompts-season", "prompts-coaches", "prompts-costs", "prompts-facts"]);
+  // ENH-20 (P5): the conference lists and the buttons together at the card's foot, the buttons last, so a row's cards end level
+  for (const id of ["prompts-coaches", "prompts-costs", "prompts-facts"]) {
+    const end = main.querySelector(`#${id} .prompts__end`);
+    assert.ok(end && end.querySelector(".prompts__conferences"), `${id}: the conference list at the foot`);
+    assert.equal(end.children[end.children.length - 1].className, "prompts__foot", `${id}: the buttons last`);
+  }
   assert.ok(t.includes("Not loaded for Second U") && t.includes("Partly loaded"), "the season load is partly loaded");
   assert.ok(t.includes("0 of 16 teams") && t.includes("Missing"), "the costs are missing");
   assert.ok(t.includes("Big Pie: failed (no answer)"), "the facts run's batch");
@@ -152,8 +158,8 @@ def test_the_reminders_share_one_format() -> None:
     of the page, each with its close button; nothing floats at the bottom or slides in from the side."""
     js = Path(__file__).resolve().parents[1] / "static" / "js"
     app = (js / "app.js").read_text(encoding="utf-8")
-    assert "update-banner" not in app and 'addNote({ id: "update"' in app and 'addNote({ id: "restart-needed"' in app and 'id: "release"' in app
-    assert "startReleaseNote().catch" in app and 'window.localStorage.setItem(RELEASE_SEEN_KEY, data.latest)' in app
+    assert "update-banner" not in app and 'addNote({ id: "update"' in app and 'addNote({ id: "restart-needed"' in app and 'id: "github-update"' in app
+    assert "startUpdateNote().catch" in app and "window.localStorage.setItem(UPDATE_SEEN_KEY, newest)" in app  # FEAT-13
     css = (js.parent / "css" / "components.css").read_text(encoding="utf-8")
     assert ".update-banner" not in css and ".page-note__row" in css
     notes = (js / "ui" / "page-notes.js").read_text(encoding="utf-8")

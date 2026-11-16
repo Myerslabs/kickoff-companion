@@ -31,7 +31,7 @@ const form2 = (cell, which) => { const t = cell.querySelector(`.sz-t--${which}`)
 
 function rows() {
   return [
-    { label: "Points per game", side: "offense", format: "1f", higherIsBetter: true, metric: "profile:ppg", us: { value: 46.2, rank: 5, of: 136, conf: { rank: 1, of: 16, conference: "Big Pie", href: "#national=profile%3Appg?team=Swampwater%20Tech&scope=conference" } }, them: { value: 37.6, rank: 26, of: 136, conf: { rank: 6, of: 16, conference: "Big Pie" } } },
+    { label: "Points per game", side: "offense", format: "1f", higherIsBetter: true, metric: "profile:ppg", us: { value: 46.2, rank: 5, of: 136, conf: { rank: 1, of: 16, conference: "Big Pie", href: "#national=profile%3Appg?team=Florida&scope=conference" } }, them: { value: 37.6, rank: 26, of: 136, conf: { rank: 6, of: 16, conference: "Big Pie" } } },
     { label: "Pass yards per game", side: "offense", format: "0f", higherIsBetter: true, metric: "profile:pass_ypg", us: { value: 275, rank: 29, of: 136 }, them: { value: 235, rank: 65, of: 136 } },
     { label: "Points allowed per game", side: "defense", format: "1f", higherIsBetter: false, metric: "profile:opp_ppg", us: { value: 27.2, rank: 103, of: 136 }, them: { value: 26.8, rank: 100, of: 136 } },
   ];
@@ -68,18 +68,18 @@ scenarios.twoteam = async () => {
     { title: "Offense", rows: rows().filter((r) => r.side === "offense"), us: "Spread option", them: null, missing: { label: "Get this week's notes", onClick: () => { asked += 1; } } },
     { title: "Defense", rows: rows().filter((r) => r.side === "defense"), us: "3-4", them: "4-2-5" },
   ];
-  const wrap = twoTeamTable({ groups, usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech", usName: "Swampwater Tech Mudcats", themName: "Diner Tech Waffles", tug: true, labelHead: "This season" });
+  const wrap = twoTeamTable({ groups, usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State", usName: "Florida Mudcats", themName: "Texas State Hilltoppers", tug: true, labelHead: "This season" });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   assert.equal(wrap.dataset.size, "large", "drawn large until it measures itself");
   // the large head: each team over its three columns, the rank heads under it; the one-row head for medium and small
   const headA = [...wrap.querySelectorAll("tr.tt__head--a th")];
-  assert.deepEqual(headA.map((th) => form(th, "long")), ["This season", "Swampwater Tech Mudcats", "Edge", "Diner Tech Waffles"]);
+  assert.deepEqual(headA.map((th) => form(th, "long")), ["This season", "Florida Mudcats", "Edge", "Texas State Hilltoppers"]);
   assert.deepEqual(headA.map((th) => th.getAttribute("colspan")), [null, "3", null, "3"]);
   assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--b th")].map(text), ["FBS rank", "Big Pie rank", "", "", "Big Pie rank", "FBS rank"]);
   const one = [...wrap.querySelectorAll("tr.tt__head--one th")];
-  assert.deepEqual(one.map((th) => form(th, "mid")), ["This season", "FBS", "Swampwater Tech", "Edge", "Diner Tech", "FBS"]);
-  assert.deepEqual(one.map((th) => form(th, "short")), ["Season", "FBS", "SWT", "Edge", "DT", "FBS"]);
+  assert.deepEqual(one.map((th) => form(th, "mid")), ["This season", "FBS", "Florida", "Edge", "Texas State", "FBS"]);
+  assert.deepEqual(one.map((th) => form(th, "short")), ["Season", "FBS", "FLA", "Edge", "DT", "FBS"]);
   assert.equal(one[1].dataset.term, "FBS rank", "the hint reads the long head");
   // every data point its own column, mirrored outward from the bar
   const first = wrap.querySelectorAll("tbody tr:not(.tt__group)")[0];
@@ -87,7 +87,7 @@ scenarios.twoteam = async () => {
   assert.ok(cls(first.childNodes[1]).includes("tt__rank--natl") && cls(first.childNodes[2]).includes("tt__rank--conf"), "ours: national outside, conference next in");
   assert.ok(cls(first.childNodes[6]).includes("tt__rank--conf") && cls(first.childNodes[7]).includes("tt__rank--natl"), "theirs mirrored");
   assert.ok(cls(first.childNodes[2]).includes("tt__min-large") && cls(first.childNodes[1]).includes("tt__min-medium"), "the conference chip needs large, the national chip medium");
-  assert.equal(first.childNodes[2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech&scope=conference");
+  assert.equal(first.childNodes[2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Florida&scope=conference");
   assert.ok(first.childNodes[6].querySelector(".rank-chip:not(.rank-chip--link)"), "a conference rank with no list is a plain chip");
   assert.equal(form(first.childNodes[0], "short"), "PPG");
   assert.equal(first.childNodes[0].dataset.term, "Points per game");
@@ -128,14 +128,14 @@ scenarios.twoteam = async () => {
   assert.ok(wrap.querySelector("table").hidden === false && !wrap.querySelector(".size-note") && !cls(wrap).includes("stat-table-wrap--dropped"));
   assert.equal(grp[0].querySelector("td.tt__us").hidden, false);
   // a plain group (no schemes) is one cell across the width at every size
-  const plain = twoTeamTable({ groups: [{ title: "Per game", rows: rows().slice(0, 2) }], usAbbr: "SWT", themAbbr: "DT", tug: true });
+  const plain = twoTeamTable({ groups: [{ title: "Per game", rows: rows().slice(0, 2) }], usAbbr: "FLA", themAbbr: "DT", tug: true });
   const th = plain.querySelector("tr.tt__group th");
   assert.equal(text(th), "Per game");
   assert.equal(th.getAttribute("colspan"), "8");
   applySize(plain, "small");
   assert.equal(th.getAttribute("colspan"), "4");
   // no conference ranks anywhere: no conference columns at all; no national ranks: none of those either
-  const bare = twoTeamTable({ rows: [{ label: "Yards per play", us: { value: 6.1 }, them: { value: 5.2 } }], usAbbr: "SWT", themAbbr: "DT", tug: true });
+  const bare = twoTeamTable({ rows: [{ label: "Yards per play", us: { value: 6.1 }, them: { value: 5.2 } }], usAbbr: "FLA", themAbbr: "DT", tug: true });
   assert.equal(bare.querySelectorAll("tbody tr")[0].childNodes.length, 4, "label, value, bar, value");
   assert.equal(bare.querySelectorAll("tr.tt__head--b th").length, 2, "only the blank heads under the teams");
   assert.ok(typeof bare.measure === "function");
@@ -151,16 +151,16 @@ scenarios.twoteam = async () => {
 scenarios.centered = async () => {
   const { twoTeamTable, applySize } = await import(moduleUrl("ui/two-team.js"));
   const groups = [{ title: "Offense", rows: rows().filter((r) => r.side === "offense"), us: "Spread option", them: "Pro-style" }];
-  const wrap = twoTeamTable({ groups, usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech", centered: true, labelHead: "Season" });
+  const wrap = twoTeamTable({ groups, usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State", centered: true, labelHead: "Season" });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   assert.ok(wrap.querySelector("table").className.includes("tt--centered") && wrap.querySelector("table").className.includes("tt--tug"), "centered implies the bar");
   const headA = [...wrap.querySelectorAll("tr.tt__head--a th")];
-  assert.deepEqual(headA.map((th) => form(th, "long")), ["Swampwater Tech", "Season", "Diner Tech"]);
+  assert.deepEqual(headA.map((th) => form(th, "long")), ["Florida", "Season", "Texas State"]);
   assert.deepEqual(headA.map((th) => th.getAttribute("colspan")), ["3", null, "3"]);
   assert.equal(headA[1].getAttribute("rowspan"), "2");
   assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--b th")].map(text), ["FBS rank", "Big Pie rank", "", "", "Big Pie rank", "FBS rank"]);
-  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["FBS", "SWT", "Season", "DT", "FBS"]);
+  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["FBS", "FLA", "Season", "DT", "FBS"]);
   const first = wrap.querySelectorAll("tbody tr:not(.tt__group)")[0];
   assert.deepEqual([...first.childNodes].map((td) => cls(td).split(" ")[0]), ["tt__rank", "tt__rank", "num", "tt__tug", "num", "tt__rank", "tt__rank"], "mirrored around the middle");
   const mid = first.childNodes[3];
@@ -185,7 +185,7 @@ scenarios.card = async () => {
   assert.equal(recordLine({ record: { wins: 2, losses: 3 }, conferenceRecord: { wins: 0, losses: 3 } }), "2-3 (0-3)");
   assert.equal(recordLine({ record: { wins: 2, losses: 3, ties: 1 } }), "2-3-1");
   assert.equal(recordLine({ record: { wins: "2" } }), null);
-  assert.equal(fullName({ school: "Diner Tech", mascot: "Waffles" }), "Diner Tech Waffles");
+  assert.equal(fullName({ school: "Texas State", mascot: "Hilltoppers" }), "Texas State Hilltoppers");
   assert.equal(fullName({ school: "Waffle State", mascot: "Waffle" }), "Waffle State", "a mascot already in the name is not repeated");
   assert.equal(fullName({}), null);
   assert.equal(lastFive([]), null);
@@ -200,9 +200,9 @@ scenarios.card = async () => {
   assert.ok(!RAW.test(text(five)));
   let asked = 0;
   const card = matchupCard({
-    us: { abbreviation: "SWT", school: "Swampwater Tech", mascot: "Mudcats" },
-    them: { school: "Diner Tech", mascot: "Waffles", abbreviation: "DT", apRank: 14, record: { wins: 2, losses: 3 }, conferenceRecord: { wins: 0, losses: 3 }, form: played },
-    teamTags: [{ label: "SP+ #48", href: "#national=rating%3Asp?team=Diner%20Tech", rank: 48, of: 136, name: "SP+" }],
+    us: { abbreviation: "FLA", school: "Florida", mascot: "Mudcats" },
+    them: { school: "Texas State", mascot: "Hilltoppers", abbreviation: "DT", apRank: 14, record: { wins: 2, losses: 3 }, conferenceRecord: { wins: 0, losses: 3 }, form: played },
+    teamTags: [{ label: "SP+ #48", href: "#national=rating%3Asp?team=Texas%20State", rank: 48, of: 136, name: "SP+" }],
     tags: [{ label: "Big Pie" }],
     schemes: { offense: "Spread option", defense: "3-4", opponent: { offense: "Pro-style" } },
     onNotes: () => { asked += 1; },
@@ -213,8 +213,8 @@ scenarios.card = async () => {
   assert.equal(card.dataset.size, "large");
   assert.ok(!card.querySelector(".team-page-chip") && !text(card).includes("Team page"), "no Team page chip");
   const name = card.querySelector(".mcard__name");
-  assert.ok(name.querySelector("button.team-link") && name.querySelector("button.team-link").dataset.team === "Diner Tech", "the name is the way to the team page");
-  assert.equal(text(name.querySelector(".mcard__mascot")), "Waffles");
+  assert.ok(name.querySelector("button.team-link") && name.querySelector("button.team-link").dataset.team === "Texas State", "the name is the way to the team page");
+  assert.equal(text(name.querySelector(".mcard__mascot")), "Hilltoppers");
   assert.equal(text(name.querySelector(".mcard__rec")), "2-3 (0-3)");
   assert.ok(name.querySelector(".poll-badge"), "the AP badge stays before the name");
   assert.ok(!text(card).includes("in conference"), "the conference record lives in the brackets");
@@ -226,7 +226,7 @@ scenarios.card = async () => {
   // the table: the mascots in the large heads, each scheme under its team, the way to the notes for the one missing
   const table = card.querySelector(".mcard__table");
   assert.ok(table && table.dataset.size === "large");
-  assert.deepEqual([...table.querySelectorAll("tr.tt__head--a th.tt__team")].map((th) => form(th, "long")), ["Swampwater Tech Mudcats", "Diner Tech Waffles"]);
+  assert.deepEqual([...table.querySelectorAll("tr.tt__head--a th.tt__team")].map((th) => form(th, "long")), ["Florida Mudcats", "Texas State Hilltoppers"]);
   const grp = table.querySelectorAll("tr.tt__group");
   assert.equal(grp.length, 2);
   assert.equal(text(grp[0].querySelector("td.tt__us")), "Spread option");
@@ -237,7 +237,7 @@ scenarios.card = async () => {
   get.click();
   assert.equal(asked, 1);
   // no notes at all, no handler: a plain word, never a blank or a raw value
-  const none = matchupCard({ us: { school: "Swampwater Tech" }, them: { school: "Diner Tech" }, rows: rows() });
+  const none = matchupCard({ us: { school: "Florida" }, them: { school: "Texas State" }, rows: rows() });
   assert.ok(!RAW.test(text(none)));
   assert.ok([...none.querySelectorAll("td.tt__scheme")].every((td) => text(td) === "Get this week's notes" && td.querySelector('a[href="#prompts"]')), "never a dead end: the way to the prompts (2026-10-13)");
   assert.ok(!none.querySelector(".mcard__chips"), "nothing to say: no chip line");
@@ -280,9 +280,9 @@ scenarios.stat = async () => {
   const plain = statTable({ columns, rows: list, sortable: false });
   assert.ok(!plain.dataset.size && !plain.querySelector(".sz-t") && !plain.querySelector("[data-term]"));
   // a team column with a short form: the abbreviation at small, inside the team link; a prose column wraps
-  const series = statTable({ sizes: true, sortable: false, columns: [{ key: "year", label: "Year", kind: "text" }, { key: "away", label: "Away", kind: "text", team: true, shortKey: "awayAbbr" }, { key: "note", label: "Note", kind: "text", shortKey: "noteShort" }, { key: "depth", label: "Then, in order", labelMid: "Then", kind: "text", size: "large", wrap: true }], rows: [{ year: "2025", away: "Swampwater Tech", awayAbbr: "SWT", note: "a long note", noteShort: "note", depth: "A, B, C" }, { year: "2024", away: "Diner Tech", awayAbbr: "", note: null, depth: null }] });
+  const series = statTable({ sizes: true, sortable: false, columns: [{ key: "year", label: "Year", kind: "text" }, { key: "away", label: "Away", kind: "text", team: true, shortKey: "awayAbbr" }, { key: "note", label: "Note", kind: "text", shortKey: "noteShort" }, { key: "depth", label: "Then, in order", labelMid: "Then", kind: "text", size: "large", wrap: true }], rows: [{ year: "2025", away: "Florida", awayAbbr: "FLA", note: "a long note", noteShort: "note", depth: "A, B, C" }, { year: "2024", away: "Texas State", awayAbbr: "", note: null, depth: null }] });
   const r0 = series.querySelectorAll("tbody tr")[0].querySelectorAll("td");
-  assert.ok(r0[1].querySelector("button.team-link .sz-t--short") && r0[1].querySelector("button.team-link .sz-t--short").textContent === "SWT" && r0[1].querySelector(".sz-t--long").textContent === "Swampwater Tech");
+  assert.ok(r0[1].querySelector("button.team-link .sz-t--short") && r0[1].querySelector("button.team-link .sz-t--short").textContent === "FLA" && r0[1].querySelector(".sz-t--long").textContent === "Florida");
   assert.equal(r0[2].querySelector(".sz-t--short").textContent, "note");
   assert.ok(cls(r0[3]).includes("st__wrap") && cls(r0[3]).includes("st__min-large"));
   const r1 = series.querySelectorAll("tbody tr")[1].querySelectorAll("td");
@@ -294,26 +294,26 @@ scenarios.stat = async () => {
 scenarios.tape = async () => {
   const { tapeTable, tapePairs } = await import(moduleUrl("ui/tape.js"));
   const edges = [
-    { label: "Passing: SWT offense vs DT defense", side: "offense", usRank: 5, themRank: 100, of: 136, edge: 95, usValue: 298, themValue: 250, format: "0f", usKey: "pass_ypg", themKey: "pass_ypg_d" },
-    { label: "Rushing: SWT offense vs DT defense", side: "offense", usRank: 40, themRank: 30, of: 136, edge: -10, usValue: 150, themValue: 120, format: "0f" },
-    { label: "Third down: SWT offense vs DT defense", side: "offense", usRank: 20, themRank: 25, of: 136, edge: 5, usValue: 0.45, themValue: 0.4, format: "pct" },
-    { label: "Scoring: SWT offense vs DT defense", side: "offense", usRank: 10, themRank: 12, of: 136, edge: 2, usValue: 35, themValue: 20, format: "1f" },
-    { label: "Passing: DT offense vs SWT defense", side: "defense", usRank: 50, themRank: 20, of: 136, edge: -30, usValue: 240, themValue: 280, format: "0f" },
+    { label: "Passing: FLA offense vs DT defense", side: "offense", usRank: 5, themRank: 100, of: 136, edge: 95, usValue: 298, themValue: 250, format: "0f", usKey: "pass_ypg", themKey: "pass_ypg_d" },
+    { label: "Rushing: FLA offense vs DT defense", side: "offense", usRank: 40, themRank: 30, of: 136, edge: -10, usValue: 150, themValue: 120, format: "0f" },
+    { label: "Third down: FLA offense vs DT defense", side: "offense", usRank: 20, themRank: 25, of: 136, edge: 5, usValue: 0.45, themValue: 0.4, format: "pct" },
+    { label: "Scoring: FLA offense vs DT defense", side: "offense", usRank: 10, themRank: 12, of: 136, edge: 2, usValue: 35, themValue: 20, format: "1f" },
+    { label: "Passing: DT offense vs FLA defense", side: "defense", usRank: 50, themRank: 20, of: 136, edge: -30, usValue: 240, themValue: 280, format: "0f" },
     "junk",
     null,
   ];
-  const pair = tapeTable(edges, { usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech" });
+  const pair = tapeTable(edges, { usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State" });
   document.body.append(pair);
   assert.ok(!RAW.test(text(pair)), text(pair));
   assert.ok(pair.className.includes("tt-pair"));
   const tables = [...pair.querySelectorAll(".tt-wrap")];
   assert.equal(tables.length, 2, "the offense matchup, then the defense matchup");
   const headsOf = (w) => [...w.querySelectorAll("tr.tt__head--a th.tt__team")].map((th) => form(th, "long"));
-  assert.deepEqual(headsOf(tables[0]), ["Swampwater Tech offense", "Diner Tech defense"]);
-  assert.deepEqual(headsOf(tables[1]), ["Swampwater Tech defense", "Diner Tech offense"], "our unit first in both");
+  assert.deepEqual(headsOf(tables[0]), ["Florida offense", "Texas State defense"]);
+  assert.deepEqual(headsOf(tables[1]), ["Florida defense", "Texas State offense"], "our unit first in both");
   const one = [...tables[0].querySelectorAll("tr.tt__head--one th")];
-  assert.deepEqual(one.map((th) => form(th, "mid")), ["Statistic", "FBS", "SWT offense", "Edge", "DT defense", "FBS"]);
-  assert.deepEqual(one.map((th) => form(th, "short")), ["Stat", "FBS", "SWT off", "Edge", "DT def", "FBS"]);
+  assert.deepEqual(one.map((th) => form(th, "mid")), ["Statistic", "FBS", "FLA offense", "Edge", "DT defense", "FBS"]);
+  assert.deepEqual(one.map((th) => form(th, "short")), ["Stat", "FBS", "FLA off", "Edge", "DT def", "FBS"]);
   const rows0 = [...tables[0].querySelectorAll("tbody tr")];
   assert.equal(rows0.length, 4);
   assert.deepEqual(rows0.map((r) => form(r.querySelector("td.tt__label"), "long")), ["Passing", "Rushing", "Third down", "Scoring"]);
@@ -321,11 +321,11 @@ scenarios.tape = async () => {
   const tags = rows0.map((r) => (r.querySelector(".tt__tag") ? text(r.querySelector(".tt__tag")) : ""));
   assert.ok(tags.slice(0, 3).every((t) => /^by \d+ ranks$/.test(t)) && tags[3] === "", "the three biggest edges tagged under their bars with the size of the gap (owner 2026-10-21: 'top 3' read as a rank): " + tags.join(" | "));
   assert.ok(rows0[0].querySelector(".tug__bar--us") && rows0[1].querySelector(".tug__bar--them"));
-  assert.equal(rows0[0].querySelector("td.tt__rank--natl a.rank-chip--link").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
+  assert.equal(rows0[0].querySelector("td.tt__rank--natl a.rank-chip--link").getAttribute("href"), "#national=profile%3Apass_ypg?team=Florida");
   assert.equal(tables[1].querySelectorAll("tbody tr").length, 1);
   assert.ok(tables[1].querySelector("tbody tr .tug__bar--them"), "their offense has the edge on the defense table");
-  assert.equal(tapePairs(edges, { usAbbr: "SWT", themAbbr: "DT" }).length, 4);
-  for (const junk of [null, "x", [], [null, 3]]) assert.ok(!RAW.test(text(tapeTable(junk, { usAbbr: "SWT" }))));
+  assert.equal(tapePairs(edges, { usAbbr: "FLA", themAbbr: "DT" }).length, 4);
+  for (const junk of [null, "x", [], [null, 3]]) assert.ok(!RAW.test(text(tapeTable(junk, { usAbbr: "FLA" }))));
 };
 
 scenarios.matchups = async () => {
@@ -348,16 +348,16 @@ scenarios.matchups = async () => {
   // the block: one table per pairing, our side first, the starter's cell with his class (the men behind him are not drawn since the mock of 2026-10-20), the surname at small
   let opened = null;
   const block = lineupBlock({
-    lineups: { us: { team: "Swampwater Tech", slots: [...offense, ...defense, slot("PK", "special teams", ["Kicker One"])] }, them: { team: "Diner Tech", slots: [...defense, slot("QB", "offense", ["Their QB"]), slot("PK", "special teams", ["Kicker Two"]), slot("P", "special teams", ["Punter"])] } },
-    us: { school: "Swampwater Tech", abbreviation: "SWT" },
-    them: { school: "Diner Tech", abbreviation: "DT" },
+    lineups: { us: { team: "Florida", slots: [...offense, ...defense, slot("PK", "special teams", ["Kicker One"])] }, them: { team: "Texas State", slots: [...defense, slot("QB", "offense", ["Their QB"]), slot("PK", "special teams", ["Kicker Two"]), slot("P", "special teams", ["Punter"])] } },
+    us: { school: "Florida", abbreviation: "FLA" },
+    them: { school: "Texas State", abbreviation: "DT" },
     availability: [{ name: "Bryce Lovett", status: "Questionable", note: "ankle" }],
     onPlayer: (side) => { opened = side; },
   });
   document.body.append(block);
   assert.ok(!RAW.test(text(block)), text(block));
   const heads = [...block.querySelectorAll(".lu-head")].map(text);
-  assert.deepEqual(heads, ["Swampwater Tech offense vs Diner Tech defense", "Swampwater Tech defense vs Diner Tech offense", "Swampwater Tech special teams vs Diner Tech special teams"]);
+  assert.deepEqual(heads, ["Florida offense vs Texas State defense", "Florida defense vs Texas State offense", "Florida special teams vs Texas State special teams"]);
   const tables = [...block.querySelectorAll(".lineups__matchup .stat-table-wrap")];
   assert.equal(tables.length, 3);
   assert.ok(tables.every((w) => w.dataset.size === "large"));
@@ -412,7 +412,7 @@ scenarios.lean = async () => {
   // wave 2 review: the Pre-Game Program's season PPA pairs (leads given, values either side of zero) lean on the PPA scale
   const pair = { leads: "us", scale: PPA_SCALE, format: "+2f", us: { value: 0.05 }, them: { value: -0.02 } };
   assert.equal(tugShare(pair).toFixed(2), "0.14", "+0.05 against -0.02 is a small lean, not the whole bar");
-  const pairTable = twoTeamTable({ rows: [pair], usAbbr: "SWT", themAbbr: "DT", tug: true });
+  const pairTable = twoTeamTable({ rows: [pair], usAbbr: "FLA", themAbbr: "DT", tug: true });
   assert.equal(pairTable.querySelector(".tug__bar--us").style.width, "7%");
   // the bar's width and its words follow the values; an optional key puts the flash keys on the value cells
   const wrap = twoTeamTable({
@@ -422,7 +422,7 @@ scenarios.lean = async () => {
       { label: "Pass yards per game", higherIsBetter: true, us: { value: 275, rank: 29, of: 136 }, them: { value: 235, rank: 65, of: 136 } },
       { label: "Plays", key: "  ", us: { value: 60 }, them: { value: 70 } },
     ],
-    usAbbr: "SWT",
+    usAbbr: "FLA",
     themAbbr: "DT",
     tug: true,
   });
@@ -434,9 +434,9 @@ scenarios.lean = async () => {
   assert.equal(points.querySelector(".tug__bar--them").style.width, "7%", "28 to 21: 7 of 49, a seventh of the half");
   assert.equal(points.querySelector(".tug").getAttribute("aria-label"), "DT has the edge, 28 to 21");
   assert.equal(turnovers.querySelector(".tug__bar--us").style.width, "50%", "lower is better: none to two leans all the way");
-  assert.equal(turnovers.querySelector(".tug").getAttribute("aria-label"), "SWT has the edge, 0 to 2");
+  assert.equal(turnovers.querySelector(".tug").getAttribute("aria-label"), "FLA has the edge, 0 to 2");
   assert.equal(ranked.querySelector(".tug__bar--us").style.width, "26%", "36 ranks over half of 136");
-  assert.equal(ranked.querySelector(".tug").getAttribute("aria-label"), "SWT has the edge, 36 national ranks apart");
+  assert.equal(ranked.querySelector(".tug").getAttribute("aria-label"), "FLA has the edge, 36 national ranks apart");
   assert.ok(!plays.querySelector(".tug__bar") && plays.querySelector(".tug").getAttribute("aria-label") === "No edge to show", "a neutral row: no lean");
 };
 
@@ -445,17 +445,17 @@ scenarios.teamstats = async () => {
   const { applySize } = await import(moduleUrl("ui/two-team.js"));
   const usBox = { points: 35, totalYards: 450, yardsPerPlay: 6.4, plays: 70, drives: 12, successRate: 0.481, turnovers: 0, penalties: { count: 6, yards: 45 }, thirdDown: { made: 5, of: 12 }, possessionTime: "31:10", raw: { passesIntercepted: "1", completionAttempts: "20/30" } };
   const themBox = { points: 14, totalYards: 300, yardsPerPlay: 5.0, plays: 60, drives: 12, successRate: 0.392, turnovers: 2, penalties: { count: 4 }, thirdDown: { made: 3, of: 11 }, possessionTime: "28:50", raw: { passesIntercepted: 2 } };
-  const wrap = teamStatsTable({ us: { abbr: "SWT", box: usBox, school: "Swampwater Tech", name: "Swampwater Tech Mudcats" }, them: { abbr: "DT", box: themBox, school: "Diner Tech" } });
+  const wrap = teamStatsTable({ us: { abbr: "FLA", box: usBox, school: "Florida", name: "Florida Mudcats" }, them: { abbr: "DT", box: themBox, school: "Texas State" } });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   assert.ok(cls(wrap).includes("tt-wrap") && wrap.dataset.size === "large", "the shared kit (rule 9), drawn large until it measures itself");
   assert.ok(wrap.querySelector("table").className.includes("tt--tug"), "with the tug bar");
   assert.equal(wrap.querySelector("caption").textContent, "Team stats");
   // the heads: the school and mascot at large, the school at medium, the abbreviation at small
-  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Statistic", "Swampwater Tech Mudcats", "Edge", "Diner Tech"]);
+  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Statistic", "Florida Mudcats", "Edge", "Texas State"]);
   const one = [...wrap.querySelectorAll("tr.tt__head--one th")];
-  assert.deepEqual(one.map((th) => form(th, "mid")), ["Statistic", "Swampwater Tech", "Edge", "Diner Tech"]);
-  assert.deepEqual(one.map((th) => form(th, "short")), ["Stat", "SWT", "Edge", "DT"]);
+  assert.deepEqual(one.map((th) => form(th, "mid")), ["Statistic", "Florida", "Edge", "Texas State"]);
+  assert.deepEqual(one.map((th) => form(th, "short")), ["Stat", "FLA", "Edge", "DT"]);
   // every row, its parent or sub class, its flash keys, the leader in chalk and the bar leaning by the real margin
   const body = [...wrap.querySelectorAll("tbody tr")];
   assert.equal(body.length, teamStatRows({}, {}).length);
@@ -479,9 +479,9 @@ scenarios.teamstats = async () => {
   applySize(wrap, "small");
   assert.equal(wrap.dataset.size, "small");
   // a subset under its own head (the Situation panel), and the final box's rows: no school given, the abbreviation everywhere
-  const sit = teamStatsTable({ us: { abbr: "SWT", box: usBox }, them: { abbr: "DT", box: themBox }, rows: teamStatRows(usBox, themBox).filter((r) => ["Third down", "Turnovers"].includes(r.label)), labelHead: "Situation" });
+  const sit = teamStatsTable({ us: { abbr: "FLA", box: usBox }, them: { abbr: "DT", box: themBox }, rows: teamStatRows(usBox, themBox).filter((r) => ["Third down", "Turnovers"].includes(r.label)), labelHead: "Situation" });
   assert.equal(sit.querySelectorAll("tbody tr").length, 2);
-  assert.deepEqual([...sit.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Situation", "SWT", "Edge", "DT"]);
+  assert.deepEqual([...sit.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Situation", "FLA", "Edge", "DT"]);
   // junk never throws and never prints a raw word
   for (const junk of [null, "x", 3, [null, "a", { label: null, us: 5, usValue: "7", higherIsBetter: "yes" }]]) {
     const w = teamStatsTable({ us: junk, them: junk, rows: Array.isArray(junk) ? junk : undefined });
@@ -490,8 +490,8 @@ scenarios.teamstats = async () => {
   assert.ok(!RAW.test(text(teamStatsTable())));
 
   // the live feed's efficiency rows: one builder for In Game and the Archive, raw values so the leader shows
-  const feed = { "Swampwater Tech": { standardDownSuccessRate: 0.52, epaPerPlay: 0.21, averageStartYardLine: 30, deserveToWin: 0.8 }, "Diner Tech": { standardDownSuccessRate: 0.41, epaPerPlay: -0.05, averageStartYardLine: 25, deserveToWin: 0.2, explosiveness: "x" } };
-  const ft = feedEfficiencyTable({ feed, us: { team: "Swampwater Tech", abbr: "SWT", school: "Swampwater Tech" }, them: { team: "Diner Tech", abbr: "DT" } });
+  const feed = { "Florida": { standardDownSuccessRate: 0.52, epaPerPlay: 0.21, averageStartYardLine: 30, deserveToWin: 0.8 }, "Texas State": { standardDownSuccessRate: 0.41, epaPerPlay: -0.05, averageStartYardLine: 25, deserveToWin: 0.2, explosiveness: "x" } };
+  const ft = feedEfficiencyTable({ feed, us: { team: "Florida", abbr: "FLA", school: "Florida" }, them: { team: "Texas State", abbr: "DT" } });
   document.body.append(ft);
   assert.ok(!RAW.test(text(ft)), text(ft));
   assert.ok(cls(ft).includes("tt-wrap") && ft.querySelector("table").className.includes("tt--tug"));
@@ -514,7 +514,7 @@ scenarios.teamstats = async () => {
   assert.equal(FEED_ROWS.length, 11);
 
   // the quarter line keeps its scoreboard and its flash keys
-  const q = quarterLine({ us: { abbr: "SWT", scores: [7, 14, 0, 14] }, them: { abbr: "DT", scores: [0, 7, 7, 0, 3] } });
+  const q = quarterLine({ us: { abbr: "FLA", scores: [7, 14, 0, 14] }, them: { abbr: "DT", scores: [0, 7, 7, 0, 3] } });
   assert.deepEqual([...q.querySelectorAll(".qline__head")].map(text), ["", "Q1", "Q2", "Q3", "Q4", "OT", "T"]);
   assert.equal(text(q.querySelector('[data-k="q:us:t"]')), "35");
   assert.equal(text(q.querySelector('[data-k="q:them:4"]')), "3");
@@ -595,12 +595,12 @@ scenarios.graded = async () => {
   assert.equal(playerNames("  ").last, "–");
   let opened = null;
   const rows = [
-    { playerId: "1", name: "Avery Passer", position: "QB", team: "Swampwater Tech", teamAbbr: "SWT", grade: 88, label: "Very good", rank: 3, of: 144, groupName: "quarterbacks" },
-    { playerId: "2", name: "Diner Arm", position: "QB", team: "Diner Tech", teamAbbr: "DT", grade: 91, label: "Elite", rank: 1, of: 144 },
+    { playerId: "1", name: "Avery Passer", position: "QB", team: "Florida", teamAbbr: "FLA", grade: 88, label: "Very good", rank: 3, of: 144, groupName: "quarterbacks" },
+    { playerId: "2", name: "Diner Arm", position: "QB", team: "Texas State", teamAbbr: "DT", grade: 91, label: "Elite", rank: 1, of: 144 },
     { playerId: "3", name: null, position: null, team: null, grade: null, rank: null, of: null },
     { playerId: "4", name: "Late Bloomer", position: "QB", team: "Waffle State", teamAbbr: null, grade: 30, label: "Below average", rank: 120, of: "x" },
   ];
-  const table = gradedTable(rows, { us: "Swampwater Tech", onTap: (row) => { opened = row; }, caption: "Top graded" });
+  const table = gradedTable(rows, { us: "Florida", onTap: (row) => { opened = row; }, caption: "Top graded" });
   document.body.append(table);
   assert.ok(!RAW.test(text(table)), text(table));
   assert.equal(table.dataset.size, "large", "sized by its own box");
@@ -616,7 +616,7 @@ scenarios.graded = async () => {
   assert.equal(body[0].querySelector("td small"), null, "nothing drawn under the name");
   assert.equal(text(body[3].querySelectorAll("td")[1]), "–", "no position: a dash");
   const team = body[0].querySelectorAll("td")[4];
-  assert.equal(team.querySelector("button.team-link").dataset.team, "Diner Tech");
+  assert.equal(team.querySelector("button.team-link").dataset.team, "Texas State");
   assert.equal(team.querySelector(".sz-t--short").textContent, "DT", "the team's abbreviation at small, still its link");
   assert.equal(text(body[2].querySelectorAll("td")[4]), "Waffle State", "no abbreviation: the school at every size");
   assert.ok(cls(body[1]).includes("is-us") && !cls(body[0]).includes("is-us"));
@@ -697,7 +697,7 @@ scenarios.playvalue = async () => {
   assert.ok(season.every((c) => !("sortable" in c)), "no dead column flags: a table of players sorts");
   let opened = null;
   const leaders = [
-    { playerId: "7", name: "Avery Passer Jr.", position: "QB", team: "Diner Tech", plays: 210, all: 0.31, pass: 0.35, rush: 0.12, totalAll: 65.4 },
+    { playerId: "7", name: "Avery Passer Jr.", position: "QB", team: "Texas State", plays: 210, all: 0.31, pass: 0.35, rush: 0.12, totalAll: 65.4 },
     { playerId: "8", name: "Ron Runner", position: "RB", all: -0.04, pass: null, rush: "x", plays: null, totalAll: null },
     null,
     7,
@@ -722,7 +722,7 @@ scenarios.playvalue = async () => {
   assert.deepEqual([pnText(cells[0]), pnText(cells[0], "initial"), pnText(cells[0], "last"), cells[0].querySelector("small"), text(cells[1])], ["Avery Passer Jr.", "A. Passer", "Passer", null, "QB"], "item 6: K. Crawford from large down (the iPad's half-band keeps the position)");
   assert.deepEqual([text(cells[2]), text(cells[5]), text(cells[6])], ["+0.31", "210", "+65.4"]);
   first.click();
-  assert.ok(opened && opened.playerId === "7" && opened.team === "Diner Tech", "the row opens the card with the team the card asks for");
+  assert.ok(opened && opened.playerId === "7" && opened.team === "Texas State", "the row opens the card with the team the card asks for");
   assert.equal(wrap.querySelector("caption").textContent, "DT season leaders");
   applyStatSize(wrap, "small");
   // a latest game's table: no totals
@@ -732,8 +732,8 @@ scenarios.playvalue = async () => {
   // the by-game table: whole heads at large (the defense says allowed), the box words at medium, two values at small
   const { PPA_GAME_COLUMNS, ppaGameRows } = await import(moduleUrl("views/program.js"));
   const { statTable } = await import(moduleUrl("ui/stat-table.js"));
-  const games = ppaGameRows([{ week: 1, opponent: "Rhubarb State", opponentAbbr: "RHUB", offense: { overall: 0.21, passing: 0.3, rushing: "x" }, defense: { overall: -0.1 } }, { week: 2, opponent: "Campbell", opponentAbbr: " ", offense: null }, null]);
-  assert.deepEqual(games.map((g) => [g.week, g.opponent, g.opponentAbbr]), [[2, "Campbell", null], [1, "Rhubarb State", "RHUB"]], "newest first; a blank abbreviation is none");
+  const games = ppaGameRows([{ week: 1, opponent: "Akron", opponentAbbr: "AKR", offense: { overall: 0.21, passing: 0.3, rushing: "x" }, defense: { overall: -0.1 } }, { week: 2, opponent: "Campbell", opponentAbbr: " ", offense: null }, null]);
+  assert.deepEqual(games.map((g) => [g.week, g.opponent, g.opponentAbbr]), [[2, "Campbell", null], [1, "Akron", "AKR"]], "newest first; a blank abbreviation is none");
   assert.equal(games[1].offRush, null);
   const byGame = statTable({ compact: true, sizes: true, columns: PPA_GAME_COLUMNS, rows: games });
   document.body.append(byGame);
@@ -744,7 +744,7 @@ scenarios.playvalue = async () => {
   assert.deepEqual(gh.map((th) => (cls(th).includes("st__min-medium") ? "m" : "")), ["", "", "", "m", "m", "", "m", "m"], "small: week, opponent, the two overall values");
   assert.ok(cls(gh[5]).includes("col-div"), "a divider sets the defense apart");
   const row1 = byGame.querySelectorAll("tbody tr")[1].querySelectorAll("td");
-  assert.ok(row1[1].querySelector("button.team-link") && row1[1].querySelector(".sz-t--short").textContent === "RHUB", "the opponent's abbreviation at small, inside its team link");
+  assert.ok(row1[1].querySelector("button.team-link") && row1[1].querySelector(".sz-t--short").textContent === "AKR", "the opponent's abbreviation at small, inside its team link");
   assert.deepEqual([text(row1[2]), text(row1[4]), text(row1[5])], ["+0.21", "–", "−0.10"]);
   assert.ok(!byGame.querySelectorAll("tbody tr")[0].querySelectorAll("td")[1].querySelector(".sz-t"), "no abbreviation: the school at every size");
 };
@@ -754,26 +754,26 @@ scenarios.common = async () => {
   const { applySize } = await import(moduleUrl("ui/two-team.js"));
   assert.equal(MARGIN_SCALE, 28);
   const raw = [
-    { opponent: "Gravy Boat State", opponentAbbr: "GBS", us: [{ result: "W", score: "31-10", margin: 21 }], them: [{ result: "W", score: "24-20", margin: 4 }], usMargin: 21, themMargin: 4 },
+    { opponent: "Alabama", opponentAbbr: "ALA", us: [{ result: "W", score: "31-10", margin: 21 }], them: [{ result: "W", score: "24-20", margin: 4 }], usMargin: 21, themMargin: 4 },
     { opponent: "Waffle State", opponentAbbr: null, us: [{ result: "L", score: "17-20", margin: -3 }], them: [{ result: "W", score: "35-14", margin: 21 }, { result: "L", score: "10-13", margin: -3 }], usMargin: -3, themMargin: 18 },
     { opponent: null, us: [] },
     "junk",
   ];
   assert.equal(commonOpponentRows(raw).length, 2, "a row with no opponent, and junk, are left out");
-  const wrap = commonOpponentsBlock(raw, { usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech", usName: "Swampwater Tech Mudcats", themName: "Diner Tech Waffles" });
+  const wrap = commonOpponentsBlock(raw, { usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State", usName: "Florida Mudcats", themName: "Texas State Hilltoppers" });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   const table = wrap.querySelector(".tt-wrap");
   assert.ok(table && table.dataset.size === "large", "the two-team kit, sized by its own box (rule 9)");
   assert.ok(table.querySelector("table").className.includes("tt--tug"), "with the tug bar");
-  assert.deepEqual([...table.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Opponent", "Swampwater Tech Mudcats", "Edge", "Diner Tech Waffles"], "we sit first; the schools and mascots at large");
-  assert.deepEqual([...table.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Opp", "SWT", "Edge", "DT"]);
+  assert.deepEqual([...table.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Opponent", "Florida Mudcats", "Edge", "Texas State Hilltoppers"], "we sit first; the schools and mascots at large");
+  assert.deepEqual([...table.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Opp", "FLA", "Edge", "DT"]);
   const body = [...table.querySelectorAll("tbody tr")];
   assert.equal(body.length, 2);
   const label = body[0].querySelector("td.tt__label");
   const link = label.querySelector("button.team-link");
-  assert.ok(link && link.dataset.team === "Gravy Boat State", "the opponent opens its team page");
-  assert.deepEqual([form(link, "long"), form(link, "mid"), form(link, "short")], ["Gravy Boat State", "Gravy Boat State", "GBS"], "its abbreviation at small");
+  assert.ok(link && link.dataset.team === "Alabama", "the opponent opens its team page");
+  assert.deepEqual([form(link, "long"), form(link, "mid"), form(link, "short")], ["Alabama", "Alabama", "ALA"], "its abbreviation at small");
   assert.ok(!body[1].querySelector("td.tt__label .tt__t"), "no abbreviation: the school at every size");
   const vals = (tr) => [...tr.querySelectorAll("td.num")].map(text);
   assert.deepEqual(vals(body[0]), ["W 31-10", "W 24-20"]);
@@ -781,14 +781,14 @@ scenarios.common = async () => {
   assert.ok(cls(body[0].querySelectorAll("td.num")[0]).includes("lead") && cls(body[1].querySelectorAll("td.num")[1]).includes("lead"));
   assert.equal(body[0].querySelector(".tug__bar--us").style.width, "30%", "21 to 4 is a gap of 17 on the 28-point scale");
   assert.equal(body[1].querySelector(".tug__bar--them").style.width, "38%", "margins either side of zero lean by their gap, never their share");
-  assert.equal(body[0].querySelector(".tug").getAttribute("aria-label"), "SWT has the edge, W 31-10 to W 24-20");
+  assert.equal(body[0].querySelector(".tug").getAttribute("aria-label"), "FLA has the edge, W 31-10 to W 24-20");
   applySize(table, "small");
   assert.equal(table.dataset.size, "small");
   assert.ok(text(wrap.querySelector(".note")).includes("margins"));
   // none in common: the sentence, never a blank
   for (const junk of [[], null, "x", [null, { opponent: "" }]]) {
-    const none = commonOpponentsBlock(junk, { usAbbr: "SWT", themAbbr: "DT", usTeam: "Swampwater Tech", themTeam: "Diner Tech" });
-    assert.equal(text(none), "Swampwater Tech and Diner Tech have no opponent in common yet this season.");
+    const none = commonOpponentsBlock(junk, { usAbbr: "FLA", themAbbr: "DT", usTeam: "Florida", themTeam: "Texas State" });
+    assert.equal(text(none), "Florida and Texas State have no opponent in common yet this season.");
   }
   assert.ok(!RAW.test(text(commonOpponentsBlock(raw))));
   assert.ok(!RAW.test(text(commonOpponentsBlock(null))));
@@ -800,22 +800,22 @@ scenarios.advbox = async () => {
   const q = (total, a, b, c, d) => ({ total, quarter1: a, quarter2: b, quarter3: c, quarter4: d });
   const team = (s, line, havoc, start) => ({ success: { overall: q(s, 0.4, 0.5, null, 0.45), standardDowns: q(0.5), passingDowns: q(0.3) }, ppa: { overall: q(0.21), passing: q(0.3), rushing: q(-0.02) }, explosiveness: q(1.2), line: { lineYards: line, stuffRate: 0.12, powerSuccess: 0.5, secondLevelYards: 1.1, openFieldYards: 0.9 }, havoc: { total: havoc, frontSeven: 0.1, db: 0.05 }, fieldPosition: { averageStart: start }, scoring: { opportunities: 6, pointsPerOpportunity: 4.5 } });
   const box = {
-    teams: { "Swampwater Tech": team(0.48, 3.5, 0.17, 65.8), "Diner Tech": team(0.39, 2.9, 0.04, 75.3) },
+    teams: { "Florida": team(0.48, 3.5, 0.17, 65.8), "Texas State": team(0.39, 2.9, 0.04, 75.3) },
     players: [
-      { player: "Avery Passer", playerId: "11", team: "Swampwater Tech", position: "QB", ppa: 0.32, passPpa: 0.31, rushPpa: 0.36, totalPpa: 9.0, usage: 0.389 },
-      { player: "Diner Arm Jr.", playerId: null, team: "Diner Tech", position: "QB", ppa: -0.1, passPpa: null, rushPpa: null, totalPpa: -2.4, usage: null },
-      { player: null, team: "Diner Tech" },
+      { player: "Avery Passer", playerId: "11", team: "Florida", position: "QB", ppa: 0.32, passPpa: 0.31, rushPpa: 0.36, totalPpa: 9.0, usage: 0.389 },
+      { player: "Diner Arm Jr.", playerId: null, team: "Texas State", position: "QB", ppa: -0.1, passPpa: null, rushPpa: null, totalPpa: -2.4, usage: null },
+      { player: null, team: "Texas State" },
       "junk",
     ],
     excitement: 4.12,
   };
   // the quarter rows: one name per stat (the Season tables' names), every quarter and the game
-  const qr = quarterRows(box.teams["Swampwater Tech"]);
+  const qr = quarterRows(box.teams["Florida"]);
   assert.deepEqual(qr.map((r) => r.label), ["Success rate", "Success on standard downs", "Success on passing downs", "PPA per play", "PPA per pass", "PPA per rush", "Explosiveness"]);
   assert.deepEqual([qr[0].Q1, qr[0].Q3, qr[0].Game], ["40%", "–", "48%"]);
   assert.equal(quarterRows(null).length, 7);
   let opened = null;
-  const block = advancedBoxBlock(box, { us: "Swampwater Tech", them: "Diner Tech", usAbbr: "SWT", themAbbr: "DT", usName: "Swampwater Tech Mudcats", themName: "Diner Tech Waffles", onPlayer: (row) => { opened = row; } });
+  const block = advancedBoxBlock(box, { us: "Florida", them: "Texas State", usAbbr: "FLA", themAbbr: "DT", usName: "Florida Mudcats", themName: "Texas State Hilltoppers", onPlayer: (row) => { opened = row; } });
   document.body.append(block);
   assert.ok(!RAW.test(text(block)), text(block));
   const wraps = [...block.querySelectorAll(".stat-table-wrap")];
@@ -832,8 +832,8 @@ scenarios.advbox = async () => {
   // the two teams: the kit with the bar, the schools and mascots at large, each row leaning the way its stat runs
   const both = wraps[2];
   assert.ok(cls(both).includes("tt-wrap") && both.querySelector("table").className.includes("tt--tug"));
-  assert.deepEqual([...both.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Both teams", "Swampwater Tech Mudcats", "Edge", "Diner Tech Waffles"]);
-  assert.deepEqual([...both.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "mid")), ["Both teams", "Swampwater Tech", "Edge", "Diner Tech"]);
+  assert.deepEqual([...both.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Both teams", "Florida Mudcats", "Edge", "Texas State Hilltoppers"]);
+  assert.deepEqual([...both.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "mid")), ["Both teams", "Florida", "Edge", "Texas State"]);
   const bothRow = (label) => [...both.querySelectorAll("tbody tr")].find((tr) => form(tr.querySelector("td.tt__label"), "long") === label);
   assert.ok(bothRow("Line yards per rush").querySelector(".tug__bar--us"), "more line yards leads");
   assert.ok(bothRow("Average start, yards to goal").querySelector(".tug__bar--us"), "fewer yards to the goal is the better start");
@@ -850,20 +850,20 @@ scenarios.advbox = async () => {
   const prow = [...players.querySelectorAll("tbody tr")];
   assert.equal(prow.length, 2, "a row with no name, and junk, are left out");
   assert.ok(cls(prow[0]).includes("is-us") && !cls(prow[1]).includes("is-us"));
-  assert.deepEqual([pnText(prow[0].querySelector("td"), "last"), text(prow[0].querySelectorAll("td")[2]), text(prow[1].querySelectorAll("td")[2])], ["Passer", "SWT", "DT"]);
+  assert.deepEqual([pnText(prow[0].querySelector("td"), "last"), text(prow[0].querySelectorAll("td")[2]), text(prow[1].querySelectorAll("td")[2])], ["Passer", "FLA", "DT"]);
   assert.ok(!prow[0].querySelector("td").querySelector("small"), "no line under the name: the position has its column");
   assert.equal(pnText(prow[1].querySelector("td"), "last"), "Arm", "the surname, the suffix dropped");
   assert.equal(ph[6].getAttribute("aria-sort"), "descending", "the most value first");
   prow[0].click();
-  assert.ok(opened && opened.playerId === "11" && opened.name === "Avery Passer" && opened.isUs === true && opened.team === "Swampwater Tech", "the row opens his card");
+  assert.ok(opened && opened.playerId === "11" && opened.name === "Avery Passer" && opened.isUs === true && opened.team === "Florida", "the row opens his card");
   opened = null;
   prow[1].click();
   assert.equal(opened, null, "wave 2 review: a player the server could not match opens nothing");
   assert.ok(prow[1].getAttribute("role") === null && prow[1].getAttribute("tabindex") === null && prow[0].getAttribute("role") === "button", "only a matched row is a button");
   applyStatSize(players, "small");
-  assert.deepEqual(advancedPlayerRows([{ player: "A B", team: "X" }], { us: "Y", usAbbr: "SWT", themAbbr: "DT" })[0].side, "DT");
+  assert.deepEqual(advancedPlayerRows([{ player: "A B", team: "X" }], { us: "Y", usAbbr: "FLA", themAbbr: "DT" })[0].side, "DT");
   // no onPlayer: the rows are not buttons
-  const still = advancedBoxBlock(box, { us: "Swampwater Tech", them: "Diner Tech", usAbbr: "SWT", themAbbr: "DT" });
+  const still = advancedBoxBlock(box, { us: "Florida", them: "Texas State", usAbbr: "FLA", themAbbr: "DT" });
   assert.ok([...[...still.querySelectorAll(".stat-table-wrap")][3].querySelectorAll("tbody tr")].every((tr) => tr.getAttribute("role") !== "button" && tr.getAttribute("tabindex") === null));
   for (const junk of [null, "x", { teams: null }, { teams: { A: null }, players: "x" }]) assert.ok(!RAW.test(text(advancedBoxBlock(junk, { us: "A" }))));
 };
@@ -873,7 +873,7 @@ scenarios.rowteam = async () => {
   // a row may name a team (its label links to the team's page) and its own shorter words instead of the stat forms
   let asked = null;
   document.addEventListener("kickoff:team", (event) => { asked = event.detail; });
-  const wrap = twoTeamTable({ rows: [{ label: "Waffle State", team: "Waffle State", labelShort: "WAF", us: { value: 3 }, them: { value: 1 } }, { label: "Points per game", labelMid: "Pts a game", us: { value: 30 }, them: { value: 20 } }, { label: "Yards per play", team: "  ", labelShort: 7, us: { value: 6 }, them: { value: 5 } }], usAbbr: "SWT", themAbbr: "DT", tug: true });
+  const wrap = twoTeamTable({ rows: [{ label: "Waffle State", team: "Waffle State", labelShort: "WAF", us: { value: 3 }, them: { value: 1 } }, { label: "Points per game", labelMid: "Pts a game", us: { value: 30 }, them: { value: 20 } }, { label: "Yards per play", team: "  ", labelShort: 7, us: { value: 6 }, them: { value: 5 } }], usAbbr: "FLA", themAbbr: "DT", tug: true });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   const labels = [...wrap.querySelectorAll("td.tt__label")];
@@ -883,7 +883,7 @@ scenarios.rowteam = async () => {
   assert.deepEqual([form(labels[1], "mid"), form(labels[1], "short")], ["Pts a game", "Pts a game"], "the row's own words win over the stat forms");
   assert.ok(!labels[2].querySelector("button") && form(labels[2], "short") === "YPP", "a blank team and a damaged short word: the stat forms");
   // a side's shorter words at small (the leader lines' conference-game line): the whole text at large and medium
-  const short = twoTeamTable({ rows: [{ label: "Conference games", us: { text: "940 yds, 84/139, 7 TD", textShort: "940 yds" }, them: { text: "1,006 yds", textShort: "  " } }], usAbbr: "SWT", themAbbr: "DT", tug: true });
+  const short = twoTeamTable({ rows: [{ label: "Conference games", us: { text: "940 yds, 84/139, 7 TD", textShort: "940 yds" }, them: { text: "1,006 yds", textShort: "  " } }], usAbbr: "FLA", themAbbr: "DT", tug: true });
   const [mine, theirs] = short.querySelectorAll("td.num");
   assert.deepEqual([form(mine, "long"), form(mine, "mid"), form(mine, "short")], ["940 yds, 84/139, 7 TD", "940 yds, 84/139, 7 TD", "940 yds"]);
   assert.ok(!theirs.querySelector(".tt__t") && text(theirs) === "1,006 yds", "a blank short form: the text at every size");
@@ -891,14 +891,14 @@ scenarios.rowteam = async () => {
 
 // --- wave 2, step 3: In Game's tables ----------------------------------------------------------------------------------
 
-const SIDES = { us: { team: "Swampwater Tech", abbr: "SWT", school: "Swampwater Tech", name: "Swampwater Tech Mudcats" }, them: { team: "Diner Tech", abbr: "DT", school: "Diner Tech" } };
+const SIDES = { us: { team: "Florida", abbr: "FLA", school: "Florida", name: "Florida Mudcats" }, them: { team: "Texas State", abbr: "DT", school: "Texas State" } };
 
 scenarios.ingame = async () => {
   const t = await import(moduleUrl("ui/in-game-tables.js"));
   const { applyStatSize } = await import(moduleUrl("ui/stat-table.js"));
   // quarter by quarter: every period and the game at every size, the stat names shorten, a count's pair says "7-14" at small
-  const splits = { periods: ["Q1", "Q2", "OT", null, "Game", 4, "Q1"], teams: { "Swampwater Tech": { Q1: { plays: 15, yards: 98, yardsPerPlay: 6.53, success: { made: 7, of: 14 }, epaPerPlay: 0.214, explosive: 2, turnovers: 0, thirdDown: { made: 3, of: 5 } }, Game: { plays: 30, yards: 200, yardsPerPlay: 6.67, success: { made: 13, of: 29 }, epaPerPlay: -0.05, explosive: 3, turnovers: 1, thirdDown: { made: 4, of: 9 } } } }, notes: [] };
-  const sw = t.splitsTable(splits, "Swampwater Tech", { caption: "SWT by quarter" });
+  const splits = { periods: ["Q1", "Q2", "OT", null, "Game", 4, "Q1"], teams: { "Florida": { Q1: { plays: 15, yards: 98, yardsPerPlay: 6.53, success: { made: 7, of: 14 }, epaPerPlay: 0.214, explosive: 2, turnovers: 0, thirdDown: { made: 3, of: 5 } }, Game: { plays: 30, yards: 200, yardsPerPlay: 6.67, success: { made: 13, of: 29 }, epaPerPlay: -0.05, explosive: 3, turnovers: 1, thirdDown: { made: 4, of: 9 } } } }, notes: [] };
+  const sw = t.splitsTable(splits, "Florida", { caption: "FLA by quarter" });
   document.body.append(sw);
   assert.ok(!RAW.test(text(sw)), text(sw));
   assert.ok(sw.dataset.size === "large" && typeof sw.measure === "function", "sized by its own box");
@@ -916,15 +916,15 @@ scenarios.ingame = async () => {
   assert.deepEqual([text(cells(4)[1]), text(cells(4)[4])], ["+0.21", "−0.05"]);
   assert.deepEqual([form2(cells(7)[4], "long"), form2(cells(7)[4], "short")], ["4 of 9", "4-9"]);
   assert.ok(cells(0).slice(1).every((td) => !cls(td).includes("txt")), "the values in the stat face, right-aligned");
-  assert.equal(sw.querySelector("caption").textContent, "SWT by quarter");
+  assert.equal(sw.querySelector("caption").textContent, "FLA by quarter");
   applyStatSize(sw, "small");
   assert.equal(sw.dataset.size, "small");
   assert.equal(t.splitRows({}, "A")[0].Game, "–");
   for (const junk of [null, "x", { periods: "Q1", teams: [] }, { periods: ["Q1"], teams: { A: { Q1: "x" } } }]) assert.ok(!RAW.test(text(t.splitsTable(junk, "A"))));
 
   // tendencies by situation: the program's words, the run rate to one decimal, the plays from medium
-  const tend = { "Swampwater Tech": [{ key: "standard", label: "Standard downs", plays: 20, passRate: 0.45, runSuccess: { made: 6, of: 11 }, passSuccess: { made: 4, of: 9 } }, { key: "third_long", label: "3rd and 7 or more", plays: 0, passRate: null, runSuccess: { made: 0, of: 0 }, passSuccess: null }, null, "junk"], "Diner Tech": [{ label: "Red zone", plays: 0 }] };
-  const tw = t.tendencyTable(tend, "Swampwater Tech", { caption: "SWT by situation" });
+  const tend = { "Florida": [{ key: "standard", label: "Standard downs", plays: 20, passRate: 0.45, runSuccess: { made: 6, of: 11 }, passSuccess: { made: 4, of: 9 } }, { key: "third_long", label: "3rd and 7 or more", plays: 0, passRate: null, runSuccess: { made: 0, of: 0 }, passSuccess: null }, null, "junk"], "Texas State": [{ label: "Red zone", plays: 0 }] };
+  const tw = t.tendencyTable(tend, "Florida", { caption: "FLA by situation" });
   document.body.append(tw);
   assert.ok(!RAW.test(text(tw)), text(tw));
   assert.equal(tw.dataset.size, "large");
@@ -939,7 +939,7 @@ scenarios.ingame = async () => {
   const tr1 = [...tw.querySelectorAll("tbody tr")[1].querySelectorAll("td")];
   assert.deepEqual([form2(tr1[0], "short"), text(tr1[2]), text(tr1[4])], ["3rd 7+", "–", "–"], "a situation with no snaps yet still has its row");
   assert.equal(tw.querySelectorAll("tbody tr").length, 2);
-  assert.equal(text(t.tendencyTable(tend, "Diner Tech")), "No snaps yet.");
+  assert.equal(text(t.tendencyTable(tend, "Texas State")), "No snaps yet.");
   for (const junk of [null, "x", { A: "x" }]) assert.equal(text(t.tendencyTable(junk, "A")), "No snaps yet.");
 
   // fourth down: one data point per column (rule 3), no blank head, the chance from medium
@@ -962,7 +962,7 @@ scenarios.ingame = async () => {
   // the recruits on hand: a table of players sorts; the high school, hometown and class at large
   const vis = [{ name: "Five Star Jr.", position: "QB", stars: 5, highSchool: "IMG Academy", hometown: "Bradenton, FL", classYear: 2027, status: "confirmed" }, { name: "  ", stars: 3 }, { name: "Walk On", stars: "x", classYear: "2027" }, null, 4];
   assert.equal(t.visitorRows(vis).length, 2, "a recruit with no name, and junk, are left out");
-  const vw = t.visitorsTable(vis, { caption: "Visiting SWT" });
+  const vw = t.visitorsTable(vis, { caption: "Visiting FLA" });
   document.body.append(vw);
   assert.ok(!RAW.test(text(vw)), text(vw));
   const vh = [...vw.querySelectorAll("thead th")];
@@ -985,13 +985,13 @@ scenarios.ingametwo = async () => {
   const t = await import(moduleUrl("ui/in-game-tables.js"));
   const { applySize } = await import(moduleUrl("ui/two-team.js"));
   // the drive summary on the two-team kit with the bar (rule 9), leaning by the real margin
-  const summary = { "Swampwater Tech": { drives: 8, points: 28, pointsPerDrive: 3.5, threeAndOuts: 1, turnovers: 0, opportunities: 5, pointsPerOpportunity: 5.6 }, "Diner Tech": { drives: 8, points: 10, pointsPerDrive: 1.25, threeAndOuts: 4, turnovers: 2, opportunities: 3, pointsPerOpportunity: "x" } };
+  const summary = { "Florida": { drives: 8, points: 28, pointsPerDrive: 3.5, threeAndOuts: 1, turnovers: 0, opportunities: 5, pointsPerOpportunity: 5.6 }, "Texas State": { drives: 8, points: 10, pointsPerDrive: 1.25, threeAndOuts: 4, turnovers: 2, opportunities: 3, pointsPerOpportunity: "x" } };
   const dw = t.driveSummaryTable(summary, SIDES);
   document.body.append(dw);
   assert.ok(!RAW.test(text(dw)), text(dw));
   assert.ok(cls(dw).includes("tt-wrap") && dw.dataset.size === "large" && dw.querySelector("table").className.includes("tt--tug"));
-  assert.deepEqual([...dw.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Drives", "Swampwater Tech Mudcats", "Edge", "Diner Tech"], "the school and mascot at large");
-  assert.deepEqual([...dw.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Drives", "SWT", "Edge", "DT"]);
+  assert.deepEqual([...dw.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Drives", "Florida Mudcats", "Edge", "Texas State"], "the school and mascot at large");
+  assert.deepEqual([...dw.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Drives", "FLA", "Edge", "DT"]);
   const rows = [...dw.querySelectorAll("tbody tr")];
   const label = (tr) => tr.querySelector("td.tt__label");
   assert.deepEqual(rows.map((tr) => form(label(tr), "long")), t.DRIVE_ROWS.map((r) => r[0]));
@@ -1014,7 +1014,7 @@ scenarios.ingametwo = async () => {
   document.body.append(vw);
   assert.ok(!RAW.test(text(vw)), text(vw));
   assert.ok(cls(vw).includes("tt-wrap") && vw.querySelector("table").className.includes("tt--tug"));
-  assert.deepEqual([...vw.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["PPA", "SWT", "Edge", "DT"]);
+  assert.deepEqual([...vw.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["PPA", "FLA", "Edge", "DT"]);
   const vr = [...vw.querySelectorAll("tbody tr")];
   assert.deepEqual(vr.map((tr) => form(label(tr), "long")), ["Offense, overall", "Offense, passing", "Offense, rushing", "Defense allowed, overall", "Defense allowed, passing", "Defense allowed, rushing"], "a defense's rows say allowed");
   assert.deepEqual(vr.map((tr) => form(label(tr), "mid")).slice(3), ["Def allowed, overall", "Def allowed, passing", "Def allowed, rushing"]);
@@ -1033,12 +1033,12 @@ scenarios.situation = async () => {
   const themBox = { thirdDown: { made: 3, of: 11 }, turnovers: 2, penalties: { count: 4 }, possessionTime: "28:50", yardsPerPlay: 5.0, totalYards: 300 };
   assert.deepEqual(situationRows(usBox, themBox).map((r) => r.label), SITUATION_LABELS);
   assert.ok(situationRows(usBox, themBox).every((r) => r.kind === "parent"), "no indent: there is no group here");
-  const wrap = situationGrid({ us: { abbr: "SWT", box: usBox, school: "Swampwater Tech", name: "Swampwater Tech Mudcats" }, them: { abbr: "DT", box: themBox, school: "Diner Tech" } });
+  const wrap = situationGrid({ us: { abbr: "FLA", box: usBox, school: "Florida", name: "Florida Mudcats" }, them: { abbr: "DT", box: themBox, school: "Texas State" } });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   assert.ok(cls(wrap).includes("tt-wrap") && wrap.dataset.size === "large" && wrap.querySelector("table").className.includes("tt--tug"), "the Team stats kit with the bar");
   assert.equal(wrap.querySelectorAll("table").length, 1, "one table, not two half grids");
-  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Situation", "Swampwater Tech Mudcats", "Edge", "Diner Tech"]);
+  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--a th")].map((th) => form(th, "long")), ["Situation", "Florida Mudcats", "Edge", "Texas State"]);
   const rows = [...wrap.querySelectorAll("tbody tr")];
   assert.deepEqual(rows.map((tr) => form(tr.querySelector("td.tt__label"), "long")), SITUATION_LABELS, "Total yards is Yards, as in Team stats");
   assert.deepEqual(rows.map((tr) => form(tr.querySelector("td.tt__label"), "short")), ["3rd", "4th", "Red zone", "Turnovers", "Penalties", "Possession", "YPP", "Yards"]);
@@ -1056,7 +1056,7 @@ scenarios.situation = async () => {
 scenarios.scoressize = async () => {
   const { scoresTable } = await import(moduleUrl("ui/scores.js"));
   const games = [
-    { gameId: 1, status: "final", detail: "Final", away: { school: "Diner Tech", abbr: "DT", points: 21, rank: 12 }, home: { school: "Swampwater Tech", abbr: "SWT", points: 28 } },
+    { gameId: 1, status: "final", detail: "Final", away: { school: "Texas State", abbr: "DT", points: 21, rank: 12 }, home: { school: "Florida", abbr: "FLA", points: 28 } },
     { gameId: 2, status: "pre", detail: "7:30 PM", away: { school: "Lowland" }, home: { school: null, abbr: "X" } },
   ];
   const wrap = scoresTable({ games });
@@ -1075,7 +1075,7 @@ scenarios.scoressize = async () => {
   assert.ok(cells[0].querySelector(".poll-badge") && !cells[1].querySelector(".poll-badge"), "the rank in its own column, not in the name cell");
   assert.equal(text(cells[3]), "–", "an unranked team: a dash");
   const away = cells[1].querySelector("button.team-link");
-  assert.deepEqual([form2(away, "long"), form2(away, "mid"), form2(away, "short")], ["Diner Tech", "Diner Tech", "DT"], "the school at large and medium, the abbreviation at small");
+  assert.deepEqual([form2(away, "long"), form2(away, "mid"), form2(away, "short")], ["Texas State", "Texas State", "DT"], "the school at large and medium, the abbreviation at small");
   assert.equal(cells[2].dataset.k, "pts:1:away");
   const pre = [...wrap.querySelectorAll("tbody tr")].find((tr) => text(tr).includes("Lowland"));
   assert.ok(!pre.querySelectorAll("td")[4].querySelector("button") && text(pre.querySelectorAll("td")[4]) === "–", "a team with no school: a dash, never a link to nowhere");
@@ -1117,8 +1117,8 @@ scenarios.wave3kit = async () => {
   // wave 3 (owner 2026-10-10): the stat table's shared pieces, each declared on a column of a sized table
   const { statTable, applyStatSize, ownColumns, sortValue, sortRows } = await import(moduleUrl("ui/stat-table.js"));
   const list = [
-    { rank: 1, of: 136, player: "Keegan Crawford", playerShort: "Crawford", position: "QB", team: "Swampwater Tech", abbr: "SWT", conference: "Biscuit Belt", value: 1378, note: "a long note", date: "2026-09-05" },
-    { rank: 3, tied: true, of: 136, player: "Troy Palmer", playerShort: "Palmer", position: "", team: "Diner Tech", abbr: "DT", conference: null, value: 1128, note: null, date: "2025-11-29" },
+    { rank: 1, of: 136, player: "Keegan Crawford", playerShort: "Crawford", position: "QB", team: "Florida", abbr: "FLA", conference: "SEC", value: 1378, note: "a long note", date: "2026-09-05" },
+    { rank: 3, tied: true, of: 136, player: "Troy Palmer", playerShort: "Palmer", position: "", team: "Texas State", abbr: "DT", conference: null, value: 1128, note: null, date: "2025-11-29" },
     { rank: null, of: 136, player: "Ned Nobody", playerShort: "Nobody", position: "RB", team: null, abbr: null, conference: "Big Pie", value: null, note: "x", date: "2026-08-30" },
   ];
   const columns = [
@@ -1148,7 +1148,7 @@ scenarios.wave3kit = async () => {
   assert.equal(text(r[0][2]), "QB");
   assert.ok(!r[0][1].querySelector("small"), "no line under the name once the position has a column");
   assert.equal(text(r[1][2]), "–", "an empty position: a dash, never a blank or null");
-  assert.equal(text(r[0][4]), "Biscuit Belt");
+  assert.equal(text(r[0][4]), "SEC");
   // decision 2: the list's own order is the chip at large and medium and a plain number at small
   const big = r[0][0].querySelector(".sz-t--long");
   assert.ok(cls(big).includes("sz-t--mid") && big.querySelector("a.rank-chip--link"), "the chip (linked) at large and medium");
@@ -1161,8 +1161,8 @@ scenarios.wave3kit = async () => {
   assert.equal(r[2][0].querySelector(".sz-t--long").textContent, "–", "no rank: a dash at every size");
   assert.equal(r[0][0].querySelectorAll(".rank-chip").length, 1, "one chip, not a second one after the cell");
   // renderShort: a team link at large and medium, the caller's own small form at small
-  assert.equal(r[0][3].querySelector(".sz-t--long button.team-link").textContent, "Swampwater Tech");
-  assert.equal(r[0][3].querySelector(".sz-t--short").textContent, "SWT!");
+  assert.equal(r[0][3].querySelector(".sz-t--long button.team-link").textContent, "Florida");
+  assert.equal(r[0][3].querySelector(".sz-t--short").textContent, "FLA!");
   assert.equal(text(r[2][3].querySelector(".sz-t--short")), "–", "a renderShort with nothing to draw: a dash");
   // a header tap still sorts; the plain note head does nothing
   heads[5].querySelector("button").click();
@@ -1200,8 +1200,8 @@ scenarios.wave3kit = async () => {
     const w = statTable({ sizes: true, columns, rows: junk });
     assert.ok(!RAW.test(text(w)), text(w));
   }
-  const failing = statTable({ sizes: true, columns: [{ key: "team", label: "Team", kind: "text", renderShort: () => { throw new Error("boom"); } }], rows: [{ team: "Diner Tech" }] });
-  assert.equal(text(failing.querySelector("tbody td .sz-t--short")), "Diner Tech", "a failing renderShort falls back to the value");
+  const failing = statTable({ sizes: true, columns: [{ key: "team", label: "Team", kind: "text", renderShort: () => { throw new Error("boom"); } }], rows: [{ team: "Texas State" }] });
+  assert.equal(text(failing.querySelector("tbody td .sz-t--short")), "Texas State", "a failing renderShort falls back to the value");
 };
 
 scenarios.whoplayers = async () => {
@@ -1213,14 +1213,14 @@ scenarios.whoplayers = async () => {
     { label: "1", format: "0f", higherIsBetter: true, us: { value: 706, rank: 66, of: 186, who: face("Keegan Crawford"), whoName: "Keegan Crawford", onWho: () => opened.push("us1") }, them: { value: 288, rank: 140, of: 186, who: "Marcus Hart", onWho: () => { throw new Error("no card"); } } },
     { label: "2", format: "0f", higherIsBetter: true, us: { value: 120, who: "Tramell Jones Jr." }, them: null },
   ];
-  const wrap = twoTeamTable({ rows: pairs(), usAbbr: "SWT", themAbbr: "SD", usTeam: "Swampwater Tech", themTeam: "Silver Dollar", usName: "Swampwater Tech Mudpuppies", themName: "Silver Dollar Miners", centered: true, labelHead: "Passing yards" });
+  const wrap = twoTeamTable({ rows: pairs(), usAbbr: "FLA", themAbbr: "SD", usTeam: "Florida", themTeam: "Fresno State", usName: "Florida Gators", themName: "Fresno State Miners", centered: true, labelHead: "Passing yards" });
   document.body.append(wrap);
   assert.ok(!RAW.test(text(wrap)), text(wrap));
   // the large head: each team over its own columns, the player outermost under it
   const headA = [...wrap.querySelectorAll("tr.tt__head--a th")];
   assert.deepEqual(headA.map((th) => th.getAttribute("colspan")), ["3", null, "3"], "player, FBS rank and value under each team");
   assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--b th")].map(text), ["Player", "FBS rank", "", "", "FBS rank", "Player"]);
-  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Player", "FBS", "SWT", "Pass yds", "SD", "FBS", "Player"]);
+  assert.deepEqual([...wrap.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Player", "FBS", "FLA", "Pass yds", "SD", "FBS", "Player"]);
   const [first, second] = wrap.querySelectorAll("tbody tr");
   assert.deepEqual([...first.childNodes].map((td) => cls(td).split(" ").slice(0, 2).join(".")), ["txt.tt__who", "tt__rank.tt__rank--natl", "num.tt__cell", "tt__tug.tt__mid", "num.tt__cell", "tt__rank.tt__rank--natl", "txt.tt__who"], "mirrored: the players outermost");
   assert.ok(cls(first.childNodes[0]).includes("tt__who--us") && cls(first.childNodes[6]).includes("tt__who--them"));
@@ -1246,21 +1246,21 @@ scenarios.whoplayers = async () => {
   applySize(wrap, "small/reduced");
   assert.deepEqual([wrap.dataset.size, wrap.dataset.names, wrap.dataset.pn], ["small", undefined, "reduced"]);
   // beside a label column (not centered): label, then the players outermost
-  const side = twoTeamTable({ rows: pairs(), usAbbr: "SWT", themAbbr: "SD", tug: true, labelHead: "#", whoHead: "Passer" });
+  const side = twoTeamTable({ rows: pairs(), usAbbr: "FLA", themAbbr: "SD", tug: true, labelHead: "#", whoHead: "Passer" });
   const row = side.querySelector("tbody tr");
   const kinds = ["tt__label", "tt__who", "tt__rank", "tt__cell", "tt__tug"];
   assert.deepEqual([...row.childNodes].map((td) => kinds.find((k) => cls(td).split(" ").includes(k))), ["tt__label", "tt__who", "tt__rank", "tt__cell", "tt__tug", "tt__cell", "tt__rank", "tt__who"]);
-  assert.deepEqual([...side.querySelectorAll("tr.tt__head--one th")].map(text), ["#", "Passer", "FBS", "SWT", "Edge", "SD", "FBS", "Passer"]);
+  assert.deepEqual([...side.querySelectorAll("tr.tt__head--one th")].map(text), ["#", "Passer", "FBS", "FLA", "Edge", "SD", "FBS", "Passer"]);
   // no player anywhere: the table is exactly as before
-  const none = twoTeamTable({ rows: [{ label: "Points per game", us: { value: 30 }, them: { value: 20 } }], usAbbr: "SWT", themAbbr: "SD", tug: true });
+  const none = twoTeamTable({ rows: [{ label: "Points per game", us: { value: 30 }, them: { value: 20 } }], usAbbr: "FLA", themAbbr: "SD", tug: true });
   assert.equal(none.querySelectorAll(".tt__who").length, 0);
   assert.equal(none.querySelectorAll(".tt__pos").length, 0);
   // wave 3, step 3 (decision 1): the player's position beside him on each side, from medium, mirrored
-  const withPos = twoTeamTable({ rows: [{ label: "1", us: { value: 706, rank: 66, of: 186, who: "Keegan Crawford", whoSub: "QB", conf: { rank: 2, of: 14 } }, them: { value: 288, who: "Marcus Hart" } }], usAbbr: "SWT", themAbbr: "SD", usName: "Swampwater Tech Mudpuppies", usTeam: "Swampwater Tech", centered: true, labelHead: "#", usConf: "BB" });
+  const withPos = twoTeamTable({ rows: [{ label: "1", us: { value: 706, rank: 66, of: 186, who: "Keegan Crawford", whoSub: "QB", conf: { rank: 2, of: 14 } }, them: { value: 288, who: "Marcus Hart" } }], usAbbr: "FLA", themAbbr: "SD", usName: "Florida Gators", usTeam: "Florida", centered: true, labelHead: "#", usConf: "BB" });
   assert.ok(!RAW.test(text(withPos)), text(withPos));
   assert.deepEqual([...withPos.querySelectorAll("tr.tt__head--a th")].map((th) => th.getAttribute("colspan")), ["5", null, "3"], "player, position, FBS rank, conference rank and value under ours; theirs has no ranks");
   assert.deepEqual([...withPos.querySelectorAll("tr.tt__head--b th")].map(text), ["Player", "Pos", "FBS rank", "BB rank", "", "", "Pos", "Player"]);
-  assert.deepEqual([...withPos.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Player", "Pos", "FBS", "SWT", "#", "SD", "Pos", "Player"]);
+  assert.deepEqual([...withPos.querySelectorAll("tr.tt__head--one th")].map((th) => form(th, "short")), ["Player", "Pos", "FBS", "FLA", "#", "SD", "Pos", "Player"]);
   const posRow = [...withPos.querySelector("tbody tr").childNodes];
   assert.deepEqual([text(posRow[1]), text(posRow[7])], ["QB", "–"], "the position, a dash where the side names none");
   assert.ok(cls(posRow[1]).includes("tt__min-medium") && cls(posRow[7]).includes("tt__min-medium") && cls(posRow[1]).includes("tt__pos--us") && cls(posRow[7]).includes("tt__pos--them"), "gone at small");
@@ -1282,9 +1282,9 @@ scenarios.season3 = async () => {
 
   // the standings (Season and every team page): # | Team | conference record | Overall | AP rank | Last 5, teams sort
   const standingRows = [
-    { place: 2, team: "Swampwater Tech", abbreviation: "SWT", conference: { wins: 1, losses: 0 }, overall: { wins: 2, losses: 1 }, apRank: null, isUs: true, form: [{ result: "W" }, { result: "L" }] },
-    { place: 1, team: "Diner Tech", abbreviation: "DT", logo: "/media/logo/2", conference: { wins: 2, losses: 0 }, overall: { wins: 3, losses: 0 }, apRank: 8, form: [{ result: "W" }, { result: "W" }, { result: "W" }] },
-    { place: "x", team: "Silver Dollar", abbreviation: null, conference: null, overall: { wins: "x" }, apRank: "y", form: "junk" },
+    { place: 2, team: "Florida", abbreviation: "FLA", conference: { wins: 1, losses: 0 }, overall: { wins: 2, losses: 1 }, apRank: null, isUs: true, form: [{ result: "W" }, { result: "L" }] },
+    { place: 1, team: "Texas State", abbreviation: "DT", logo: "/media/logo/2", conference: { wins: 2, losses: 0 }, overall: { wins: 3, losses: 0 }, apRank: 8, form: [{ result: "W" }, { result: "W" }, { result: "W" }] },
+    { place: "x", team: "Fresno State", abbreviation: null, conference: null, overall: { wins: "x" }, apRank: "y", form: "junk" },
   ];
   let kept = null;
   const standings = standingsTable(standingRows, { conference: "BB", rowClass: (row) => (row.isUs ? "is-us" : null), onSort: (sort) => { kept = sort; } });
@@ -1299,30 +1299,30 @@ scenarios.season3 = async () => {
   assert.ok(sh.every((th) => th.querySelector("button")), "teams sort");
   let s0 = cellsOf(standings, 0);
   assert.equal(text(s0[0]), "1", "place order to start");
-  assert.equal(s0[1].querySelector(".sz-t--long button.team-link").dataset.team, "Diner Tech");
+  assert.equal(s0[1].querySelector(".sz-t--long button.team-link").dataset.team, "Texas State");
   assert.equal(s0[1].querySelector(".sz-t--short button.team-link").textContent, "DT", "the abbreviation at small, still its link");
   assert.equal(text(s0[2]), "2-0");
   assert.ok(s0[4].querySelector(".poll-badge--link"));
   assert.equal(s0[5].querySelector(".form").getAttribute("aria-label"), "Last 3: W W W");
   const last = cellsOf(standings, 2);
-  assert.equal(last[1].querySelector(".sz-t--short button.team-link").textContent, "Silver Dollar", "no abbreviation: the school, still a link");
+  assert.equal(last[1].querySelector(".sz-t--short button.team-link").textContent, "Fresno State", "no abbreviation: the school, still a link");
   assert.deepEqual([text(last[0]), text(last[2]), text(last[3]), text(last[5])], ["–", "–", "–", "–"], "a damaged row: dashes, sorted last");
   sh[5].querySelector("button").click();
   assert.deepEqual(kept, { key: "form", dir: "descending" });
-  assert.deepEqual([...standings.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[1].querySelector("button").dataset.team), ["Diner Tech", "Swampwater Tech", "Silver Dollar"], "the last five sort by wins");
+  assert.deepEqual([...standings.querySelectorAll("tbody tr")].map((tr) => tr.querySelectorAll("td")[1].querySelector("button").dataset.team), ["Texas State", "Florida", "Fresno State"], "the last five sort by wins");
   assert.equal(formWins([{ result: "W" }, null, { result: "L" }, { result: "W" }]), 2);
   assert.equal(formWins("x"), 0);
   assert.equal(teamAbbrLink(null, "X"), "–");
-  assert.equal(teamAbbrLink("Diner Tech", " ").textContent, "Diner Tech");
+  assert.equal(teamAbbrLink("Texas State", " ").textContent, "Texas State");
   const sorted = standingsTable(standingRows, { sort: { key: "team", dir: "descending" } });
-  assert.equal(cellsOf(sorted, 0)[1].querySelector("button").dataset.team, "Swampwater Tech", "a kept order draws first");
+  assert.equal(cellsOf(sorted, 0)[1].querySelector("button").dataset.team, "Texas State", "a kept order draws first");
 
   // the stat profile: Statistic | Value | FBS rank (medium) | conference rank (large); the defense says allowed once
   const profile = [
     { side: "offense", label: "Points per game", key: "ppg", metric: "profile:ppg", value: 31.4, format: "1f", nationalRank: 12, nationalOf: 136, conferenceRank: 3, conferenceOf: 16 },
     { side: "defense", label: "Points allowed per game", key: "opp_ppg", value: null, format: "1f", nationalRank: null, nationalOf: 136, conferenceRank: null, conferenceOf: 16 },
   ];
-  const off = profileTable(profile, "offense", { team: "Swampwater Tech", conferenceLabel: "BB" });
+  const off = profileTable(profile, "offense", { team: "Florida", conferenceLabel: "BB" });
   const ph = heads(off);
   assert.deepEqual(ph.map((th) => th.dataset.term), ["Statistic", "Value", "FBS rank", "BB rank"]);
   assert.deepEqual(marks(ph), ["", "", "M", "L"]);
@@ -1331,9 +1331,9 @@ scenarios.season3 = async () => {
   assert.equal(o0[0].querySelector(".sz-t--short").textContent, "PPG");
   assert.equal(text(o0[1]), "31.4");
   assert.equal(o0[1].querySelector("[data-k]").getAttribute("data-k"), "v:ppg", "the flash key stays on the value");
-  assert.equal(o0[2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech");
-  assert.equal(o0[3].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech&scope=conference");
-  const def = profileTable(profile, "defense", { team: "Swampwater Tech" });
+  assert.equal(o0[2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Florida");
+  assert.equal(o0[3].querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Appg?team=Florida&scope=conference");
+  const def = profileTable(profile, "defense", { team: "Florida" });
   assert.equal(heads(def)[0].querySelector(".sz-t--short").textContent, "Def (allowed)");
   assert.equal(heads(def)[3].dataset.term, "Conf rank", "no conference named: Conf");
   const d0 = cellsOf(def, 0);
@@ -1346,7 +1346,7 @@ scenarios.season3 = async () => {
     { side: "defense", key: "defense_success_rate", metric: "advanced:defense_success_rate", group: "Overall", value: 0.391, format: "pct", nationalRank: 22, nationalOf: 138, conferenceRank: 2, conferenceOf: 16 },
     { side: "offense", key: "offense_passing_downs_ppa", metric: "advanced:offense_passing_downs_ppa", group: "Downs", value: 0.31, format: "2f", nationalRank: 9, nationalOf: 138 },
   ];
-  const paired = advancedPaired(adv, { team: "Swampwater Tech", conferenceLabel: "BB" });
+  const paired = advancedPaired(adv, { team: "Florida", conferenceLabel: "BB" });
   const ah = heads(paired);
   assert.deepEqual(ah.map((th) => th.dataset.term), ["Metric", "Offense", "FBS rank", "BB rank", "Defense", "FBS rank", "BB rank"]);
   assert.deepEqual(marks(ah), ["", "", "M", "L", "", "M", "L"]);
@@ -1356,37 +1356,38 @@ scenarios.season3 = async () => {
   assert.deepEqual(group.slice(1).map(text), ["", "", "", "", "", ""], "a group row carries no value or rank");
   const success = cellsOf(paired, 1);
   assert.deepEqual([text(success[1]), text(success[4])], ["49%", "39%"]);
-  assert.equal(success[3].querySelector("a").getAttribute("href"), "#national=advanced%3Aoffense_success_rate?team=Swampwater%20Tech&scope=conference");
+  assert.equal(success[3].querySelector("a").getAttribute("href"), "#national=advanced%3Aoffense_success_rate?team=Florida&scope=conference");
   const downs = cellsOf(paired, 3);
   assert.equal(downs[0].querySelector(".sz-t--short").textContent, "PPA pass dn");
   assert.deepEqual([text(downs[3]), text(downs[4]), text(downs[5])], ["–", "–", "–"], "one side only: dashes on the other");
   assert.ok(text(paired).includes("FBS rank is the national rank") && !text(paired).includes("Nat is"));
-  const noConf = advancedPaired(adv.map((row) => ({ ...row, conferenceRank: null })), { team: "Swampwater Tech" });
+  const noConf = advancedPaired(adv.map((row) => ({ ...row, conferenceRank: null })), { team: "Florida" });
   assert.equal(heads(noConf).length, 5, "no conference ranks sent: no conference columns");
 
   // the résumé: each fact, its value and its FBS rank in a column of its own; the schedule to come a plain chip
-  const resume = resumeBlock({ expectedWins: 1.98, gamesCounted: 3, wins: 2, losses: 1, luck: 0.02, sosPlayed: { rating: 12.3, rank: 41, of: 138, metric: "rating:sosPlayed" }, remaining: { averageSp: 15.6, rankAmongPlayed: 9, of: 138 }, polls: [{ week: 4, ap: 18, coaches: null }] }, "Swampwater Tech");
-  const [summary, path] = resume.querySelectorAll(".stat-table-wrap");
+  const resume = resumeBlock({ expectedWins: 1.98, gamesCounted: 3, wins: 2, losses: 1, luck: 0.02, sosPlayed: { rating: 12.3, rank: 41, of: 138, metric: "rating:sosPlayed" }, remaining: { averageSp: 15.6, rankAmongPlayed: 9, of: 138 }, polls: [{ week: 4, ap: 18, coaches: null }] }, "Florida");
+  const [summary] = resume.querySelectorAll(".stat-table-wrap");
   const rh = heads(summary);
   assert.deepEqual(rh.map((th) => th.dataset.term), ["Résumé", "Value", "FBS rank"]);
   assert.deepEqual(marks(rh), ["", "", "M"]);
   const rows = [...summary.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")]);
   assert.deepEqual(rows.map((r) => r[0].querySelector(".sz-t--short")?.textContent ?? text(r[0])), ["Record", "Exp wins", "Above exp", "SOS played", "SOS to come"]);
   assert.deepEqual(rows.map((r) => text(r[1])), ["2-1", "1.98 of 3", "+0.02", "12.3", "15.6"], "no prose in a value");
-  assert.equal(rows[3][2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=rating%3AsosPlayed?team=Swampwater%20Tech");
+  assert.equal(rows[3][2].querySelector("a.rank-chip--link").getAttribute("href"), "#national=rating%3AsosPlayed?team=Florida");
   assert.ok(rows[4][2].querySelector("span.rank-chip") && !rows[4][2].querySelector("a"), "the schedule to come: a plain chip");
   assert.equal(text(rows[0][2]), "–");
-  assert.deepEqual(heads(path).map((th) => th.dataset.term), ["Week", "AP rank", "Coaches rank"]);
-  assert.equal(heads(path)[0].querySelector(".sz-t--short").textContent, "Wk");
-  assert.ok(!heads(path).some((th) => cls(th).includes("st__min")), "the poll path's badges are its values: nothing drops");
-  for (const junk of [null, "x", { sosPlayed: "x", remaining: [], polls: {} }]) assert.ok(!RAW.test(text(resumeBlock(junk, "Swampwater Tech"))));
+  // ENH-19: the poll path is a chart with its numbers in two rows, the ranks linked to their poll
+  const path = resume.querySelector(".pp__weeks");
+  assert.ok(resume.querySelector(".pp__chart svg") && path, "the chart and its rows");
+  assert.equal(path.querySelector("tbody tr a.pp__link").getAttribute("href"), "#national=poll%3AAP?team=Florida");
+  for (const junk of [null, "x", { sosPlayed: "x", remaining: [], polls: {} }]) assert.ok(!RAW.test(text(resumeBlock(junk, "Florida"))));
 
   // this season and last: Statistic | 2026 | FBS | conf | 2025 | FBS | conf | Change
   const lastRows = [
     { side: "offense", label: "Points per game", key: "ppg", metric: "profile:ppg", metricYear: 2025, format: "1f", now: { value: 31.4, rank: 12, of: 136, confRank: 3, confOf: 16 }, last: { value: 24.0, rank: 70, of: 134, confRank: 9, confOf: 16 }, better: true },
     { side: "defense", label: "Points allowed per game", key: "opp_ppg", format: "1f", now: { value: 18.2, rank: 30, of: 136 }, last: { value: 25.0, rank: 80, of: 134 }, better: true },
   ];
-  const seasons = lastSeasonBlock(lastRows, 2025, 2026, { team: "Swampwater Tech", conferenceLabel: "BB" });
+  const seasons = lastSeasonBlock(lastRows, 2025, 2026, { team: "Florida", conferenceLabel: "BB" });
   const [offLast, defLast] = seasons.querySelectorAll(".stat-table-wrap");
   const lh = heads(offLast);
   assert.deepEqual(lh.map((th) => th.dataset.term), ["Statistic", "2026", "FBS rank", "BB rank", "2025", "FBS rank", "BB rank", "Change"]);
@@ -1394,19 +1395,19 @@ scenarios.season3 = async () => {
   const l0 = cellsOf(offLast, 0);
   assert.deepEqual([text(l0[1]), text(l0[4]), text(l0[7])], ["31.4", "24.0", "Better"]);
   assert.equal(l0[1].querySelector("[data-k]").getAttribute("data-k"), "now:ppg");
-  assert.equal(l0[5].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech&year=2025");
-  assert.equal(l0[6].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech&year=2025&scope=conference");
-  assert.equal(l0[3].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Swampwater%20Tech&scope=conference");
+  assert.equal(l0[5].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Florida&year=2025");
+  assert.equal(l0[6].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Florida&year=2025&scope=conference");
+  assert.equal(l0[3].querySelector("a").getAttribute("href"), "#national=profile%3Appg?team=Florida&scope=conference");
   assert.equal(heads(defLast)[0].querySelector(".sz-t--short").textContent, "Def (allowed)");
   assert.equal(text(cellsOf(defLast, 0)[3]), "–");
   assert.ok(text(seasons).includes("rank inside the BB"));
 
   // the road ahead: Wk | Date | Opponent | Site | Record | AP rank | SP+ | FBS rank | Last three (the standings' squares)
   const sorts = {};
-  const logos = new Map([["Diner Tech", { school: "Diner Tech", abbreviation: "DT", logo: "/media/logo/2" }]]);
+  const logos = new Map([["Texas State", { school: "Texas State", abbreviation: "DT", logo: "/media/logo/2" }]]);
   const roadRows = [
-    { week: 9, date: "2026-10-31T23:30:00.000Z", site: "Away", opponent: "Bayou Tech", record: "2-5", apRank: null, sp: -3.1, spRank: 99, spOf: 136, spMetric: "rating:sp", lastThree: [{ result: "L", score: "7-30", opponent: "Okra Valley", homeAway: "away" }] },
-    { week: 8, date: "2026-10-24T23:30:00.000Z", site: "Home", opponent: "Diner Tech", record: "6-1", apRank: 8, sp: 15.2, spRank: 20, spOf: 136, spMetric: "rating:sp", lastThree: [{ result: "W", score: "41-38", opponent: "Louisville", homeAway: "away", points: 41, opponentPoints: 38 }, { result: "W", score: "24-3" }, { result: "?", score: "x" }] },
+    { week: 9, date: "2026-10-31T23:30:00.000Z", site: "Away", opponent: "Bayou Tech", record: "2-5", apRank: null, sp: -3.1, spRank: 99, spOf: 136, spMetric: "rating:sp", lastThree: [{ result: "L", score: "7-30", opponent: "Georgia", homeAway: "away" }] },
+    { week: 8, date: "2026-10-24T23:30:00.000Z", site: "Home", opponent: "Texas State", record: "6-1", apRank: 8, sp: 15.2, spRank: 20, spOf: 136, spMetric: "rating:sp", lastThree: [{ result: "W", score: "41-38", opponent: "Louisville", homeAway: "away", points: 41, opponentPoints: 38 }, { result: "W", score: "24-3" }, { result: "?", score: "x" }] },
     { week: "x", date: "nope", site: 7, opponent: null, record: null, lastThree: "x" },
   ];
   const road = roadAheadBlock(roadRows, { logos, sorts });
@@ -1420,7 +1421,7 @@ scenarios.season3 = async () => {
   assert.equal(dt[2].querySelector(".sz-t--short button.team-link").textContent, "DT");
   assert.ok(dt[2].querySelector(".sz-t--long .tl img"), "the logo at large and medium");
   assert.equal(dt[3].querySelector(".sz-t--short").textContent, "H");
-  assert.equal(dt[7].querySelector("a").getAttribute("href"), "#national=rating%3Asp?team=Diner%20Tech");
+  assert.equal(dt[7].querySelector("a").getAttribute("href"), "#national=rating%3Asp?team=Texas%20State");
   const squares = dt[8].querySelector(".form");
   assert.equal(squares.getAttribute("aria-label"), "Last 2: W W");
   assert.equal(squares.querySelector(".form__sq").getAttribute("title"), "Won 41-38 at Louisville");
@@ -1443,14 +1444,14 @@ scenarios.availability4 = async () => {
   const heads = (root) => [...root.querySelectorAll("thead th")];
   const rowsOf = (root) => [...root.querySelectorAll("tbody tr")];
   const rows = [
-    { name: "Marquis Washington", team: "Diner Tech", position: "WR", status: "Out", note: "Knee, in a boot at practice" },
-    { name: "T.J. Oyelaran", team: "Swampwater Tech", position: "OT", status: "Questionable", note: "Ankle" },
-    { name: "Leon Abernathy", team: "swampwater tech", position: " ", status: "Game-time decision" },
-    { name: "Darius Smithers", team: "Diner Tech", status: "Probable", note: "" },
-    { name: "No Status", team: "Diner Tech" },
+    { name: "Marquis Washington", team: "Texas State", position: "WR", status: "Out", note: "Knee, in a boot at practice" },
+    { name: "T.J. Oyelaran", team: "Florida", position: "OT", status: "Questionable", note: "Ankle" },
+    { name: "Leon Abernathy", team: "florida", position: " ", status: "Game-time decision" },
+    { name: "Darius Smithers", team: "Texas State", status: "Probable", note: "" },
+    { name: "No Status", team: "Texas State" },
     null, "junk", [],
   ];
-  const teams = [{ school: "Swampwater Tech", abbreviation: "SWT" }, { school: "Diner Tech", abbreviation: "DT" }, null, { school: "Junk", abbreviation: "–" }];
+  const teams = [{ school: "Florida", abbreviation: "FLA" }, { school: "Texas State", abbreviation: "DT" }, null, { school: "Junk", abbreviation: "–" }];
   const node = availabilityTable({ rows, source: "Conference report", updatedAt: "2026-10-09T15:00:00Z", teams });
   document.body.append(node);
   assert.ok(!RAW.test(text(node)), text(node));
@@ -1464,7 +1465,7 @@ scenarios.availability4 = async () => {
   assert.equal(r.length, 5, "junk rows are left out, a row with no status is kept");
   const first = [...r[0].querySelectorAll("td")];
   assert.deepEqual(["full", "initial", "last"].map((f) => pnText(first[0], f)), ["Marquis Washington", "M. Washington", "Washington"], "item 6: the name steps down with the table");
-  assert.deepEqual([form2(first[1], "long"), form2(first[1], "short")], ["Diner Tech", "DT"]);
+  assert.deepEqual([form2(first[1], "long"), form2(first[1], "short")], ["Texas State", "DT"]);
   assert.equal(text(first[2]), "WR");
   assert.equal(first[0].querySelector("small"), null, "nothing drawn under the name any more");
   assert.ok(first[3].querySelector(".sz-t--long .avail.avail--out"), "the status's color rides on the status itself");
@@ -1473,7 +1474,7 @@ scenarios.availability4 = async () => {
   assert.equal(form2(quest, "short"), "Quest.");
   assert.equal(quest.querySelector(".sz-t--short .avail").getAttribute("title"), "Questionable", "the whole word on hover");
   const gtd = [...r[2].querySelectorAll("td")];
-  assert.equal(form2(gtd[1], "short"), "SWT", "the school matches whatever its case");
+  assert.equal(form2(gtd[1], "short"), "FLA", "the school matches whatever its case");
   assert.equal(text(gtd[2]), "–");
   assert.equal(form2(gtd[3], "short"), "GTD");
   assert.ok(gtd[3].querySelector(".avail--questionable"), "a game-time decision reads like questionable");
@@ -1492,7 +1493,7 @@ scenarios.availability4 = async () => {
   // one team (the Injury Report, a side sheet): no team column; a team the page does not know: gone at small; nobody named: none
   const one = availabilityTable({ rows: rows.slice(0, 2), showTeam: false });
   assert.deepEqual(heads(one).map((th) => th.dataset.term), ["Player", "Pos", "Status", "Note"]);
-  const unknown = availabilityTable({ rows: [{ name: "A B", team: "Lake Effect", status: "Out" }, { name: "C D", team: "Diner Tech", status: "Out" }], teams });
+  const unknown = availabilityTable({ rows: [{ name: "A B", team: "Charlotte", status: "Out" }, { name: "C D", team: "Texas State", status: "Out" }], teams });
   assert.deepEqual(marks(heads(unknown)), ["", "M", "", ""], "a team with no abbreviation: the column is gone at small, never a long name on a phone");
   const unnamed = availabilityTable({ rows: [{ name: "E F", status: "Doubtful", note: "ankle" }] });
   assert.deepEqual(heads(unnamed).map((th) => th.dataset.term), ["Player", "Status", "Note"], "no team, no position: neither column");

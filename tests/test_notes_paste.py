@@ -18,7 +18,7 @@ from app.services import notes_paste
 from app.services.notes import load_notes
 from tests.conftest import FakeCfbd, fixture_payload
 
-NEXT_GAME = 526001015  # Diner Tech at Swampwater Tech, the next game on 2026-09-23
+NEXT_GAME = 526001015  # Texas State at Florida, the next game on 2026-09-23
 NOW = datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc)
 
 GOOD = {
@@ -29,7 +29,7 @@ GOOD = {
     "sections": [{"heading": "Coaching matchup", "paragraphs": ["Two coaches."]}, {"heading": "Key matchups", "paragraphs": ["Lines."]}],
     "availability": [{"name": "Player One", "position": "WR", "status": "Out", "note": "knee"}],
     "visitors": {"home": [{"name": "Recruit One", "stars": 4}], "away": []},
-    "lineups": {"us": {"team": "Swampwater Tech", "slots": [{"unit": "Offense", "slot": "QB", "players": [{"name": "Starter", "number": 12}]}]}},
+    "lineups": {"us": {"team": "Florida", "slots": [{"unit": "Offense", "slot": "QB", "players": [{"name": "Starter", "number": 12}]}]}},
 }
 
 
@@ -112,17 +112,17 @@ def test_placeholders_fill_by_name_and_stray_braces_stay():
 
 def test_the_prompt_names_the_game_and_carries_the_shape(tmp_path: Path):
     class Who:
-        school, name, conference = "Swampwater Tech", "Mudpuppies", "Biscuit Belt"
+        school, name, conference = "Florida", "Gators", "SEC"
 
-    game = {"gameId": NEXT_GAME, "home": "Swampwater Tech", "away": "Diner Tech", "kickoff": "2026-09-26T19:30:00Z"}
+    game = {"gameId": NEXT_GAME, "home": "Florida", "away": "Texas State", "kickoff": "2026-09-26T19:30:00Z"}
     from zoneinfo import ZoneInfo
 
     prompt = notes_paste.build_prompt(tmp_path, Who(), game, 2026, ZoneInfo("America/New_York"))
     assert "kickoff Saturday, September 26, 3:30 PM EDT" in prompt
     assert notes_paste.kickoff_text(None) == "time to be announced" and notes_paste.kickoff_text("soon") == "soon"
-    assert "Diner Tech at Swampwater Tech" in prompt and str(NEXT_GAME) in prompt and "Biscuit Belt availability report" in prompt
-    assert "The opponent is Diner Tech" in prompt and "```json" in prompt and "{shape}" not in prompt and "{team}" not in prompt
-    shape = json.loads(notes_paste.shape_example("Swampwater Tech", "Diner Tech", "Biscuit Belt"))
+    assert "Texas State at Florida" in prompt and str(NEXT_GAME) in prompt and "SEC availability report" in prompt
+    assert "The opponent is Texas State" in prompt and "```json" in prompt and "{shape}" not in prompt and "{team}" not in prompt
+    shape = json.loads(notes_paste.shape_example("Florida", "Texas State", "SEC"))
     assert set(shape) >= {"gameId", "sections", "availability", "visitors", "lineups", "schemes", "sources"}
     reading = notes_paste.read_answer(json.dumps(shape), NEXT_GAME)  # the example itself reads cleanly
     assert reading.notes is not None and reading.warnings == []
@@ -146,7 +146,7 @@ def test_an_edited_prompt_is_used_and_an_old_file_writing_one_is_ignored(tmp_pat
 
 def test_copy_check_and_save_from_any_device(notes_app, client: TestClient, fake_cfbd: FakeCfbd):
     prompt = client.get("/api/notes/prompt").json()["data"]
-    assert prompt["gameId"] == NEXT_GAME and "Swampwater Tech" in prompt["prompt"] and str(NEXT_GAME) in prompt["prompt"] and prompt["custom"] is False
+    assert prompt["gameId"] == NEXT_GAME and "Florida" in prompt["prompt"] and str(NEXT_GAME) in prompt["prompt"] and prompt["custom"] is False
     assert client.get("/api/notes/prompt?gameId=12345").status_code == 404
     data_dir = notes_app.state.settings.data_dir
     pasted = "Here you go:\n```json\n" + json.dumps({**GOOD, "gameId": 99}) + "\n```"
@@ -177,7 +177,7 @@ def test_the_prompt_template_is_read_edited_and_reset(notes_app, client: TestCli
     assert first["custom"] is False and first["template"] == notes_paste.DEFAULT_PROMPT and "shape" in first["placeholders"]
     edited = client.put("/api/notes/template", json={"template": "Short notes for {game_id}: {team}.\r\n{shape}"}).json()["data"]
     assert edited["custom"] is True and edited["template"] == "Short notes for {game_id}: {team}.\n{shape}"
-    assert client.get("/api/notes/prompt").json()["data"]["prompt"].startswith(f"Short notes for {NEXT_GAME}: Swampwater Tech.")
+    assert client.get("/api/notes/prompt").json()["data"]["prompt"].startswith(f"Short notes for {NEXT_GAME}: Florida.")
     missing = client.put("/api/notes/template", json={"template": "No game here"})
     assert missing.status_code == 422 and "{game_id}" in missing.json()["errors"][0]["message"]
     assert client.put("/api/notes/template", json={"template": "   "}).status_code == 422

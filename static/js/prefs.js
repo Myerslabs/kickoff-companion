@@ -8,7 +8,7 @@ import { applyAnnouncer } from "./ui/announcer.js";
 import { recall, remember } from "./ui/dom.js";
 import { fetchJson } from "./views/common.js";
 
-const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, announcer: true, backups: true, scheduledRuns: null, keepScreenOn: "gameday", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
+const DEFAULTS = { delaySeconds: 30, radioSourceId: null, theme: "dark", refreshMinutes: 15, autoStart: false, trayMode: false, hints: true, announcer: true, backups: true, scheduledRuns: null, keepScreenOn: "gameday", keepAwake: "plugged", openBrowser: "manual", primaryTeams: [], likedTeams: [], likedConferences: [], likedStates: [], tickerMode: "national", radioStations: [] };
 const SETTINGS_TIMEOUT_MS = 5000;
 const state = { loaded: false, loading: null, prefs: { ...DEFAULTS }, meta: null, error: null };
 const listeners = new Set();
@@ -23,12 +23,59 @@ function emit() {
   }
 }
 
-export function applyTheme(theme = state.prefs.theme) {
+// The theme (ENH-35, owner 2026-10-27: "Make the theme a per-device choice, like the text size, so the iPhone's choice
+// never changes the other screens"): kept in this browser's storage like the text size; a device that never chose is Dark.
+// The server's `theme` setting is no longer read or written. Frozen API: THEMES, themeChoice(), setTheme(id), applyTheme().
+export const THEMES = [
+  { id: "dark", label: "Dark" },
+  { id: "light", label: "Light" },
+];
+const THEME_KEY = "ui:theme";
+
+/** The theme chosen on this device ("dark" when none, or when storage is blocked). */
+export function themeChoice() {
+  return recall(THEME_KEY, "dark") === "light" ? "light" : "dark";
+}
+
+/** Choose a theme on this device: stored (when storage allows) and applied at once. Never sent to the server. */
+export function setTheme(id) {
+  const mode = id === "light" ? "light" : "dark";
+  remember(THEME_KEY, mode);
+  applyTheme(mode);
+  return mode;
+}
+
+export function applyTheme(theme = themeChoice()) {
   const mode = theme === "light" ? "light" : "dark";
   document.documentElement.dataset.theme = mode;
   const palette = paintTeam(ours(), mode); // the team's own colors over the default tokens (public release Phase 3)
   const meta = document.querySelector('meta[name="theme-color"]'); // the browser bar and the home-screen app follow the theme (Phase 12)
   if (meta) meta.setAttribute("content", palette ? palette["--ground"] : mode === "light" ? "#F1F2F4" : "#14161B");
+}
+
+// The map app (ENH-15, owner 2026-10-23: "setting choice, but can we do this in the browser, or by open link to a default
+// like google maps?"): the Directions links open this device's choice, a link-out the browser follows, never an embedded map.
+// Per device like the theme, since the iPhone and the desk screen carry different maps apps. Google Maps when none is chosen.
+// Frozen API: MAP_APPS, mapApp(), setMapApp(id).
+export const MAP_APPS = [
+  { id: "google", label: "Google Maps" },
+  { id: "apple", label: "Apple Maps" },
+  { id: "waze", label: "Waze" },
+  { id: "ask", label: "Ask each time" },
+];
+const MAP_KEY = "ui:mapApp";
+
+/** The map app chosen on this device ("google" when none, or when storage is blocked). */
+export function mapApp() {
+  const id = recall(MAP_KEY, "google");
+  return MAP_APPS.some((m) => m.id === id) ? id : "google";
+}
+
+/** Choose the map app on this device: stored when storage allows. Returns the one in use. */
+export function setMapApp(id) {
+  const pick = MAP_APPS.some((m) => m.id === id) ? id : "google";
+  remember(MAP_KEY, pick);
+  return pick;
 }
 
 /** Stat hints are on unless the owner switched them off; an older server without the setting leaves them on. */
@@ -145,10 +192,4 @@ export async function savePrefs(patch) {
 export function subscribePrefs(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
-}
-
-/** The page refresh interval the owner set, in milliseconds. */
-export function pollMs() {
-  const minutes = Number(state.prefs.refreshMinutes);
-  return (Number.isFinite(minutes) && minutes >= 1 ? minutes : 15) * 60 * 1000;
 }

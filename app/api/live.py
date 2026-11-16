@@ -170,6 +170,41 @@ async def replay_stop(request: Request) -> Any:
     return envelope(status.as_dict(), source="replay")
 
 
+class FollowRequest(BaseModel):
+    gameId: int
+    team: str | None = None
+
+
+@router.post("/api/live/follow")
+async def follow_game(body: FollowRequest, request: Request) -> Any:
+    """FEAT-1 (owner 2026-10-25: In Game for any game): In Game follows another FBS game this season instead of ours, from
+    `team`'s side when it plays in it, else the home side (the FBS side when the other is not). Our own game id follows
+    ours again. The host's choice: a guest cannot send it (app/guests.py)."""
+    engine: LiveEngine = request.app.state.live
+    program = request.app.state.program
+    parts = await program._core()
+    if not parts["games"].ok and not parts["games"].records:
+        return error_response(503, "upstream_unavailable", "The season's games could not be loaded; try again in a minute.")
+    game = next((g for g in parts["games"].records if g.id == body.gameId), None)
+    if game is None:
+        return error_response(404, "not_found", "No FBS game with that id this season.")
+    if program.team in (game.home_team, game.away_team):
+        return envelope(await engine.follow(None), source="live")
+    fbs = {t.school for t in parts["teams"].records if isinstance(t.school, str)}
+    sides = [s for s in (game.home_team, game.away_team) if isinstance(s, str) and s]
+    asked = body.team.strip() if isinstance(body.team, str) else None
+    side = asked if asked in sides else next((s for s in sides if s in fbs), None)
+    if side is None:
+        return error_response(422, "no_fbs_side", "That game has no FBS team to follow.")
+    return envelope(await engine.follow(game.id, side, game.home_team, game.away_team), source="live")
+
+
+@router.delete("/api/live/follow")
+async def follow_ours(request: Request) -> Any:
+    """FEAT-1: In Game follows our games again."""
+    return envelope(await request.app.state.live.follow(None), source="live")
+
+
 @router.get("/debug/live", include_in_schema=False)
 async def debug_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "debug-live.html", media_type="text/html", headers={"Cache-Control": "no-cache"})

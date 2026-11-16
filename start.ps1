@@ -27,11 +27,34 @@ $root = $PSScriptRoot
 Set-Location -LiteralPath $root
 $python = Join-Path $root ".venv\Scripts\python.exe"
 
-# Each start writes what it did to logs\start.log (public release 0.11.1), so a first start that stops or seems to hang
-# on a new computer leaves a record to read or send, even after its window is closed.
-$startLog = Join-Path $root "logs\start.log"
+# BUG-24: the data and log folders follow DATA_DIR and LOG_DIR in .env, as the server does (app/config.py): environment
+# variables like %LOCALAPPDATA% expand, ~ is the home folder, and a relative path is under the project folder.
+function Read-EnvValue($name, $fallback) {
+    $envFile = Join-Path $root ".env"
+    if (Test-Path -LiteralPath $envFile) {
+        foreach ($line in Get-Content -LiteralPath $envFile) {
+            if ($line -match "^\s*$name\s*=\s*(.+?)\s*$") { return $Matches[1].Trim('"').Trim("'") }
+        }
+    }
+    return $fallback
+}
+function Resolve-Folder($name, $default) {
+    $value = Read-EnvValue $name ""
+    if (-not $value) { return Join-Path $root $default }
+    $value = [Environment]::ExpandEnvironmentVariables($value)
+    if ($value.StartsWith("~")) { $value = Join-Path $HOME $value.Substring(1).TrimStart('\', '/') }
+    if (-not [IO.Path]::IsPathRooted($value)) { $value = Join-Path $root $value }
+    return $value
+}
+$dataDir = Resolve-Folder "DATA_DIR" "data"
+$logDir = Resolve-Folder "LOG_DIR" "logs"
+$syncFile = Join-Path $dataDir "update-sync.json"  # FEAT-13: an update from GitHub changed the packages
+
+# Each start writes what it did to start.log in the log folder (public release 0.11.1), so a first start that stops or
+# seems to hang on a new computer leaves a record to read or send, even after its window is closed.
+$startLog = Join-Path $logDir "start.log"
 try {
-    New-Item -ItemType Directory -Force (Join-Path $root "logs") | Out-Null
+    New-Item -ItemType Directory -Force $logDir | Out-Null
     Set-Content -LiteralPath $startLog -Encoding utf8 -Value "Kickoff Companion start, $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), PowerShell $($PSVersionTable.PSVersion), $([Environment]::OSVersion.VersionString)"
 } catch {
     $startLog = $null  # a read-only folder: the steps still show in this window
@@ -99,6 +122,7 @@ if ($uv) {
         Stop-WithMessage "uv could not prepare the Python environment (exit code $LASTEXITCODE, see above). Check the network and try again."
     }
     Write-Step "Python and the packages are ready."
+    Remove-Item -LiteralPath $syncFile -Force -ErrorAction SilentlyContinue  # FEAT-13: an update's package change is in now
 }
 
 if (-not (Test-Path -LiteralPath $python)) {
@@ -119,13 +143,13 @@ if (-not $Tray) {
     # The tray on by default (owner 2026-10-23): behind the tray icon unless Settings say off. The setting is "auto", "on" or
     # "off"; a file from before keeps true or false, and false was the old default nobody chose, so only "off" means a window.
     $Tray = $true
-    $settingsFile = Join-Path $root "data\settings.json"
+    $settingsFile = Join-Path $dataDir "settings.json"
     if (Test-Path -LiteralPath $settingsFile) {
         try {
             $saved = Get-Content -LiteralPath $settingsFile -Raw | ConvertFrom-Json
             if ($saved.trayMode -is [string] -and $saved.trayMode -eq "off") { $Tray = $false }
         } catch {
-            Write-Host "data\settings.json could not be read; starting behind the tray icon."
+            Write-Host "$settingsFile could not be read; starting behind the tray icon."
         }
     }
 }
@@ -138,6 +162,7 @@ if ($Tray) {
     # window closes. Before, this script waited on the tray in the same window and the tray hid that window, which Windows
     # Terminal ignores, so the window stayed open behind the icon (and a Desktop icon's -NoExit kept it besides).
     $trayArgs = "-NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $root 'tools\tray.ps1')`" -Python `"$python`" -Root `"$root`""
+    if ($uv) { $trayArgs += " -Uv `"$uv`"" }  # the tray syncs the packages before it starts the server again after an update
     if ($Login) { $trayArgs += " -Login" }
     $info = New-Object System.Diagnostics.ProcessStartInfo
     $info.FileName = "powershell.exe"
@@ -157,8 +182,21 @@ if ($Tray) {
 Write-Host ""
 Write-Host "Kickoff Companion is starting. Keep this window open; close it or press Ctrl+C to stop." -ForegroundColor Green
 Write-Host ""
+$env:KICKOFF_RELAUNCH = "1"  # BUG-22: a restart exits with 8 and this window starts the server again, with any new code
 & $python -m app @appArgs
 $code = $LASTEXITCODE
+while ($code -eq 8) {
+    Write-Host ""
+    if ($uv -and (Test-Path -LiteralPath $syncFile)) {
+        Write-Step "The update changed the app's packages: bringing them in step."
+        & $uv sync --frozen --quiet --no-dev --inexact
+        if ($LASTEXITCODE -eq 0) { Remove-Item -LiteralPath $syncFile -Force -ErrorAction SilentlyContinue }
+        else { Write-Step "uv could not update the packages (exit code $LASTEXITCODE); starting anyway. The log says more." }
+    }
+    Write-Host "Restarting with the new code." -ForegroundColor Green
+    & $python -m app --restarted
+    $code = $LASTEXITCODE
+}
 if ($code -eq 6) {
     Write-Host ""
     Write-Host "Kickoff Companion was already running, so that copy was opened." -ForegroundColor Green
@@ -168,5 +206,5 @@ if ($code -eq 4) {
     Stop-WithMessage "Another program uses Kickoff Companion's port (what holds it and the free port are above). Stop it, or set another PORT in .env, then start again."
 }
 if ($code -ne 0) {
-    Stop-WithMessage "The server stopped with exit code $code. The log is in logs\app.log; the start steps are in logs\start.log."
+    Stop-WithMessage "The server stopped with exit code $code. The log is in $(Join-Path $logDir 'app.log'); the start steps are in $(Join-Path $logDir 'start.log')."
 }

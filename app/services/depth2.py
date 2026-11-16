@@ -91,10 +91,11 @@ def sos_played(games: list[Game], sp: list[TeamSP]) -> dict[str, dict[str, Any]]
     return {team: {"rating": round(value, 2), "games": len(totals[team]), "fcs": fcs.get(team, 0), "rank": ranks.get(team), "of": of} for team, value in averages.items()}
 
 
-def resume(schedule: list[Game], all_games: list[Game], team: str, sp: list[TeamSP], polls: list[PollWeek]) -> dict[str, Any]:
+def resume(schedule: list[Game], all_games: list[Game], team: str, sp: list[TeamSP], polls: list[PollWeek], *, next_team: str | None = None, teams: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
     """Our season so far from its schedule: expected and actual wins, the SP+ of opponents
     played and to come (with where the rest would rank among the schedules FBS teams have played,
-    from every game of the season), and the poll path."""
+    from every game of the season), and the poll path: each poll week with the game that led into it (ENH-19, the
+    owner's board of 2026-10-28, "Build it" 2026-10-30), and the next opponent's path for the same chart."""
     ratings = sp_ratings(sp)
     expected = 0.0
     wins = losses = 0
@@ -132,8 +133,95 @@ def resume(schedule: list[Game], all_games: list[Game], team: str, sp: list[Team
         "luck": round(wins - expected, 2) if counted else None,
         "sosPlayed": {**all_sos[team], "metric": "rating:sosPlayed"} if team in all_sos else None,  # Phase 16: its national list
         "remaining": {"games": ahead, "averageSp": _r(remaining_avg, 2), "rankAmongPlayed": rem_rank, "of": len(all_sos) or None, "metric": "rating:sosPlayed"},
-        "polls": poll_path(polls, team),
+        "polls": led_into(poll_path(polls, team), schedule, team, teams or {}),
+        "opponentPolls": opponent_path(polls, next_team, teams or {}),  # next_team: the loop above reuses `opponent`
     }
+
+
+def _game_line(g: Game, team: str, teams: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """A finished game as the chart writes it under a week: W, L or T, the opponent and where."""
+    home = g.home_team == team
+    ours, theirs = (g.home_points, g.away_points) if home else (g.away_points, g.home_points)
+    if not g.completed or _int(ours) is None or _int(theirs) is None:
+        return None
+    opponent = g.away_team if home else g.home_team
+    abbr = (teams.get(opponent or "") or {}).get("abbreviation")
+    return {
+        "result": "W" if ours > theirs else "L" if ours < theirs else "T",
+        "opponent": opponent,
+        "abbreviation": abbr if isinstance(abbr, str) and abbr.strip() else None,
+        "away": not home and not g.neutral_site,
+        "neutral": bool(g.neutral_site),
+    }
+
+
+def led_into(path: list[dict[str, Any]], schedule: list[Game], team: str, teams: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each poll week with `led`: the game that led into it. CFBD's week 1 poll is the preseason poll (no game); the
+    poll of week N follows the games of week N - 1 (a week with none is a bye); the final poll follows the last postseason
+    game. A game not finished yet leads into nothing."""
+    ours = sorted((g for g in schedule if isinstance(g, Game) and team in (g.home_team, g.away_team)), key=gamekeys.order)
+    out = []
+    for row in path:
+        week = row.get("week")
+        led: dict[str, Any] | None = None
+        if row.get("seasonType") == "postseason":
+            finished = [g for g in ours if (g.season_type or "regular") != "regular" and g.completed]
+            led = _game_line(finished[-1], team, teams) if finished else None
+        elif isinstance(week, int) and week >= 2:
+            games = [g for g in ours if (g.season_type or "regular") == "regular" and g.week == week - 1]
+            if not games:
+                led = {"bye": True}
+            else:
+                lines = [line for g in games if (line := _game_line(g, team, teams))]
+                led = lines[-1] if lines else None
+        out.append({**row, "led": led})
+    return out
+
+
+def margin_rows(games: list[Game], team: str | None, teams: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """A team's games in the shape the margin strip reads (the Season's schedule rows, without the TV and the line scores):
+    the week, where, the result and both scores once it is final, and the opponent with its colors (ENH-19 chart 3 on the
+    Pre-Game Program, owner 2026-10-30: "Add to program"). One record per game id; a damaged record is skipped."""
+    if not team:
+        return []
+    out: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for g in sorted((g for g in games if isinstance(g, Game) and team in (g.home_team, g.away_team)), key=gamekeys.order):
+        if g.id in seen:
+            continue
+        seen.add(g.id)
+        home = g.home_team == team
+        opponent = g.away_team if home else g.home_team
+        ours, theirs = (g.home_points, g.away_points) if home else (g.away_points, g.home_points)
+        final = bool(g.completed) and _int(ours) is not None and _int(theirs) is not None
+        info = teams.get(opponent or "") or {}
+        abbr = info.get("abbreviation")
+        out.append({
+            "gameId": g.id,
+            "week": g.week,
+            "postseason": gamekeys.label(g),
+            "playoffRound": gamekeys.playoff_round(g),
+            "date": g.start_date,
+            "homeAway": "neutral" if g.neutral_site else ("home" if home else "away"),
+            "result": ("W" if ours > theirs else "L" if ours < theirs else "T") if final else None,
+            "usPoints": ours if final else None,
+            "themPoints": theirs if final else None,
+            "opponent": {"school": opponent, "abbreviation": abbr if isinstance(abbr, str) and abbr.strip() else None, "color": info.get("color"), "altColor": info.get("altColor")},
+        })
+    return out
+
+
+def opponent_path(polls: list[PollWeek], opponent: str | None, teams: dict[str, dict[str, Any]]) -> dict[str, Any] | None:
+    """The next opponent's path in the same weeks, with its colors for the chart's line; None when there is no next
+    opponent or it was never ranked."""
+    if not opponent:
+        return None
+    path = poll_path(polls, opponent)
+    if not any(_int(row.get("ap")) is not None or _int(row.get("coaches")) is not None for row in path):
+        return None
+    info = teams.get(opponent) or {}
+    abbr = info.get("abbreviation")
+    return {"school": opponent, "abbreviation": abbr if isinstance(abbr, str) and abbr.strip() else None, "color": info.get("color"), "altColor": info.get("altColor"), "polls": path}
 
 
 def poll_path(polls: list[PollWeek], team: str) -> list[dict[str, Any]]:
@@ -401,10 +489,28 @@ def _situations(down: Any, distance: Any, ytg: Any) -> list[str]:
     return found
 
 
-def tendencies(rushes: list[RushingPlay], passes: list[PassingPlay], team: str) -> dict[str, Any]:
-    """The team's offense over its season: by situation (plays, run rate, yards and success on
-    runs and on passes), run direction and pass depth. A sack is a called pass; kneels and spikes
-    are left out. Only plays by `team` on offense count (the endpoint returns both sides)."""
+GRID_DISTANCES = (("1-3", 1, 3), ("4-6", 4, 6), ("7-10", 7, 10), ("11+", 11, 99))  # ENH-30, board 5: the owner's pick
+
+
+def down_distance_grid(snaps: list[dict[str, Any]]) -> dict[str, Any]:
+    """ENH-30 (board 5, owner 2026-10-25): success by down (1st to 4th) and distance (1-3, 4-6, 7-10, 11+), runs and passes
+    together, each cell {made, of, rate}. A snap with no verdict or no down and distance is left out."""
+    cells = {(down, key): [0, 0] for down in (1, 2, 3, 4) for key, _lo, _hi in GRID_DISTANCES}
+    for snap in snaps:
+        down, distance, success = _int(snap.get("down")), _int(snap.get("distance")), snap.get("success")
+        if down not in (1, 2, 3, 4) or distance is None or distance < 1 or not isinstance(success, bool):
+            continue
+        key = next(k for k, lo, hi in GRID_DISTANCES if lo <= distance <= hi or (hi == 99 and distance >= lo))
+        cells[(down, key)][1] += 1
+        cells[(down, key)][0] += int(success)
+    rows = []
+    for down in (1, 2, 3, 4):
+        rows.append({"down": down, "cells": [{"distance": key, "made": cells[(down, key)][0], "of": cells[(down, key)][1], "rate": round(cells[(down, key)][0] / cells[(down, key)][1], 3) if cells[(down, key)][1] else None} for key, _lo, _hi in GRID_DISTANCES]})
+    return {"distances": [k for k, _lo, _hi in GRID_DISTANCES], "rows": rows}
+
+
+def offense_snaps(rushes: list[RushingPlay], passes: list[PassingPlay], team: str) -> list[dict[str, Any]]:
+    """The team's offensive snaps from its season of runs and passes (kneels and spikes left out, a sack a called pass)."""
     snaps: list[dict[str, Any]] = []
     for r in rushes:
         if r.offense != team or r.is_kneel:
@@ -414,6 +520,14 @@ def tendencies(rushes: list[RushingPlay], passes: list[PassingPlay], team: str) 
         if p.offense != team or p.is_spike:
             continue
         snaps.append({"kind": "pass", "down": p.down, "distance": p.distance, "ytg": p.start_yards_to_goal, "yards": _int(p.total_yards), "success": p.success if isinstance(p.success, bool) else None, "direction": None, "depth": p.pass_depth or None, "game": p.game_id})
+    return snaps
+
+
+def tendencies(rushes: list[RushingPlay], passes: list[PassingPlay], team: str) -> dict[str, Any]:
+    """The team's offense over its season: by situation (plays, run rate, yards and success on
+    runs and on passes), run direction and pass depth. A sack is a called pass; kneels and spikes
+    are left out. Only plays by `team` on offense count (the endpoint returns both sides)."""
+    snaps = offense_snaps(rushes, passes, team)
 
     def tally(rows: list[dict[str, Any]]) -> dict[str, Any]:
         runs = [s for s in rows if s["kind"] == "run"]
@@ -441,7 +555,7 @@ def tendencies(rushes: list[RushingPlay], passes: list[PassingPlay], team: str) 
         t = tally(rows)
         depths.append({"key": key, "label": key.replace("_", " ").capitalize(), "plays": t["pass"]["plays"], "yardsPerPlay": t["pass"]["yardsPerPlay"], "success": t["pass"]["success"]})
     total = tally(snaps)
-    return {"team": team, "games": len({s["game"] for s in snaps if s["game"] is not None}), "plays": total["plays"], "runRate": total["runRate"], "bySituation": by_situation, "runDirection": directions, "passDepth": depths}
+    return {"team": team, "games": len({s["game"] for s in snaps if s["game"] is not None}), "plays": total["plays"], "runRate": total["runRate"], "bySituation": by_situation, "runDirection": directions, "passDepth": depths, "grid": down_distance_grid(snaps)}
 
 
 # --- the advanced box score of one game -------------------------------------------------------------------

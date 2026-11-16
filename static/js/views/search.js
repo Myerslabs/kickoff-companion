@@ -7,7 +7,10 @@
 // miss offers the server's close spellings ("Did you mean") instead of a dead end.
 // The layout pass (owner 2026-10-22, board 2: "Search finds every entry at any depth"): the menu's tables and pages too,
 // matched here on this device, listed first under Screens; a table opens wide, a page opens.
+// ENH-46 (owner 2026-11-10): the menu lists pages only, so the bands come from the catalog (ui/band-catalog.js allBands):
+// every band of every page is still found by its name, with its page's name under it, and opens wide by itself.
 
+import { allBands, pageList } from "../ui/band-catalog.js";
 import { icon } from "../ui/icons.js";
 import { ours, usSchool } from "../identity.js";
 import { DASH, el, frag, isNum, teamLogo, text } from "../ui/dom.js";
@@ -15,43 +18,46 @@ import { openSheet } from "../ui/remote.js";
 import { allEntries, findPath, labelOf, MENU } from "../ui/menu-tree.js";
 import { goTo } from "../ui/layers.js";
 import { fetchJson } from "./common.js";
-import { openFromMenu } from "./panels.js";
+import { openBand, openFromMenu } from "./panels.js";
 import { openPlayer } from "./player.js";
 
 const SCREENS_MAX = 8;
 
-/** The menu's screens whose name, place or hint holds every word of the query (two letters or more each). Exported for the tests. */
+/** The screens whose name, place or hint holds every word of the query (two letters or more each): the menu's entries, then
+ *  every band of every page (an item with `page` is a band of the catalog). Exported for the tests. */
 export function screenMatches(query, menu = MENU) {
   const words = String(query ?? "").toLowerCase().split(/\s+/).filter((w) => w.length >= 2);
   if (!words.length) return [];
-  const named = (entry) => words.every((w) => String(labelOf(entry.label) || "").toLowerCase().includes(w));
-  return allEntries(menu)
+  const nameOf = (entry) => String(labelOf(entry.searchLabel || entry.label) || "");
+  const named = (entry) => words.every((w) => nameOf(entry).toLowerCase().includes(w));
+  return [...allEntries(menu), ...allBands()]
     .filter(({ entry, where }) => {
-      const hay = `${labelOf(entry.label)} ${where} ${labelOf(entry.hint) || ""}`.toLowerCase();
+      const hay = `${nameOf(entry)} ${labelOf(entry.label)} ${where} ${labelOf(entry.hint) || ""}`.toLowerCase();
       return words.every((w) => hay.includes(w));
     })
     .sort((a, b) => Number(!named(a.entry)) - Number(!named(b.entry))) // a screen called by the words first, then those that mention them
     .slice(0, SCREENS_MAX);
 }
 
-function openScreen(entry, close) {
+function openScreen({ entry, where, page }, close) {
   close();
-  if (entry.flyout || entry.live) {
+  if (page) openBand(entry, { steps: pageList(page), where }); // a band of the catalog: previous and next walk its page's bands
+  else if (entry.flyout || entry.live) {
     openFromMenu(entry, { path: findPath(MENU, (e) => e === entry) || [entry.id], menu: MENU });
     if (typeof CustomEvent === "function") document.dispatchEvent(new CustomEvent("kickoff:menu-mark", { detail: { mark: entry.id } }));
   } else if (entry.href) window.open(entry.href, "_blank", "noopener");
   else if (typeof entry.page === "string") goTo(entry.page);
 }
 
-function screenItem({ entry, where }, close, query) {
+function screenItem({ entry, where, page = null }, close, query) {
   return el(
     "li",
     {},
     el(
       "button",
-      { class: "search__item", type: "button", onclick: () => openScreen(entry, close) },
+      { class: "search__item", type: "button", onclick: () => openScreen({ entry, where, page }, close) },
       el("span", { class: "search__screen", "aria-hidden": "true" }, icon(entry.flyout || entry.live ? "wide" : entry.icon || "page")),
-      el("span", { class: "search__name" }, el("span", {}, marked(labelOf(entry.label), query)), el("small", {}, text(where) || DASH)),
+      el("span", { class: "search__name" }, el("span", {}, marked(labelOf(entry.searchLabel || entry.label), query)), el("small", {}, text(where) || DASH)),
       el("span", { class: "search__meta" }, entry.flyout || entry.live ? "opens wide" : ""),
       CHEVRON(),
     ),

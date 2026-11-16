@@ -32,18 +32,8 @@ def test_keep_awake_on_windows_sets_and_clears_the_hold_once():
     assert awake.held is False
 
 
-def test_keep_awake_on_a_mac_holds_a_child_and_ends_it():
-    child = SimpleNamespace(terminated=False)
-    child.terminate = lambda: setattr(child, "terminated", True)
-    awake = KeepAwake(platform="darwin", spawn=lambda: child)
-    awake.set(True)
-    assert awake.held and not child.terminated
-    awake.release()
-    assert child.terminated and not awake.held
-
-
 def test_keep_awake_elsewhere_does_nothing_and_says_so_once(caplog):
-    awake = KeepAwake(platform="linux", has_inhibit=lambda: False)  # a Linux without systemd (freeze wave F6 holds the rest awake)
+    awake = KeepAwake(platform="linux")  # ENH-26: Windows only
     with caplog.at_level("INFO", logger="kickoff.maintenance"):
         awake.set(True)
         awake.set(True)
@@ -98,7 +88,7 @@ def test_backup_keeps_only_the_newest_and_replaces_today(tmp_path):
 
 
 def maintenance(tmp_path: Path, *, window=False, enabled=True, clock=None, refresh=None) -> Maintenance:
-    return Maintenance(data_dir=make_data(tmp_path), backup_dir=tmp_path / "b", keep=7, window_open=lambda: window, backups_enabled=lambda: enabled, clock=clock or (lambda: NOW.astimezone()), refresh_archive=refresh, awake=KeepAwake(platform="linux", has_inhibit=lambda: False))
+    return Maintenance(data_dir=make_data(tmp_path), backup_dir=tmp_path / "b", keep=7, window_open=lambda: window, backups_enabled=lambda: enabled, clock=clock or (lambda: NOW.astimezone()), refresh_archive=refresh, awake=KeepAwake(platform="linux"))
 
 
 def test_backup_is_due_at_once_when_there_is_none_then_after_four_in_the_morning(tmp_path):

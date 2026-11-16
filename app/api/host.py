@@ -125,8 +125,9 @@ async def invite(request: Request) -> Any:
         warnings.append(f"This computer's address ({ip}) is not a home-network address. It may be on a public network, where other devices usually cannot reach it. Use your own router, a hotspot, or a travel router.")
     elif ip.startswith("192.168.137."):
         warnings.append("This computer is sharing its connection as a hotspot: friends join the hotspot's Wi-Fi, not the venue's.")
-    if not access.pin_set:
-        warnings.append("No host PIN is set, so everyone who joins can change settings. Set a PIN in Settings to make guests view-only.")
+    # ENH-20 (P5): the PIN on its own, so the Invite page says it once, in What guests can do; the QR's other homes (In Game's
+    # Invite panel) show it with the network warnings
+    pin_warning = None if access.pin_set else "No host PIN is set, so everyone who joins can change settings. Set a PIN in Settings to make guests view-only."
     return envelope(
         {
             "url": url,
@@ -135,6 +136,7 @@ async def invite(request: Request) -> Any:
             "pinSet": access.pin_set,
             "away": away,
             "warnings": warnings,
+            "pinWarning": pin_warning,
             "copyUrl": REPO_URL if REPO_IS_PUBLIC else None,  # "get your own copy" only once the project is public
         },
         source="live",

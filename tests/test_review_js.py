@@ -129,10 +129,13 @@ scenarios.notes = async () => {
     }
     return respond(200, { notes: db.slice() });
   };
-  const host = gameNotesPanel({ gameId: 526001015, getContext: () => ({ period: 2, clock: "8:41", score: "SWT 7, OPP 3" }) });
+  const host = gameNotesPanel({ gameId: 526001015, getContext: () => ({ period: 2, clock: "8:41", score: "FLA 7, OPP 3" }) });
   document.body.append(host);
   await flush();
-  assert.ok(text(host).includes("No notes from the host for this game yet."));
+  // owner 2026-11-14: no line while there are none; your notes, then the box and the button last
+  assert.ok(!text(host).includes("No notes from"));
+  assert.ok(host.querySelector(".gamenotes__list").hidden, "an empty list takes no room");
+  assert.deepEqual(host.childNodes.slice(0, 3).map((c) => c.tagName.toLowerCase()), ["ul", "textarea", "p"], "the notes over the box, the button under it");
   const [input] = host.querySelectorAll("textarea");
   const add = host.querySelectorAll("button").find((b) => text(b) === "Add the note");
   add.click();
@@ -141,13 +144,18 @@ scenarios.notes = async () => {
   input.value = "Watch the left tackle";
   add.click();
   await flush();
-  assert.deepEqual(sent.find((s) => s.method === "POST").body, { text: "Watch the left tackle", period: 2, clock: "8:41", score: "SWT 7, OPP 3" });
+  assert.deepEqual(sent.find((s) => s.method === "POST").body, { text: "Watch the left tackle", period: 2, clock: "8:41", score: "FLA 7, OPP 3" });
   const t = text(host);
-  assert.ok(t.includes("Q2 · 8:41 · SWT 7, OPP 3") && t.includes("Watch the left tackle") && !RAW.test(t), t);
+  assert.ok(t.includes("Q2 · 8:41 · FLA 7, OPP 3") && t.includes("Watch the left tackle") && !RAW.test(t), t);
   assert.equal(input.value, "");
-  host.querySelectorAll("button").find((b) => text(b) === "Remove").click();
+  assert.ok(!host.querySelector(".gamenotes__list").hidden);
+  input.value = "That blitz again";
+  add.click();
   await flush();
-  assert.ok(text(host).includes("No notes from the host for this game yet."));
+  assert.deepEqual(host.querySelectorAll(".gamenotes__text").map(text), ["Watch the left tackle", "That blitz again"], "oldest first: a new note lands at the bottom");
+  host.querySelectorAll("button").filter((b) => text(b) === "Remove").forEach((b) => b.click());
+  await flush();
+  assert.ok(host.querySelector(".gamenotes__list").hidden && !text(host).includes("No notes from"));
   assert.equal(gameNotesPanel({ gameId: null }).childNodes.length, 0);
 };
 """

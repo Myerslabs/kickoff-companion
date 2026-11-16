@@ -2,7 +2,7 @@
 // that shows them (the Pre-Game Program's season leaders and latest game, In Game's Play value panel, the Archive), so
 // they all size alike.
 //
-// Table sizes, wave 2 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): each table sizes itself by its own box. Large
+// Table sizes, wave 2 (owner 2026-10-10; the design rules, Table sizes): each table sizes itself by its own box. Large
 // has the whole heads (PPA per play, PPA per pass, PPA per rush) and the full name, and a season's table adds the plays
 // and the total PPA (large only, owner 2026-10-10: the volume behind the average); medium the middle heads (PPA/play,
 // Pass, Rush); small the surname and every value (PPA, Pass, Rush). A table of players sorts (owner 2026-09-26), the best

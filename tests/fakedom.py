@@ -60,7 +60,7 @@ const moduleUrl = (rel) => pathToFileURL(join(STATIC_JS, rel)).href;
 const clone = (value) => JSON.parse(JSON.stringify(value));
 // The team the app follows, as /api/identity gives it before the first page draws (public release
 // Phase 3). A scenario that renders "us" labels calls it first; without it the labels are plain words.
-const TEAM = { school: "Swampwater Tech", mascot: "Mudpuppies", abbreviation: "SWT", conference: "Biscuit Belt", conferenceShort: "Biscuit Belt", color: "#1d6b5f", altColor: "#e0b23c" };
+const TEAM = { school: "Florida", mascot: "Gators", abbreviation: "FLA", conference: "SEC", conferenceShort: "SEC", color: "#1d6b5f", altColor: "#e0b23c" };
 const useTeam = async (data = TEAM) => (await import(moduleUrl("identity.js"))).setIdentity(data);
 // Item 6 (player names): the words a drawn name (ui/dom.js personName, a .pn) shows at one form, "full", "initial", "last" or
 // "reduced" (no-break spaces read as spaces); a node holding no name gives its text. The node may be the .pn or hold one.
@@ -204,6 +204,9 @@ class FakeText extends FakeNode {
     super();
     this.data = String(data);
   }
+  get nodeType() {
+    return 3; // batch 1 (2026-11-15): as a browser's text node; the notes' layout is placed only when it is a node
+  }
   get textContent() {
     return this.data;
   }
@@ -225,6 +228,9 @@ function toNode(value) {
 }
 
 class FakeElement extends FakeNode {
+  get nodeType() {
+    return 1; // batch 1 (2026-11-15): as a browser's element
+  }
   constructor(tag) {
     super();
     this.localName = String(tag).toLowerCase();

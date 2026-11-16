@@ -7,6 +7,8 @@
 //   pageRule(paper, orient)    the @page rule text (exported for the tests)
 //   openPrintSheet()           the sheet; returns its handle
 //   printButton()              the small "Print" button for a page
+//   printOnlyButton(target, label)   ENH-15: a band's own Print (Getting there): that band alone on the remembered paper, in ink
+//                              on white, nothing else of the page (target() returns the band's element)
 
 import { el } from "./dom.js";
 import { openSheet } from "./remote.js";
@@ -46,9 +48,18 @@ export function printNow(choice, doc = document, win = window) {
   const theme = root.dataset.theme;
   root.dataset.theme = "light"; // ink on white, whatever the screen shows
   doc.body.classList.add("printing");
+  const only = choice.only && typeof choice.only === "object" && choice.only.classList ? choice.only : null; // ENH-15: one band alone
+  if (only) {
+    doc.body.classList.add("print-only");
+    only.classList.add("print-target");
+  }
   const done = () => {
     style.remove();
     doc.body.classList.remove("printing");
+    if (only) {
+      doc.body.classList.remove("print-only");
+      only.classList.remove("print-target");
+    }
     if (theme === undefined) delete root.dataset.theme;
     else root.dataset.theme = theme;
     win.removeEventListener?.("afterprint", done);
@@ -74,4 +85,11 @@ export function openPrintSheet() {
 
 export function printButton() {
   return el("button", { class: "btn btn--quiet print-button", type: "button", "aria-haspopup": "dialog", onclick: () => openPrintSheet() }, "Print");
+}
+
+export function printOnlyButton(target, label = "Print this") {
+  return el("button", { class: "btn btn--quiet print-only-button", type: "button", onclick: () => {
+    const only = typeof target === "function" ? target() : null;
+    if (only) printNow({ ...recall(), only });
+  } }, label);
 }

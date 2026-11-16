@@ -1,5 +1,5 @@
 """Phase 16, stream SEASON, owner look GX-14 (restrained): the 280px SP+ offense vs defense scatter inside the SP+
-band on Ratings, at 1100px and wider only, labels on Swampwater Tech and the next opponent only, a tap opens the team.
+band on Ratings, at 1100px and wider only, labels on Florida and the next opponent only, a tap opens the team.
 Dropping the commit drops this file."""
 
 from __future__ import annotations
@@ -23,8 +23,8 @@ const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 scenarios.scatter = async () => {
   const { spScatter, scatterScale } = await import(moduleUrl("ui/scatter.js"));
   const rows = [
-    { team: "Swampwater Tech", off: 33.4, def: 14.5 },
-    { team: "Silver Dollar", off: 30.0, def: 20.0 },
+    { team: "Florida", off: 33.4, def: 14.5 },
+    { team: "Fresno State", off: 30.0, def: 20.0 },
     { team: "Georgia", off: 40.8, def: 12.1 },
     { team: "Kent State", off: 10.0, def: 40.0 },
     { team: "Broken", off: "x", def: 3 }, null, { team: "", off: 1, def: 1 }, { team: "NaN U", off: NaN, def: 2 },
@@ -37,27 +37,34 @@ scenarios.scatter = async () => {
   assert.equal(s.y(40), 266);
   assert.deepEqual(s.domain, { off: [10, 40.8], def: [12.1, 40] });
   assert.equal(scatterScale([{ team: "A", off: 1, def: 1 }]), null, "one team is not a chart");
-  const fig = spScatter(rows, { us: "Swampwater Tech", next: "Silver Dollar" });
+  const both = spScatter(rows, { us: "Florida", next: "Fresno State" });
+  assert.deepEqual(both.querySelectorAll("svg").map((s) => s.getAttribute("viewBox")), ["0 0 280 280", "0 0 720 300"], "ENH-20: the square and the wide drawing; the CSS shows one");
+  const wide = both.querySelector("svg.scatter__svg--wide");
+  assert.equal(wide.querySelectorAll("circle.scatter__hit").length, 4);
+  const wideScale = scatterScale(rows, { width: 720, height: 300, pad: 14 });
+  assert.equal(wideScale.x(40.8), 706, "the wide drawing's offense runs across its width");
+  assert.equal(wideScale.y(40), 286, "and its defense down its height");
+  const fig = both.querySelector("svg.scatter__svg--square");
   const labels = fig.querySelectorAll("text.scatter__label").map(text);
-  assert.deepEqual(labels, ["Silver Dollar", "Swampwater Tech"], "labels only on the next opponent and Swampwater Tech (drawn last, on top)");
+  assert.deepEqual(labels, ["Fresno State", "Florida"], "labels only on the next opponent and Florida (drawn last, on top)");
   assert.equal(fig.querySelectorAll("circle.scatter__hit").length, 4, "every valid team is a target; bad rows are skipped");
   assert.equal(fig.querySelectorAll("circle.scatter__dot--us").length, 1);
   assert.equal(fig.querySelectorAll("circle.scatter__ring").length, 1);
-  for (const c of fig.querySelectorAll("circle")) for (const a of ["cx", "cy"]) assert.ok(!RAW.test(c.getAttribute(a)), `${a}=${c.getAttribute(a)}`);
-  assert.ok(!RAW.test(text(fig)));
+  for (const c of both.querySelectorAll("circle")) for (const a of ["cx", "cy"]) assert.ok(!RAW.test(c.getAttribute(a)), `${a}=${c.getAttribute(a)}`);
+  assert.ok(!RAW.test(text(both)));
   // a tap opens that team through the same event every team name uses
   const opened = [];
   document.addEventListener("kickoff:team", (e) => opened.push(e.detail));
   fig.querySelectorAll("circle.scatter__hit").find((c) => c.getAttribute("data-team") === "Georgia").click();
   assert.deepEqual(opened, ["Georgia"]);
-  // no next opponent, or a next opponent that is Swampwater Tech: one label
-  assert.deepEqual(spScatter(rows, { us: "Swampwater Tech", next: "Swampwater Tech" }).querySelectorAll("text.scatter__label").map(text), ["Swampwater Tech"]);
+  // no next opponent, or a next opponent that is Florida: one label
+  assert.deepEqual(spScatter(rows, { us: "Florida", next: "Florida" }).querySelector("svg.scatter__svg--square").querySelectorAll("text.scatter__label").map(text), ["Florida"]);
   for (const bad of [null, [], "x", [{ team: "A", off: 1, def: 1 }]]) assert.equal(spScatter(bad), null);
 };
 
 scenarios.onRatings = async () => {
   installWindow();
-  localStorage.setItem("kickoff:next-opponent", JSON.stringify({ school: "Silver Dollar" }));
+  localStorage.setItem("kickoff:next-opponent", JSON.stringify({ school: "Fresno State" }));
   const { createRatingsView } = await import(moduleUrl("views/ratings.js"));
   route("/api/ratings", () => envelope(clone(FIXTURE.ratings)));
   const main = document.createElement("main");
@@ -67,7 +74,7 @@ scenarios.onRatings = async () => {
   await settle();
   const fig = main.querySelector("#ratings-sp figure.scatter");
   assert.ok(fig, "the scatter sits inside the SP+ band");
-  assert.deepEqual(fig.querySelectorAll("text.scatter__label").map(text), ["Silver Dollar", "Swampwater Tech"]);
+  assert.deepEqual(fig.querySelector("svg.scatter__svg--square").querySelectorAll("text.scatter__label").map(text), ["Fresno State", "Florida"]);
   view.unmount();
 };
 """
@@ -94,6 +101,7 @@ def test_the_scatter_follows_its_band() -> None:
     assert len(above) == 2
     block = above[1].split("}\n}", 1)[0]
     assert ".ratings__sp > .scatter { display: grid;" in block and "order: -1" in block
+    assert ".scatter__svg--square { display: none;" in block, "ENH-20: the wide drawing above the table, the square hidden"
     assert "minmax(0, 1fr)" in block, "a one-column grid that never grows past the band"
     beside = CSS.split("@container (min-width: 1000px) {\n  .ratings__sp", 1)
     assert len(beside) == 2 and "280px" in beside[1].split("}\n}", 1)[0]

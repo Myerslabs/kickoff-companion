@@ -107,7 +107,7 @@ class Harness:
         self.client = CfbdClient(self.settings, self.db, transport=self.upstream.transport, clock=self.clock)
         self.client.quota.mark_reconcile_attempt(self.clock())
         self.client.quota.needs_reconcile = False
-        self.payloads = {"sp": [{"team": "Swampwater Tech", "rating": 20.1}]}
+        self.payloads = {"sp": [{"team": "Florida", "rating": 20.1}]}
 
         def sp(_: httpx.Request) -> httpx.Response:
             return httpx.Response(200, json=self.payloads["sp"])
@@ -156,8 +156,8 @@ def test_ratings_are_rechecked_after_the_slot_until_they_change_then_logged(make
     h.clock.advance(hours=1)
     assert h.get_sp().source == "cache"  # the recheck is three hours
     h.clock.advance(hours=2)
-    h.payloads["sp"] = [{"team": "Swampwater Tech", "rating": 22.4}]  # CFBD loads the new ratings
-    assert h.get_sp().payload == [{"team": "Swampwater Tech", "rating": 22.4}]
+    h.payloads["sp"] = [{"team": "Florida", "rating": 22.4}]  # CFBD loads the new ratings
+    assert h.get_sp().payload == [{"team": "Florida", "rating": 22.4}]
     h.clock.advance(hours=3)
     assert h.get_sp().source == "cache"  # changed after the slot: kept until next Sunday
     assert h.upstream.count("/ratings/sp") == 3

@@ -17,11 +17,15 @@ here. The steps:
    place (app/restart.py) when the key or the home team changed; the page waits for it and opens the app.
 
 Settings uses the same routes after setup: the team can change from any device, the key only from the
-server computer. Every refusal is a readable error envelope."""
+server computer. Every refusal is a readable error envelope.
+
+FEAT-13 (owner 2026-10-26): on a computer that runs the packaged program, a fresh clone first offers to bring over that install's
+key, team and data (app/services/public_import.py); POST /api/welcome/import copies them and restarts."""
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Request
@@ -35,7 +39,7 @@ from app.cfbd.models import Team, parse_records
 from app.cfbd.quota import QuotaBlocked
 from app.config import STATIC_DIR, Settings
 from app.netinfo import lan_ip
-from app.services import plan
+from app.services import plan, public_import
 from app.services.envfile import EnvFileError, set_values
 from app.services.prefs import MAX_EXTRA_PRIMARIES, PrefsError, PrefsStore
 from app.services.teamset import state_of
@@ -79,6 +83,7 @@ def _state(request: Request) -> dict[str, Any]:
         "tickerMode": prefs.prefs.tickerMode,
         "plan": plan.summary(client) if (configured or _pending(request)) else None,
         "envWritable": settings.env_path is not None,
+        "publicInstall": public_import.summary(_other_install(settings)) if settings.setup_needed and settings.env_path is not None else None,
     }
 
 
@@ -212,19 +217,24 @@ async def finish(request: Request) -> Any:
     tier2 = plan.allows_liked(request.app.state.cfbd.capabilities)
     if (any(patch.values()) or ticker_mode == "mine") and not tier2:
         return error_response(422, "tier2_needed", "More primary teams, secondary teams and the My teams ticker need a Tier 2 key. Pick just your home team for now.")
-    unknown = [t for t in patch["primaryTeams"] + patch["likedTeams"] if t.strip().lower() not in by_name]
-    if unknown:
-        return error_response(422, "bad_liked", f"Not FBS schools in CFBD's list: {', '.join(unknown[:5])}.")
-    primaries: list[str] = []
-    for name in patch["primaryTeams"]:
-        school = by_name[name.strip().lower()].school
-        if school != chosen.school and school not in primaries:
-            primaries.append(school)
-    if len(primaries) > MAX_EXTRA_PRIMARIES:
-        return error_response(422, "too_many_primaries", f"Up to {MAX_EXTRA_PRIMARIES} more primary teams besides your home team. Make the rest secondary teams.")
-    patch["primaryTeams"] = primaries
-    patch["likedTeams"] = [s for s in (by_name[t.strip().lower()].school for t in patch["likedTeams"]) if s != chosen.school and s not in primaries]
-    patch["tickerMode"] = ticker_mode
+    if tier2:
+        unknown = [t for t in patch["primaryTeams"] + patch["likedTeams"] if t.strip().lower() not in by_name]
+        if unknown:
+            return error_response(422, "bad_liked", f"Not FBS schools in CFBD's list: {', '.join(unknown[:5])}.")
+        primaries: list[str] = []
+        for name in patch["primaryTeams"]:
+            school = by_name[name.strip().lower()].school
+            if school != chosen.school and school not in primaries:
+                primaries.append(school)
+        if len(primaries) > MAX_EXTRA_PRIMARIES:
+            return error_response(422, "too_many_primaries", f"Up to {MAX_EXTRA_PRIMARIES} more primary teams besides your home team. Make the rest secondary teams.")
+        patch["primaryTeams"] = primaries
+        patch["likedTeams"] = [s for s in (by_name[t.strip().lower()].school for t in patch["likedTeams"]) if s != chosen.school and s not in primaries]
+        patch["tickerMode"] = ticker_mode
+    else:
+        # below Tier 2 only the home team is saved: picks kept from a Tier 2 key stay for when the key has it again
+        # (the 2.0 review; Settings says "saved; shows with a Tier 2 key")
+        patch = {}
     if settings.env_path is None:
         return error_response(409, "env_read_only", "This server reads its settings from environment variables; set TEAM and CONFERENCE there.")
     values = {"TEAM": chosen.school, "CONFERENCE": chosen.conference}
@@ -233,7 +243,8 @@ async def finish(request: Request) -> Any:
         values["CFBD_API_KEY"] = pending
     changed = settings.setup_needed or chosen.school != settings.team or chosen.conference != settings.conference or bool(pending)
     try:
-        prefs.update(patch)
+        if patch:
+            prefs.update(patch)
         if changed:
             set_values(settings.env_path, values)
     except PrefsError as exc:
@@ -244,5 +255,39 @@ async def finish(request: Request) -> Any:
         request.app.state.pending_key = None
         restart.request(f"setup saved for {chosen.school}")
     log.info("Setup saved: %s (%s), %d more primary teams, %d secondary schools, %d conferences, %d states, %s ticker", chosen.school, chosen.conference,
-             len(patch["primaryTeams"]), len(patch["likedTeams"]), len(patch["likedConferences"]), len(patch["likedStates"]), patch["tickerMode"])
+             len(patch.get("primaryTeams", [])), len(patch.get("likedTeams", [])), len(patch.get("likedConferences", [])), len(patch.get("likedStates", [])), patch.get("tickerMode", "kept"))
     return envelope({**_state(request), "restarting": changed, "team": chosen.school, "conference": chosen.conference}, source="live")
+
+
+def _other_install(settings: Settings) -> Any:
+    """The packaged program's folder when it is another install than this one (2.0: the packaged program keeps its own
+    files there, so it never offers to bring itself over)."""
+    source = public_import.find_public()
+    if source is None or settings.env_path is None:
+        return None
+    try:
+        if source.resolve() == Path(settings.env_path).resolve().parent:
+            return None
+    except OSError:
+        return None
+    return source
+
+
+@router.post("/api/welcome/import")
+async def bring_over(request: Request) -> Any:
+    """FEAT-13: copy the packaged install's key, team and data into this project, once, while setup is still needed."""
+    settings: Settings = request.app.state.settings
+    if not settings.setup_needed:
+        return error_response(409, "set_up", "This server is set up already; nothing is brought over now.")
+    if settings.env_path is None:
+        return error_response(409, "env_read_only", "This server reads its settings from environment variables.")
+    source = _other_install(settings)
+    if source is None:
+        return error_response(404, "no_public_install", "No other Kickoff Companion install was found on this computer.")
+    try:
+        result = public_import.copy_into(source, settings.env_path, settings.data_dir)
+    except (OSError, ValueError, EnvFileError) as exc:
+        log.warning("Bringing over the other install failed: %s", exc)
+        return error_response(500, "import_failed", f"Could not bring it over: {exc}.")
+    restart.request("brought over the other install")
+    return envelope({**result, "restarting": True}, source="live")

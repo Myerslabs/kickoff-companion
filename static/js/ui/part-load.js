@@ -80,8 +80,8 @@ export function partLoad({ gameId, parts, lead, detail, due, done } = {}) {
     try {
       const data = await send("/api/notes/run", { gameId: id, parts: asked });
       busy = Boolean(data.running);
-      status.textContent = busy ? "Claude Code is looking it up in the background. The page refreshes when it is in." : "";
-      watchRun(); // the loading bar follows the run; the page refreshes once at its end
+      status.textContent = busy ? "Claude Code is looking it up in the background. When it is in, the To do says so; Refresh shows it." : "";
+      watchRun(); // the loading bar follows the run; at its end the To do says the data is in (manual refresh, 2026-11-14)
     } catch (error) {
       busy = false;
       status.textContent = `${text(error?.message || "The run did not start")}.`;

@@ -299,7 +299,9 @@ def test_ratings_is_in_the_menu():
     from pathlib import Path
 
     tree = Path("static/js/ui/menu-tree.js").read_text(encoding="utf-8")
-    assert '{ id: "ratings", label: "Advanced Team Ratings"' in tree, "the menu's Advanced stats group (the layout pass, 2026-10-22)"
+    assert 'items: [pageRow("ratings")]' in tree, "the menu's Advanced stats group (the layout pass, 2026-10-22); one row that opens the page (ENH-46, 2026-11-10)"
+    catalog = Path("static/js/ui/band-catalog.js").read_text(encoding="utf-8")
+    assert 'label: "Advanced Team Ratings"' in catalog and 'route: "ratings"' in catalog, "its name and address are the catalog's"
 
 
 # --- D: context tables ------------------------------------------------------------------------------
@@ -312,7 +314,7 @@ def test_road_ahead_lists_each_remaining_opponent_with_form():
     schedule = games("games_team")
     league = schedule
     sp = parse_records(TeamSP, fixture_payload("ratings_sp"), context="test").records
-    rows = road_ahead(schedule, league, "Swampwater Tech", sp, {"Diner Tech": 8})
+    rows = road_ahead(schedule, league, "Florida", sp, {"Texas State": 8})
     remaining = [g for g in schedule if not g.completed]
     assert [r["gameId"] for r in rows] == [g.id for g in sorted(remaining, key=gamekeys.order)]
     assert all(set(r) >= {"opponent", "site", "record", "apRank", "sp", "spRank", "spOf", "lastThree"} for r in rows)
@@ -327,17 +329,17 @@ def test_road_ahead_form_reads_each_game_from_the_opponents_side():
 
     base = fixture_payload("games_post_2025")[0]
     made = [
-        dict(base, id=1, homeTeam="Gravy Boat State", awayTeam="Front Porch State", homePoints=31, awayPoints=10, completed=True, neutralSite=False, seasonType="regular", week=1),
-        dict(base, id=2, homeTeam="Okra Valley", awayTeam="Gravy Boat State", homePoints=24, awayPoints=20, completed=True, neutralSite=False, seasonType="regular", week=2),
-        dict(base, id=3, homeTeam="Gravy Boat State", awayTeam="Bayou Tech", homePoints=17, awayPoints=17, completed=True, neutralSite=True, seasonType="regular", week=3),
-        dict(base, id=4, homeTeam="Swampwater Tech", awayTeam="Gravy Boat State", homePoints=None, awayPoints=None, completed=False, neutralSite=False, seasonType="regular", week=9),
+        dict(base, id=1, homeTeam="Alabama", awayTeam="Vanderbilt", homePoints=31, awayPoints=10, completed=True, neutralSite=False, seasonType="regular", week=1),
+        dict(base, id=2, homeTeam="Georgia", awayTeam="Alabama", homePoints=24, awayPoints=20, completed=True, neutralSite=False, seasonType="regular", week=2),
+        dict(base, id=3, homeTeam="Alabama", awayTeam="Bayou Tech", homePoints=17, awayPoints=17, completed=True, neutralSite=True, seasonType="regular", week=3),
+        dict(base, id=4, homeTeam="Florida", awayTeam="Alabama", homePoints=None, awayPoints=None, completed=False, neutralSite=False, seasonType="regular", week=9),
     ]
     records = parse_records(Game, made, context="test").records
-    rows = road_ahead([records[3]], records, "Swampwater Tech", [], {})
-    assert [r["opponent"] for r in rows] == ["Gravy Boat State"] and rows[0]["record"] == "1-1"
+    rows = road_ahead([records[3]], records, "Florida", [], {})
+    assert [r["opponent"] for r in rows] == ["Alabama"] and rows[0]["record"] == "1-1"
     assert rows[0]["lastThree"] == [
-        {"result": "W", "score": "31-10", "points": 31, "opponentPoints": 10, "opponent": "Front Porch State", "homeAway": "home"},
-        {"result": "L", "score": "20-24", "points": 20, "opponentPoints": 24, "opponent": "Okra Valley", "homeAway": "away"},
+        {"result": "W", "score": "31-10", "points": 31, "opponentPoints": 10, "opponent": "Vanderbilt", "homeAway": "home"},
+        {"result": "L", "score": "20-24", "points": 20, "opponentPoints": 24, "opponent": "Georgia", "homeAway": "away"},
         {"result": "T", "score": "17-17", "points": 17, "opponentPoints": 17, "opponent": "Bayou Tech", "homeAway": "neutral"},
     ]
 
@@ -371,19 +373,19 @@ def test_common_opponents_margins():
 
     base = fixture_payload("games_post_2025")[0]
     made = [
-        dict(base, id=1, homeTeam="Swampwater Tech", awayTeam="Gravy Boat State", homePoints=31, awayPoints=10, completed=True, seasonType="regular", week=2),
-        dict(base, id=2, homeTeam="Gravy Boat State", awayTeam="Front Porch State", homePoints=20, awayPoints=24, completed=True, seasonType="regular", week=3),
-        dict(base, id=3, homeTeam="Swampwater Tech", awayTeam="Front Porch State", homePoints=None, awayPoints=None, completed=False, seasonType="regular", week=9),
+        dict(base, id=1, homeTeam="Florida", awayTeam="Alabama", homePoints=31, awayPoints=10, completed=True, seasonType="regular", week=2),
+        dict(base, id=2, homeTeam="Alabama", awayTeam="Vanderbilt", homePoints=20, awayPoints=24, completed=True, seasonType="regular", week=3),
+        dict(base, id=3, homeTeam="Florida", awayTeam="Vanderbilt", homePoints=None, awayPoints=None, completed=False, seasonType="regular", week=9),
     ]
-    rows = common_opponents(parse_records(Game, made, context="test").records, "Swampwater Tech", "Front Porch State")
-    assert rows == [{"opponent": "Gravy Boat State", "opponentAbbr": None, "us": [{"result": "W", "score": "31-10", "margin": 21}], "them": [{"result": "W", "score": "24-20", "margin": 4}], "usMargin": 21, "themMargin": 4}]
-    assert common_opponents([], "Swampwater Tech", None) == []
+    rows = common_opponents(parse_records(Game, made, context="test").records, "Florida", "Vanderbilt")
+    assert rows == [{"opponent": "Alabama", "opponentAbbr": None, "us": [{"result": "W", "score": "31-10", "margin": 21}], "them": [{"result": "W", "score": "24-20", "margin": 4}], "usMargin": 21, "themMargin": 4}]
+    assert common_opponents([], "Florida", None) == []
     # tables wave 2: the opponent's abbreviation for the small table, from the /teams/fbs map the program already has
     records = parse_records(Game, made, context="test").records
-    named = common_opponents(records, "Swampwater Tech", "Front Porch State", {"Gravy Boat State": " GBS ", "Swampwater Tech": "SWT"})
-    assert named[0]["opponentAbbr"] == "GBS"
-    for junk in (None, {}, {"Gravy Boat State": ""}, {"Gravy Boat State": 7}, "x"):
-        assert common_opponents(records, "Swampwater Tech", "Front Porch State", junk)[0]["opponentAbbr"] is None  # an FCS school, a blank or a damaged map: the name stays
+    named = common_opponents(records, "Florida", "Vanderbilt", {"Alabama": " ALA ", "Florida": "FLA"})
+    assert named[0]["opponentAbbr"] == "ALA"
+    for junk in (None, {}, {"Alabama": ""}, {"Alabama": 7}, "x"):
+        assert common_opponents(records, "Florida", "Vanderbilt", junk)[0]["opponentAbbr"] is None  # an FCS school, a blank or a damaged map: the name stays
 
 
 def test_last_season_rows_compare_values_by_direction():
@@ -393,13 +395,13 @@ def test_last_season_rows_compare_values_by_direction():
 
     stats = parse_records(TeamStat, fixture_payload("stats_season_fbs"), context="test").records
     league = games("games_team")
-    now = Profiles(stats, league, "Biscuit Belt", team="Swampwater Tech").rows("Swampwater Tech")
-    rows = last_season(now, Profiles(stats, league, "Biscuit Belt", team="Swampwater Tech"), "Swampwater Tech")
+    now = Profiles(stats, league, "SEC", team="Florida").rows("Florida")
+    rows = last_season(now, Profiles(stats, league, "SEC", team="Florida"), "Florida")
     assert len(rows) == len(now) and all(r["better"] is None for r in rows)  # the same numbers: no change
     shifted = [dict(r, value=(r["value"] + 1) if isinstance(r["value"], (int, float)) else None) for r in now]
-    rows = last_season(shifted, Profiles(stats, league, "Biscuit Belt", team="Swampwater Tech"), "Swampwater Tech")
+    rows = last_season(shifted, Profiles(stats, league, "SEC", team="Florida"), "Florida")
     ppg = next(r for r in rows if r["key"] == "ppg")
     assert ppg["better"] is True  # more points than last season
     allowed = next((r for r in rows if r["key"] == "opp_ppg" and r["now"]["value"] is not None), None)
     assert allowed is None or allowed["better"] is False  # more points allowed is worse
-    assert last_season(now, None, "Swampwater Tech") == []
+    assert last_season(now, None, "Florida") == []

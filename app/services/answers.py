@@ -111,6 +111,48 @@ def read_json(text: Any, model: type[BaseModel], score: Callable[[dict[str, Any]
     return Parsed(value, raw, list(problems), warnings)
 
 
+def filled(value: Any) -> bool:
+    """True when a value from an answer says something: a non-blank text, a number or a yes/no, or a list or object with
+    something filled inside."""
+    if value is None:
+        return False
+    if isinstance(value, dict):
+        return any(filled(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(filled(v) for v in value)
+    if isinstance(value, str):
+        return bool(value.strip())
+    return True
+
+
+def keep_filled(new: Any, old: Any) -> Any:
+    """A new answer built onto the one before it (owner 2026-10-30: "make the season loads keep what a new answer leaves
+    empty"): object by object, a field the new answer fills replaces the old one and a field it leaves empty keeps what was
+    there; a filled list is taken whole (it is the new answer's list), so only an empty one falls back to the old."""
+    if isinstance(new, dict) and isinstance(old, dict):
+        out = dict(old)
+        for key, value in new.items():
+            out[key] = keep_filled(value, old.get(key)) if key in old else value
+        return out
+    return new if filled(new) else old
+
+
+def join_sources(*lists: Any, limit: int = 12) -> list[dict[str, Any]]:
+    """Sources from several answers, the newest first, each page once (by its URL, else its label)."""
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for rows in lists:
+        for row in rows if isinstance(rows, list) else []:
+            if not isinstance(row, dict):
+                continue
+            key = str(row.get("url") or row.get("label") or "").strip().lower()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            out.append(row)
+    return out[:limit]
+
+
 def atomic_write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=f".{path.stem}-", suffix=".tmp", dir=str(path.parent))

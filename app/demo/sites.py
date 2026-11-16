@@ -65,6 +65,78 @@ def headlines(world: World, now: datetime, team: str | None = None, limit: int =
     return rows[:limit]
 
 
+def _record(world: World, game_id: int):
+    for data in world.seasons.values():
+        for r in data.records:
+            if r.slot.id == game_id:
+                return r
+    return None
+
+
+def article_page(world: World, path: str) -> str | None:
+    """FEAT-14: a made-up story page for a recap or preview link, in an ordinary publisher's shape (the copier reads it like
+    any other: the article's paragraphs, the photo in og:image with its caption under it)."""
+    import re as _re
+
+    m = _re.match(r"^/(recap|preview)/(\d+)$", path)
+    r = _record(world, int(m.group(2))) if m else None
+    if r is None:
+        return None
+    league = world.league
+    h, a = league.by_id[r.slot.home], league.by_id[r.slot.away]
+    venue = f"{r.slot.venue.name} in {r.slot.venue.city}"
+    day = r.slot.start.strftime("%A, %B %d").replace(" 0", " ")
+    if m.group(1) == "recap":
+        w, l_ = (h, a) if r.home_points > r.away_points else (a, h)
+        ws, ls = max(r.home_points, r.away_points), min(r.home_points, r.away_points)
+        title = f"{w.school} beats {l_.school} {ws}-{ls}"
+        quarters = ", ".join(f"{x}-{y}" for x, y in zip(r.away_lines, r.home_lines, strict=False))
+        paras = [
+            f"{w.school} beat {l_.school} {ws}-{ls} on {day} at {venue}, a game that turned on a long drive in the second half.",
+            f"The quarters went {quarters}, away team first, and the {w.mascot} never trailed after the break.",
+            f"{l_.school}'s coach said the team will look at the film on Sunday and move on to next week's opponent.",
+            f"{w.school}'s coach praised the defense, which forced two punts in a row late to hold the lead, and said the team will enjoy the win for a night.",
+            "This is a made-up story in the test league, written by the app's simulator so the newspaper has whole stories to show.",
+        ]
+        color = w.color
+    else:
+        title = f"{a.school} at {h.school}: what to watch"
+        paras = [
+            f"{a.school} visits {h.school} on {day} at {venue}, one of the week's games the paper is watching.",
+            f"The {h.mascot} have been strong at home this season, and the {a.mascot} will need a clean game on the road to keep up.",
+            "Both coaches said this week that the game will come down to the lines, and to which team wins the turnover battle.",
+            "Kickoff is set, the weather looks clear, and the stadium is expected to be full for this one.",
+            "This is a made-up story in the test league, written by the app's simulator so the newspaper has whole stories to show.",
+        ]
+        color = h.color
+    photo = f"{DEMO_HOST}/photo/{r.slot.id}.png?c={color.lstrip('#')}"
+    body = "".join(f"<p>{escape(p)}</p>" for p in paras)
+    caption = escape(f"The scene at {r.slot.venue.name}. (Photo: Test League Photographer)")
+    return (
+        f"<html><head><title>{escape(title)}</title><meta property='og:image' content='{escape(photo)}'></head><body>"
+        f"<nav><a href='/'>Home</a> <a href='/scores'>Scores</a></nav><article><h1>{escape(title)}</h1>"
+        f"<p>By: Demo Writer</p><picture><img src='{escape(photo)}' alt=''></picture><div class='s-image-caption'>{caption}</div>{body}</article>"
+        "<footer>The test league. Nothing here is real.</footer></body></html>"
+    )
+
+
+def photo_png(color: str, width: int = 320, height: int = 200) -> bytes:
+    """A plain picture in a team's color (a made-up photo for the test league's stories)."""
+    import struct
+    import zlib
+
+    try:
+        rgb = bytes(int(color[i : i + 2], 16) for i in (0, 2, 4))
+    except (ValueError, IndexError):
+        rgb = b"\x33\x66\x99"
+    rows = b"".join(b"\x00" + rgb * width for _ in range(height))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(rows, 9)) + chunk(b"IEND", b"")
+
+
 def rss(title: str, items: list[dict]) -> bytes:
     body = [f'<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>{escape(title)}</title><link>{DEMO_HOST}/</link>']
     for item in items:
@@ -121,9 +193,19 @@ class DemoSites:
             return httpx.Response(200, content=json.dumps(nws_points(0, 0)).encode(), headers={"content-type": "application/geo+json"})
         if "weather.gov" in url:
             return httpx.Response(200, content=json.dumps(nws_forecast(now)).encode(), headers={"content-type": "application/geo+json"})
+        if url.startswith(DEMO_HOST):  # FEAT-14: the copier reads the test league's stories and their photos
+            path = request.url.path
+            if path == "/robots.txt":
+                return httpx.Response(404)
+            if path.startswith("/photo/"):
+                return httpx.Response(200, content=photo_png(request.url.params.get("c", "336699")), headers={"content-type": "image/png"})
+            page = article_page(self.world, path)
+            if page is not None:
+                return httpx.Response(200, text=page, headers={"content-type": "text/html; charset=utf-8"})
+            return httpx.Response(404)
         if request.method == "GET" and ("rss" in url or "feed" in url or "news" in url):
             # The team's own feed carries only its stories; any national feed carries the whole league.
-            national = any(marker in url for marker in ("espn", "theathletic", "national"))
+            national = any(marker in url for marker in ("espn", "theathletic", "cbssports", "yahoo", "national"))
             items = headlines(self.world, now, None if national else self.team)
             return httpx.Response(200, content=rss("Kickoff Companion demo news", items), headers={"content-type": "application/rss+xml"})
         return httpx.Response(404)

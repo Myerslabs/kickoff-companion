@@ -16,6 +16,8 @@ export const ICONS = [
   "newspaper", "program", "live", "tv", "trivia", "radio", "shield", "matchup", "globe", "bars", "trend", "book", "person", "sparkle", "wide", "page",
   // the To do flyout (the layout pass, owner 2026-10-22)
   "todo",
+  // the Refresh beside the status pill (manual refresh, owner 2026-11-14)
+  "refresh",
 ];
 
 export function icon(name, { label, className, size } = {}) {

@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.services.notes_task import ALLOWED_TOOLS, MAX_RUN_SECONDS, PROMPT_LEAD, NotesRunner
+from app.services import claude_signin
+from app.services.notes_task import ALLOWED_TOOLS, MAX_RUN_SECONDS, PROMPT_LEAD, NotesRunner, lockdown_args
 
 log = logging.getLogger("kickoff.season")
 
@@ -124,7 +125,8 @@ class SeasonRunner:
         """The tool's answer, or None with batch.error set."""
         path = self.log_path(kind, batch.key)
         header = f"# season {kind} batch {batch.key}, started {_iso(batch.started_at)}\n"
-        args = [*NotesRunner.command_args(executable), "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text"]  # the prompt on stdin (freeze wave F6, B7)
+        prefix = NotesRunner.command_args(executable)
+        args = [*prefix, "-p", PROMPT_LEAD, "--allowedTools", ALLOWED_TOOLS, "--output-format", "text", *await lockdown_args(prefix)]  # the prompt on stdin (freeze wave F6, B7)
         try:
             with path.open("w", encoding="utf-8") as handle:
                 handle.write(header)
@@ -144,8 +146,9 @@ class SeasonRunner:
         finally:
             self.process = None
         if code != 0:
-            batch.error = f"the tool exited with code {code}; see {path.name}"
+            batch.error = claude_signin.from_log(path) or f"the tool exited with code {code}; see {path.name}"  # 2026-11-15: signed out, said so
             return None
+        claude_signin.succeeded()
         try:
             return path.read_text(encoding="utf-8", errors="replace").removeprefix(header)
         except OSError as exc:

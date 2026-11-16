@@ -18,18 +18,23 @@
 //   GX-13   (restrained) a 96x28 sparkline beside each Stats heading that has a trend, latest value labelled;
 //           a 96 px headshot on navy with no color band.
 //
-// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every table on the card sizes itself by its own box,
+// Tables wave 3 (owner 2026-10-10, the design rules "Table sizes"): every table on the card sizes itself by its own box,
 // about 600 px from a 700 px screen and the phone's width below it: the Stats tab's seasons (a Career row from two seasons
 // up, decision 3: the server loads the earlier seasons), the short stat list of a player with no full card, the game log
 // (the table shape only; the old one-line shape is retired) and the History, whose seasons sort (newest first) with the
 // team's abbreviation and "#" at small.
+//
+// The player card's patience (owner 2026-11-15, after Grant Godfrey's card gave up on a slow CFBD): close.signal aborts when
+// the card closes, so the opener stops waiting with it; `failed` ({ lead, detail, action }) puts one error block with its
+// button where the tabs go, under the face and the name, so a card that could not load never shows empty tabs that read
+// as fact ("No season stats yet.").
 
 import { icon } from "./icons.js";
 import { DASH, el, fmtDate, fmtNum, fmtStat, fmtUsd, isNum, layerZ, personName, playerFace, rating100, ratingTier, retireLayer, sheetAnchor, starCount, swipeToClose, syncPageLock, teamLink, text, watchNames } from "./dom.js";
 import { holdLayer, placeLayers } from "./layers.js";
 import { nationalHref } from "./national-link.js";
 import { sparkline } from "./sparkline.js";
-import { subhead } from "./states.js";
+import { stateBlock, subhead } from "./states.js";
 import { rankChip, statTable, statTableSkeleton } from "./stat-table.js";
 
 /** A trimmed string, or null for anything that would print as a dash (null, numbers, objects, "[object Object]"). */
@@ -215,10 +220,12 @@ function skeletonPanel() {
  *              seasons: { title, columns: [{key, label, format, sum, max, avg}], rows: [{year, ...}], trend } or a list,
  *              seasonStats: [{label, value}]   (short list, used when `seasons` is absent)
  *              gameLog: [{ title, columns, rows, sort }], history: [{year, team, teamAbbr, classYear, position, number}],
- *              extras: [{ label, body }], them, onClose, inline, note, loading, tab })
+ *              extras: [{ label, body }], them, onClose, inline, note, loading, tab,
+ *              failed: { lead, detail, action: { label, onClick } }   (the card could not load: the block in place of the tabs) })
  */
-export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [], history = [], extras = [], them = false, onClose, inline = false, note = null, loading = false, tab = null } = {}) {
+export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [], history = [], extras = [], them = false, onClose, inline = false, note = null, loading = false, tab = null, failed = null } = {}) {
   const p = player && typeof player === "object" ? player : {};
+  const failure = !loading && failed && typeof failed === "object" ? failed : null;
   const stats = Array.isArray(seasonStats) ? seasonStats.filter((r) => r && typeof r === "object") : [];
   const log = Array.isArray(gameLog) ? gameLog.filter((r) => r && typeof r === "object") : [];
   const yearOf = (r) => (isNum(Number(r.year)) ? Number(r.year) : -Infinity);
@@ -302,22 +309,26 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
         // owner 2026-10-11: one line only; the name steps down (full, "J. Surname", surname, reduced) before any "…"
         watchNames(el("div", { class: "player-card__name" }, isNum(p.number) ? `#${p.number} ` : null, personName(p, { fit: true }))),
         bioLine(p, them),
-        loading ? null : starLine(p),
+        loading || failure ? null : starLine(p),
         loading
           ? el("div", { class: "player-card__facts-skel", "aria-hidden": "true" }, el("div", { class: "skel skel--row" }), el("div", { class: "skel skel--row" }))
-          : el("dl", { class: "player-card__facts" }, facts.map(([label, value]) => [el("dt", {}, label), el("dd", {}, value)])),
+          : failure
+            ? null // nothing loaded: no rows of dashes for facts the card never had
+            : el("dl", { class: "player-card__facts" }, facts.map(([label, value]) => [el("dt", {}, label), el("dd", {}, value)])),
       ),
     ),
     note ? el("p", { class: "note player-card__note" }, text(note)) : null,
-    tabbed(
-      [
-        { label: "Stats", body: statsPanel },
-        { label: "Game log", body: logPanel },
-        ...(Array.isArray(extras) ? extras : []).filter((x) => x && x.label && x.body).map((x) => ({ label: x.label, body: loading ? skeletonPanel() : x.body })),
-        { label: "History", body: historyPanel },
-      ],
-      tab,
-    ),
+    failure
+      ? el("div", { class: "player-card__failed" }, stateBlock({ kind: "error", lead: failure.lead, detail: failure.detail, action: failure.action }))
+      : tabbed(
+          [
+            { label: "Stats", body: statsPanel },
+            { label: "Game log", body: logPanel },
+            ...(Array.isArray(extras) ? extras : []).filter((x) => x && x.label && x.body).map((x) => ({ label: x.label, body: loading ? skeletonPanel() : x.body })),
+            { label: "History", body: historyPanel },
+          ],
+          tab,
+        ),
   );
 }
 
@@ -333,7 +344,8 @@ function selectedTab(article) {
 }
 
 /** Mount a slide-over card. Escape, the scrim or a route change closes it. Returns a close function;
- *  close.update(props) fills the same card in place (LRP-07) and does nothing once it is closed.
+ *  close.update(props) fills the same card in place (LRP-07) and does nothing once it is closed; close.signal aborts when
+ *  the card closes, so the opener's request stops with it.
  *  Phase 16: it stacks above any open sheet, slides in and out, and locks the page underneath.
  *  Item 6 (owner 2026-10-11): from 700 px up it starts under the top bar, like the side sheets; it takes one history entry,
  *  so Back closes it and stays on the page (ui/layers.js). close(reason): "self" (the default) takes the entry back out. */
@@ -342,9 +354,11 @@ export function openPlayerCard(props) {
   const opener = document.activeElement; // Phase 15: focus goes back here on close
   let closed = false;
   let release = null;
+  const closing = typeof AbortController === "function" ? new AbortController() : null;
   const close = (reason) => {
     if (closed) return;
     closed = true;
+    if (closing) closing.abort(); // a request still waiting for this card is cancelled, never reported
     document.removeEventListener("keydown", onKey);
     document.removeEventListener("kickoff:route", onRoute);
     retireLayer(layer, "card-layer");
@@ -393,6 +407,7 @@ export function openPlayerCard(props) {
     return true;
   };
   close.layer = layer;
+  close.signal = closing ? closing.signal : null;
   return close;
 }
 

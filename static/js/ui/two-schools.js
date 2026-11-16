@@ -39,7 +39,8 @@ export function trophyLine(facts, us, them) {
   return null;
 }
 
-export function twoSchoolsBand({ us, them, facts, id = "program-schools" } = {}) {
+/** The two schools' table alone (the season as one line, Wave 2: the box The two schools and the series), or null without facts. */
+export function twoSchoolsBody({ us, them, facts } = {}) {
   const f = obj(facts);
   if (!f.us && !f.them) return null;
   const u = rows(f.us);
@@ -47,6 +48,24 @@ export function twoSchoolsBand({ us, them, facts, id = "program-schools" } = {})
   const usName = str(us?.abbreviation) ? us.abbreviation : str(us?.school) ? us.school : "Us";
   const themName = str(them?.abbreviation) ? them.abbreviation : str(them?.school) ? them.school : "Them";
   const trophy = trophyLine(f, us, them);
+  return el(
+    "div",
+    { class: "schools" },
+    trophy ? el("p", { class: "schools__trophy" }, text(trophy)) : null,
+    el(
+      "table",
+      { class: "stat-table schools__table", "aria-label": "The two schools' history" },
+      el("thead", {}, el("tr", {}, el("th", { scope: "col", class: "txt" }, ""), el("th", { scope: "col" }, text(usName)), el("th", { scope: "col" }, text(themName)))),
+      el("tbody", {}, Object.keys(u).map((label) => el("tr", {}, el("th", { scope: "row", class: "txt" }, label), el("td", { class: "txt" }, text(u[label])), el("td", { class: "txt" }, text(t[label]))))),
+    ),
+    !f.us || !f.them ? el("p", { class: "note" }, `${!f.us ? text(us?.school || "Our") : text(them?.school || "Their")} facts are not loaded yet. `, el("a", { href: "#prompts" }, "Open Load data")) : null,
+  );
+}
+
+export function twoSchoolsBand({ us, them, facts, id = "program-schools" } = {}) {
+  const body = twoSchoolsBody({ us, them, facts });
+  if (!body) return null;
+  const trophy = trophyLine(obj(facts), us, them);
   return band({
     id,
     title: "The two schools",
@@ -54,17 +73,6 @@ export function twoSchoolsBand({ us, them, facts, id = "program-schools" } = {})
     foldable: true,
     summary: trophy || "history and facts",
     state: { status: "ready" },
-    body: () => el(
-      "div",
-      { class: "schools" },
-      trophy ? el("p", { class: "schools__trophy" }, text(trophy)) : null,
-      el(
-        "table",
-        { class: "stat-table schools__table", "aria-label": "The two schools' history" },
-        el("thead", {}, el("tr", {}, el("th", { scope: "col", class: "txt" }, ""), el("th", { scope: "col" }, text(usName)), el("th", { scope: "col" }, text(themName)))),
-        el("tbody", {}, Object.keys(u).map((label) => el("tr", {}, el("th", { scope: "row", class: "txt" }, label), el("td", { class: "txt" }, text(u[label])), el("td", { class: "txt" }, text(t[label]))))),
-      ),
-      !f.us || !f.them ? el("p", { class: "note" }, `${!f.us ? text(us?.school || "Our") : text(them?.school || "Their")} facts are not loaded yet. `, el("a", { href: "#prompts" }, "Open Load data")) : null,
-    ),
+    body: () => body,
   });
 }

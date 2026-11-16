@@ -38,7 +38,7 @@ def short_label(school: str) -> str:
 
 
 # Short labels for CFBD's conference names that are long (table headers and chips). A name not here
-# is short already ("ACC") or gets its initials ("Biscuit Belt" -> "BB").
+# is short already ("ACC", "SEC") or gets its initials.
 CONFERENCE_SHORT = {
     "American Athletic": "AAC", "Mountain West": "MWC", "Conference USA": "CUSA", "Mid-American": "MAC", "Sun Belt": "SBC",
     "Big Ten": "B1G", "Big 12": "B12", "Pac-12": "PAC", "FBS Independents": "IND",

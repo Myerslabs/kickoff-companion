@@ -1,4 +1,4 @@
-"""Phase 8: the radio sources route, the ticker on both tiers with the Mudpuppies entry behind the
+"""Phase 8: the radio sources route, the ticker on both tiers with the Gators entry behind the
 delay and the five-minute cadence on the Free tier, the analytics route (win probability and
 play value) with malformed payloads, the archive carrying the win probability, and the client's
 max_age ceiling with the unscaled ticker lifetime."""
@@ -19,7 +19,7 @@ from tests.conftest import ROLES, TEST_KEY, FakeCfbd, fixture_payload
 
 NEXT_GAME = 526001015
 LAST_GAME = 526000600
-KICKOFF = datetime(2026, 9, 26, 19, 30, tzinfo=timezone.utc)  # Diner Tech at Swampwater Tech, week 4
+KICKOFF = datetime(2026, 9, 26, 19, 30, tzinfo=timezone.utc)  # Texas State at Florida, week 4
 TEAMS = {t["school"]: t for t in fixture_payload("teams_fbs") if isinstance(t, dict) and t.get("school")}
 
 
@@ -43,7 +43,7 @@ def route_analytics(fake: FakeCfbd) -> None:
     fake.fixture("/metrics/wp", "metrics_wp")
     fake.fixture("/ppa/games", "ppa_games")
     fake.fixture("/game/box/advanced", "game_box_advanced")  # Phase 13
-    fake.route("/ppa/players/games", handler=lambda r: httpx.Response(200, json=fixture_payload("ppa_players_games") if r.url.params.get("team") == "Swampwater Tech" else []))
+    fake.route("/ppa/players/games", handler=lambda r: httpx.Response(200, json=fixture_payload("ppa_players_games") if r.url.params.get("team") == "Florida" else []))
 
 
 def set_clock(app, when: datetime) -> None:
@@ -80,8 +80,8 @@ STATIONS = [
 
 def test_no_radio_source_is_built_in(client: TestClient):
     body = client.get("/api/radio/sources").json()
-    # public release Phase 3: RADIO_SOURCES names the team's own; 2026-10-16: the list's initial station plays as a sample
-    assert [s["origin"] for s in body["data"]["sources"]] == ["sample"] and "delay" in body["data"]["note"]
+    # the test team is Florida since ENH-25, and app/radio_stations.json ships its stations: no sample plays
+    assert {s["origin"] for s in body["data"]["sources"]} == {"list"} and "delay" in body["data"]["note"]
 
 
 def test_radio_sources_are_listed_in_order_without_secrets(tmp_path, monkeypatch, fake_cfbd: FakeCfbd):
@@ -93,8 +93,8 @@ def test_radio_sources_are_listed_in_order_without_secrets(tmp_path, monkeypatch
     with TestClient(create_app(settings, cfbd_transport=fake_cfbd.transport), base_url="https://testserver") as client:
         body = client.get("/api/radio/sources").json()
     sources = body["data"]["sources"]
-    assert [s["kind"] for s in sources] == ["stream", "embed", "link"]
-    assert sources[1]["url"] == STATIONS[1]["url"] and len({s["id"] for s in sources}) == 3
+    assert [s["kind"] for s in sources[:3]] == ["stream", "embed", "link"] and {s["origin"] for s in sources[3:]} <= {"list"}, "this install's own first, then the shipped list"
+    assert sources[1]["url"] == STATIONS[1]["url"] and len({s["id"] for s in sources}) == len(sources)
     assert TEST_KEY not in json.dumps(body) and "delay" in body["data"]["note"]
 
 
@@ -114,12 +114,12 @@ def test_ticker_on_the_free_tier_reads_the_week_and_keeps_every_fbs_game(app, cl
     for g in games:
         assert g["home"]["school"] in TEAMS or g["away"]["school"] in TEAMS, (g["home"]["school"], g["away"]["school"])  # every FBS game, nothing else
     schools = {g["home"]["school"] for g in games} | {g["away"]["school"] for g in games}
-    assert {"Swampwater Tech", "Lake Effect"} <= schools and "Pebble Creek" not in schools  # an FCS team with no FBS game this week
+    assert {"Florida", "Charlotte"} <= schools and "Pebble Creek" not in schools  # an FCS team with no FBS game this week
     ranked = [g for g in games if isNum_rank(g["home"]["rank"]) or isNum_rank(g["away"]["rank"])]
     assert ranked and all(ap_ranked(g["home"]["school"]) or ap_ranked(g["away"]["school"]) for g in ranked)
     assert len(games) >= 40  # a full FBS Saturday, not a dozen games
     us = next(g for g in games if g["isUs"])
-    assert us["gameId"] == NEXT_GAME and us["home"]["abbr"] == "SWT" and us["detail"].endswith("PM") and us["home"]["points"] is None
+    assert us["gameId"] == NEXT_GAME and us["home"]["abbr"] == "FLA" and us["detail"].endswith("PM") and us["home"]["points"] is None
     calls = fake_cfbd.count("/games")
     again = client.get("/api/ticker?delay=30").json()["data"]
     assert fake_cfbd.count("/games") == calls and len(again["games"]) == len(games)  # nothing is on: the cached slate serves
@@ -169,8 +169,8 @@ def test_our_ticker_entry_follows_the_spoiler_delay(app, client: TestClient, fak
     now = KICKOFF + timedelta(minutes=40)
     set_clock(app, now)
     engine = app.state.live
-    engine.mode, engine.current_game_id, engine.home, engine.away = "live", NEXT_GAME, "Swampwater Tech", "Diner Tech"
-    engine.store.append([LiveEvent("status:1", "status", NEXT_GAME, now - timedelta(seconds=40), {"status": "in_progress", "homeScore": 14, "awayScore": 7, "period": 2, "clock": {"minutes": 3, "seconds": 20}, "possession": "Swampwater Tech"})])
+    engine.mode, engine.current_game_id, engine.home, engine.away = "live", NEXT_GAME, "Florida", "Texas State"
+    engine.store.append([LiveEvent("status:1", "status", NEXT_GAME, now - timedelta(seconds=40), {"status": "in_progress", "homeScore": 14, "awayScore": 7, "period": 2, "clock": {"minutes": 3, "seconds": 20}, "possession": "Florida"})])
     fresh = next(g for g in client.get("/api/ticker?delay=0").json()["data"]["games"] if g["isUs"])
     assert fresh["status"] == "live" and fresh["home"]["points"] == 14 and fresh["away"]["points"] == 7 and fresh["detail"] == "Q2 3:20"
     held = next(g for g in client.get("/api/ticker?delay=90").json()["data"]["games"] if g["isUs"])
@@ -188,12 +188,12 @@ def test_ticker_uses_the_scoreboard_when_the_key_has_it(app, client: TestClient,
     fake_cfbd.route(
         "/scoreboard",
         json=[
-            {"id": 1, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 3, "clock": "7:12", "homeTeam": {"id": TEAMS["Gravy Boat State"]["id"], "name": "Gravy Boat State Ladles", "conference": "Biscuit Belt", "points": 21}, "awayTeam": {"id": TEAMS["Bluegrass Bottoms"]["id"], "name": "Bluegrass Bottoms Banjos", "conference": "Biscuit Belt", "points": 10}},
-            {"id": 2, "startDate": "2026-09-26T23:30:00.000Z", "status": "scheduled", "homeTeam": {"id": TEAMS["Lake Effect"]["id"], "name": "Lake Effect Flurries", "conference": "Lakeshore Lemonade", "points": None}, "awayTeam": {"id": TEAMS["Loon Lake"]["id"], "name": "Loon Lake Loons", "conference": "Lakeshore Lemonade", "points": None}},
-            {"id": 3, "status": "completed", "homeTeam": {"name": "Moonpie Mountain Marshmallows", "conference": "Biscuit Belt", "points": 31}, "awayTeam": {"name": "Avalanche Valley Snowballs", "conference": "Mountain Muffin", "points": 20}},
-            {"id": NEXT_GAME, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 1, "clock": "9:01", "homeTeam": {"id": TEAMS["Swampwater Tech"]["id"], "name": "Swampwater Tech Mudpuppies", "conference": "Biscuit Belt", "points": 7}, "awayTeam": {"id": TEAMS["Diner Tech"]["id"], "name": "Diner Tech Cooks", "conference": "Biscuit Belt", "points": 0}},
+            {"id": 1, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 3, "clock": "7:12", "homeTeam": {"id": TEAMS["Alabama"]["id"], "name": "Alabama Crimson Tide", "conference": "SEC", "points": 21}, "awayTeam": {"id": TEAMS["Texas"]["id"], "name": "Texas Longhorns", "conference": "SEC", "points": 10}},
+            {"id": 2, "startDate": "2026-09-26T23:30:00.000Z", "status": "scheduled", "homeTeam": {"id": TEAMS["Charlotte"]["id"], "name": "Charlotte 49ers", "conference": "American Athletic", "points": None}, "awayTeam": {"id": TEAMS["North Texas"]["id"], "name": "North Texas Mean Green", "conference": "American Athletic", "points": None}},
+            {"id": 3, "status": "completed", "homeTeam": {"name": "Tennessee Volunteers", "conference": "SEC", "points": 31}, "awayTeam": {"name": "Air Force Falcons", "conference": "Mountain West", "points": 20}},
+            {"id": NEXT_GAME, "startDate": "2026-09-26T19:30:00.000Z", "status": "in_progress", "period": 1, "clock": "9:01", "homeTeam": {"id": TEAMS["Florida"]["id"], "name": "Florida Gators", "conference": "SEC", "points": 7}, "awayTeam": {"id": TEAMS["Texas State"]["id"], "name": "Texas State Bobcats", "conference": "SEC", "points": 0}},
             "junk",
-            {"id": 4, "homeTeam": None, "awayTeam": {"name": "Silver Dollar Griddles", "conference": "Biscuit Belt"}},
+            {"id": 4, "homeTeam": None, "awayTeam": {"name": "Fresno State Bulldogs", "conference": "SEC"}},
         ],
     )
     body = client.get("/api/ticker").json()
@@ -201,12 +201,12 @@ def test_ticker_uses_the_scoreboard_when_the_key_has_it(app, client: TestClient,
     assert data["source"] == "scoreboard" and fake_cfbd.count("/scoreboard") == 1
     by_id = {g["gameId"]: g for g in data["games"]}
     assert set(by_id) == {1, 2, 3, NEXT_GAME}  # every FBS game; the junk row and the one without a home side are dropped
-    assert by_id[2]["status"] == "pre" and by_id[2]["home"]["school"] == "Lake Effect" and by_id[2]["detail"].endswith("PM")
+    assert by_id[2]["status"] == "pre" and by_id[2]["home"]["school"] == "Charlotte" and by_id[2]["detail"].endswith("PM")
     assert by_id[1]["status"] == "live" and by_id[1]["detail"] == "Q3 7:12" and by_id[1]["home"]["points"] == 21
-    assert by_id[1]["home"]["school"] == "Gravy Boat State" and by_id[1]["away"]["abbr"] == TEAMS["Bluegrass Bottoms"]["abbreviation"]  # resolved by id
-    assert by_id[3]["status"] == "final" and by_id[3]["detail"] == "Final" and by_id[3]["away"]["points"] == 20 and by_id[3]["home"]["school"] == "Moonpie Mountain"  # resolved by name
+    assert by_id[1]["home"]["school"] == "Alabama" and by_id[1]["away"]["abbr"] == TEAMS["Texas"]["abbreviation"]  # resolved by id
+    assert by_id[3]["status"] == "final" and by_id[3]["detail"] == "Final" and by_id[3]["away"]["points"] == 20 and by_id[3]["home"]["school"] == "Tennessee"  # resolved by name
     us = by_id[NEXT_GAME]
-    assert us["isUs"] and us["home"]["school"] == "Swampwater Tech" and us["home"]["points"] is None and us["detail"] == "In progress"  # the app is not watching: no score leaks
+    assert us["isUs"] and us["home"]["school"] == "Florida" and us["home"]["points"] is None and us["detail"] == "In progress"  # the app is not watching: no score leaks
     assert [g["gameId"] for g in data["games"]][-1] == 3  # live first, then finals
     assert any(e["code"] == "records_skipped" for e in body["errors"])
 
@@ -221,7 +221,7 @@ def test_analytics_route_returns_win_probability_and_play_value(app, client: Tes
     body = client.get(f"/api/games/{LAST_GAME}/analytics").json()
     assert body["errors"] == []
     data = body["data"]
-    assert data["completed"] and data["homeIsUs"] is False and data["them"] == "Silver Dollar" and data["week"] == int(ROLES["LASTWEEK"])
+    assert data["completed"] and data["homeIsUs"] is False and data["them"] == "Fresno State" and data["week"] == int(ROLES["LASTWEEK"])
     wp = data["winProbability"]
     plays = [p["play"] for p in wp["series"]]
     assert wp["available"] and len(plays) == facts.wp_points() and plays == sorted(plays)
@@ -229,7 +229,7 @@ def test_analytics_route_returns_win_probability_and_play_value(app, client: Tes
     ppa = data["ppa"]
     assert ppa["available"] and ppa["teams"]["us"]["gameId"] == LAST_GAME and ppa["teams"]["us"]["offense"]["overall"] is not None and ppa["teams"]["them"] is None
     players = ppa["players"]["us"]
-    assert players and all(p["opponent"] == "Silver Dollar" for p in players) and ppa["players"]["them"] == []
+    assert players and all(p["opponent"] == "Fresno State" for p in players) and ppa["players"]["them"] == []
     assert players[0]["all"] >= players[-1]["all"]
     assert client.get("/api/games/12345/analytics").status_code == 404
     assert client.get("/api/games/abc/analytics").status_code == 404
@@ -239,12 +239,12 @@ def test_analytics_survives_malformed_payloads(app, client: TestClient, fake_cfb
     route_analytics(fake_cfbd)
     quiet_engine(app, client)
     fake_cfbd.route("/metrics/wp", json=[{"playId": "a", "homeWinProbability": "bad"}, {"playId": "b", "homeWinProbability": 1.7, "playNumber": 2}, {"playId": "c", "homeWinProbability": 0.4, "playNumber": None}, "junk", {"playId": "d", "homeWinProbability": 0.6, "playNumber": 1}])
-    fake_cfbd.route("/ppa/games", json=[{"gameId": LAST_GAME, "team": "Swampwater Tech", "offense": {"overall": "x"}, "defense": None}, {"gameId": "nope"}, None])
-    fake_cfbd.route("/ppa/players/games", json=[{"id": "1", "name": "A", "team": "Swampwater Tech", "opponent": "Silver Dollar", "averagePPA": {"all": None}}, {"id": None}, 7])
+    fake_cfbd.route("/ppa/games", json=[{"gameId": LAST_GAME, "team": "Florida", "offense": {"overall": "x"}, "defense": None}, {"gameId": "nope"}, None])
+    fake_cfbd.route("/ppa/players/games", json=[{"id": "1", "name": "A", "team": "Florida", "opponent": "Fresno State", "averagePPA": {"all": None}}, {"id": None}, 7])
     body = client.get(f"/api/games/{LAST_GAME}/analytics").json()
     data = body["data"]
     assert [p["play"] for p in data["winProbability"]["series"]] == [1, None] and data["winProbability"]["available"]
-    assert data["ppa"]["teams"]["us"] is None and data["ppa"]["players"]["us"] == [{"playerId": "1", "name": "A", "position": None, "opponent": "Silver Dollar", "all": None, "pass": None, "rush": None}]
+    assert data["ppa"]["teams"]["us"] is None and data["ppa"]["players"]["us"] == [{"playerId": "1", "name": "A", "position": None, "opponent": "Fresno State", "all": None, "pass": None, "rush": None}]
     assert any(e["code"] == "records_skipped" for e in body["errors"])
     fake_cfbd.route("/metrics/wp", json=[])
     fake_cfbd.route("/ppa/games", json=[])
@@ -259,7 +259,7 @@ def test_archive_carries_the_win_probability(app, client: TestClient, fake_cfbd:
     engine = app.state.live
     series = client.portal.call(engine.fetch_win_probability, LAST_GAME)
     assert series and len(series) == facts.wp_points() and series[0]["play"] == 0
-    window = GameWindow(LAST_GAME, "Silver Dollar", "Swampwater Tech", 3, KICKOFF, KICKOFF - timedelta(minutes=30), KICKOFF + timedelta(hours=5))
+    window = GameWindow(LAST_GAME, "Fresno State", "Florida", 3, KICKOFF, KICKOFF - timedelta(minutes=30), KICKOFF + timedelta(hours=5))
     path = engine.write_archive(window, series)
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert saved["winProbability"][0]["homeWp"] == series[0]["homeWp"] and saved["state"]["gameId"] == LAST_GAME
@@ -311,18 +311,18 @@ def test_real_live_document_normalizes_with_the_feed_efficiency_block():
         kinds[event.kind] = kinds.get(event.kind, 0) + 1
     plays, drives = facts.live_counts()
     assert kinds == {"drive": drives, "play": plays, "status": 1}
-    state = derive_state(events, game_id=LAST_GAME, home="Silver Dollar", away="Swampwater Tech")
+    state = derive_state(events, game_id=LAST_GAME, home="Fresno State", away="Florida")
     home, away = facts.last_game()["homePoints"], facts.last_game()["awayPoints"]
     assert state["status"] == "final" and state["homeScore"] == home and state["awayScore"] == away
     assert state["homeLineScores"] == facts.last_game()["homeLineScores"] and state["awayLineScores"] == facts.last_game()["awayLineScores"]
     with_epa = sum(1 for d in facts.live_doc()["drives"] for p in d["plays"] if p.get("epa") is not None)
     assert sum(1 for p in state["plays"] if p["ppa"] is not None) == with_epa  # the feed's EPA per play rides as ppa
     feed = state["feedStats"]
-    ours, theirs = facts.live_team("Swampwater Tech"), facts.live_team("Silver Dollar")
-    assert feed["Swampwater Tech"]["successRate"] == ours["successRate"] and feed["Silver Dollar"]["successRate"] == theirs["successRate"] and feed["Silver Dollar"]["epaPerPlay"] == theirs["epaPerPlay"] and feed["Swampwater Tech"]["deserveToWin"] is not None
-    assert set(feed["Swampwater Tech"]) >= {"successRate", "epaPerPlay", "explosiveness", "pointsPerOpportunity", "scoringOpportunities", "plays", "drives"}
+    ours, theirs = facts.live_team("Florida"), facts.live_team("Fresno State")
+    assert feed["Florida"]["successRate"] == ours["successRate"] and feed["Fresno State"]["successRate"] == theirs["successRate"] and feed["Fresno State"]["epaPerPlay"] == theirs["epaPerPlay"] and feed["Florida"]["deserveToWin"] is not None
+    assert set(feed["Florida"]) >= {"successRate", "epaPerPlay", "explosiveness", "pointsPerOpportunity", "scoringOpportunities", "plays", "drives"}
     # Phase 10a (C3): the team success rate is the feed's, not a local count; results are drive-bar codes
-    assert state["box"]["Swampwater Tech"]["successRate"] == ours["successRate"] and state["box"]["Silver Dollar"]["successRate"] == theirs["successRate"] and state["box"]["Swampwater Tech"]["successCounts"] is None
+    assert state["box"]["Florida"]["successRate"] == ours["successRate"] and state["box"]["Fresno State"]["successRate"] == theirs["successRate"] and state["box"]["Florida"]["successCounts"] is None
     codes = {d["result"] for d in state["drives"]}
     assert codes <= {"TD", "FG", "PUNT", "INT", "INT TD", "FUMBLE", "MISSED FG", "SAFETY", "DOWNS", "END OF HALF", "END OF GAME"} and {"TD", "PUNT"} <= codes
     assert state["drives"][0]["resultText"] == facts.live_doc()["drives"][0]["result"]

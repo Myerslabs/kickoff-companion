@@ -1,5 +1,5 @@
 """Phase 16, stream SEASON, owner look GX-22 (restrained): the playoff round tables side by side in a band 1,000 px wide
-and wider, each game's row as tall as the games that feed it so it meets its next-round slot, Swampwater Tech's path
+and wider, each game's row as tall as the games that feed it so it meets its next-round slot, Florida's path
 tinted, the winner in bold, no connector lines. Tables wave 3 (owner 2026-10-10): the band decides, never the screen, and
 every table sizes itself by its own box: a round's Winner at large and Game from medium, each side's school turning to its
 abbreviation at small inside its own link (the seed and the won or lost mark stay); the committee's rankings its own order
@@ -31,8 +31,8 @@ scenarios.bracket = async () => {
   assert.equal(rowSpan([1, 2, 3], 4), 1, "an uneven round stays one row per game");
   assert.equal(rowSpan([], 4), 1);
   const block = playoffBlock({ rounds: [
-    { round: "Quarterfinal", games: [g(4, "QF2", "Diner Tech", "Georgia", 39, 34, true), g(3, "QF1", "Oregon", "Texas Tech", 23, 0)] },
-    { round: "Semifinal", games: [g(9, "SF1", "Diner Tech", "Oregon", 27, 31, true)] },
+    { round: "Quarterfinal", games: [g(4, "QF2", "Texas State", "Georgia", 39, 34, true), g(3, "QF1", "Oregon", "Texas Tech", 23, 0)] },
+    { round: "Semifinal", games: [g(9, "SF1", "Texas State", "Oregon", 27, 31, true)] },
     { round: "Championship", games: [g(11, "CH", "Oregon", "Indiana", null, null), null, "junk"] },
   ] });
   const bracket = block.querySelector(".bracket");
@@ -40,10 +40,10 @@ scenarios.bracket = async () => {
   const rounds = bracket.querySelectorAll(".bracket__round");
   assert.equal(rounds.length, 3, "one table per round, side by side on a wide screen");
   const qf = rounds[0].querySelectorAll("tbody tr");
-  assert.ok(text(qf[0]).includes("Oregon") && text(qf[1]).includes("Diner Tech"), "a round's games in bracket-slot order");
+  assert.ok(text(qf[0]).includes("Oregon") && text(qf[1]).includes("Texas State"), "a round's games in bracket-slot order");
   assert.deepEqual(rounds.map((r) => r.querySelector("tbody tr").className.split(" ").find((c) => c.startsWith("span-"))), ["span-1", "span-2", "span-2"]);
-  assert.ok(qf[1].className.includes("is-us"), "Swampwater Tech's path keeps the team tint");
-  assert.ok(qf[1].querySelector(".seeded--won button.team-link").dataset.team === "Diner Tech");
+  assert.ok(qf[1].className.includes("is-us"), "Florida's path keeps the team tint");
+  assert.ok(qf[1].querySelector(".seeded--won button.team-link").dataset.team === "Texas State");
   assert.ok(qf[1].querySelector(".seeded--lost button.team-link").dataset.team === "Georgia");
   assert.equal(bracket.querySelectorAll("svg, line, path").length, 0, "no connector lines");
   assert.ok(!RAW.test(text(block)));
@@ -58,19 +58,19 @@ scenarios.bracket = async () => {
   // a side's school turns to its abbreviation inside the same link, the seed and the mark kept
   const won = qf[1].querySelector(".seeded--won");
   assert.equal(won.querySelector(".seeded__seed").textContent, "(4) ");
-  assert.equal(won.querySelector("button.team-link .sz-t--long").textContent, "Diner Tech");
-  assert.equal(won.querySelector("button.team-link .sz-t--short").textContent, "DT");
+  assert.equal(won.querySelector("button.team-link .sz-t--long").textContent, "Texas State");
+  assert.equal(won.querySelector("button.team-link .sz-t--short").textContent, "TS"); // the initials of a school with no abbreviation in the data
   const winner = qf[1].querySelectorAll("td")[3];
-  assert.equal(winner.querySelector("button.team-link").dataset.team, "Diner Tech");
-  assert.equal(winner.querySelector(".sz-t--short").textContent, "DT", "the winner's abbreviation at small");
+  assert.equal(winner.querySelector("button.team-link").dataset.team, "Texas State");
+  assert.equal(winner.querySelector(".sz-t--short").textContent, "TS", "the winner's abbreviation at small");
   assert.equal(text(rounds[2].querySelectorAll("tbody tr")[0].querySelectorAll("td")[3]), "–", "no winner yet: a dash");
   // the committee's rankings: its own order (the CFP badge, a plain number at small), the team, its conference's own column
   const sorts = {};
   const ranked = playoffBlock({ week: 14, rankings: [
     { rank: 2, school: "Oregon", abbreviation: "ORE", conference: "Big Pie" },
-    { rank: 1, school: "Diner Tech", abbreviation: "DT", conference: "Biscuit Belt", isUs: true },
+    { rank: 1, school: "Texas State", abbreviation: "DT", conference: "SEC", isUs: true },
     { rank: "x", school: null, conference: 7 },
-  ] }, "Diner Tech", { sorts });
+  ] }, "Texas State", { sorts });
   const list = ranked.querySelector(".playoff__rankings");
   assert.ok(ranked.className.includes("playoff"), "the block is the bracket's container");
   assert.deepEqual([...list.querySelectorAll("thead th")].map((th) => th.dataset.term), ["CFP rank", "Team", "Conference"]);
@@ -82,7 +82,7 @@ scenarios.bracket = async () => {
   assert.ok(first.querySelectorAll("td")[2].className.includes("st__min-medium"), "the conference gone at small");
   list.querySelectorAll("thead th button")[1].click();
   assert.deepEqual(sorts.cfp, { key: "school", dir: "ascending" }, "the reader's order is kept for the next draw");
-  const again = playoffBlock({ rankings: [{ rank: 1, school: "Diner Tech" }, { rank: 2, school: "Bayou Tech" }] }, "Diner Tech", { sorts });
+  const again = playoffBlock({ rankings: [{ rank: 1, school: "Texas State" }, { rank: 2, school: "Bayou Tech" }] }, "Texas State", { sorts });
   assert.equal(again.querySelector(".playoff__rankings tbody tr .sz-t--long button.team-link").dataset.team, "Bayou Tech", "the order survives a refresh");
   assert.ok(!RAW.test(text(ranked)), text(ranked));
 };

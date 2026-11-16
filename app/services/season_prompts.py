@@ -35,7 +35,7 @@ What to fill, for {school} only:
 3. "departures": who left since last season and why (NFL draft with round, transfer with the new school, graduated, other).
 4. "arrivals": who joined (transfers with the old school, notable freshmen with their recruiting standing).
 5. "coachingChanges": staff changes since last season.
-6. "outlook": a two- or three-sentence "summary" of the season ahead, then "predictions" (preseason polls, projected wins, conference picks, with who predicted them), "positionBattles", and "storylines" (rivalry and trophy games, revenge games, milestones within reach).
+6. "outlook": a two- or three-sentence "summary" of the season ahead, then "predictions" (preseason polls, projected wins, conference picks, with who predicted them), "positionBattles", and "storylines" (rivalry and trophy games, revenge games, milestones within reach); "predictedRecord", one preseason projection of the regular-season record ("7-5", the conference "4-4") from a model, a ranking or a writer, never a sportsbook, with who made it in "source"; "projectedStarters", the starting lineup projected or announced before the season, eleven on offense (QB, RB, WR or X, Z and SLOT, TE, LT, LG, C, RG, RT) and eleven on defense (DE, DT, EDGE, LB, CB, NB, FS, SS and the like), each slot with the name as the roster prints it; and "stars", three to five players to know, each with a preseason honor a source printed (an award watch list, preseason all-conference or All-America, a named outlet's breakout pick), one short sentence on why, and the source's URL.
 7. "injuries": players starting the season injured or suspended, with the status and the expected return.
 8. "programFacts": lasting facts a fan enjoys: traditions, records, national titles, notable alumni in the NFL now, the stadium's story.
 9. "sources": every page you used, with its real URL.
@@ -57,7 +57,7 @@ For each, fill what you can find; every field is optional, but keep these keys a
 3. "departures": who left since last season and why (NFL draft with round, transfer with the new school, graduated, other).
 4. "arrivals": who joined (transfers with the old school, notable freshmen with their recruiting standing).
 5. "coachingChanges": staff changes since last season.
-6. "outlook": a two- or three-sentence "summary" of the season ahead, then "predictions" (preseason polls, projected wins, conference picks, with who predicted them), "positionBattles", and "storylines" (rivalry and trophy games, revenge games, milestones within reach).
+6. "outlook": a two- or three-sentence "summary" of the season ahead, then "predictions" (preseason polls, projected wins, conference picks, with who predicted them), "positionBattles", and "storylines" (rivalry and trophy games, revenge games, milestones within reach); "predictedRecord", one preseason projection of the regular-season record ("7-5", the conference "4-4") from a model, a ranking or a writer, never a sportsbook, with who made it in "source"; "projectedStarters", the starting lineup projected or announced before the season, eleven on offense (QB, RB, WR or X, Z and SLOT, TE, LT, LG, C, RG, RT) and eleven on defense (DE, DT, EDGE, LB, CB, NB, FS, SS and the like), each slot with the name as the roster prints it; and "stars", three to five players to know, each with a preseason honor a source printed (an award watch list, preseason all-conference or All-America, a named outlet's breakout pick), one short sentence on why, and the source's URL.
 7. "injuries": players starting the season injured or suspended, with the status and the expected return.
 8. "programFacts": lasting facts a fan enjoys: traditions, records, national titles, notable alumni in the NFL now, the stadium's story.
 9. "sources": every page you used, with its real URL.
@@ -109,12 +109,12 @@ For each of these schools, one entry with what you can find; every field is opti
 {schools}
 
 1. "founded": the year the university was founded; "stadium", "stadiumOpened" (year) and "capacity" (a whole number).
-2. "conferenceSince": the year it joined its current conference; "allTimeRecord" as wins-losses-ties.
+2. "conferenceSince": the year it joined its current conference; "allTimeRecord" as wins-losses-ties entering the {season} season (the app adds this season's games itself).
 3. "nationalTitles": the years of its claimed national championships; "conferenceTitles": how many conference championships.
 4. "heismans": each Heisman Trophy winner as "Name, year".
 5. "bowlRecord" as wins-losses-ties.
 6. "rivalries": each main rivalry with the trophy's name where there is one, the year of the first meeting, and the series record from this school's side.
-7. "headCoachRecord": the current head coach's record at this school, as wins-losses.
+7. "headCoachRecord": the current head coach's record at this school entering the {season} season, as wins-losses (the app adds this season's games).
 8. "mascotOrigin" and "colorsOrigin": one sentence each on where the mascot and the colors come from; "fightSong": its title.
 9. "nflAlumni": up to eight notable alumni on NFL rosters now.
 10. "dates": up to twelve dated events worth marking on their anniversary, each with a "date" as YYYY-MM-DD and a one-line "event": the stadium's first game, the first game ever played, each national title game, the first meeting with the main rival, the founding. Give a full date only when a source states it; leave the event out otherwise.
@@ -244,7 +244,7 @@ def preseason_shape(school: str) -> str:
             "departures": [{"name": "Player Name", "position": "WR", "kind": "NFL draft", "detail": "Round 2, pick 40"}],
             "arrivals": [{"name": "Player Name", "position": "LB", "kind": "Transfer", "detail": "From Other School"}],
             "coachingChanges": [{"title": "New defensive coordinator", "detail": "Who, and from where"}],
-            "outlook": {"summary": "Two or three sentences.", "predictions": [{"title": "Preseason AP poll", "detail": "No. 18"}], "positionBattles": [{"title": "Quarterback", "detail": "Who is competing"}], "storylines": [{"title": "Rivalry game", "detail": "Why it matters this year"}]},
+            "outlook": {"summary": "Two or three sentences.", "predictions": [{"title": "Preseason AP poll", "detail": "No. 18"}], "positionBattles": [{"title": "Quarterback", "detail": "Who is competing"}], "storylines": [{"title": "Rivalry game", "detail": "Why it matters this year"}], "predictedRecord": {"overall": "7-5", "conference": "4-4", "source": "ESPN FPI, August"}, "projectedStarters": {"offense": [{"slot": "QB", "name": "Player Name", "position": "QB"}], "defense": [{"slot": "CB", "name": "Player Name", "position": "CB"}]}, "stars": [{"name": "Player Name", "position": "WR", "honor": "Biletnikoff Award watch list", "why": "One short sentence.", "source": "https://..."}]},
             "injuries": [{"name": "Player Name", "position": "RB", "status": "Out for the season", "detail": "knee", "expectedReturn": "2027"}],
             "programFacts": [{"title": "A tradition", "detail": "One or two sentences."}],
             "sources": [{"label": "Team roster", "url": "https://..."}],

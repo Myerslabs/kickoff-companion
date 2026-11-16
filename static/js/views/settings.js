@@ -7,7 +7,7 @@
 // Public release Phase 6: the notes prompt the Game program copies for an AI chat, editable here.
 // Phase 17 #31 (owner pick: Steam's settings): one row per setting, its name and grey help on the left and the switch or
 // picker on the right; switches instead of checkboxes; a green "saved" line.
-// The layout pass, board 7 (owner 2026-10-22, https://claude.ai/artifact/QtUh4cS1MsSdwc11fjevCj; "Put the Tier 2 Key info
+// The layout pass, board 7 (owner 2026-10-22; "Put the Tier 2 Key info
 // in about and help. Change Start and Server to Server Settings. Everything else is good."): a short page. Who and what at
 // the top (the team, host or guest, the server, and four facts that open their sections: the CFBD plan with the month's
 // calls, the version, the address, the friends); the four settings changed on game day on the page itself (the spoiler
@@ -16,21 +16,23 @@
 // stations, Claude and loading data (gold while something is not loaded), Server Settings, About and help (the CFBD key
 // and plan with the version and the files), Setup. #profile=radio (and the old #settings=radio) opens a section's flyout.
 
+import { getClaudeCode } from "../ui/claude-get.js";
 import { cvdOn, setCvd } from "../ui/cvd.js";
 import { readinessBand } from "../ui/readiness.js";
 import { icon } from "../ui/icons.js";
 import { ours, usSchool } from "../identity.js";
 import { openSheet } from "../ui/remote.js";
 import { setSpoiler, spoilerOn } from "../ui/spoiler.js";
-import { restartFlow } from "../ui/restart.js";
+import { restartFlow, updateFlow } from "../ui/restart.js";
 import { fetchJson } from "./common.js";
 import { setupBand } from "./setup-page.js";
 import { DASH, el, fmtDate, fmtDateTime, fmtNum, isNum, str, teamLogo, text } from "../ui/dom.js";
 import { band, note, subhead } from "../ui/states.js";
-import { getPrefs, loadPrefs, prefsError, prefsMeta, savePrefs, setTextSize, TEXT_SIZES, textSize } from "../prefs.js";
+import { getPrefs, loadPrefs, MAP_APPS, mapApp, prefsError, prefsMeta, savePrefs, setMapApp, setTextSize, setTheme, TEXT_SIZES, textSize, THEMES, themeChoice } from "../prefs.js";
 import { radioHelpBlock, reloadRadioSources, startRadio } from "../radio.js";
 import { copyText } from "../ui/notes-paste.js";
 import { feedbackBand, logsLine } from "../ui/feedback.js";
+import { learnedBand } from "../ui/learned-band.js"; // wave 3 (2026-11-01): the band the Post-Game draws too
 
 const REPO_URL = "https://github.com/Myerslabs/kickoff-companion"; // the server's own copy wins (about.repoUrl)
 
@@ -152,17 +154,30 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Before and after our game", select([{ value: "15", label: "A question every 15 minutes (default)" }, { value: "30", label: "A question every 30 minutes" }, { value: "game", label: "Only during our game" }], p.triviaPace || "15", (value) => change({ triviaPace: value }, "Before and after our game"), "Before and after our game"), "Game day runs from the first join to the last tablet. Before kickoff and after the final the questions are about the teams in the games on, from the ticker; during our game one at each break (the end of the 1st quarter, halftime, the end of the 3rd and the end of the game), whatever the pace."),
       ],
       display: [
-        row("Theme", select([{ value: "dark", label: "Dark (default)" }, { value: "light", label: "Light" }], p.theme, (value) => change({ theme: value }, "Theme"), "Theme"), "Charcoal or light; the team's colors mark what is ours either way."),
+        // ENH-35 (owner 2026-10-27): the theme is this device's own, like the text size
+        row("Theme", select(THEMES.map((t) => ({ value: t.id, label: t.id === "dark" ? `${t.label} (default)` : t.label })), themeChoice(), (value) => {
+          const mode = setTheme(value);
+          saved.classList.remove("note--error");
+          saved.classList.add("setting__saved--ok");
+          saved.textContent = `${mode === "light" ? "Light" : "Dark"} theme on this device.`;
+        }, "Theme"), "Charcoal or light; the team's colors mark what is ours either way. This device only, so the iPhone and the big screen can differ. Saved in this browser."),
         row("Text size", select(TEXT_SIZES.map((s) => ({ value: s.id, label: `${s.label} (${Math.round(s.scale * 100)}%)` })), textSize(), (value) => {
           const size = setTextSize(value);
           saved.classList.remove("note--error");
           saved.classList.add("setting__saved--ok");
           saved.textContent = `Text size ${size.label.toLowerCase()} on this device.`;
         }, "Text size"), "This device only, so the couch tablet and the desk screen can differ. Saved in this browser."),
+        // ENH-15 (owner 2026-10-23): the Directions links open this device's maps app
+        row("Map app", select(MAP_APPS.map((m) => ({ value: m.id, label: m.id === "google" ? `${m.label} (default)` : m.label })), mapApp(), (value) => {
+          const pick = setMapApp(value);
+          saved.classList.remove("note--error");
+          saved.classList.add("setting__saved--ok");
+          saved.textContent = `${(MAP_APPS.find((m) => m.id === pick) || MAP_APPS[0]).label} for directions on this device.`;
+        }, "Map app"), "Where Directions on the Pre-Game Program and Getting there open: your phone's maps app plans the route from where you are. This device only. Saved in this browser."),
         row("Stat hints", toggle(p.hints !== false, (value) => change({ hints: value }, "Stat hints"), "Stat hints"), "A small question mark after a stat's name explains it when tapped. The Glossary in the menu lists every one."),
         row("Color-blind friendly colors", toggle(cvdOn(), (value) => setCvd(value), "Color-blind friendly colors"), "Blue and orange instead of green and red, and a shape on every rank chip (up for the top quarter, a dot for the middle, down for the bottom). Only this device."),
         row("Spoiler mode", toggle(spoilerOn(), (value) => setSpoiler(value), "Spoiler mode"), "For a recorded game: this device hides the scores, results, win chance and plays until you tap them. Only this device; the host and other devices are not affected."),
-        row("Page refresh", select([1, 5, 10, 15, 30, 60].map((m) => ({ value: m, label: `every ${m} min` })), p.refreshMinutes, (value) => change({ refreshMinutes: Number(value) }, "Page refresh"), "Page refresh"), "How often Season, Program and Newspaper ask the server again. The In Game sheet streams regardless."),
+        // no Page refresh row since 2026-11-14 (owner: manual refresh only): a page asks when opened and on Refresh
       ],
       setup: [
         // owner 2026-10-10: Device setup is First time setup, here in the Profile (board 7: in the Setup section)
@@ -177,23 +192,36 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         auto.tray ? row("Tray mode", toggle(p.trayMode !== "off", (value) => change({ trayMode: value ? "on" : "off" }, "Tray mode"), "Tray mode"), "On by default: the server's window hides behind a tray icon by the clock (double-click it to open the app; its menu has Status, Log and Quit). Off keeps the window on the taskbar. Takes effect on the next start.") : null, // on by default (owner 2026-10-23)
         auto.installed ? null : row("Desktop icon", shortcutButton, iconText(auto)),
         row("Nightly backup", toggle(p.backups !== false, (value) => change({ backups: value }, "Nightly backup"), "Nightly backup"), backupText(meta.housekeeping)),
+        // ENH-32 (owner 2026-10-27): the server computer stays awake while plugged in, so the copying, the 3 AM warm and Claude's schedule never miss
+        row("Keep this computer awake", select([{ value: "plugged", label: "While plugged in (default)" }, { value: "games", label: "During games only" }, { value: "off", label: "Never" }], p.keepAwake || "plugged", (value) => change({ keepAwake: value }, "Keep this computer awake"), "Keep this computer awake"), awakeText(meta.housekeeping)),
         row("HTTPS for my devices", httpsControl(meta.network), `${meta.network?.https ? "On: this server also answers https://." : "Off: plain HTTP only."} On, your own devices trust the certificate once on First time setup and then get the screen lock without the video, one-tap paste of the answer and the home-screen app; guests keep http:// and need nothing. Switching restarts the server.`),
         row("Restart the server", restartControl(), "Starts the server over in the same window, for a changed setting or an update pulled while it runs. The page reloads when it's back, usually 10 to 20 seconds."),
-        row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "Once a day the server asks GitHub whether a newer release is out and says so under About and help. It never downloads anything by itself."),
+        row("Check for updates", toggle(p.updateCheck !== false, (value) => change({ updateCheck: value }, "Check for updates"), "Check for updates"), "The server asks GitHub for new commits on main, at most once an hour while a page is open, and says so in the To do and under About and help. Nothing changes until you tap Update now."),
       ],
       claude: [
-        row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Pre-Game Program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt. To use it, install it, or set CLAUDE_COMMAND in the .env file to its full path."),
+        row("Claude Code", el("span", { class: "setting__value" }, notes.commandFound ? "Found" : "Not found"), notes.commandFound ? `Found: ${notes.commandPath}. The Pre-Game Program also offers to write the notes with it. Only Claude Code runs, and only to answer the prompt.` : "Optional. Claude Code is not installed on the server computer, so copy and paste each prompt; the steps to get it are below."),
       ],
     };
   }
 
+  /** ENH-32: what the server computer is doing now, under the Keep this computer awake switch. */
+  function awakeText(h) {
+    const k = h && typeof h === "object" && h.keepAwake && typeof h.keepAwake === "object" ? h.keepAwake : {};
+    const rule = "Plugged in, the server computer never goes to sleep by itself, so the article copying, the 3 AM warm and Claude's schedule run on time; on battery it sleeps as usual. The screen can still turn off, and closing the lid or pressing the power button still puts it to sleep.";
+    if (k.supported === false) return `Keeping this computer awake is not supported here; turn off its sleep timer instead.`;
+    const now = k.holding === true ? `Now: kept awake (${text(k.reason)}).` : typeof k.reason === "string" ? `Now: may sleep (${text(k.reason)}).` : "";
+    return `${now} ${rule}`.trim();
+  }
+
   function backupText(h) {
     const hk = h && typeof h === "object" ? h : {};
-    const awake = hk.keepAwake && hk.keepAwake.supported === true ? "The computer is kept awake while a game is on." : "Turn off this computer's sleep timer on game days: keeping it awake is not supported here.";
-    if (hk.enabled === false) return `Off. ${awake}`;
+    if (hk.enabled === false) return "Off.";
     const last = typeof hk.last === "string" ? `Last backup ${fmtDateTime(hk.last)}.` : "No backup yet; the first one is made soon after the server starts.";
     const problem = typeof hk.error === "string" && hk.error ? ` Problem: ${hk.error}` : "";
-    return `Each night a zip of the Archive, notes and settings goes to ${text(hk.folder)}; the newest ${isNum(hk.keep) ? hk.keep : 7} are kept. ${last}${problem} ${awake}`;
+    const w = hk.warm && typeof hk.warm === "object" ? hk.warm : {};
+    // ENH-27: the nightly warm, paced to the month's target
+    const warm = typeof w.day === "string" ? ` Nightly warm ${fmtDate(w.day, "short")}: ${isNum(w.warmed) ? w.warmed : DASH} of ${isNum(w.teams) ? w.teams : DASH} teams, ${isNum(w.calls) ? fmtNum(w.calls) : DASH} calls${typeof w.stoppedBy === "string" && w.stoppedBy ? `, stopped by ${w.stoppedBy}` : ""}.` : " The nightly warm runs after 3 AM.";
+    return `Each night a zip of the Archive, notes and settings goes to ${text(hk.folder)}; the newest ${isNum(hk.keep) ? hk.keep : 7} are kept. ${last}${problem}${warm}`;
   }
 
   /** Label-and-value facts as a plain list, as on the status page (tables wave 3, owner 2026-10-10): never a table under
@@ -217,6 +245,10 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       { label: "Calls left", value: isNum(plan.remaining) ? fmtNum(plan.remaining) : DASH },
       { label: "Calls a month", value: isNum(plan.monthlyLimit) ? fmtNum(plan.monthlyLimit) : DASH },
       { label: "This month", value: text(plan.forecast?.text) },
+      // ENH-27: the background loads keep to two thirds of the month; pages and live games use the rest as the reserve
+      { label: "Background loads", value: isNum(plan.target) && plan.target > 0
+        ? `Up to ${fmtNum(plan.target)} this month, in step with the calendar (${isNum(plan.paceAllowed) ? fmtNum(plan.paceAllowed) : DASH} by today)${plan.pacedOpen === false ? "; waiting until tomorrow" : ""}. Pages and live games keep the rest.`
+        : "Off (MONTHLY_CALL_TARGET is 0)." },
       { label: "Resets", value: text(fmtDate(plan.resetAt || q.resetAt)) },
       { label: "Last checked with CFBD", value: text(fmtDateTime(plan.checkedAt || q.reconciledAt)) },
     ];
@@ -255,14 +287,15 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
   function teamsBand() {
     // freeze wave F3 (one fact, one source): the season, conference, time zone, port and live poll are the status page's
     // Configuration panel; this keeps the teams. Board 7: the CFBD key and plan moved to About and help.
+    // ENH-12 (owner 2026-10-23): the primary teams as the one picker orders them, #1 the home team, the My Teams order
     const t = teamsOf();
+    const primaries = [t.home, ...t.primary].filter((school) => typeof school === "string" && school && school !== DASH);
     const lock = t.locked ? " (saved; shows with a Tier 2 key)" : "";
     const rows = [
-      { label: "Home team", value: t.home },
-      { label: "More primary teams", value: t.primary.length ? `${t.primary.join(", ")}${lock}` : DASH },
+      { label: "Primary teams", value: primaries.length ? `${primaries.map((school, i) => `#${i + 1} ${school}${i === 0 ? " (home)" : ""}`).join(", ")}${primaries.length > 1 ? lock : ""}` : DASH },
       { label: "Secondary teams", value: t.secondary.length ? `${t.secondary.join(", ")}${lock}` : DASH },
     ];
-    return band({ id: "settings-teams", title: "Your teams", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Your teams"), el("p", { class: "note" }, "Only the home team's colors and mascot theme the app; a new home team restarts the server. More primary and secondary teams need a Tier 2 key."), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", el("a", { class: "btn btn--quiet", href: "#season" }, "Their seasons"))) });
+    return band({ id: "settings-teams", title: "Your teams", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Your teams"), el("p", { class: "note" }, `In the My Teams order. Only the home team's colors and mascot theme the app; a new home team restarts the server.${t.locked ? " More primary and secondary teams need a Tier 2 key." : ""}`), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", el("a", { class: "btn btn--quiet", href: "#season" }, "Their seasons"))) });
   }
 
   /** The folders this install keeps (About and help): where the data and the logs are. */
@@ -477,17 +510,40 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
   }
 
   function updateLine() {
+    // FEAT-13: new commits on GitHub's main, brought in only when the host taps Update (owner 2026-10-26)
     const u = update.data && typeof update.data === "object" ? update.data : null;
     const again = el("button", { class: "btn btn--quiet", type: "button", disabled: update.checking ? true : null, onclick: () => loadUpdate(true) }, update.checking ? "Checking…" : "Check now");
     if (update.error) return el("p", { class: "note" }, `Update check: ${update.error}. `, again);
     if (!u) return el("p", { class: "note" }, "Update check: not asked yet. ", again);
-    if (u.enabled === false) return el("p", { class: "note" }, `You run version ${text(u.current)}. Checking for updates is off (Server Settings).`);
+    const head = u.head && typeof u.head === "object" ? u.head : null;
+    const running = head ? `You run ${text(u.current)}, ${text(head.short)} from ${fmtDate(head.date, "short")} ("${text(head.subject)}").` : `You run ${text(u.current)}.`;
+    if (u.enabled === false) return el("p", { class: "note" }, `${running} Checking for updates is off (Server Settings).`);
+    const blocked = u.blocked && typeof u.blocked === "object" ? u.blocked : null;
+    if (u.available !== true) return el("p", { class: "note" }, `${running} ${text(blocked?.message || "This copy can't update itself.")}`);
     const when = typeof u.checkedAt === "string" ? ` Checked ${fmtDate(u.checkedAt, "short")}.` : "";
-    if (u.newer) {
-      const link = typeof u.url === "string" && u.url.startsWith("https://github.com/") ? el("a", { href: u.url, target: "_blank", rel: "noopener" }, "What's new and how to update") : null;
-      return el("p", { class: "about__update about__update--new" }, el("strong", {}, `Version ${text(u.latest)} is out`), ` (you run ${text(u.current)}${u.prerelease ? "; it's a pre-release" : ""}). `, link, `${when} `, again);
+    const lines = [];
+    if (u.syncPending) lines.push(el("p", { class: "note note-warn" }, "The last update's packages still need bringing in: start the server with start.ps1 (or the Desktop icon) once."));
+    if (u.error) lines.push(el("p", { class: "note note-warn" }, text(u.error)));
+    const behind = isNum(u.behind) ? u.behind : 0;
+    if (behind > 0) {
+      const changes = (Array.isArray(u.changes) ? u.changes : []).filter((c) => c && typeof c === "object" && typeof c.subject === "string");
+      const said = el("span", { class: "note", role: "status" }, "");
+      const go = u.canUpdate === true ? el("button", { class: "btn btn--primary", type: "button", onclick: async (event) => {
+        event.currentTarget.disabled = true;
+        await updateFlow({ say: (words) => { said.textContent = words; }, confirmDuringGame: async (message) => window.confirm(`${message} Update anyway?`) });
+      } }, "Update now") : null;
+      lines.unshift(
+        el("p", { class: "about__update about__update--new" }, el("strong", {}, `${behind === 1 ? "1 change" : `${behind} changes`} on GitHub`), ` ${running}${u.packagesChange ? " It brings new packages too, so the restart takes a few minutes." : ""}${when} `, go, go ? " " : "", again, " ", said),
+        changes.length ? el("ul", { class: "update-list" }, ...changes.map((c) => el("li", {}, `${text(c.subject)} `, el("span", { class: "note" }, fmtDate(c.date, "short"))))) : null,
+        blocked ? el("p", { class: "note" }, text(blocked.message)) : null,
+      );
+    } else {
+      lines.unshift(el("p", { class: "note" }, `${running} Up to date with GitHub${blocked ? "" : `'s ${text(String(u.remote || "origin/main").split("/").pop())}`}.${when} `, again));
+      if (blocked && blocked.code !== "branch") lines.push(el("p", { class: "note" }, text(blocked.message)));
     }
-    return el("p", { class: "note" }, `You run version ${text(u.current)}, the newest${u.latest ? "" : " the app knows of"}.${u.error ? ` ${u.error}` : when} `, again);
+    const last = u.lastUpdate && typeof u.lastUpdate === "object" ? u.lastUpdate : null;
+    if (last && typeof last.at === "string") lines.push(el("p", { class: "note" }, `Last updated ${fmtDateTime(last.at)}${isNum(last.count) ? ` (${last.count} ${last.count === 1 ? "change" : "changes"})` : ""}.`));
+    return el("div", { class: "about__updates" }, ...lines.filter(Boolean));
   }
 
   function claudeBand() {
@@ -507,7 +563,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       const recent = (Array.isArray(s.recent) ? s.recent : []).filter((r) => r && typeof r === "object");
       slot.replaceChildren(...[
         el("div", { class: "settings" },
-          row("Run the prompts by themselves", toggle(s.enabled === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? `On by itself while Claude Code is found on the server computer (owner 2026-10-13)${p.scheduledRuns === false ? ", switched off here" : ""}. Once a day it runs everything that is missing; a game week adds Monday's notes and the availability reports; the season load, the coaches and the roster costs come at their times. Nothing runs after the game. Each run uses your Claude plan like the buttons do. The Load data page shows what is next and what ran.` : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it, on the Load data page."),
+          row("Run the prompts by themselves", toggle(s.enabled === true, (value) => { change({ scheduledRuns: value }, "Scheduled runs"); setTimeout(draw, 600); }, "Run the prompts by themselves"), s.commandFound === true ? `Claude Code is found on the server computer. ${p.scheduledRuns === true ? "On" : "Off until you turn it on here"}. When on, once a day it runs everything that is missing; a game week adds Monday's notes and the availability reports; the season load, the coaches and the roster costs come at their times. Nothing runs after the game. Each run uses your Claude plan like the buttons do. The Load data page shows what is next and what ran.` : "Claude Code is not installed on the server computer (CLAUDE_COMMAND in the .env file sets its path), so nothing can run by itself. Copy and paste works without it, on the Load data page."),
         ),
         s.pausedUntil ? el("p", { class: "note note-warn" }, `Paused until ${when(s.pausedUntil)} after three failed runs in a row.`) : null,
         s.running ? el("p", { class: "note" }, `Running now: ${text(s.running)}.`) : null,
@@ -518,6 +574,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     draw();
     return band({ id: "settings-claude", title: "Claude on a schedule", collapsible: false, summary: "", state: { status: "ready" }, body: () => slot });
   }
+
 
   function friendsBand() {
     // Phase 18.6: the host PIN that makes guests view-only, and the game-day board on a monitor of the server computer.
@@ -688,7 +745,11 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       case "teams": return [teamsBand()];
       case "friends": return [friendsBand()];
       case "radio": return [radioBand()];
-      case "claude": return [rows(o.claude), claudeBand(), readinessBand(), ...prompts.map((pr) => pr.view())];
+      case "claude": {
+        // 2.0 (owner 2026-11-16): without Claude Code, how to get it in place of its schedule and what it learned
+        if ((prefsMeta() || {}).notes?.commandFound !== true) return [rows(o.claude), band({ id: "settings-claude-get", title: "Get Claude Code", collapsible: false, summary: "", state: { status: "ready" }, body: () => getClaudeCode() }), readinessBand(), ...prompts.map((pr) => pr.view())];
+        return [rows(o.claude), claudeBand(), readinessBand(), ...prompts.map((pr) => pr.view()), learnedBand()]; // FEAT-6: new at the bottom
+      }
       case "server": return [rows(o.start)];
       case "about": return [quotaBand(), aboutBand(), foldersBand()];
       case "setup": return [rows(o.setup), setupBand()];
@@ -734,7 +795,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     switch (id) {
       case "gameday": return `Radio ${radio ? (radio.origin === "sample" ? "a sample station" : text(radio.name)) : "none yet"} · ticker ${p.tickerMode === "mine" && plan.likedAllowed === true ? "my teams" : "every FBS game"} · announcer ${onOff(p.announcer !== false)}`;
       case "trivia": return `${p.trivia !== false ? "On" : "Off"} · leaderboard ${onOff(p.triviaBoard !== false)} · ${p.triviaPace === "30" ? "every 30 min" : p.triviaPace === "game" ? "only during our game" : "every 15 min"} before and after our game`;
-      case "display": return `Stat hints ${onOff(p.hints !== false)} · color-blind colors ${onOff(cvdOn())} · spoiler mode ${onOff(spoilerOn())} · refresh ${isNum(p.refreshMinutes) ? `${p.refreshMinutes} min` : DASH}`;
+      case "display": return `Stat hints ${onOff(p.hints !== false)} · color-blind colors ${onOff(cvdOn())} · spoiler mode ${onOff(spoilerOn())}`;
       case "teams": {
         const t = teamsOf();
         return `${t.home || "No home team"} · ${t.primary.length} more primary · ${t.secondary.length} secondary`;
@@ -746,7 +807,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       }
       case "claude": {
         const missing = Array.isArray(extras.readiness?.items) ? extras.readiness.items.length : null;
-        return `Claude Code ${meta.notes?.commandFound ? "found" : "not found"} · schedule ${onOff(p.scheduledRuns !== false && meta.notes?.commandFound === true)}${missing ? ` · ${missing} ${missing === 1 ? "load" : "loads"} missing` : missing === 0 ? " · everything loaded" : ""}`;
+        return `Claude Code ${meta.notes?.commandFound ? "found" : "not found"} · schedule ${onOff(p.scheduledRuns === true && meta.notes?.commandFound === true)}${missing ? ` · ${missing} ${missing === 1 ? "load" : "loads"} missing` : missing === 0 ? " · everything loaded" : ""}`;
       }
       case "server": return `${auto.installed ? "Started with uvx" : `Start at login ${onOff(p.autoStart === true && auto.supported !== false)}`} · backups ${onOff(p.backups !== false)} · ${meta.network?.https ? "HTTPS" : "HTTP"} · restart, updates`;
       case "about": return `${text(plan.tierName || meta.quota?.tierName)} key · ${isNum(plan.used) ? fmtNum(plan.used) : DASH} of ${isNum(plan.monthlyLimit) ? fmtNum(plan.monthlyLimit) : DASH} calls · version ${text(meta.about?.version)}`;
@@ -794,7 +855,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         "div",
         { class: "profile-facts" },
         fact("CFBD plan", text(plan.tierName || meta.quota?.tierName), isNum(plan.used) && isNum(plan.monthlyLimit) ? `${fmtNum(plan.used)} of ${fmtNum(plan.monthlyLimit)} calls` : "this month's calls", "about"),
-        fact("Version", text(meta.about?.version), u ? (u.newer ? `${text(u.latest)} is out` : "up to date") : "checking", "about"),
+        fact("Version", `${text(meta.about?.version)}${u?.head?.short ? ` · ${text(u.head.short)}` : ""}`, u ? (isNum(u.behind) && u.behind > 0 ? `${u.behind === 1 ? "1 change" : `${u.behind} changes`} waiting` : u.available === false ? "no updates here" : "up to date") : "checking", "about"),
         fact("Address", address ? address.hostname : DASH, address ? (address.port ? `port ${address.port}` : address.protocol.replace(":", "")) : "the home network", "friends"),
         fact("Friends", extras.host ? (extras.host.pinSet === true ? "PIN set" : "No PIN") : DASH, extras.host ? (extras.host.pinSet === true ? "guests view only" : "every device can change settings") : "the host PIN", "friends"),
       ),
@@ -816,7 +877,13 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
       "section",
       { class: "profile-quick", "aria-label": "On game day" },
       item("Spoiler delay", "scores wait for your TV", el("span", { class: "profile-quick__slider" }, slider, delayValue)),
-      item("Theme", "the team's colors either way", seg("Theme", [{ value: "dark", label: "Dark" }, { value: "light", label: "Light" }], p.theme === "light" ? "light" : "dark", (value) => change({ theme: value }, "Theme"))),
+      item("Theme", "this device only", seg("Theme", THEMES.map((t) => ({ value: t.id, label: t.label })), themeChoice(), (value) => {
+        const mode = setTheme(value); // ENH-35: this device's own, never the server's
+        saved.classList.remove("note--error");
+        saved.classList.add("setting__saved--ok");
+        saved.textContent = `${mode === "light" ? "Light" : "Dark"} theme on this device.`;
+        render();
+      })),
       item("Keep the screen on", "so the tablet never sleeps", seg("Keep the screen on", [{ value: "gameday", label: "Game days" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"))),
       item("Text size", "this device only", seg("Text size", TEXT_SIZES.map((x, i) => ({ value: x.id, label: ["A", "A+", "A++"][i] || x.label, aria: x.label })), textSize(), (value) => {
         const size = setTextSize(value);

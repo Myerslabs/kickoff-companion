@@ -105,23 +105,23 @@ def test_the_games_as_of_a_week_and_the_records_after_it():
 def test_the_news_about_the_game_is_picked_by_name_and_date():
     kickoff = datetime(2026, 10, 24, 19, 30, tzinfo=timezone.utc)
     items = [
-        {"title": "Mudpuppies hold off Diner Tech", "url": "https://x/1", "source": "Gazette", "publishedAt": "2026-10-25T03:08:00Z"},
-        {"title": "Swampwater Tech climbs to second", "url": "https://x/2", "source": "Belt Report", "publishedAt": "2026-10-25T13:30:00Z"},
-        {"title": "Diner Tech falls at home", "url": None, "source": "Herald", "publishedAt": "2026-10-25T03:40:00Z"},
-        {"title": "Mudpuppies hold off Diner Tech", "url": "https://x/dup", "source": "Other", "publishedAt": "2026-10-25T04:00:00Z"},
-        {"title": "Swampwater Tech preview: what to watch", "url": "https://x/old", "source": "Gazette", "publishedAt": "2026-10-23T12:00:00Z"},
-        {"title": "Swampwater Tech a week later", "url": "https://x/late", "source": "Gazette", "publishedAt": "2026-10-30T12:00:00Z"},
+        {"title": "Gators hold off Texas State", "url": "https://x/1", "source": "Gazette", "publishedAt": "2026-10-25T03:08:00Z"},
+        {"title": "Florida climbs to second", "url": "https://x/2", "source": "Belt Report", "publishedAt": "2026-10-25T13:30:00Z"},
+        {"title": "Texas State falls at home", "url": None, "source": "Herald", "publishedAt": "2026-10-25T03:40:00Z"},
+        {"title": "Gators hold off Texas State", "url": "https://x/dup", "source": "Other", "publishedAt": "2026-10-25T04:00:00Z"},
+        {"title": "Florida preview: what to watch", "url": "https://x/old", "source": "Gazette", "publishedAt": "2026-10-23T12:00:00Z"},
+        {"title": "Florida a week later", "url": "https://x/late", "source": "Gazette", "publishedAt": "2026-10-30T12:00:00Z"},
         {"title": "Somebody else wins", "url": "https://x/other", "source": "Gazette", "publishedAt": "2026-10-25T05:00:00Z"},
         {"title": "No date at all", "url": "https://x/nd", "source": "Gazette", "publishedAt": None},
         "junk",
     ]
-    us = team_matcher("Swampwater Tech", "Mudpuppies")
-    them = team_matcher("Diner Tech", "Griddles")
+    us = team_matcher("Florida", "Gators")
+    them = team_matcher("Texas State", "Bulldogs")
     picked = news_for(items, us, them, kickoff)
-    assert [h["title"] for h in picked] == ["Swampwater Tech climbs to second", "Diner Tech falls at home", "Mudpuppies hold off Diner Tech"], "newest first, the window kept, the duplicate dropped, the stranger left out"
+    assert [h["title"] for h in picked] == ["Florida climbs to second", "Texas State falls at home", "Gators hold off Texas State"], "newest first, the window kept, the duplicate dropped, the stranger left out"
     assert picked[1]["url"] is None and picked[2]["source"] == "Gazette" and picked[0]["publishedAt"] == "2026-10-25T13:30:00Z"
     assert news_for(items, us, None, None) == []
-    many = [{"title": f"Swampwater Tech item {i}", "url": None, "source": "s", "publishedAt": f"2026-10-25T{i:02d}:00:00Z"} for i in range(12)]
+    many = [{"title": f"Florida item {i}", "url": None, "source": "s", "publishedAt": f"2026-10-25T{i:02d}:00:00Z"} for i in range(12)]
     assert len(news_for(many, us, None, kickoff)) == NEWS_LIMIT
 
 
@@ -174,11 +174,18 @@ def test_the_front_page_keeps_the_postgame_until_monday(app, client, league):  #
     played = played.model_copy(update={"start_date": "2026-10-24T19:30:00.000Z"})
     upcoming = race_game(2, 10, TEAM, "Bagel").model_copy(update={"start_date": "2026-10-31T19:30:00.000Z"})
     sunday = datetime(2026, 10, 25, 15, 0, tzinfo=timezone.utc)
+    # the season as one line (2026-10-30): the Post-Game leads until its lock is written or Tuesday 6 AM passes
     assert program.postgame_front(played, sunday) is True
-    assert program.postgame_front(played, datetime(2026, 10, 26, 9, 0, tzinfo=timezone.utc)) is True, "5 am Monday in the East: still the Post-Game"
-    assert program.postgame_front(played, datetime(2026, 10, 26, 11, 0, tzinfo=timezone.utc)) is False, "7 am Monday: next week's Pre-Game"
+    assert program.postgame_front(played, datetime(2026, 10, 26, 11, 0, tzinfo=timezone.utc)) is True, "Monday, the checklist still open: the Post-Game stays"
+    assert program.postgame_front(played, datetime(2026, 10, 27, 11, 0, tzinfo=timezone.utc)) is False, "Tuesday 7 am in the East: the backstop closed it"
     assert program.postgame_front(played, datetime(2026, 10, 24, 12, 0, tzinfo=timezone.utc)) is False, "before kickoff"
     assert program.postgame_front(played.model_copy(update={"start_date": None}), sunday) is False
+    lock = app.state.postgame_lock
+    lock.save(played.id, {"gameId": played.id, "lockedAt": "2026-10-25T19:00:00+00:00", "program": {}})
+    try:
+        assert program.postgame_front(played, datetime(2026, 10, 26, 11, 0, tzinfo=timezone.utc)) is False, "the lock written: closed out, the next week's Pre-Game"
+    finally:
+        lock.path(played.id).unlink(missing_ok=True)
     app.state.cfbd._clock = lambda: sunday
     assert program._pick_game([upcoming, played], None) is played
     app.state.cfbd._clock = lambda: datetime(2026, 10, 27, 12, 0, tzinfo=timezone.utc)

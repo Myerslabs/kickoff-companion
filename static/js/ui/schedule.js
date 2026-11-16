@@ -5,7 +5,7 @@
 //       the record box as a two-row grid: Overall / conference / Home / Away, then AP / Coaches / SP+, each a
 //       24px value over a 13px label. A ranked AP or Coaches value links to that poll's list; SP+ is a dotted
 //       link to the Ratings page (design rule 19), sorted by SP+ with the team marked.
-//   scheduleList({ games, nextGameId, onSelect, context, spOf })
+//   scheduleList({ games, nextGameId, onSelect, context, spOf, marks })   marks(game) -> a node under the result (the stops)
 //       onSelect(game) makes a row a button with a trailing chevron; without it the row is plain text and
 //       promises no tap (other teams' schedules, the flyout). Ranked opponents carry a poll badge. With
 //       context: true a second line shows the opponent's SP+ rank (a chip linked to Ratings) and, before the
@@ -14,7 +14,7 @@
 //       regular-season week with no game between the team's first and last regular-season weeks draws as a Bye
 //       row in its place, with the Saturday it falls on when the games around it have dates. Nothing to tap.
 //   withByes(games)  the games with {bye: true, week, date} rows put in the gaps (exported for the tests).
-//   gameHref(game)  where one of our schedule rows goes: '#program=<id>', the game's program (a finished game's carries the
+//   gameHref(game, team)  where a schedule row goes: '#program=<id>', the game's program (a finished game's carries the
 //       result, its box scores and the way to the Archive; the mock of 2026-10-20 sent the prior weeks' programs here);
 //       null without a game id.
 //   ratingsHref(key, team)  '#ratings=<key>?team=<school>': the Ratings page sorted on key, the team marked.
@@ -63,11 +63,11 @@ export function recordLine({ overall, conference, home, away, apRank, coachesRan
   );
 }
 
-/** '#program=<id>', the game's program, played or not; null without an id. */
-export function gameHref(game) {
+/** '#program=<id>', the game's program, played or not; with `team` (FEAT-5) seen from that team's side; null without an id. */
+export function gameHref(game, team = null) {
   const id = game?.gameId;
   if (!(isNum(id) || (typeof id === "string" && /^\d+$/.test(id)))) return null;
-  return `#program=${id}`;
+  return `#program=${id}${typeof team === "string" && team ? `?team=${encodeURIComponent(team)}` : ""}`;
 }
 
 function pct(value) {
@@ -103,7 +103,7 @@ function contextLine(game, spOf) {
   );
 }
 
-/** scheduleList({ games, nextGameId, onSelect, context, spOf }) games from the season overview */
+/** scheduleList({ games, nextGameId, onSelect, context, spOf, events, team, marks }) games from the season overview */
 function regularWeek(game) {
   return !game.postseason && !game.playoffRound && game.seasonType !== "postseason" && Number.isInteger(game.week) && game.week >= 0 && game.week <= 20 ? game.week : null;
 }
@@ -166,7 +166,7 @@ function dayLine(game, onDay) {
   return el("div", { class: "sched__day" }, hits.slice(0, 2).map((h, i) => [i ? " " : null, `On this day${isNum(h.year) && h.year !== year ? ` in ${h.year}` : ""}: ${h.event}`]));
 }
 
-export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null, events = null } = {}) {
+export function scheduleList({ games = [], nextGameId = null, onSelect, context = false, spOf = null, events = null, team = null, marks = null } = {}) {
   const list = withByes(games);
   const onDay = eventsByDay(events);
   return el(
@@ -182,7 +182,9 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
       const result = game.completed && typeof game.result === "string" && game.result
         ? el("span", { class: `sched__res res--${game.result.toLowerCase()}`, "data-k": `res:${text(game.gameId)}` }, `${game.result} ${text(game.usPoints)}-${text(game.themPoints)}`)
         : el("span", { class: "sched__res" }, fmtDate(game.date, "short"), el("small", {}, game.startTimeTbd ? "time TBD" : fmtTime(game.date)));
-      const href = tappable ? gameHref(game) : null;
+      const stops = typeof marks === "function" ? marks(game) : null; // the Season stop (Wave 4): the game's three stops under its result, each a link
+      if (stops) result.append(stops);
+      const href = tappable ? gameHref(game, team) : null;
       const where = game.completed ? "Open the game's program" : "Open the Pre-Game Program";
       const li = el(
         "li",
@@ -229,9 +231,9 @@ export function scheduleList({ games = [], nextGameId = null, onSelect, context 
   );
 }
 
-/** Open one of our games from a schedule row: its program. */
-export function openGame(game) {
-  const href = gameHref(game);
+/** Open a game from a schedule row: its program, from `team`'s side when it is not ours (FEAT-5). */
+export function openGame(game, team = null) {
+  const href = gameHref(game, team);
   if (href && typeof window !== "undefined" && window.location) window.location.hash = href.slice(1);
 }
 

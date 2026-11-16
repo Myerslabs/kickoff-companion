@@ -11,6 +11,7 @@ import sys
 from collections.abc import Callable
 from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -25,20 +26,31 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import APP_NAME, BUILD_PHASE, __version__, boot, restart
 from app import shutdown as shutdown_signal
-from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, players, program, radio, ratings, season, setup, ticker, welcome
-from app.api import demo as demo_api
+from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, numbers, players, program, radio, ratings, season, setup, ticker, welcome
+from app.api import blame as blame_api  # FEAT-18
+from app.api import conference as conference_api  # the conference page (owner 2026-11-02)
+from app.api import datastatus as datastatus_api  # ENH-4: the status pill's Data status
+from app.api import demo as demo_api  # public release Phase 9b: the demo page and the switch
 from app.api import feedback as feedback_api  # feedback with the logs (owner 2026-10-23)
 from app.api import gamenotes as gamenotes_api
 from app.api import host as host_api
+from app.api import imperialism as imperialism_api  # FEAT-17
+from app.api import jobs as jobs_api  # Feature Set v2: the weekly jobs
 from app.api import matchup as matchup_api  # Phase 16 BX
+from app.api import paper as paper_api  # FEAT-14: the Newspaper's whole stories
+from app.api import picks as picks_api  # FEAT-2: Picks of the week
 from app.api import prompts as prompts_api
 from app.api import rules as rules_api  # Phase 17 #21
 from app.api import search as search_api
 from app.api import season_notes as season_notes_api  # Phase 17 Part 3a
+from app.api import seasons as seasons_api  # rollover R2: the Seasons list
 from app.api import server as server_api  # Phase 16 wave 3: restart from the app
 from app.api import settings as settings_api
+from app.api import stops as stops_api  # the season as one line (owner 2026-10-30): the rail's data and the stop that leads now
+from app.api import talent_edge as talent_edge_api  # FEAT-16
 from app.api import trivia as trivia_api  # the trivia (owner 2026-10-21)
 from app.api import wiki as wiki_api  # Phase 17 #4
+from app.api import writing as writing_api  # P4: Claude Code's writing
 from app.api.envelope import error_response
 from app.api.health import format_duration
 from app.build import build_id
@@ -48,6 +60,7 @@ from app.db import Database, database_path
 from app.feeds import FeedStore, team_feeds, team_matcher
 from app.guests import GuestGuard
 from app.headers import SecurityHeaders
+from app.jobs.setup import build_weekly
 from app.limits import BodyLimit, RateLimit
 from app.live.engine import LiveEngine
 from app.logging_setup import LOG_FILE_NAME, configure_logging
@@ -55,12 +68,18 @@ from app.maintenance import Maintenance
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
 from app.origin_guard import HostGuard, OriginGuard
 from app.paths import ROOTS
+from app.rollover_setup import build_rollover
 from app.schedule_setup import build_postgame_lock, build_program_lock, build_prompt_runs, build_schedule
+from app.services import rollover as rollover_notice
+from app.services import teamset
 from app.services.analytics import AnalyticsService
 from app.services.archive import ArchiveService
+from app.services.articles import ArticleCopier, ArticleStore
+from app.services.ask import AskRunner
 from app.services.connect import print_qr
 from app.services.editions import Editions
 from app.services.feedback import FeedbackStore
+from app.services.fullstats import FullStatsService
 from app.services.gamenotes import GameNotes
 from app.services.grades import GradeService
 from app.services.host import HostAccess
@@ -87,7 +106,10 @@ from app.services.season_notes import SeasonNotes
 from app.services.season_task import SeasonRunner
 from app.services.ticker import TickerService
 from app.services.trivia import TriviaService
-from app.services.updates import UpdateChecker
+from app.services.updates import GitUpdater
+from app.services.updates import Runner as UpdatesRunner
+from app.services.warm import NightlyWarm
+from app.services.writing import WritingRunner
 from app.tls import TlsState
 from app.weather import NwsClient
 from app.wiki import WikiClient
@@ -302,6 +324,7 @@ async def _startup_warm(app: FastAPI) -> None:
         raise
     except Exception:  # noqa: BLE001 - warming is a courtesy; the log has the traceback
         log.exception("Startup warm-up failed")
+    boot.pages_ready()  # BUG-17, ENH-18: the window says READY and the browser opens now (app/serving.py when_ready)
 
 
 def _describe_key(cfbd: CfbdClient) -> str:
@@ -347,6 +370,7 @@ async def lifespan(app: FastAPI):
         mdns: Announcer = app.state.mdns
         mdns.start()  # so a phone can finish the setup at kickoff.local
         app.state.ready_seconds = boot.seconds()  # nothing to check before the setup page answers
+        boot.pages_ready()  # nor any page to warm: the setup page opens at once
         try:
             yield {"tls": tls, "https": settings.https}
         finally:
@@ -355,9 +379,9 @@ async def lifespan(app: FastAPI):
             await app.state.headshots.aclose()
             await app.state.logos.aclose()
             await app.state.feeds.aclose()
+            await app.state.articles.aclose()
             await app.state.weather.aclose()
             await app.state.wiki.aclose()
-            await app.state.updates.aclose()
             app.state.db.close()
             log.info("%s stopped (setup mode)", APP_NAME)
         return
@@ -389,7 +413,7 @@ async def lifespan(app: FastAPI):
             log.info("Following %s%s (%s)", found.school, f" {found.mascot}" if found.mascot else "", found.conference or "conference unknown")
         except Exception:  # noqa: BLE001 - the fallback identity keeps every page working; health shows the rest
             log.exception("Team identity at startup failed; using TEAM as written")
-        mdns.title = app.state.identity.current.title  # "Mudpuppies Kickoff Companion" in a network browser
+        mdns.title = app.state.identity.current.title  # "Gators Kickoff Companion" in a network browser
         mdns.start()
         app.state.ready_seconds = boot.seconds()  # post-freeze Wave 1: the data requests are served from here on
         log.info("Ready for data after %.1f s (the key check and the team)", app.state.ready_seconds)
@@ -415,6 +439,8 @@ async def lifespan(app: FastAPI):
         await app.state.maintenance.stop()
         await app.state.live.stop_background()
         await app.state.notes.stop()
+        await app.state.writing.stop()
+        await app.state.ask.stop()
         await app.state.season_runner.stop()
         await app.state.prompt_runs.stop()
         await app.state.mdns.stop()
@@ -429,11 +455,11 @@ async def lifespan(app: FastAPI):
         await app.state.headshots.aclose()
         await app.state.logos.aclose()
         await app.state.feeds.aclose()
+        await app.state.articles.aclose()
         await app.state.weather.aclose()
         await app.state.wiki.aclose()
-        await app.state.updates.aclose()
         app.state.db.close()
-        uptime = (datetime.now(timezone.utc) - app.state.started_at).total_seconds()
+        uptime =(datetime.now(timezone.utc) - app.state.started_at).total_seconds()
         log.info("%s stopped after %s", APP_NAME, format_duration(uptime))
 
 
@@ -447,7 +473,8 @@ def create_app(
     logo_transport: httpx.AsyncBaseTransport | None = None,
     wiki_transport: httpx.AsyncBaseTransport | None = None,
     wiki_lookups: bool = True,
-    updates_transport: httpx.AsyncBaseTransport | None = None,
+    updates_runner: UpdatesRunner | None = None,
+    updates_root: Path | None = None,
     update_checks: bool = True,
     cfbd_sleep: Callable[[float], Any] | None = None,
 ) -> FastAPI:
@@ -499,9 +526,12 @@ def create_app(
     app.state.identity = IdentityService(cfbd, settings)
     app.state.identity.on_change(lambda who: app.state.feeds.configure(team_feeds(who.school, who.mascot, settings.team_feed_url or None), team_matcher(who.school, who.mascot, who.rivals)))
     app.state.weather = NwsClient(settings.data_dir, transport=weather_transport, user_agent=agent, clock=lambda: cfbd._clock())
-    app.state.updates = UpdateChecker(settings.data_dir, transport=updates_transport, user_agent=agent, clock=lambda: cfbd._clock(), enabled=lambda: bool(getattr(app.state.prefs.prefs, "updateCheck", True)) and update_checks)  # Phase 16 wave 3
+    app.state.updates = GitUpdater(updates_root or PROJECT_ROOT, settings.data_dir, runner=updates_runner, clock=lambda: cfbd._clock(), enabled=lambda: bool(getattr(app.state.prefs.prefs, "updateCheck", True)) and update_checks)  # FEAT-13: new commits on GitHub's main, brought in on a tap
     app.state.wiki = WikiClient(settings.data_dir, transport=wiki_transport, user_agent=agent, clock=lambda: cfbd._clock(), lookups=wiki_lookups)  # Phase 17 #4
     app.state.program = ProgramService(cfbd, settings, app.state.feeds, app.state.weather)
+    # FEAT-14: the paper's whole stories and photos, copied once each onto this computer (app/services/articles.py)
+    app.state.articles = ArticleCopier(ArticleStore(settings.data_dir, settings.season), transport=feeds_transport, user_agent=f"GatorsGameDay/{__version__} (personal reader; one copy per story)", clock=lambda: cfbd._clock())
+    app.state.program.copier = app.state.articles
     app.state.live = LiveEngine(cfbd, settings, db)
     shutdown_signal.reset()
     restart.reset()
@@ -512,6 +542,7 @@ def create_app(
     app.state.analytics = AnalyticsService(cfbd, settings)
     app.state.ratings = RatingsService(cfbd, settings)
     app.state.national = NationalService(cfbd, settings, app.state.season.fetcher, app.state.players.fetcher, app.state.ratings.fetcher, app.state.prefs)  # Phase 16: zero-call national lists; Phase 5b: My teams scope
+    app.state.fullstats = FullStatsService(app.state.national)  # ENH-10: the Stats menu's full lists, teams and players
     app.state.search = SearchService(cfbd, settings)  # Phase 15
     app.state.grades = GradeService(cfbd, settings, app.state.players.fetcher)  # public release Phase 7: stat grades on the Leaders keys
     app.state.myteams = MyTeamsService(cfbd, settings, app.state.prefs, app.state.program, app.state.ratings.fetcher)  # public release Phase 5b
@@ -521,12 +552,21 @@ def create_app(
     app.state.mdns = Announcer(settings.mdns_host, settings.port)  # public release Phase 4: kickoff.local
     app.state.season_notes = SeasonNotes(settings.data_dir, settings.season)  # Phase 17 Part 3a
     app.state.season_runner = SeasonRunner(settings.log_dir, cwd=scratch_dir(settings.data_dir))
+    app.state.writing = WritingRunner(settings.data_dir, settings.log_dir)  # P4: Claude Code's writing runs, one at a time
+    app.state.ask = AskRunner(settings.data_dir, settings.log_dir)  # FEAT-12: Ask about this page
     app.state.notes = NotesRunner(settings.data_dir, settings.log_dir, who=lambda: app.state.identity.current, season=settings.season, tz=settings.tzinfo)
     app.state.headshots = HeadshotStore(settings.data_dir, transport=media_transport, user_agent=f"{APP_NAME.replace(' ', '')}/{__version__} (personal second screen)")
     app.state.logos = LogoStore(settings.data_dir, transport=logo_transport or media_transport, user_agent=agent)  # Phase 16: logos served from our own route
     app.state.program_lock = ProgramLock(settings.data_dir, settings.season)  # wave B: the Pre-Game Program locked at kickoff
     app.state.postgame_lock = PostgameLock(settings.data_dir, settings.season)  # F8 feature 1: the Post-Game Program locked with the poll after
+    app.state.program.postgame_lock = app.state.postgame_lock  # the season as one line (2026-10-30): the front page keeps the Post-Game until its lock is written
     app.state.trivia = TriviaService(settings.data_dir, settings.season, settings.tzinfo, lambda: cfbd._clock(), app.state.prefs, lambda: app.state.season_notes.facts().get("teams", {}), app.state.live, settings.team, on_mark=app.state.season_notes.mark_fact)  # the trivia (owner 2026-10-21): the game-day session and the master file
+    def warm_teams() -> list[str]:
+        chosen = teamset.current(settings, app.state.prefs, cfbd, None)
+        return [*chosen.primaries, *chosen.secondary]
+
+    app.state.warm = NightlyWarm(settings.data_dir, cfbd, app.state.season, app.state.players, app.state.program, warm_teams)  # ENH-27: the target spent at night
+    app.state.jobs = build_weekly(cfbd, settings)  # Feature Set v2 (owner 2026-10-30): Talent Edge first, Sundays from 6 AM in this process
     app.state.maintenance = Maintenance(  # Phase 18.2: keep-awake, nightly backup, packed recordings, the archive's second look
         lock_program=build_program_lock(app),
         lock_postgame=build_postgame_lock(app),
@@ -535,14 +575,20 @@ def create_app(
         keep=settings.backup_keep,
         window_open=lambda: app.state.live.window_open(),
         backups_enabled=lambda: app.state.prefs.prefs.backups,
-        refresh_archive=lambda now: app.state.archive.refresh_finished(now),
+        refresh_archive=lambda now: app.state.archive.upkeep(now),  # FEAT-3: this season's earlier games first, then the second look
+        warm=lambda now: app.state.warm.run(now) if app.state.warm.due(now) else None,
+        weekly=lambda now: app.state.jobs.start() if app.state.jobs.due(now) else None,  # Feature Set v2: the weekly jobs, in the background (FEAT-18: the Circle of Blame's call can take minutes)
+        rollover=lambda now: None if app.state.demo_mode or app.state.rollover is None else app.state.rollover.tick(now),  # rollover R2: the switch; never in the test league
+        awake_mode=lambda: "off" if app.state.demo_mode else app.state.prefs.prefs.keepAwake,  # ENH-32; the test league never holds the computer
     )
     app.state.gamenotes = GameNotes(settings.data_dir)  # Phase 19: your own notes during a game
     app.state.feedback = FeedbackStore(settings.data_dir, settings.log_dir)  # feedback with the logs (owner 2026-10-23); the wall clock, like the log's
     app.state.host_access = HostAccess(settings.data_dir)  # Phase 18.6: guests are view-only once a PIN is set
     app.state.board = BoardLauncher(settings.data_dir)  # Phase 18.6: the game-day board on a chosen monitor
     app.state.prompt_runs = build_prompt_runs(app)  # the Prompts phase: every prompt in one run (the page, the command line, the schedule's catch-up)
-    app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week; on whenever Claude Code is found (2026-10-13)
+    app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week; off until Settings turns it on, and only with Claude Code found
+    app.state.rollover = build_rollover(app)  # rollover R2 (owner 2026-11-15): the switch to the next season, on its own
+    rollover_notice.load_notice(settings.data_dir, settings.season)  # the envelope's meta.seasonSwitch: just switched, or a switch failing
     app.state.started_at = datetime.now(timezone.utc)
     app.state.demo_mode = False  # public release Phase 9b: app/demo/run.py serve_embedded sets these for the demo
     app.state.home_data_dir = settings.data_dir
@@ -560,13 +606,20 @@ def create_app(
     app.add_middleware(StaticCacheHeaders)
     app.add_middleware(HostGuard, names=lambda: {n for n in (settings.lan_hostname, settings.mdns_host) if n})  # Phase 18.1: DNS rebinding (S2); added last, so it runs first
     app.include_router(health.router)
+    app.include_router(datastatus_api.router)
     app.include_router(setup.router)
     app.include_router(welcome.router)
-    app.include_router(demo_api.router)  # public release Phase 9b: the demo page and the switch  # public release Phase 5a: first-run setup
+    app.include_router(demo_api.router)  # public release Phase 9b: the demo page and the switch
     app.include_router(season.router)
+    app.include_router(seasons_api.router)  # rollover R2
     app.include_router(players.router)
+    app.include_router(numbers.router)  # FEAT-8: the app's own numbers for every team
+    app.include_router(writing_api.router)  # P4: Claude Code's writing
+    app.include_router(picks_api.router)  # FEAT-2: Picks of the week
+    app.include_router(conference_api.router)  # the conference page (owner 2026-11-02): any conference, ours first
     app.include_router(media.router)
     app.include_router(program.router)
+    app.include_router(stops_api.router)  # the season as one line: /api/stops
     app.include_router(live.router)
     app.include_router(ticker.router)
     app.include_router(radio.router)
@@ -590,6 +643,11 @@ def create_app(
     app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app
     app.include_router(gamenotes_api.router)  # Phase 19
     app.include_router(host_api.router)  # Phase 18.6: host PIN, Invite friends, the big screen
+    app.include_router(paper_api.router)  # FEAT-14: the Newspaper's reader and the copier's status
+    app.include_router(jobs_api.router)  # Feature Set v2: the weekly jobs' runs
+    app.include_router(talent_edge_api.router)  # FEAT-16: Talent Edge
+    app.include_router(imperialism_api.router)  # FEAT-17: the Imperialism Map
+    app.include_router(blame_api.router)  # FEAT-18: the Circle of Blame
     app.include_router(client_log.router)
 
     index_cache: dict[str, str] = {}

@@ -67,7 +67,7 @@ function render() {
     if (els.keyForm) els.keyForm.hidden = state.configured === true;
     els.status.textContent = state.configured ? "The demo is running. Your team, key and settings are untouched." : "The demo is running: no key needed.";
   } else {
-    els.lead.textContent = "The demo runs a made-up league with a game under way, handy for showing someone the app. The server switches to it in a few seconds, and back the same way; your team, key and settings are untouched.";
+    els.lead.textContent = "The demo runs a sample season that follows one team, with invented games and a game under way, handy for showing someone the app. The server switches to it in a few seconds, and back the same way; your team, key and settings are untouched.";
     els.explore.textContent = "Back to the app";
     els.switchButton.textContent = "Show the demo";
     els.keyPanel.hidden = true;

@@ -1,6 +1,6 @@
 """The Prompts phase (owner 2026-10-13): the school history and facts prompt (its reader forgiving a year written as text, a
 capacity with commas, a bad date, a stranger), its file and the team page that carries it; the one run of every prompt
-in the season's order (skipping what is loaded, going on past a failure); the schedule on whenever Claude Code's command
+in the season's order (skipping what is loaded, going on past a failure); the schedule on once Settings turns it on (2.0), with Claude Code's command
 is found, with its once-a-day catch-up; the Prompts page's envelope; and `python -m app prompts` against a stub server."""
 
 from __future__ import annotations
@@ -157,16 +157,16 @@ def test_the_one_run_skips_the_loaded_and_goes_on_past_a_failure():
     assert refused["running"] is False and "not found" in refused["error"]
 
 
-def test_the_schedule_is_on_when_the_command_is_found_and_catches_up_once_a_day(tmp_path: Path):
+def test_the_schedule_is_on_once_turned_on_and_catches_up_once_a_day(tmp_path: Path):
     ET = ZoneInfo("America/New_York")
     now = {"at": datetime(2026, 10, 13, 12, 0, tzinfo=timezone.utc)}
     found = {"yes": True}
-    choice: dict[str, bool | None] = {"value": None}
+    choice: dict[str, bool | None] = {"value": None}  # Kickoff Companion 2.0: off until Settings turns it on
     started: list[str] = []
     busy = {"yes": False}
 
     def enabled() -> bool:  # what app/schedule_setup.py does with the preference
-        return found["yes"] if choice["value"] is None else bool(choice["value"])
+        return choice["value"] is True
 
     async def catch_up() -> dict[str, Any]:
         started.append("catch-up")
@@ -182,6 +182,8 @@ def test_the_schedule_is_on_when_the_command_is_found_and_catches_up_once_a_day(
         return {"error": "never"}
 
     schedule = ClaudeSchedule(ledger=Ledger(tmp_path / "ledger.json"), enabled=enabled, command_found=lambda: found["yes"], current_game=no_game, season=lambda: 2026, tz=ET, data_is_current=current, start=start, poll=lambda _s: {"running": False, "ok": True}, clock=lambda: now["at"], catch_up=catch_up, busy=lambda: busy["yes"])
+    assert asyncio.run(schedule.tick()) == "off" and started == [], "found, but never turned on: off"
+    choice["value"] = True
     assert asyncio.run(schedule.tick()) == "catch-up started" and started == ["catch-up"]
     assert asyncio.run(schedule.tick()) == "nothing due", "once a day: the ledger remembers"
     assert schedule.ledger.last_attempt(CATCH_UP_KEY) == now["at"]
@@ -191,9 +193,7 @@ def test_the_schedule_is_on_when_the_command_is_found_and_catches_up_once_a_day(
     now["at"] += timedelta(hours=21)
     assert asyncio.run(schedule.tick()) == "catch-up started" and len(started) == 2
     found["yes"] = False
-    assert asyncio.run(schedule.tick()) == "off", "no command: off by itself"
-    choice["value"] = True
-    assert asyncio.run(schedule.tick()) == "no command"
+    assert asyncio.run(schedule.tick()) == "no command", "on, but Claude Code is not found"
     found["yes"] = True
     choice["value"] = False
     assert asyncio.run(schedule.tick()) == "off", "switched off in Settings"
@@ -201,14 +201,23 @@ def test_the_schedule_is_on_when_the_command_is_found_and_catches_up_once_a_day(
     assert status["enabled"] is False and status["commandFound"] is True
 
 
-def test_the_app_wires_the_run_and_the_switch(client, league, app):  # noqa: F811
+def test_the_app_wires_the_run_and_the_switch(client, league, app, monkeypatch):  # noqa: F811
+    # the bug round (2026-11-15): on a computer with Claude Code (the host) the run below started a real Claude run; the
+    # test is about the wiring, so Claude Code is never found here, whatever this computer has
+    from app.services.notes_task import NotesRunner
+
+    monkeypatch.setattr(NotesRunner, "resolve_command", staticmethod(lambda command: None))
+    monkeypatch.setattr(app.state.prompt_runs, "command_found", lambda: False)
+    monkeypatch.setattr(app.state.claude_schedule, "command_found", lambda: False)
     assert app.state.claude_schedule.busy() is False and app.state.claude_schedule.catch_up is not None
-    assert client.get("/api/claude-schedule").json()["data"]["enabled"] == app.state.claude_schedule.command_found(), "on when found, nothing set"
+    assert client.get("/api/claude-schedule").json()["data"]["enabled"] is False, "off until Settings turns it on"
+    client.put("/api/settings", json={"scheduledRuns": True})
+    assert client.get("/api/claude-schedule").json()["data"]["enabled"] is True
     client.put("/api/settings", json={"scheduledRuns": False})
     assert client.get("/api/claude-schedule").json()["data"]["enabled"] is False
     refused = client.post("/api/prompts/run", json={"all": False})
     body = refused.json()
-    assert body["data"]["running"] is False and (body["errors"] or body["data"]["commandFound"]), "no command in the tests: refused with the reason"
+    assert body["data"]["running"] is False and body["errors"] and body["data"]["commandFound"] is False, "no command: refused with the reason"
 
 
 # --- the command line -----------------------------------------------------------------------------------------------

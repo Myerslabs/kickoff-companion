@@ -2,7 +2,12 @@
 // the status-pill text for an envelope, and a small polling controller.
 //
 // Phase 16 (stream F) frozen API:
-//   poller({ url, refreshMs, staleAfterMs, onStatus, render, renderError, renderLoading }) -> { mount, refresh, unmount, last }
+//   poller({ url, live, refreshMs, staleAfterMs, onStatus, render, renderError, renderLoading }) -> { mount, refresh, unmount, last }
+//       Manual refresh (owner 2026-11-14: "make sure the page doesnt refresh when browsing. Lets change it to manual
+//       refresh only and refresh on page open"): a page asks the server when it is opened, when the reader refreshes
+//       (the Refresh beside the status pill, a pull down at the top, r on a keyboard), and on a return to the app once
+//       its copy is older than RETURN_REFRESH_MS; never on a timer and never when a Claude run ends (the To do says so).
+//       Only a live page (live: true, the Trivia page) still asks every refreshMs, and on a return after staleAfterMs.
 //       Instant back: the last good envelope of every url is kept for the page's lifetime; a view mounted again
 //       draws it at once (no skeleton), whatever its age, and refreshes in the background (post-freeze Wave 2,
 //       BUG-18: before, only a copy younger than refreshMs was drawn and an older one meant the loading sun). The
@@ -12,18 +17,17 @@
 //       every table's scroll. After each draw the document hears "kickoff:rendered" (detail { url }).
 //       refresh() returns a promise (pull to refresh waits on it).
 //   clearEnvelopeCache()  forget the kept envelopes (tests).
-//   errorPanel(title, message, retry)  one full-width band in its error state: what failed, when the app
-//       tries again, and a quiet 'Try now' inside the band.
+//   errorPanel(title, message, retry)  one full-width band in its error state: what failed and a quiet 'Try now'
+//       inside the band.
 
-import { noteBuild, noteRestart } from "../build.js";
+import { noteBuild, noteClaude, noteRestart, noteSeasonSwitch } from "../build.js";
 import { pageBuild } from "../client-log.js";
-import { pollMs } from "../prefs.js";
 import { DASH, el, isNum, restoreScroll, scrollState, text } from "../ui/dom.js";
 import { band, loadingSun, stateBlock } from "../ui/states.js";
-import { dataRunActive } from "../ui/run-bar.js";
 import { openFeedback } from "../ui/feedback.js"; // an error panel's Send a report (owner 2026-10-23)
 
 export const FETCH_TIMEOUT_MS = 20000;
+export const RETURN_REFRESH_MS = 15 * 60 * 1000; // back in the app after this long: the page is asked again (owner 2026-11-14: "Only if it's old")
 // A page the server is still gathering (a cold cache after a restart: the Game program alone makes a few dozen
 // CFBD calls) is not an error. The server keeps working after the browser stops waiting, and its per-request locks
 // make an asked-again request wait for the same calls (no extra quota), so the page keeps asking, showing that it
@@ -62,54 +66,168 @@ export function timeoutSignal(ms = FETCH_TIMEOUT_MS) {
   const controller = new AbortController();
   const reason = typeof DOMException === "function" ? new DOMException(`No answer from the server after ${Math.round(ms / 1000)} s.`, "TimeoutError") : new Error("timeout");
   const timer = setTimeout(() => controller.abort(reason), ms);
-  return { signal: controller.signal, clear: () => clearTimeout(timer) };
+  return { signal: controller.signal, clear: () => clearTimeout(timer), abort: () => controller.abort() };
 }
 
-export async function fetchJson(url, signal) {
-  // Final pass (CLAUDE.md rule 4): no request waits for ever. A caller's own signal rules; without one the request
-  // gives up after FETCH_TIMEOUT_MS, so a dead server shows as an error instead of a page that never settles.
-  const own = signal ? null : timeoutSignal();
-  let response;
+// Batch 1 (owner 2026-11-15, "Every page in ~1.5 s"): one request per address at a time. Bands of one page asked for the
+// same answer side by side (My Team asked for the program three times, a Post-Game for the Archive and the whole paper
+// twice); now a band asking while the same request is in flight joins it. A page's own load and Refresh ({ fresh: true })
+// always start a request of their own, which the bands may then join. Every caller gets its own copy, so a band that changes
+// its answer never changes another's; a caller's signal ends its own wait, and once every caller has let go the request
+// itself is cancelled, as before.
+const inflight = new Map(); // url -> { promise, waiters, controller }
+
+function copyOf(body) {
   try {
-    response = await fetch(url, { signal: signal || own.signal, headers: { Accept: "application/json" } });
-  } finally {
-    if (own) own.clear();
-  }
-  let body = null;
-  try {
-    body = await response.json();
+    return typeof structuredClone === "function" ? structuredClone(body) : JSON.parse(JSON.stringify(body));
   } catch {
-    body = null;
+    return body;
   }
-  if (body && typeof body === "object") {
-    noteBuild(body.meta?.build); // Phase 12: the tablet learns of a new build
-    noteRestart(body.meta?.restartNeeded); // Phase 16 wave 3: the server's code changed; a restart brings it in
+}
+
+function abortError() {
+  try {
+    return new DOMException("The operation was aborted.", "AbortError");
+  } catch {
+    const error = new Error("The operation was aborted.");
+    error.name = "AbortError";
+    return error;
   }
-  if (!response.ok || !body || typeof body !== "object") {
-    const message = body?.errors?.[0]?.message || `HTTP ${response.status}`;
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
+}
+
+/** One caller's wait on a shared request: its signal ends the wait; the last caller to let go cancels the request. */
+function waitOn(entry, signal) {
+  entry.waiters += 1;
+  if (!signal) return entry.promise;
+  const leave = () => {
+    entry.waiters -= 1;
+    if (entry.waiters <= 0) {
+      // the review (2026-11-16): a request every caller let go is taken out of the map at once, so the next page's band
+      // asking for the same address starts afresh instead of joining a request already cancelled
+      if (inflight.get(entry.key) === entry) inflight.delete(entry.key);
+      entry.controller.abort(abortError());
+    }
+  };
+  if (signal.aborted) {
+    leave();
+    return Promise.reject(abortError());
   }
-  return body;
+  return new Promise((resolve, reject) => {
+    const stop = () => {
+      leave();
+      reject(abortError());
+    };
+    signal.addEventListener("abort", stop, { once: true });
+    entry.promise.then(
+      (value) => {
+        signal.removeEventListener("abort", stop);
+        resolve(value);
+      },
+      (error) => {
+        signal.removeEventListener("abort", stop);
+        reject(error);
+      },
+    );
+  });
+}
+
+function start(key) {
+  const controller = new AbortController();
+  const entry = { key, promise: null, waiters: 0, controller };
+  entry.promise = requestJson(key, controller.signal);
+  const done = () => {
+    if (inflight.get(key) === entry) inflight.delete(key);
+  };
+  entry.promise.then(done, done);
+  return entry;
+}
+
+export async function fetchJson(url, signal, { fresh = false, shared = true } = {}) {
+  const key = String(url);
+  if (!shared) return copyOf(await waitOn(start(key), signal)); // a request of its own (a patient wait's next round)
+  let entry = fresh ? null : inflight.get(key);
+  if (entry && entry.controller.signal.aborted) entry = null; // a request already cancelled is never joined
+  if (!entry) {
+    entry = start(key);
+    inflight.set(key, entry);
+  }
+  return copyOf(await waitOn(entry, signal));
+}
+
+async function requestJson(url, cancel) {
+  // Final pass: no request waits for ever: it gives up after FETCH_TIMEOUT_MS, so a dead server shows as
+  // an error instead of a page that never settles; `cancel` is the shared request's own (every caller let go, waitOn above).
+  // The review (2026-11-16): the clock runs until the answer's body is read, so a body that stalls (Wi-Fi gone mid-answer)
+  // ends the request instead of holding every later caller of the address.
+  const own = timeoutSignal();
+  const stop = () => own.abort();
+  if (cancel) cancel.addEventListener("abort", stop, { once: true });
+  try {
+    const response = await fetch(url, { signal: own.signal, headers: { Accept: "application/json" } });
+    let body = null;
+    try {
+      body = await response.json();
+    } catch (error) {
+      if (own.signal.aborted) throw error; // the clock ran out, or every caller let go, while the body came
+      body = null;
+    }
+    if (body && typeof body === "object") {
+      noteBuild(body.meta?.build); // Phase 12: the tablet learns of a new build
+      noteRestart(body.meta?.restartNeeded); // Phase 16 wave 3: the server's code changed; a restart brings it in
+      noteClaude(body.meta?.claudeSignedOut); // 2026-11-15: Claude Code signed out on the server computer, or signed in again
+      noteSeasonSwitch(body.meta?.seasonSwitch); // rollover R2: the app moved to the next season, or the move is waiting
+    }
+    if (!response.ok || !body || typeof body !== "object") {
+      const message = body?.errors?.[0]?.message || `HTTP ${response.status}`;
+      const error = new Error(message);
+      error.status = response.status;
+      throw error;
+    }
+    return body;
+  } finally {
+    own.clear();
+    if (cancel) cancel.removeEventListener("abort", stop);
+  }
 }
 
 /**
  * One request that waits like a page does (Phase 18.2): a sheet or panel that opens on a cold server gets the same
  * patience as a page, asking again after each FETCH_TIMEOUT_MS round, up to `tries` rounds, instead of giving up at 20 s.
  * `current()` lets a caller drop the wait when a newer request replaced this one (it then throws an AbortError).
+ * The player card's patience (owner 2026-11-15): `signal` cancels the wait (the card closing), aborting the request in
+ * flight and never asking again; `onSlow(round)` hears each round that ran out, before the next one asks. A round counts
+ * as timed out by its own timer, never by the error's name, so a cancel is not mistaken for a slow server. After the last
+ * round the request's AbortError is thrown, as before.
  */
-export async function fetchPatient(url, { tries = SLOW_TRIES, current = () => true } = {}) {
+export async function fetchPatient(url, { tries = SLOW_TRIES, current = () => true, signal = null, onSlow = null } = {}) {
+  const outside = signal && typeof signal.addEventListener === "function" ? signal : null;
   for (let round = 1; ; round += 1) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+    const cancel = () => controller.abort();
+    if (outside?.aborted) cancel();
+    else if (outside) outside.addEventListener("abort", cancel, { once: true });
     try {
-      return await fetchJson(url, controller.signal);
+      return await fetchJson(url, controller.signal, { shared: round === 1 }); // batch 1: a later round asks anew, never joins the round that ran out
     } catch (error) {
-      const timedOut = error?.name === "AbortError";
-      if (!timedOut || round >= tries || !current()) throw error;
+      // the review (2026-11-16): a round that joined a shared request can run out on that request's own clock first
+      // (TimeoutError); that is a round timed out too, and the next one asks anew
+      const ranOut = timedOut || error?.name === "TimeoutError";
+      if (!ranOut || round >= tries || !current() || outside?.aborted) throw error;
     } finally {
       clearTimeout(timer);
+      if (outside) outside.removeEventListener("abort", cancel);
+    }
+    if (typeof onSlow === "function") {
+      try {
+        onSlow(round);
+      } catch (error) {
+        console.error(`The slow-answer note for ${url} failed.`, error); // the wait goes on: a note is never worth the answer
+      }
     }
   }
 }
@@ -122,38 +240,53 @@ export function agoText(seconds) {
   return `${Math.round(seconds / 3600)} h ago`;
 }
 
+/** "25 min old" for a kept copy's age in seconds (a minute at least). */
+function minutesOld(age) {
+  return `${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old`;
+}
+
+/** The game a page is about, for the Data status card (ENH-4: its notes, scouting report and what is due). */
+function aboutGame(envelope) {
+  const game = envelope?.data?.game;
+  const id = game && (isNum(game.gameId) || (typeof game.gameId === "string" && /^\d+$/.test(game.gameId))) ? String(game.gameId) : null;
+  return { gameId: id, kickoff: typeof game?.kickoff === "string" ? game.kickoff : null };
+}
+
 /**
- * { kind, label, detail } for the top-bar pill from an envelope. Phase 16 wave 3 (DS-12): fresh data is a quiet
- * "Updated 3 min ago" (not a green Current that says nothing); `detail` is the status card's sentence.
+ * { kind, label, detail, dot, more } for the top-bar pill from an envelope. Phase 16 wave 3 (DS-12): fresh data is a quiet
+ * "Updated 3 min ago" (not a green Current that says nothing); `detail` is the status card's sentence. ENH-4 (the owner's
+ * board of 2026-10-27): `dot` is the server connection (ok, slow, down, off) and `more` the kept copy's age when there is
+ * a problem; the shell adds how often the page's data is checked.
  */
 export function statusFor(envelope) {
   const meta = envelope?.meta || {};
   const age = ageSeconds(meta.fetched_at);
   const ago = agoText(age);
+  const about = aboutGame(envelope);
   const failed = Array.isArray(envelope?.errors) ? envelope.errors.filter((e) => e && e.code === "part_unavailable") : []; // a null entry must not read as Offline (freeze wave F1, F10)
-  if (meta.stale) return { kind: "stale", label: `Stale ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min`, detail: `CFBD did not answer, so this page shows the server's last good copy${ago ? `, fetched ${ago}` : ""}. The app tries again on its own.` };
-  if (failed.length) return { kind: "stale", label: `${failed.length} part${failed.length > 1 ? "s" : ""} failed`, detail: `${failed.length === 1 ? "One part" : `${failed.length} parts`} of this page could not load and ${failed.length === 1 ? "says" : "say"} so where ${failed.length === 1 ? "it sits" : "they sit"}; the rest is current. The app tries again on its own.` };
+  if (meta.stale) return { kind: "stale", dot: "down", label: "CFBD down", more: minutesOld(age), ...about, detail: `CFBD did not answer, so this page shows the server's last good copy${ago ? `, fetched ${ago}` : ""}. The server keeps asking CFBD; Refresh to see whether it is back.` };
+  if (failed.length) return { kind: "stale", dot: "down", label: `${failed.length} part${failed.length > 1 ? "s" : ""} failed`, ...about, detail: `${failed.length === 1 ? "One part" : `${failed.length} parts`} of this page could not load and ${failed.length === 1 ? "says" : "say"} so where ${failed.length === 1 ? "it sits" : "they sit"}; the rest is current. Refresh asks again.` };
   // `updatedAt` lets the top bar keep the words true between refreshes ("just now" becomes "5 min ago").
-  return { kind: "quiet", label: ago ? `Updated ${ago}` : "Updated", updatedAt: isNum(age) ? Date.now() - age * 1000 : null, detail: "This page's data came fresh from the app's server on the last refresh. It refreshes on its own." };
+  return { kind: "quiet", dot: "ok", label: ago ? `Updated ${ago}` : "Updated", updatedAt: isNum(age) ? Date.now() - age * 1000 : null, ...about, detail: "This page's data came fresh from the app's server when the page opened or was last refreshed. It refreshes when you open it or tap Refresh." };
 }
 
 /** The pill when the server is up but slower than FETCH_TIMEOUT_MS: never "Offline". */
 export function slowStatus(last) {
   const age = ageSeconds(last?.meta?.fetched_at);
-  if (!last) return { kind: "quiet", label: "Still loading", detail: SLOW_DETAIL };
-  return { kind: "stale", label: `Slow, showing ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old`, detail: "The server is taking longer than usual to refresh this page, so it shows the last copy it had. The app keeps trying." };
+  if (!last) return { kind: "quiet", dot: "slow", label: "Still loading", detail: SLOW_DETAIL };
+  return { kind: "stale", dot: "slow", label: "Slow", more: `showing ${minutesOld(age)}`, ...aboutGame(last), detail: "The server is taking longer than usual to refresh this page, so it shows the last copy it had. The app keeps trying." };
 }
 
 /** The pill when the server answered with an error (not offline: it answered). */
 export function serverErrorStatus(last, message) {
   const detail = `The server answered with an error (${text(message)}). The app tries again on its own; the server's log has the details.`;
-  return last ? { kind: "stale", label: "Server error, showing last copy", detail } : { kind: "stale", label: "Server error", detail };
+  return last ? { kind: "stale", dot: "down", label: "Server error", more: `showing ${minutesOld(ageSeconds(last?.meta?.fetched_at))}`, ...aboutGame(last), detail } : { kind: "stale", dot: "down", label: "Server error", detail };
 }
 
 export function offlineStatus(last) {
   const age = ageSeconds(last?.meta?.fetched_at);
   const detail = "This device could not reach the app's server. Check that the server computer is on and on the same Wi-Fi; the app keeps trying.";
-  return last ? { kind: "offline", label: `Offline, showing ${isNum(age) ? Math.max(1, Math.round(age / 60)) : DASH} min old`, detail } : { kind: "offline", label: "Offline", detail };
+  return last ? { kind: "offline", dot: "off", label: "Offline", more: minutesOld(age), ...aboutGame(last), detail } : { kind: "offline", dot: "off", label: "Offline", detail };
 }
 
 export function recordText(record) {
@@ -303,9 +436,13 @@ export function clearEnvelopeCache() {
 
 /** What makes two envelopes draw the same page: the fetch time, the stale flag, the data and the errors. */
 function signature(envelope) {
+  // batch 1 (owner 2026-11-15, "Every page in ~1.5 s"): the answer's data, never its time. A page opened again draws the copy
+  // it kept, then the fresh answer, whose fetched_at is always new; that redrew the whole page and asked every band again
+  // (21 more requests on My Team). The status pill still takes the new time (setStatus below).
   try {
     const meta = envelope?.meta || {};
-    return JSON.stringify([meta.fetched_at ?? null, meta.stale ?? null, envelope?.data ?? null, envelope?.errors ?? null]);
+    // and never a part's age (data.parts.*.ageSeconds grows every second), which the bands read only to say how old
+    return JSON.stringify([meta.stale ?? null, envelope?.data ?? null, envelope?.errors ?? null], (key, value) => (key === "ageSeconds" ? undefined : value));
   } catch {
     return null; // an envelope that cannot be compared is always drawn
   }
@@ -315,9 +452,9 @@ function signature(envelope) {
  * A polling view: fetches `url`, keeps the last good envelope, renders through `render(envelope)`
  * or `renderError(message)`, and reports status through `onStatus`. Returns { mount, refresh, unmount }.
  */
-// holdDuringRuns (owner 2026-10-16): while Claude Code loads data on the server (ui/run-bar.js) a drawn page keeps what it
-// shows, with no timed refresh, and refreshes once when every run has ended; a page with live scores passes false.
-export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading, loadingDetail = null, holdDuringRuns = true }) {
+// No timed refresh unless live (owner 2026-11-14); while Claude Code loads data on the server a page keeps what it shows
+// and the end of the run is a To do note (ui/run-bar.js), never a refresh.
+export function poller({ url, live = false, refreshMs = 0, staleAfterMs = 5 * 60 * 1000, onStatus, render, renderError, renderLoading, loadingDetail = null }) {
   let container = null;
   let last = null;
   let lastAt = 0;
@@ -362,7 +499,7 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
     if (!last && !slowTries) setStatus({ kind: "quiet", label: "Loading" }); // an ask-again keeps saying Still loading
     inFlight = (async () => {
       try {
-        const envelope = await fetchJson(url, ctl.signal);
+        const envelope = await fetchJson(url, ctl.signal, { fresh: true }); // batch 1: the page's own load and Refresh ask fresh
         if (mine !== mounted) return; // the view was replaced meanwhile: nothing to draw, nothing to say
         slowTries = 0;
         last = envelope;
@@ -406,17 +543,8 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
     return inFlight;
   }
 
-  const holding = () => holdDuringRuns && drawn !== null && dataRunActive();
-  const tick = () => {
-    if (!holding()) refresh();
-  };
-
   function onVisible() {
-    if (document.visibilityState === "visible" && Date.now() - lastAt > staleAfterMs && !holding()) refresh();
-  }
-
-  function onDataLoaded() {
-    if (container) refresh(); // the one refresh after the load: a page whose data did not change does not move
+    if (document.visibilityState === "visible" && Date.now() - lastAt > (live ? staleAfterMs : RETURN_REFRESH_MS)) refresh();
   }
 
   return {
@@ -436,17 +564,15 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
       } else {
         container.replaceChildren(loadingSun({ detail: loadingDetail }), renderLoading()); // Phase 17 #1: the sun above the outlines
       }
-      refresh();
-      timer = setInterval(tick, refreshMs);
+      refresh(); // the page opened: always asked
+      if (live && isNum(refreshMs) && refreshMs > 0) timer = setInterval(() => refresh(), refreshMs);
       document.addEventListener("visibilitychange", onVisible);
-      if (holdDuringRuns) document.addEventListener("kickoff:data-loaded", onDataLoaded);
     },
     refresh,
     unmount() {
       if (timer) clearInterval(timer);
       timer = null;
       document.removeEventListener("visibilitychange", onVisible);
-      document.removeEventListener("kickoff:data-loaded", onDataLoaded);
       container = null;
       drawn = null;
       mounted += 1; // an answer still in flight belongs to the old mount and is dropped
@@ -460,16 +586,11 @@ export function poller({ url, refreshMs, staleAfterMs = 5 * 60 * 1000, onStatus,
   };
 }
 
-/** One full-width band in its error state (DS-06, bug 9): what failed, when the app tries again, 'Try now' inside. */
+/** One full-width band in its error state (DS-06, bug 9): what failed and 'Try now' inside (no timer asks again since
+ *  2026-11-14: Try now, Refresh or opening the page again does). */
 export function errorPanel(title, message, retry) {
   const name = text(title);
   const reason = text(message);
-  let minutes = 15;
-  try {
-    minutes = Math.max(1, Math.round(pollMs() / 60000));
-  } catch {
-    minutes = 15;
-  }
   return el(
     "div",
     { class: "page" },
@@ -484,7 +605,7 @@ export function errorPanel(title, message, retry) {
           stateBlock({
             kind: "error",
             lead: `Could not load ${name === DASH ? "this page" : name}.`,
-            detail: `${reason}${/[.!?]$/.test(reason) ? "" : "."} The app tries again every ${minutes} min.`,
+            detail: `${reason}${/[.!?]$/.test(reason) ? "" : "."} ${typeof retry === "function" ? "Try now, or tap Refresh" : "Tap Refresh"} beside the status pill.`,
             action: typeof retry === "function" ? { label: "Try now", onClick: () => retry() } : null,
           }),
           // like a crash reporter (owner 2026-10-23): the report form, the error already in it

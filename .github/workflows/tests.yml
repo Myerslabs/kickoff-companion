@@ -1,56 +1,36 @@
-# The test suite on Windows, Linux and macOS (public release Phase 4), and every page in a headless browser on the
-# three systems (freeze wave F6, 2026-10-21: tools/page_check.py against the simulator and its made-up league, at the
-# tablet held upright, with the interactions, the layout, the rules and the scroll checks). The suite never touches the
-# network beyond installing packages: every CFBD answer comes from the made-up league.
-#
-# Runs only in the public repo (kickoff-companion), so a private copy spends no Actions minutes.
+# The test machine (owner 2026-11-15: "GitHub runs the whole suite on every pushed branch"): every test, the page tests that
+# need Node included, on GitHub's Windows machines for each push, so the game-day host never carries the load.
+# A red or green mark shows on the branch and its commits; main moves only when a part passes.
 name: tests
 
 on:
   push:
-    branches: [main]
-  pull_request:
+    branches: ["**"]
   workflow_dispatch:
 
-permissions:
-  contents: read
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    if: github.event.repository.name == 'kickoff-companion'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - uses: actions/setup-node@v4  # the front-end tests run the real modules under Node
-        with:
-          node-version: "22"
-      - name: Install from the lock file
-        run: uv sync --frozen
-      - name: Lint
-        run: uv run --frozen ruff check app tools tests
-      - name: Tests
-        run: uv run --frozen pytest
-
-  pages:
-    if: github.event.repository.name == 'kickoff-companion'
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  tests:
+    runs-on: windows-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - name: Install from the lock file
-        run: uv sync --frozen
-      - name: Every page in a headless browser, with the checks
-        shell: bash
-        run: |
-          uv run --frozen python tools/page_check.py --interact --layout --rules --scroll ${{ runner.os == 'Linux' && '--no-sandbox' || '' }}
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Install
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint
+        run: python -m ruff check app tools tests
+      - name: Every test
+        run: python -m pytest -n auto -q -rfE

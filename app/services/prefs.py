@@ -59,20 +59,23 @@ class Prefs(BaseModel):
 
     delaySeconds: int = Field(default=30, ge=0, le=120)
     radioSourceId: str | None = Field(default=None, max_length=80)
-    theme: Literal["dark", "light"] = "dark"
+    theme: Literal["dark", "light"] = "dark"  # no longer read: each device keeps its own theme since ENH-35 (static/js/prefs.js); kept so an old page's save still validates
     refreshMinutes: int = Field(default=15, ge=1, le=120)
     autoStart: bool = False
     # The tray on by default (owner 2026-10-23, the testers' Friday): "auto" is each system's default, the tray on Windows
     # (the only system with one); "on" and "off" are a choice made in Settings. tray_wanted() says what a start does.
     trayMode: TrayMode = "auto"
     hints: bool = True  # stat names show a dotted underline and explain themselves when tapped (2026-09-26)
-    scheduledRuns: bool | None = None  # Phase 18.7: Claude Code runs the prompts by itself; None (the Prompts phase, owner 2026-10-13: "if they are using the CLI, the scheduled commands run; if not, they do not") means on whenever its command is found
+    scheduledRuns: bool | None = None  # Phase 18.7: Claude Code runs the prompts by itself; only True turns it on (Kickoff Companion 2.0: each run uses the person's own Claude plan, so it is never on by itself)
     backups: bool = True  # Phase 18.2: the nightly backup of the archive, notes and settings
     awayFromHome: bool = False  # group five: on a public network, only devices that scanned the host's code can watch
     announcer: bool = True  # Phase 17 #15: the little announcer calls out the bands' stat blurbs
     updateCheck: bool = True  # Phase 16 wave 3: once a day, ask GitHub whether a newer release is out
     hostName: str = Field(default="", max_length=40)  # freeze wave F5 (owner 2026-10-20): the name on the notes you write, "Note from Pat"; blank reads "the host"
     keepScreenOn: Literal["off", "gameday", "always"] = "gameday"  # the shell's screen wake lock (Phase 12)
+    # ENH-32 (owner 2026-10-27): the server computer itself. "plugged" holds it awake on mains power and never on
+    # battery, even on game day; "games" during a game window only (the behavior before); "off" never (app/maintenance.py)
+    keepAwake: Literal["plugged", "games", "off"] = "plugged"
     openBrowser: Literal["manual", "always", "never"] = "manual"  # open the app on the host when the server starts (Phase 4b)
     # Public release Phase 5b (a Tier 2 key for all of these). Primary teams #2 to #5: their team pages load
     # as soon as a device connects and sit one tap away in the menu; the home team (TEAM in .env) stays

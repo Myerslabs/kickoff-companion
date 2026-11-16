@@ -16,7 +16,7 @@ from app.feeds import FeedResult, FeedSpec, FeedStore, Headline, TeamMatcher, me
 from tests.conftest import TEAM
 
 FIXTURES = Path(__file__).parent / "fixtures" / "feeds"  # made-up headlines in the shapes the real feeds send
-MASCOT = "Mudpuppies"
+MASCOT = "Gators"
 SPECS = {spec.id: spec for spec in team_feeds(TEAM, MASCOT, "https://news.example.invalid/rss?path=football")}
 MATCHER = team_matcher(TEAM, MASCOT)
 
@@ -29,7 +29,7 @@ def run(coro):
     return asyncio.run(coro)
 
 
-@pytest.mark.parametrize("feed_id", ["team", "espn", "athletic", "google"])
+@pytest.mark.parametrize("feed_id", ["team", "espn", "athletic", "cbs", "yahoo", "google"])
 def test_sample_feeds_parse(feed_id: str):
     headlines, skipped, _ = parse_feed(sample(feed_id), SPECS[feed_id], MATCHER)
     assert skipped == 0
@@ -42,26 +42,26 @@ def test_sample_feeds_parse(feed_id: str):
 
 
 def test_national_feeds_keep_our_headlines_only():
-    for feed_id in ("espn", "athletic"):
+    for feed_id in ("espn", "athletic", "cbs", "yahoo"):  # FEAT-14: CBS and Yahoo filtered the same way
         headlines = parse_feed(sample(feed_id), SPECS[feed_id], MATCHER).headlines
         assert headlines and all((TEAM in h.title or MASCOT in h.title) for h in headlines)
     body = b"""<rss><channel>
-      <item><title>Okra Valley Pods name a starter</title><link>https://x/1</link></item>
-      <item><title>Okra Valley State loses again</title><link>https://x/2</link></item>
-      <item><title>North Okra Valley and OVS meet</title><link>https://x/3</link></item>
-      <item><title>Okra Valley State at Okra Valley this week</title><link>https://x/4</link></item>
-      <item><title>Brisket State rolls</title><link>https://x/5</link></item>
+      <item><title>Georgia Bulldogs name a starter</title><link>https://x/1</link></item>
+      <item><title>Georgia State loses again</title><link>https://x/2</link></item>
+      <item><title>North Georgia and OVS meet</title><link>https://x/3</link></item>
+      <item><title>Georgia State at Georgia this week</title><link>https://x/4</link></item>
+      <item><title>Arizona rolls</title><link>https://x/5</link></item>
     </channel></rss>"""
-    matcher = team_matcher("Okra Valley", "Pods", ["Okra Valley State", "OVS", "North Okra Valley"])
+    matcher = team_matcher("Georgia", "Bulldogs", ["Georgia State", "OVS", "North Georgia"])
     headlines = parse_feed(body, FeedSpec("t", "T", "https://x", team_only=True), matcher).headlines
-    assert [h.title for h in headlines] == ["Okra Valley Pods name a starter", "Okra Valley State at Okra Valley this week"]
+    assert [h.title for h in headlines] == ["Georgia Bulldogs name a starter", "Georgia State at Georgia this week"]
     assert parse_feed(body, FeedSpec("t", "T", "https://x", team_only=True)).headlines == []  # no team known: nothing passes
 
 
 def test_team_matcher_edges():
     assert not TeamMatcher([]).matches("anything")
-    m = TeamMatcher(["Pods"], [])
-    assert m.matches("pods win") and not m.matches("Podsville") and not m.matches(None)
+    m = TeamMatcher(["Bulldogs"], [])
+    assert m.matches("bulldogs win") and not m.matches("Bulldogsville") and not m.matches(None)
 
 
 def test_google_titles_drop_the_source_suffix():
@@ -94,10 +94,10 @@ def test_atom_documents_parse_too():
 
 
 def test_merge_removes_duplicates_and_sorts_newest_first():
-    a = FeedResult(SPECS["team"], [Headline("Mudpuppies win big!", "https://a/1", "SWT", "team", "2026-09-20T00:00:00Z"), Headline("Older", "https://a/2", "SWT", "team", "2026-09-10T00:00:00Z")])
-    b = FeedResult(SPECS["google"], [Headline("Mudpuppies win big", "https://b/1", "Site", "google", "2026-09-21T00:00:00Z"), Headline("Newest", "https://b/2", "Site", "google", "2026-09-22T00:00:00Z")])
+    a = FeedResult(SPECS["team"], [Headline("Gators win big!", "https://a/1", "FLA", "team", "2026-09-20T00:00:00Z"), Headline("Older", "https://a/2", "FLA", "team", "2026-09-10T00:00:00Z")])
+    b = FeedResult(SPECS["google"], [Headline("Gators win big", "https://b/1", "Site", "google", "2026-09-21T00:00:00Z"), Headline("Newest", "https://b/2", "Site", "google", "2026-09-22T00:00:00Z")])
     merged = merge_headlines([a, b])
-    assert [h["title"] for h in merged] == ["Newest", "Mudpuppies win big!", "Older"]
+    assert [h["title"] for h in merged] == ["Newest", "Gators win big!", "Older"]
 
 
 class FakeSites:

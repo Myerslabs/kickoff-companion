@@ -22,7 +22,7 @@ scenarios.sides = async () => {
   const counts = { 5: 1, 4: 3, 3: 10, 2: 2, 1: 0 };
   const us = { sides: { offense: { counts, average: 3.4, signees: 16 }, defense: { counts: { 5: null, 4: "x" }, average: null, signees: 1 }, apart: { athlete: 2 } } };
   const them = { stars: { counts, average: 3.1 } };
-  const pair = starsPair(us, them, "SWT", "OPP");
+  const pair = starsPair(us, them, "FLA", "OPP");
   document.body.append(pair);
   const t = text(pair);
   assert.ok(!RAW.test(t), t);
@@ -31,8 +31,8 @@ scenarios.sides = async () => {
   assert.ok(wraps.every((w) => w.dataset.size === "large" && typeof w.measure === "function"), "each sized by its own box");
   assert.ok(pair.querySelector(".stars-split__team--us") && pair.querySelector(".stars-split__team--them"), "ours at the left hand, theirs at the right");
   // the visible line over each table, and the same words for a screen reader
-  assert.deepEqual(pair.querySelectorAll(".stars-split__caption").map(text), ["SWT signees by stars, last four classes", "OPP signees by stars, last four classes"]);
-  assert.ok(text(pair.querySelectorAll("caption")[0]).startsWith("SWT") && text(pair.querySelectorAll("caption")[1]).startsWith("OPP"));
+  assert.deepEqual(pair.querySelectorAll(".stars-split__caption").map(text), ["FLA signees by stars, last four classes", "OPP signees by stars, last four classes"]);
+  assert.ok(text(pair.querySelectorAll("caption")[0]).startsWith("FLA") && text(pair.querySelectorAll("caption")[1]).startsWith("OPP"));
   // the heads: the star levels at every size, Avg at small, the 2- and 1-star columns at large only
   const heads = wraps[0].querySelectorAll("thead th");
   assert.deepEqual(heads.map((th) => form(th, "long")), ["Unit", "5-star", "4-star", "3-star", "2-star", "1-star", "Avg stars"]);
@@ -49,7 +49,7 @@ scenarios.sides = async () => {
   assert.ok(rows[0].className.includes("is-us") && rows[2].className.includes("is-next"));
   applyStatSize(wraps[0], "small");
   assert.equal(wraps[0].dataset.size, "small");
-  const old = starsPair({ stars: { counts } }, them, "SWT", "OPP");
+  const old = starsPair({ stars: { counts } }, them, "FLA", "OPP");
   assert.equal(old.querySelectorAll(".starstrip").length, 2, "an older server: one strip a team");
   assert.equal(starsPair({}, { sides: { offense: { counts: null } } }, "A", "B"), null);
   assert.equal(starsPair(null, undefined, "A", "B"), null);

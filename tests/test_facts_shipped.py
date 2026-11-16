@@ -26,20 +26,20 @@ def shipped(tmp_path: Path, teams: dict, checked: str = "2026-10-21") -> Path:
 
 
 def test_the_shipped_file_sits_under_the_installs_own_facts(tmp_path: Path, monkeypatch):
-    path = shipped(tmp_path, {TEAM: {"founded": 1900, "stadium": "Shipped Field", "conference": "Biscuit Belt", "mascotName": "Mud"}, "Other U": {"founded": 1950, "conference": "Biscuit Belt"}})
+    path = shipped(tmp_path, {TEAM: {"founded": 1900, "stadium": "Shipped Field", "conference": "SEC", "mascotName": "Mud"}, "Other U": {"founded": 1950, "conference": "SEC"}})
     monkeypatch.setattr(season_notes, "SHIPPED_FACTS", path)
     notes = SeasonNotes(tmp_path / "data", 2026)
     facts = notes.facts()
-    assert facts["shipped"] == ["Other U", TEAM] and facts["teams"][TEAM]["shipped"] is True and facts["teams"][TEAM]["checkedAt"] == "2026-10-21"
+    assert facts["shipped"] == sorted(["Other U", TEAM]) and facts["teams"][TEAM]["shipped"] is True and facts["teams"][TEAM]["checkedAt"] == "2026-10-21"
     ours = notes.facts_for(TEAM)
     assert ours["stadium"] == "Shipped Field" and ours["mascotName"] == "Mud" and ours["shipped"] is True and ours["checkedAt"] == "2026-10-21" and ours["traditions"] == []
     # the install loads its own: that school is overlaid, the other stays shipped
     from app.services import season_prompts
 
-    answer = json.dumps({"conference": "Biscuit Belt", "season": 2026, "author": "Chat", "teams": [{"school": TEAM, "founded": 1900, "stadium": "Own Field", "stadiumNickname": "The Bog", "firstSeason": 1906, "conferenceTitleYears": [1991, 1996], "winningestCoach": "Coach One, 100 wins (1990 to 2001)", "retiredNumbers": ["Player (No. 15)"], "traditions": ["The chomp"]}], "sources": [{"title": "s", "url": "https://x"}]})
-    reading = season_prompts.read_facts(answer, "Biscuit Belt", [TEAM, "Other U"])
+    answer = json.dumps({"conference": "SEC", "season": 2026, "author": "Chat", "teams": [{"school": TEAM, "founded": 1900, "stadium": "Own Field", "stadiumNickname": "The Bog", "firstSeason": 1906, "conferenceTitleYears": [1991, 1996], "winningestCoach": "Coach One, 100 wins (1990 to 2001)", "retiredNumbers": ["Player (No. 15)"], "traditions": ["The chomp"]}], "sources": [{"title": "s", "url": "https://x"}]})
+    reading = season_prompts.read_facts(answer, "SEC", [TEAM, "Other U"])
     assert reading.value is not None, reading.error
-    kept = notes.save_facts(reading.value, "Biscuit Belt", [TEAM, "Other U"])
+    kept = notes.save_facts(reading.value, "SEC", [TEAM, "Other U"])
     assert kept["kept"] == [TEAM] and notes.facts_file == tmp_path / "data" / "facts.json" and notes.facts_file.is_file(), "the install's facts live outside the season folder"
     ours = notes.facts_for(TEAM)
     assert ours["stadium"] == "Own Field" and ours["stadiumNickname"] == "The Bog" and ours["firstSeason"] == 1906 and ours["conferenceTitleYears"] == [1991, 1996] and ours["retiredNumbers"] == ["Player (No. 15)"] and ours["traditions"] == ["The chomp"]
@@ -53,7 +53,7 @@ def test_the_seasons_old_facts_file_is_carried_over_once(tmp_path: Path, monkeyp
     notes = SeasonNotes(tmp_path / "data", 2026)
     old = notes.dir / "facts.json"
     old.parent.mkdir(parents=True)
-    old.write_text(json.dumps({"teams": {TEAM: {"founded": 1900, "conference": "Biscuit Belt", "savedAt": "2026-09-01T12:00:00Z"}}, "batches": {"Biscuit Belt": {"savedAt": "2026-09-01T12:00:00Z", "teams": 1, "of": 2}}}), encoding="utf-8")
+    old.write_text(json.dumps({"teams": {TEAM: {"founded": 1900, "conference": "SEC", "savedAt": "2026-09-01T12:00:00Z"}}, "batches": {"SEC": {"savedAt": "2026-09-01T12:00:00Z", "teams": 1, "of": 2}}}), encoding="utf-8")
     assert notes.facts_for(TEAM)["founded"] == 1900 and notes.facts_file.is_file(), "read from the season folder once, then kept outside it"
     assert notes.facts_for(TEAM)["checkedAt"] == "2026-09-01T12:00:00Z", "an older save counts as checked then"
     assert notes.facts()["shipped"] == []

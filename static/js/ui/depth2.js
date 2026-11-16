@@ -13,7 +13,7 @@
 // tendenciesBlock(t, abbr)                an opponent's run and pass calls by situation, run direction, pass depth
 // advancedBoxBlock(box, sides)            one finished game: by quarter, line play and havoc, players' value
 //
-// Table sizes, wave 2 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): the Pre-Game Program's tables here size
+// Table sizes, wave 2 (owner 2026-10-10; the design rules, Table sizes): the Pre-Game Program's tables here size
 // themselves by their own box. The situations: whole heads at large (Yards per carry, Yards per pass play), the counts and
 // yards gone at small, where the made-of pairs ("12-20") carry the counts. The pass zones and run lanes keep the field's
 // shape at every size and say less in each cell as the box narrows. The advanced box score: the quarter tables keep every
@@ -23,12 +23,12 @@
 import { usLabel, usSchool } from "../identity.js";
 import { weekCell } from "./weeks.js";
 import { DASH, el, fmtNum, fmtPct, fmtStat, isNum, records, teamLink, text } from "./dom.js";
-import { nationalHref, pollHref } from "./national-link.js";
+import { nationalHref } from "./national-link.js";
 import { note } from "./states.js";
-import { pollBadge, statTable } from "./stat-table.js";
+import { pollPathBlock } from "./poll-path.js";
+import { statTable } from "./stat-table.js";
 import { shotChart } from "./shot-chart.js";
 
-const h4 = (label) => el("h4", { class: "d2-head" }, label);
 
 /** A value in its format, or a dash. */
 function show(value, format) {
@@ -159,27 +159,14 @@ export function adjustedMatchup(rows, { usAbbr = usLabel(), themAbbr = DASH, usT
 
 // --- the résumé -----------------------------------------------------------------------------------------
 
-/** A poll rank as a badge linked to that poll (the column names the poll), or "NR" in fog. */
-function pollCell(rank, poll, team) {
-  return isNum(rank) ? pollBadge(rank, poll, { href: pollHref(poll, { team }), label: team, showPoll: false }) : el("span", { class: "nr" }, "NR");
-}
-
-// The résumé's two tables, sized by their own box (tables wave 3). The summary: each fact, its value and (from medium) its
-// FBS rank in a column of its own (rule 3: the schedule strength's chip left the value's cell, and the schedule to come says
-// where it would rank with a chip, not in words). The poll path: the badges ARE the values (the team's path), so nothing drops.
+// The résumé's table, sized by its own box (tables wave 3): each fact, its value and (from medium) its FBS rank in a column of
+// its own (rule 3: the schedule strength's chip left the value's cell, and the schedule to come says where it would rank with
+// a chip, not in words). The poll path is a chart since ENH-19 (ui/poll-path.js), its numbers in two rows under it.
 const RESUME_COLUMNS = [
   { key: "label", label: "Résumé", kind: "text" },
   { key: "value", label: "Value" },
   { key: "rank", label: "FBS rank", labelMid: "FBS", kind: "rank", of: "of", size: "medium", link: (row) => row.href || null },
 ];
-
-function pollPathColumns(team) {
-  return [
-    { key: "week", label: "Week", labelShort: "Wk" },
-    { key: "ap", label: "AP rank", labelMid: "AP", render: (row) => pollCell(row.ap, "AP", team) },
-    { key: "coaches", label: "Coaches rank", labelMid: "Coaches", render: (row) => pollCell(row.coaches, "Coaches", team) },
-  ];
-}
 
 export function resumeBlock(resume, teamName = usSchool()) {
   const r = resume && typeof resume === "object" ? resume : {};
@@ -203,7 +190,7 @@ export function resumeBlock(resume, teamName = usSchool()) {
     note("Expected wins adds up CFBD's postgame win probability for each finished game: how often a team that played that way would have won. Strength of schedule is the average SP+ of FBS opponents; CFBD does not publish its own during the season. The rank beside the opponents to come is where that schedule would sit among the schedules FBS teams have played."),
     games.length ? note("The rest of the schedule, with each opponent's record, rank, SP+ and form, is in the Road ahead band.") : null,
     polls.length
-      ? el("div", {}, h4("Poll path"), statTable({ compact: true, sizes: true, sortable: false, columns: pollPathColumns(team), rows: polls.map((p) => ({ week: p.seasonType === "postseason" ? "Final" : p.week, ap: p.ap, coaches: p.coaches })), caption: "Poll path" }))
+      ? pollPathBlock({ polls: r.polls, opponent: r.opponentPolls, team }) // ENH-19: the poll path as a line, both polls, the next opponent beside
       : note(`${text(teamName)} has not been ranked in a poll this season.`),
   );
 }
@@ -283,7 +270,7 @@ export function situationRows(bySituation) {
     }));
 }
 
-export function tendenciesBlock(t, abbr = DASH) {
+export function tendenciesBlock(t, abbr = DASH, { grids = null } = {}) {
   if (!t || typeof t !== "object" || !isNum(t.plays) || t.plays <= 0) return note("No plays from this opponent yet this season.");
   const splitRow = (r) => ({ label: text(r.label), plays: numOrNull(r.plays), ypp: numOrNull(r.yardsPerPlay), success: madeOf(r.success), successShort: madeShort(r.success) });
   const dirRows = records(t.runDirection).map(splitRow);
@@ -312,7 +299,8 @@ export function tendenciesBlock(t, abbr = DASH) {
     { class: "d2 tend" },
     el("p", { class: "note" }, `${text(abbr)} over ${text(t.games)} games: ${text(t.plays)} snaps, runs ${isNum(t.runRate) ? fmtPct(t.runRate) : DASH} of the time (a sack counts as a called pass; kneels and spikes are left out).`),
     where,
-    el("div", { class: "tend__table" }, programSubhead("By down and distance"), statTable({ compact: true, sizes: true, sortable: true, columns: SITUATION_COLUMNS, rows: situationRows(t.bySituation), caption: "By down and distance" })),
+    // board 5 (ENH-30, owner 2026-10-25): both offenses' shaded grids above the table they add shade to
+    el("div", { class: "tend__table" }, programSubhead("By down and distance"), grids, statTable({ compact: true, sizes: true, sortable: true, columns: SITUATION_COLUMNS, rows: situationRows(t.bySituation), caption: "By down and distance" })),
   );
 }
 

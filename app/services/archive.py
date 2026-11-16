@@ -2,20 +2,27 @@
 posted afterwards (owner direction 2026-09-23: as much data as we can). The file the engine
 wrote at the final is the spine (plays, drives, the delayed state, the win probability series);
 the box score, player lines, play value and notes come from the program and analytics services,
-which cache them for good once the game is final. Nothing is back-filled: a game the app did not
-watch is not in the archive."""
+which cache them for good once the game is final. FEAT-3 (owner 2026-10-23, "backfill this season's played games for team
+#1"): a game of ours that finished before this install watched one is rebuilt from CFBD's play-by-play after the final
+(`backfill`, the replay's way of reading a finished game) and saved the same way, marked `backfilled`."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import os
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from app.api.envelope import utc_now_iso
-from app.cfbd.models import Game, PlayerGamePpa, PlayWinProbability, Team, parse_records
+from app.cache import DataKind
+from app.cfbd.client import CfbdError, paced_calls
+from app.cfbd.models import Drive, Game, Play, PlayerGamePpa, PlayWinProbability, Team, parse_records
+from app.cfbd.quota import QuotaBlocked
+from app.live.events import LiveEvent, events_from_finished, status_from_scores
+from app.live.state import derive_state
 from app.services import gamekeys, recap16
 from app.services.analytics import AnalyticsService, player_rows, wp_series
 from app.services.context16 import peek
@@ -75,6 +82,7 @@ class ArchiveService:
             "status": state.get("status"),
             "plays": _num((state.get("counts") or {}).get("plays")),
             "hasWinProbability": bool(raw.get("winProbability")),
+            "backfilled": raw.get("backfilled") is True,  # FEAT-3: rebuilt from CFBD's play-by-play, not watched live
         }
 
     async def _abbreviations(self) -> dict[str, str]:
@@ -92,6 +100,8 @@ class ArchiveService:
         abbreviations = await self._abbreviations()
         if self.folder.is_dir():
             for path in sorted(self.folder.glob("*.json")):
+                if not path.stem.isdigit():
+                    continue  # the bug round: the folder's own files (.refreshed.json, the second look's memory) are not games
                 raw = self._read(path)
                 if raw is None:
                     skipped += 1
@@ -140,7 +150,7 @@ class ArchiveService:
         data = {
             **summary,
             "state": raw["state"],
-            "winProbability": {"available": True, "series": wp, "source": "archived at the final"} if wp else (adata.get("winProbability") or {"available": False, "series": [], "note": "No win probability was posted for this game."}),
+            "winProbability": {"available": True, "series": wp, "source": "CFBD's, saved when the game was rebuilt" if raw.get("backfilled") is True else "archived at the final"} if wp else (adata.get("winProbability") or {"available": False, "series": [], "note": "No win probability was posted for this game."}),
             "ppa": adata.get("ppa") or {"available": False, "note": "Play value is not available for this game."},
             "advancedBox": adata.get("advancedBox"),  # Phase 13: CFBD's advanced box score for the game
             "final": pdata.get("final"),
@@ -234,10 +244,11 @@ class ArchiveService:
             return {}
         return {str(k): str(v) for k, v in raw.items()} if isinstance(raw, dict) else {}
 
-    def _mark_refreshed(self, game_id: int, now: Any, *, tried: bool = False) -> None:
-        """Note the game as refreshed, or (tried) as attempted, in the same file: "tried:<id>" keeps the attempt's time."""
+    def _mark_refreshed(self, game_id: int, now: Any, *, tried: bool = False, key: str | None = None) -> None:
+        """Note the game as refreshed, or (tried) as attempted, in the same file: "tried:<id>" keeps the attempt's time;
+        `key` names another note ("backfill:<id>", FEAT-3)."""
         marks = self._refreshed()
-        marks[f"tried:{game_id}" if tried else str(game_id)] = now.isoformat(timespec="seconds")
+        marks[key or (f"tried:{game_id}" if tried else str(game_id))] = now.isoformat(timespec="seconds")
         try:
             self.folder.mkdir(parents=True, exist_ok=True)
             (self.folder / self.REFRESH_FILE).write_text(json.dumps(marks, indent=1), encoding="utf-8")
@@ -307,3 +318,101 @@ class ArchiveService:
             done.append(game_id)
             log.info("Archive game %s refreshed with CFBD's corrected post-game numbers", game_id)
         return done
+
+
+    # --- FEAT-3: this season's games played before the install ------------------------------------------------------
+
+    BACKFILL_PER_TICK = 2  # games one housekeeping tick rebuilds, three paced calls each (plays, drives, win probability)
+
+    async def upkeep(self, now: Any) -> list[int]:
+        """The housekeeping's archive step (app/maintenance.py, outside a game window): the games played before the install
+        first, then the two-day second look at the games the app watched."""
+        await self.backfill(now)
+        return await self.refresh_finished(now)
+
+    async def backfill(self, now: Any) -> list[int]:
+        """FEAT-3: each of our finished games this season with no archive file is rebuilt from CFBD's play-by-play after the
+        final, its drives and its win probability, the way a replay reads a finished game (app/live/events.py
+        events_from_finished), folded into the archive's state with the final score, and saved like a watched game with
+        `backfilled`. A few games a tick, as paced background calls (ENH-27); a game whose plays are not posted yet, or
+        whose calls fail, is tried again after six hours. A rebuilt game is past CFBD's corrections, so it is marked as
+        refreshed. Our schedule is read from the cache the Season page keeps (never a call). Returns the games saved."""
+        from datetime import datetime
+
+        done: list[int] = []
+        schedule = await self._schedule()
+        if not schedule:
+            return done
+        marks = self._refreshed()
+        for game in sorted(schedule, key=gamekeys.order):
+            if len(done) >= self.BACKFILL_PER_TICK:
+                break
+            if not isinstance(game.id, int) or not game.completed or game.week is None or (self.folder / f"{game.id}.json").is_file():
+                continue
+            tried = marks.get(f"backfill:{game.id}")
+            if tried:
+                try:
+                    if now - datetime.fromisoformat(tried) < self.RETRY_AFTER:
+                        continue
+                except (TypeError, ValueError):
+                    pass
+            try:
+                with paced_calls():
+                    saved = await self._backfill_one(game)
+            except (CfbdError, QuotaBlocked) as exc:
+                log.warning("Archive back-fill of game %s waits: %s", game.id, exc)
+                saved = False
+            except Exception:  # noqa: BLE001 - one game must not stop the others; logged with the traceback
+                log.exception("Archive back-fill of game %s failed", game.id)
+                saved = False
+            if saved:
+                done.append(game.id)
+                self._mark_refreshed(game.id, now)
+            else:
+                self._mark_refreshed(game.id, now, key=f"backfill:{game.id}")
+        return done
+
+    async def _backfill_one(self, game: Game) -> bool:
+        params = gamekeys.week_params(game, self._year, self.team)  # a bowl's answer holds all the team's bowls: filtered by id
+        plays_fetched = await self._client.get("/plays", params, kind=DataKind.FINISHED_GAME)
+        plays = [p for p in parse_records(Play, plays_fetched.payload, context="archive back-fill/plays").records if p.game_id in (None, game.id)]
+        if not plays:
+            log.info("Archive back-fill of game %s waits: CFBD has no plays posted for it yet", game.id)
+            return False
+        drives_fetched = await self._client.get("/drives", params, kind=DataKind.FINISHED_GAME)
+        drives = [d for d in parse_records(Drive, drives_fetched.payload, context="archive back-fill/drives").records if d.game_id in (None, game.id)]
+        series: list[dict[str, Any]] = []
+        try:
+            wp_fetched = await self._client.get("/metrics/wp", {"gameId": game.id}, kind=DataKind.FINISHED_GAME)
+            series = wp_series(parse_records(PlayWinProbability, wp_fetched.payload, context="archive back-fill/wp").records)
+        except (CfbdError, QuotaBlocked) as exc:  # the game is saved without its curve; the Archive asks for it again
+            log.info("Archive back-fill of game %s: no win probability (%s)", game.id, exc)
+        stamp = self._client._clock()
+        events: list[LiveEvent] = []
+        for event, _wallclock in events_from_finished(game.id, plays, drives, game.home_team, game.away_team):
+            event.received_at = stamp
+            events.append(event)
+        final = status_from_scores(game.id, game.home_team, game.away_team, game.home_points, game.away_points, None, None, None, None, None, None, "final", game.home_line_scores, game.away_line_scores)
+        events.append(LiveEvent("status", "status", game.id, stamp, final))
+        state = derive_state(events, game_id=game.id, home=game.home_team, away=game.away_team, mode="archive")
+        body = {
+            "gameId": game.id,
+            "season": self._year,
+            "week": game.week,
+            "seasonType": game.season_type or "regular",
+            "home": game.home_team,
+            "away": game.away_team,
+            "kickoff": game.start_date,
+            "savedAt": stamp.isoformat(timespec="seconds"),
+            "partial": False,
+            "partialReason": None,
+            "backfilled": True,
+            "winProbability": series or None,
+            "state": state,
+        }
+        self.folder.mkdir(parents=True, exist_ok=True)
+        temp = self.folder / f"{game.id}.json.tmp"
+        await asyncio.to_thread(temp.write_text, json.dumps(body, separators=(",", ":")), "utf-8")
+        await asyncio.to_thread(os.replace, temp, self.folder / f"{game.id}.json")
+        log.info("Archive back-filled game %s (%s at %s): %d plays from CFBD's play-by-play", game.id, game.away_team, game.home_team, len(plays))
+        return True

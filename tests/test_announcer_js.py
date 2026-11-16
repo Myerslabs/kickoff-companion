@@ -20,13 +20,13 @@ scenarios.blurbs = async () => {
   };
   const { announcer, applyAnnouncer, isBlurb, TALK_MS } = await import(moduleUrl("ui/announcer.js"));
   const { band } = await import(moduleUrl("ui/states.js"));
-  assert.deepEqual([isBlurb("SWT better in 14 of 24"), isBlurb("tap a game"), isBlurb(null), isBlurb(12)], [true, false, false, false]);
-  const withStat = band({ id: "b1", title: "Tale", summary: "SWT better in 14 of 24", body: () => document.createElement("div") });
+  assert.deepEqual([isBlurb("FLA better in 14 of 24"), isBlurb("tap a game"), isBlurb(null), isBlurb(12)], [true, false, false, false]);
+  const withStat = band({ id: "b1", title: "Tale", summary: "FLA better in 14 of 24", body: () => document.createElement("div") });
   const plain = band({ id: "b2", title: "Picker", summary: "tap a game", body: () => document.createElement("div") });
   document.body.append(withStat, plain);
   assert.equal(withStat.querySelectorAll(".announcer").length, 1);
   assert.equal(plain.querySelectorAll(".announcer").length, 0);
-  assert.ok(withStat.querySelector(".band__summary").textContent.includes("SWT better in 14 of 24"), "the blurb is still read");
+  assert.ok(withStat.querySelector(".band__summary").textContent.includes("FLA better in 14 of 24"), "the blurb is still read");
   // he talks when the blurb shows, then stops
   const svg = withStat.querySelector(".announcer");
   seen.find((s) => s.target === svg).fire();
@@ -34,10 +34,10 @@ scenarios.blurbs = async () => {
   await advance(TALK_MS + 10);
   assert.ok(!svg.getAttribute("class").includes("announcer--talking"));
   // the same blurb drawn again (a refresh) stays quiet; a new one is called
-  const again = announcer("b1|SWT better in 14 of 24");
+  const again = announcer("b1|FLA better in 14 of 24");
   seen.find((s) => s.target === again).fire();
   assert.ok(!again.getAttribute("class").includes("talking"));
-  const fresh = announcer("b1|SWT better in 15 of 24");
+  const fresh = announcer("b1|FLA better in 15 of 24");
   seen.find((s) => s.target === fresh).fire();
   assert.ok(fresh.getAttribute("class").includes("talking"));
   applyAnnouncer(false);

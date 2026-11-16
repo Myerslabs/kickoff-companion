@@ -129,6 +129,18 @@ def test_an_archive_that_does_not_answer_falls_back(monkeypatch, capsys):
     assert pc.archive_route_value("http://host:1", "5") == "5", "an empty archive: the finished game it does not hold"
 
 
+def test_a_page_wider_than_the_screen_fails_the_layout_check():
+    """The owner's phone (2026-11-07): the Program's cover took the rail's full content width and the phone zoomed the page out;
+    a headless window scrolled sideways instead, so --layout now fails a document wider than its window and names the boxes."""
+    assert "document.documentElement.scrollWidth - W" in pc.WIDE_JS and "overflowX" in pc.WIDE_JS, "a scroller's own overflow is by design"
+    assert hasattr(pc.Edge, "too_wide")
+    src = Path(pc.__file__).read_text(encoding="utf-8")
+    assert "for row in browser.too_wide():" in src and "wider than the screen" in src and "No page wider than the screen." in src
+    css = (ROOT / "static" / "css" / "components.css").read_text(encoding="utf-8")
+    assert "grid-template-columns: minmax(0, 1fr); /* the owner's phone, 2026-11-07" in css, "the cover's column never takes the rail's content width"
+    assert ".rail-host { min-width: 0; max-width: 100%; }" in css
+
+
 def test_an_archived_games_drives_are_no_stretched_rows():
     """With a game in the archive the route reaches the drives and the play log: a drive's bar on the field is a drawing
     (content, not a gap), and a drive's head over its plays is a band head's pattern (split on purpose)."""
@@ -193,17 +205,17 @@ def test_the_sheet_check_taps_the_menu_where_it_is():
 
 def test_the_sheet_check_says_what_covers_the_menu():
     edge = FakeEdge([
-        ("a sheet opened by itself", {"kind": "team", "what": "Red Clay", "sheet": "Red Clay"}),
-        ("hit === menu || menu.contains(hit)", {"x": 10, "y": 10, "problem": 'the Menu is covered by button.side-sheet__close in div.sheet-layer "Red Clay"'}),
+        ("a sheet opened by itself", {"kind": "team", "what": "Texas A&M", "sheet": "Texas A&M"}),
+        ("hit === menu || menu.contains(hit)", {"x": 10, "y": 10, "problem": 'the Menu is covered by button.side-sheet__close in div.sheet-layer "Texas A&M"'}),
     ])
     result = pc.check_sheet(edge, {}, names=False)
-    assert result["problems"] == ['the Menu is covered by button.side-sheet__close in div.sheet-layer "Red Clay"']
+    assert result["problems"] == ['the Menu is covered by button.side-sheet__close in div.sheet-layer "Texas A&M"']
     assert edge.taps == [], "no tap where the Menu is not"
 
 
 def test_the_sheet_check_reads_the_sheets_names_with_rules():
     edge = FakeEdge([
-        ("a sheet opened by itself", {"kind": "team", "what": "Red Clay", "sheet": "Red Clay"}),
+        ("a sheet opened by itself", {"kind": "team", "what": "Texas A&M", "sheet": "Texas A&M"}),
         ("!document.querySelector(\".sheet-layer[data-modal] .skel, .card-layer[data-modal] .skel\")", True),
         ("createTreeWalker", [[{"where": "sheet #team-roster", "element": "table.stat-table", "count": 1, "lines": 2, "sample": "Brackwater-Fennimore"}]]),  # one answer, a list
         ("hit === menu || menu.contains(hit)", {"x": 1, "y": 1, "problem": ""}),
@@ -230,10 +242,10 @@ def test_the_sheet_check_fails_without_a_menu_tap(opened, problem):
 
 
 def test_a_page_with_no_trigger_is_no_failure(capsys):
-    edge = FakeEdge([("a sheet opened by itself", {"kind": None, "left": "#team=Swampwater%20Tech"})])
+    edge = FakeEdge([("a sheet opened by itself", {"kind": None, "left": "#team=Florida"})])
     result = pc.check_sheet(edge, {}, names=False)
     assert result["kind"] is None and result["problems"] == []
-    assert pc.report_sheets([("setup", result), ("season", {**result, "kind": "team", "what": "Red Clay", "sheet": "Red Clay"})], 1180) == 0
+    assert pc.report_sheets([("setup", result), ("season", {**result, "kind": "team", "what": "Texas A&M", "sheet": "Texas A&M"})], 1180) == 0
     out = capsys.readouterr().out
     assert "  ok interaction: the Menu over a sheet (1 sheet(s) on 2 page(s): 1 team, 0 chip, 0 player; 1 page(s) with no trigger)" in out
 
@@ -522,9 +534,9 @@ def test_the_report_survives_a_character_the_code_page_lacks():
     raw = io.BytesIO()
     stream = io.TextIOWrapper(raw, encoding="cp1252")
     pc.printable(stream)
-    stream.write("gap 637 px  e.g. SWT \u2212 BLUE")
+    stream.write("gap 637 px  e.g. FLA \u2212 TEX")
     stream.flush()
-    assert raw.getvalue() == b"gap 637 px  e.g. SWT ? BLUE"
+    assert raw.getvalue() == b"gap 637 px  e.g. FLA ? TEX"
     pc.printable(object())  # no reconfigure: left alone
     source = (ROOT / "tools" / "page_check.py").read_text(encoding="utf-8")
     assert source[source.index("def main("):].split("\n")[2].strip() == "printable(sys.stdout)"

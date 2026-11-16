@@ -7,7 +7,7 @@ from app.cfbd.models import Game
 from app.services import race as race_module
 from app.services.race import SPOTS, conference_games, lines_of, our_lines, race, status_of, watch_list
 
-CONF = "Biscuit Belt"
+CONF = "SEC"
 OTHER = "Gravy Coast"
 
 
@@ -67,7 +67,7 @@ def week9() -> list[Game]:
 def test_the_lines_count_conference_games_only_and_the_title_game_stays_out():
     games = week9()
     games.append(game(900, 9, "Swamp", "Outsider", conf="Gravy Coast", conf_game=False))  # a non-conference game
-    games.append(game(901, 15, "Silver", "Diner", notes="Biscuit Belt Championship"))  # the title game, left out
+    games.append(game(901, 15, "Silver", "Diner", notes="SEC Championship"))  # the title game, left out
     games.append(game(902, 3, "Swamp", "Nobody", 10, 10))  # a tie counts for nobody
     lines = lines_of(games, CONF)
     assert sorted(lines) == ["Apple", "Armadillo", "Avalanche", "Bagel", "Bass", "Cedar", "Diner", "Mill", "Nobody", "Silver", "Swamp"]

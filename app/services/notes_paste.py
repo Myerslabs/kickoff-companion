@@ -12,8 +12,10 @@ into any AI chat that can search the web, pastes the answer back, sees a preview
   is refused.
 
 The Claude Code button (app/services/notes_task.py) uses the same prompt and reads the tool's answer the same
-way, so both paths save through save_notes(). Phase 17 Part 3: finding and validating the JSON lives in
-app/services/answers.py, shared with the season prompts."""
+way, so both paths save the same way: since 1.23.0 (owner 2026-10-30) a whole answer builds on the game's notes
+(merge_notes: the parts it fills replace, a part it leaves empty keeps what the week's runs found), and the prompt
+carries the notes so far (so_far_text). Phase 17 Part 3: finding and validating the JSON lives in
+app/services/answers.py, shared with the season prompts, with the rule both keep (keep_filled, join_sources)."""
 
 from __future__ import annotations
 
@@ -26,8 +28,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from app.services.answers import atomic_write, json_objects, keys_score, read_json
+from app.services.answers import atomic_write, filled, join_sources, json_objects, keep_filled, keys_score, read_json
 from app.services.notes import NotesFile, notes_path
+from app.services.notes_layout import figures_text
 
 log = logging.getLogger("kickoff.notes")
 
@@ -128,7 +131,99 @@ def prompt_values(who: Any, game: dict[str, Any], season: int | None, tz: Any = 
 
 def build_prompt(data_dir: Path, who: Any, game: dict[str, Any], season: int | None, tz: Any = None) -> str:
     template, _custom = read_template(data_dir)
-    return fill(template, prompt_values(who, game, season, tz))
+    values = prompt_values(who, game, season, tz)
+    return fill(template, values) + layout_text(values, game.get("figures")) + so_far_text(data_dir, game.get("gameId")) + learning_text(data_dir, game.get("gameId"), season)
+
+
+LAYOUT_PROMPT = """
+
+One more key in the same JSON object: "layout", the top of the notes band (three keys to the game, a strip of the app's own numbers, and the one matchup to watch), drawn above the sections:
+
+"layout": {{
+  "keys": [{{"line": "A few words, the key itself.", "text": "One sentence on why it matters."}}, two more like it],
+  "numbers": [{{"team": "them", "metric": "profile:third"}}, {{"team": "us", "metric": "profile:tfl_pg"}}, one or two more],
+  "watch": {{"line": "The one matchup to watch.", "text": "Up to 40 words on it."}}
+}}
+
+1. "keys": exactly three keys to the game for {team}. Each "line" is at most 8 words; each "text" is one sentence of at most 35 words. Name players in full.
+2. "numbers": three or four of the figures below that tell the story of this game. Write only the metric name and the team ("us" for {team}, "them" for {opponent}); the app fills in the value and the ranks itself, so never write a number here. Use only names from the list.
+3. "watch": the one matchup to watch, a "line" of at most 12 words and a "text" of at most 40 words.
+A piece that breaks these rules is left out of the band, so keep to them.
+"""
+LAYOUT_NO_FIGURES = '\nThe app\'s numbers for this game are not loaded yet, so leave "numbers" as an empty list.\n'
+
+
+def layout_text(values: dict[str, Any], figures: Any) -> str:
+    """Wave 5 (owner 2026-11-15, "Build as drawn"): the layout's part of a full notes prompt, appended after the template so
+    an edited PROMPT.md asks for it too, with the program's figures to choose from (app/services/notes_layout.py)."""
+    team, opponent = str(values.get("team") or "our team"), str(values.get("opponent") or "the opponent")
+    text = LAYOUT_PROMPT.format(team=team, opponent=opponent)
+    lines = figures_text(figures, team, opponent)
+    if not lines:
+        return text + LAYOUT_NO_FIGURES
+    return text + f"\nThe figures (metric name | what it is | {team} | {opponent}; # is the national rank):\n{lines}\n"
+
+
+SO_FAR_CHARS = 40_000
+
+
+def so_far_text(data_dir: Path, game_id: Any) -> str:
+    """This game's notes so far, for the full run to build on (owner 2026-10-30: the run two hours before kickoff no longer
+    starts over from nothing): what the week's runs found (Monday's charts and schemes, the injury reports, Friday's
+    visitors), with the rule its answer is saved by. Empty when the game has no notes yet."""
+    from app.services.notes import load_notes
+
+    notes, _error = load_notes(Path(data_dir), game_id)
+    if notes is None:
+        return ""
+    dump = notes.model_dump(exclude_none=True)
+    for key in ("sources", "gameId", "author", "writtenAt"):
+        dump.pop(key, None)
+    if not any(filled(v) for v in dump.values()):
+        return ""
+    text = json.dumps(dump, indent=1, ensure_ascii=False)
+    if len(text) > SO_FAR_CHARS:
+        text = text[:SO_FAR_CHARS] + "\n... (cut short)"
+    return (
+        "\n\nThis game's notes so far, from the runs earlier this week. Start from them: keep what still holds, update what"
+        " has changed since (a newer injury report, a changed depth chart), and fill what is missing. Your answer is saved part"
+        " by part over these: a part you leave out keeps what is here, so leave a part out rather than send it emptier.\n"
+        "```json\n" + text + "\n```\n"
+    )
+
+
+RECENT_NOTES = 2  # FEAT-6: the last two games' notes go with every notes prompt
+
+
+def learning_text(data_dir: Path, game_id: Any, season: int | None = None) -> str:
+    """FEAT-6 (owner 2026-10-25: "use the past notes to improve the current notes"): what the weekly review learned, the
+    standing additions to these instructions, and the notes of the last two games before this one, for the prompt's end.
+    Empty when there is nothing yet."""
+    from app.services.notes import compact_notes, load_notes
+    from app.services.writing import Lessons
+
+    lessons, additions = Lessons(Path(data_dir), season).for_prompt()  # rollover R1: this season's lessons
+    folder = Path(data_dir) / "notes"
+    recent: list[dict[str, Any]] = []
+    try:
+        files = sorted((p for p in folder.glob("*.json") if p.stem.isdigit() and p.stem != str(game_id)), key=lambda p: p.stat().st_mtime, reverse=True)
+    except OSError:
+        files = []
+    for path in files[:RECENT_NOTES]:
+        notes, _error = load_notes(Path(data_dir), path.stem)
+        short = compact_notes(notes)
+        if short:
+            recent.append({"gameId": int(path.stem), **short})
+    if not (lessons or additions or recent):
+        return ""
+    out = ["", "", "Learning from earlier weeks (the app reviews your notes against each game's box score every week):"]
+    if additions:
+        out += ["", "Standing additions to these instructions (follow them):", *(f"- {a}" for a in additions)]
+    if lessons:
+        out += ["", "Lessons from the weekly reviews:", *(f"- {lesson}" for lesson in lessons)]
+    if recent:
+        out += ["", "Your notes for the last games, in short, to build on (keep what held up; check again what did not):", "```json", json.dumps(recent, indent=1, ensure_ascii=False), "```"]
+    return "\n".join(out) + "\n"
 
 
 def fill(template: str, values: dict[str, Any]) -> str:
@@ -399,6 +494,40 @@ def _filled_value(value: Any) -> bool:
     if isinstance(dump, list):
         return any(_filled_value(v) for v in dump)
     return bool(str(dump).strip())
+
+
+def merge_notes(data_dir: Path, game_id: int, update: NotesFile) -> bool:
+    """A whole answer built onto the game's notes (owner 2026-10-30): every part the answer fills replaces that part, part by
+    part and team by team (one team's chart never wipes the other's), a part it leaves empty keeps what the week's runs found,
+    and the sources join. With no notes yet, or a notes file that cannot be read, the answer is saved as it is, as before.
+    Returns True when the notes changed."""
+    path = notes_path(Path(data_dir), game_id)
+    current: NotesFile | None = None
+    if path.exists():
+        try:
+            current = NotesFile.model_validate(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, ValueError) as error:
+            log.warning("The notes file for game %s could not be read (%s); the whole answer replaces it", game_id, error)
+    if current is None:
+        save_notes(data_dir, game_id, update)
+        return True
+    before = current.model_dump(exclude_none=True)
+    new = update.model_dump(exclude_none=True)
+    merged = keep_filled({k: v for k, v in new.items() if k != "sources"}, {k: v for k, v in before.items() if k != "sources"})
+    if filled(new.get("layout")):  # Wave 5: a new layout replaces the old whole, never one piece mixed with last run's
+        merged["layout"] = new["layout"]
+    if filled(new.get("availability")):  # the report and its time travel together
+        merged["availabilitySource"] = new.get("availabilitySource") or before.get("availabilitySource")
+        merged["availabilityUpdatedAt"] = new.get("availabilityUpdatedAt") or new.get("writtenAt") or before.get("availabilityUpdatedAt")
+    merged["sources"] = join_sources(new.get("sources"), before.get("sources"), limit=40)
+    merged["gameId"] = game_id
+    after = NotesFile.model_validate(merged).model_dump(exclude_none=True)
+    if after == before:
+        log.info("Notes for game %s: the answer had nothing new", game_id)
+        return False
+    _atomic_write(path, json.dumps(after, indent=2, ensure_ascii=False) + "\n")
+    log.info("Notes for game %s built on (%s)", game_id, update.author or "no author")
+    return True
 
 
 def merge_parts(data_dir: Path, game_id: int, update: NotesFile, parts: list[str]) -> bool:

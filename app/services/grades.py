@@ -1,5 +1,4 @@
-"""Stat grades (public release Phase 7): our own 0 to 100 grade for every FBS player CFBD has season stats for,
-in place of PFF's film grades (which may not be published in a public app).
+"""Stat grades (public release Phase 7): our own 0 to 100 grade for every FBS player CFBD has season stats for.
 
 How a grade is made, per position group:
 1. Volume first. A player needs a group's minimum per team game (a quarterback 14 passes a game, a running

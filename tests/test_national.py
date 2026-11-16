@@ -28,7 +28,7 @@ SEASON = 2026
 FBS = len(fixture_payload("teams_fbs"))  # every FBS team in the league
 OTHER = ROLES["POSTTEAM"]  # a team from another conference
 OTHER_CONF = next(t["conference"] for t in fixture_payload("teams_fbs") if t["school"] == OTHER)
-OUR_CLASS = next(r for r in fixture_payload("recruiting_teams") if r["team"] == "Swampwater Tech")
+OUR_CLASS = next(r for r in fixture_payload("recruiting_teams") if r["team"] == "Florida")
 PASSERS = len({r["playerId"] for r in fixture_payload("stats_player_season_all_passing") if r.get("statType") == "YDS"})
 SP_FIRST = next(r["team"] for r in fixture_payload("ratings_sp") if r.get("ranking") == 1)
 
@@ -40,7 +40,7 @@ def route_all(fake: FakeCfbd) -> None:
 
     def player_stats(request: httpx.Request) -> httpx.Response:
         params = request.url.params
-        if params.get("team") == "Swampwater Tech":
+        if params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("stats_player_season_team"))
         if params.get("team"):
             return httpx.Response(200, json=[r for r in fixture_payload("stats_player_season_conference") if r.get("team") == params.get("team")])
@@ -53,7 +53,7 @@ def route_all(fake: FakeCfbd) -> None:
     fake.fixture("/ratings/fpi", "ratings_fpi")
 
 
-PAGES = ["/api/season/overview", "/api/season/leaders", "/api/ratings", "/api/program/next", "/api/team/Diner%20Tech", "/api/team/Swampwater Tech", "/api/recruiting", "/api/roster"]
+PAGES = ["/api/season/overview", "/api/season/leaders", "/api/ratings", "/api/program/next", "/api/team/Texas%20State", "/api/team/Florida", "/api/recruiting", "/api/roster"]
 
 
 def load_pages(client: TestClient) -> dict[str, Any]:
@@ -92,14 +92,14 @@ def test_every_profile_key_agrees_with_the_season_overview(client: TestClient, p
         data = listing(client, row["metric"])
         assert data["us"]["rank"] == row["nationalRank"] and data["of"] == row["nationalOf"], row["key"]
         conf = listing(client, row["metric"], scope="conference")
-        assert conf["us"]["rank"] == row["conferenceRank"] and conf["of"] == row["conferenceOf"] and conf["conference"] == "Biscuit Belt", row["key"]
-        assert all(r["conference"] == "Biscuit Belt" and r["nationalRank"] for r in conf["rows"])
+        assert conf["us"]["rank"] == row["conferenceRank"] and conf["of"] == row["conferenceOf"] and conf["conference"] == "SEC", row["key"]
+        assert all(r["conference"] == "SEC" and r["nationalRank"] for r in conf["rows"])
 
 
 def test_the_opponent_highlight_agrees_with_the_program(client: TestClient, pages):
     program = pages["/api/program/next"]
     them = program["them"]["school"]
-    assert them == "Diner Tech"
+    assert them == "Texas State"
     for row in program["profile"]["them"]:
         data = listing(client, row["metric"], team=them)
         assert data["focus"] == {"team": them, "rank": row["nationalRank"], "value": row["value"]}, row["key"]
@@ -111,7 +111,7 @@ def test_last_season_agrees_with_both_pages(client: TestClient, pages):
     program_rows = pages["/api/program/next"]["lastSeason"]["rows"]
     assert all(r["metricYear"] == SEASON - 1 for r in season_rows + program_rows)
     for row, prow in zip(season_rows, program_rows, strict=True):
-        data = listing(client, row["metric"], year=SEASON - 1, team="Diner Tech")
+        data = listing(client, row["metric"], year=SEASON - 1, team="Texas State")
         assert data["year"] == SEASON - 1 and data["us"]["rank"] == row["last"]["rank"] == prow["us"]["rank"], row["key"]
         assert data["of"] == row["last"]["of"] and data["focus"]["rank"] == prow["them"]["rank"]
 
@@ -121,7 +121,7 @@ def test_every_advanced_key_agrees_with_the_season_and_the_program(client: TestC
     them_rows = {r["key"]: r for r in pages["/api/program/next"]["advanced"]["them"]}
     assert "advanced:defense_explosiveness" in {r["metric"] for r in rows}
     for row in rows:
-        data = listing(client, row["metric"], team="Diner Tech")
+        data = listing(client, row["metric"], team="Texas State")
         assert data["us"]["rank"] == row["nationalRank"] and data["of"] == row["nationalOf"], row["key"]
         assert data["focus"]["rank"] == them_rows[row["key"]]["nationalRank"]
     explosive = listing(client, "advanced:defense_explosiveness")
@@ -137,13 +137,13 @@ def test_advanced_conference_ranks_agree_with_the_conference_lists(client: TestC
     assert len(rows) == 32 and all(r["conferenceRank"] is not None and r["conferenceOf"] for r in rows)
     for row in rows:
         data = listing(client, row["metric"], scope="conference")
-        assert data["conference"] == "Biscuit Belt" and data["us"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
-    other = pages["/api/team/Diner%20Tech"]
+        assert data["conference"] == "SEC" and data["us"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
+    other = pages["/api/team/Texas%20State"]
     theirs = [r for r in other["advanced"]["rows"] if r["conferenceRank"] is not None]
     assert theirs
     for row in theirs[:8]:
-        data = listing(client, row["metric"], team="Diner Tech", scope="conference")
-        assert data["conference"] == "Pancake Athletic" and data["focus"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
+        data = listing(client, row["metric"], team="Texas State", scope="conference")
+        assert data["conference"] == "Pac-12" and data["focus"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"], row["key"]
 
 
 def test_last_season_conference_ranks_agree_with_each_seasons_conference_list(client: TestClient, pages):
@@ -165,10 +165,10 @@ def test_team_pages_and_polls_name_conferences_short(pages):
     poll's conference column shows each team's short name at medium."""
     from app.services.identity import conference_short
 
-    ours = pages["/api/team/Swampwater Tech"]
-    other = pages["/api/team/Diner%20Tech"]
-    assert ours["team"]["conferenceShort"] == conference_short(ours["profile"]["conference"]) == "BB"
-    assert other["team"]["conferenceShort"] == conference_short(other["profile"]["conference"]) == "PA"
+    ours = pages["/api/team/Florida"]
+    other = pages["/api/team/Texas%20State"]
+    assert ours["team"]["conferenceShort"] == conference_short(ours["profile"]["conference"]) == "SEC"
+    assert other["team"]["conferenceShort"] == conference_short(other["profile"]["conference"]) == "PAC"
     # the polls' conference column reads the short name at medium
     ranks = [r for poll in pages["/api/season/overview"]["polls"] for r in poll["ranks"]]
     assert ranks and all(r["conferenceShort"] == conference_short(r["conference"]) for r in ranks)
@@ -184,15 +184,15 @@ def test_wave_3_tables_get_their_columns_from_the_server(client: TestClient, pag
     ypp = listing(client, "profile:ypp")
     assert ypp["rows"] and all(r["conferenceShort"] == conference_short(r["conference"]) for r in ypp["rows"])
     conf = listing(client, "profile:ypp", scope="conference")
-    assert conf["conferenceShort"] == conference_short(conf["conference"]) == "BB" and ypp["conferenceShort"] is None
+    assert conf["conferenceShort"] == conference_short(conf["conference"]) == "SEC" and ypp["conferenceShort"] is None
     ratings = pages["/api/ratings"]["rows"]
     assert all(r["conferenceShort"] == conference_short(r["conference"]) for r in ratings)
-    other = pages["/api/team/Diner%20Tech"]["standings"]
+    other = pages["/api/team/Texas%20State"]["standings"]
     assert other["conferenceShort"] == conference_short(other["conference"])
     assert all(isinstance(r["form"], list) for r in other["rows"]) and any(r["form"] for r in other["rows"])
     teams = {t["school"]: t for t in fixture_payload("teams_fbs")}
     leaders = pages["/api/season/leaders"]
-    assert leaders["team"]["mascot"] == teams["Swampwater Tech"]["mascot"] and leaders["opponent"]["mascot"] == teams[leaders["opponent"]["school"]]["mascot"]
+    assert leaders["team"]["mascot"] == teams["Florida"]["mascot"] and leaders["opponent"]["mascot"] == teams[leaders["opponent"]["school"]]["mascot"]
     ppa = next(b for b in leaders["extraBoards"] if b["id"] == "ppa:all")
     national = {r["playerId"]: r["rank"] for r in listing(client, "board:ppa:all")["rows"]}
     assert ppa["conference"] and all(r["nationalRank"] == national.get(r["playerId"]) for r in ppa["conference"])
@@ -203,7 +203,7 @@ def test_adjusted_keys_agree_with_the_program(client: TestClient, pages):
     rows = pages["/api/program/next"]["adjusted"]
     assert rows and all(r["metric"] == f"adjusted:{r['key']}" for r in rows)
     for row in rows:
-        data = listing(client, row["metric"], team="Diner Tech")
+        data = listing(client, row["metric"], team="Texas State")
         assert data["us"]["rank"] == row["usRank"] and data["focus"]["rank"] == row["themRank"] and data["of"] == row["of"], row["key"]
 
 
@@ -243,9 +243,9 @@ def test_rating_keys_agree_with_the_season_page_program_and_road_ahead(client: T
     for game in season["roadAhead"]:
         assert game["spMetric"] == "rating:sp" and game["spRank"] == rank_of(sp, game["opponent"]) and game["spOf"] == sp["of"] == FBS
     program = pages["/api/program/next"]
-    assert program["us"]["sp"]["rank"] == sp["us"]["rank"] and program["them"]["sp"]["rank"] == rank_of(sp, "Diner Tech") and program["them"]["sp"]["of"] == FBS
+    assert program["us"]["sp"]["rank"] == sp["us"]["rank"] and program["them"]["sp"]["rank"] == rank_of(sp, "Texas State") and program["them"]["sp"]["of"] == FBS
     talent = listing(client, "rating:talent")
-    for side, team in (("us", "Swampwater Tech"), ("them", "Diner Tech")):
+    for side, team in (("us", "Florida"), ("them", "Texas State")):
         block = program["recruiting"][side]["talent"]
         assert block["metric"] == "rating:talent" and block["rank"] == rank_of(talent, team) and block["of"] == talent["of"] == program["recruiting"][side]["talentOf"]
     played = listing(client, "rating:sosPlayed")
@@ -271,7 +271,7 @@ def test_boards_agree_with_the_leaders_page(client: TestClient, pages):
         prefix = [(r["playerId"], r["rank"]) for r in data["rows"][: len(board["national"])]]
         assert prefix == [(e["playerId"], e["rank"]) for e in board["national"]], board["id"]
         conf = listing(client, board["metric"], scope="conference")
-        assert conf["of"] == board["conferenceOf"] and conf["conference"] == "Biscuit Belt", board["id"]
+        assert conf["of"] == board["conferenceOf"] and conf["conference"] == "SEC", board["id"]
         conf_ranks = {r["playerId"]: r["rank"] for r in conf["rows"] + conf["beyond"]}
         for entry in board["team"]:
             if entry["conferenceRank"] is not None:
@@ -299,16 +299,16 @@ def test_polls_and_the_class_agree_with_their_pages(client: TestClient, pages):
 def test_team_pages_rank_inside_the_teams_own_conference(client: TestClient, fake_cfbd: FakeCfbd):
     route_all(fake_cfbd)
     other = client.get(f"/api/team/{quote(OTHER)}").json()["data"]
-    assert other["profile"]["conference"] == OTHER_CONF != "Biscuit Belt"
+    assert other["profile"]["conference"] == OTHER_CONF != "SEC"
     rows = [r for r in other["profile"]["rows"] if r["conferenceRank"] is not None]
-    assert len(rows) >= 20  # a non-Biscuit Belt team page has a real conference column now
+    assert len(rows) >= 20  # a non-SEC team page has a real conference column now
     for row in rows[:6]:
         data = listing(client, row["metric"], team=OTHER, scope="conference")
         assert data["conference"] == OTHER_CONF and data["focus"]["rank"] == row["conferenceRank"] and data["of"] == row["conferenceOf"]
         explicit = listing(client, row["metric"], scope="conference", conf=OTHER_CONF)
         assert explicit["rows"] == [{**r, "isFocus": False} for r in data["rows"]]
-    opponent = client.get("/api/team/Diner%20Tech").json()["data"]
-    assert opponent["profile"]["conference"] == "Pancake Athletic" and opponent["team"]["sp"]["metric"] == "rating:sp"
+    opponent = client.get("/api/team/Texas%20State").json()["data"]
+    assert opponent["profile"]["conference"] == "Pac-12" and opponent["team"]["sp"]["metric"] == "rating:sp"
 
 
 def test_edges_open_the_right_list_on_both_sides(client: TestClient, pages):
@@ -317,10 +317,10 @@ def test_edges_open_the_right_list_on_both_sides(client: TestClient, pages):
     for edge in edges:
         assert edge["usMetric"] == f"profile:{edge['usKey']}" and edge["themMetric"] == f"profile:{edge['themKey']}"
         mine = listing(client, edge["usMetric"])
-        theirs = listing(client, edge["themMetric"], team="Diner Tech")
+        theirs = listing(client, edge["themMetric"], team="Texas State")
         assert mine["us"]["rank"] == edge["usRank"] and mine["of"] == edge["of"]
         assert theirs["focus"]["rank"] == edge["themRank"] and theirs["of"] == edge["themOf"]
-        if edge["side"] == "defense":  # Swampwater Tech's defense against the opponent's offense
+        if edge["side"] == "defense":  # Florida's defense against the opponent's offense
             assert edge["usKey"] in ("ypp_d", "opp_ppg", "rush_ypg_d", "pass_ypg_d", "third_d", "takeaways_pg")
 
 
@@ -350,7 +350,7 @@ def test_the_tie_rule_on_synthetic_values():
 
 def test_ppa_and_adjusted_board_ties_share_a_rank_now(client: TestClient, fake_cfbd: FakeCfbd):
     route_all(fake_cfbd)
-    passing = [{"athleteId": str(i), "athleteName": f"Player {name}", "team": team, "conference": "Biscuit Belt", "wepa": value, "plays": 100} for i, (name, team, value) in enumerate([("B", "Diner Tech", 0.5), ("A", "Swampwater Tech", 0.5), ("C", OTHER, 0.4)], start=1)]
+    passing = [{"athleteId": str(i), "athleteName": f"Player {name}", "team": team, "conference": "SEC", "wepa": value, "plays": 100} for i, (name, team, value) in enumerate([("B", "Texas State", 0.5), ("A", "Florida", 0.5), ("C", OTHER, 0.4)], start=1)]
     fake_cfbd.route("/wepa/players/passing", json=passing)
     board = next(b for b in client.get("/api/season/leaders").json()["data"]["extraBoards"] if b["id"] == "wepa:passing")
     assert [(e["player"], e["rank"]) for e in board["national"]] == [("Player A", 1), ("Player B", 1), ("Player C", 3)]
@@ -365,7 +365,7 @@ def every_request() -> list[tuple[str, dict[str, Any]]]:
     out: list[tuple[str, dict[str, Any]]] = []
     for key, metric in METRICS.items():
         out.append((key, {}))
-        out.append((key, {"team": "Diner Tech"}))
+        out.append((key, {"team": "Texas State"}))
         if "conference" in metric.scopes:
             out.append((key, {"scope": "conference"}))
         if metric.last_season:
@@ -463,7 +463,7 @@ def test_a_failed_part_gives_a_part_error_and_a_200(client: TestClient, fake_cfb
     body = response.json()
     assert body["data"]["rows"] == [] and body["data"]["parts"]["stats"]["status"] == "error"
     assert any(e["code"] == "part_unavailable" and e["message"].startswith("stats:") for e in body["errors"])
-    assert body["data"]["us"] == {"team": "Swampwater Tech", "rank": None, "value": None, "of": None}
+    assert body["data"]["us"] == {"team": "Florida", "rank": None, "value": None, "of": None}
 
 
 def test_everything_down_is_a_503(client: TestClient, fake_cfbd: FakeCfbd):
@@ -503,7 +503,7 @@ def strict(text: str) -> Any:
 def test_junk_team_stats_are_skipped_and_counted(client: TestClient, fake_cfbd: FakeCfbd):
     route_all(fake_cfbd)
     rows = fixture_payload("stats_season_fbs")
-    junk = ["junk", 7, None, {"statName": "games", "statValue": 3}, {"team": "Ghost U", "statName": "totalYards", "statValue": True}, {"team": "Ghost U", "statName": "games", "statValue": "abc"}, {"team": "Swampwater Tech", "statName": "totalYards", "statValue": float("nan")}]
+    junk = ["junk", 7, None, {"statName": "games", "statValue": 3}, {"team": "Ghost U", "statName": "totalYards", "statValue": True}, {"team": "Ghost U", "statName": "games", "statValue": "abc"}, {"team": "Florida", "statName": "totalYards", "statValue": float("nan")}]
     fake_cfbd.route("/stats/season", handler=lambda r: nan_json(rows + junk))
     response = client.get("/api/national/profile:ypp")
     assert response.status_code == 200
@@ -529,7 +529,7 @@ def test_junk_sp_ratings(client: TestClient, fake_cfbd: FakeCfbd):
     rows = [dict(r) for r in fixture_payload("ratings_sp")]
     first = next(r for r in rows if r["team"] == SP_FIRST)
     first["ranking"] = "1"  # a numeric string still reads as the rank
-    second = next(r for r in rows if r["team"] == "Swampwater Tech")
+    second = next(r for r in rows if r["team"] == "Florida")
     second["ranking"] = None  # CFBD left one team unranked
     fake_cfbd.route("/ratings/sp", json=rows + [{"team": "Junk", "rating": "high"}, {"rating": 5}, 9])
     response = client.get("/api/national/rating:sp")
@@ -543,11 +543,11 @@ def test_junk_sp_ratings(client: TestClient, fake_cfbd: FakeCfbd):
 def test_junk_player_stats_and_wepa(client: TestClient, fake_cfbd: FakeCfbd):
     route_all(fake_cfbd)
     passing = fixture_payload("stats_player_season_all_passing")
-    junk = [{"playerId": "1", "player": "No Type", "team": "Swampwater Tech", "category": "passing", "stat": "900"}, {"playerId": "2", "player": "Word", "team": "Swampwater Tech", "category": "passing", "statType": "YDS", "stat": "abc"}, {"player": "No Id"}, "junk"]
+    junk = [{"playerId": "1", "player": "No Type", "team": "Florida", "category": "passing", "stat": "900"}, {"playerId": "2", "player": "Word", "team": "Florida", "category": "passing", "statType": "YDS", "stat": "abc"}, {"player": "No Id"}, "junk"]
     fake_cfbd.route("/stats/player/season", handler=lambda r: httpx.Response(200, json=passing + junk if r.url.params.get("category") == "passing" else []))
     data = strict(client.get("/api/national/board:passing:YDS").text)["data"]
     assert {"No Type", "Word", "No Id"}.isdisjoint({r["player"] for r in data["rows"] + data["beyond"]}) and data["of"] == PASSERS
-    fake_cfbd.route("/wepa/players/rushing", json=[{"athleteName": "No Id", "team": "Swampwater Tech", "wepa": 0.9}, {"athleteId": "5", "athleteName": "Ok", "team": "Swampwater Tech", "wepa": 0.3}, {"athleteId": "6", "athleteName": "Nan", "team": "Swampwater Tech", "wepa": "NaN"}])
+    fake_cfbd.route("/wepa/players/rushing", json=[{"athleteName": "No Id", "team": "Florida", "wepa": 0.9}, {"athleteId": "5", "athleteName": "Ok", "team": "Florida", "wepa": 0.3}, {"athleteId": "6", "athleteName": "Nan", "team": "Florida", "wepa": "NaN"}])
     body = strict(client.get("/api/national/board:wepa:rushing").text)
     assert [r["player"] for r in body["data"]["rows"]] == ["Ok"] and any(e["code"] == "records_skipped" for e in body["errors"])
 
@@ -563,7 +563,7 @@ def test_junk_polls(client: TestClient, fake_cfbd: FakeCfbd):
     assert data["of"] == 24 and all(isinstance(r["rank"], int) for r in data["rows"])
 
 
-@pytest.mark.parametrize("payload", [{"team": "Swampwater Tech", "statName": "games", "statValue": 3}, "a string", None, 42])
+@pytest.mark.parametrize("payload", [{"team": "Florida", "statName": "games", "statValue": 3}, "a string", None, 42])
 def test_a_payload_of_the_wrong_shape_never_crashes(client: TestClient, fake_cfbd: FakeCfbd, payload):
     route_all(fake_cfbd)
     for path in ("/stats/season", "/ratings/sp", "/rankings", "/wepa/players/passing", "/recruiting/teams"):
@@ -579,7 +579,7 @@ def test_a_payload_of_the_wrong_shape_never_crashes(client: TestClient, fake_cfb
 
 
 def test_player_lists_send_the_top_100_and_every_one_of_ours_below(client: TestClient, pages):
-    data = listing(client, "board:defensive:TOT", team="Diner Tech")
+    data = listing(client, "board:defensive:TOT", team="Texas State")
     assert data["cut"] == 100 and len(data["rows"]) == 100 and data["of"] > 1000
     assert data["beyond"] and all(r["isUs"] or r["isFocus"] for r in data["beyond"])
     assert all(r["rank"] >= data["rows"][-1]["rank"] for r in data["beyond"])
@@ -588,7 +588,7 @@ def test_player_lists_send_the_top_100_and_every_one_of_ours_below(client: TestC
     assert all(e["playerId"] in listed for e in swt_rows)
     assert data["shown"] == len(data["rows"]) + len(data["beyond"])
     assert data["us"]["playerId"] and data["us"]["rank"] == min(r["rank"] for r in data["rows"] + data["beyond"] if r["isUs"])
-    assert data["focus"]["team"] == "Diner Tech" and data["focus"]["rank"] is not None
+    assert data["focus"]["team"] == "Texas State" and data["focus"]["rank"] is not None
     small = listing(client, "rating:sp")
     assert small["cut"] is None and small["beyond"] == [] and len(small["rows"]) == FBS
 

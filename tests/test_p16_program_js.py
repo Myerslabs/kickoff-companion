@@ -33,14 +33,14 @@ def profile(value: float, rank: int | None, key: str, side: str, label: str, hig
 
 def payload(**game: object) -> dict:
     """A small /api/program answer in the real shape (checked against the simulator's on 2026-09-28)."""
-    g = {"gameId": 526000600, "week": 3, "postseason": None, "playoffRound": None, "kickoff": "2026-09-26T19:30:00.000Z", "startTimeTbd": False, "completed": False, "homeIsUs": False, "neutralSite": False, "conferenceGame": True, "venue": "Silver Dollar Field", "venueDetail": {"name": "Silver Dollar Field", "city": "Silver Dollar", "state": "AL", "capacity": 87451, "grass": True, "dome": False, "elevationFt": 660, "elevationM": 201.2, "yearBuilt": 1939, "recordAtVenue": {"venue": "Silver Dollar Field", "opponent": "Silver Dollar", "gamesWithoutVenue": 2, "wins": 3, "losses": 5, "ties": 0, "games": 8}}, "tv": "ESPN", "usPoints": None, "themPoints": None, "usLineScores": None, "themLineScores": None, "archived": False}
+    g = {"gameId": 526000600, "week": 3, "postseason": None, "playoffRound": None, "kickoff": "2026-09-26T19:30:00.000Z", "startTimeTbd": False, "completed": False, "homeIsUs": False, "neutralSite": False, "conferenceGame": True, "venue": "Fresno State Field", "venueDetail": {"name": "Fresno State Field", "city": "Fresno State", "state": "AL", "capacity": 87451, "grass": True, "dome": False, "elevationFt": 660, "elevationM": 201.2, "yearBuilt": 1939, "recordAtVenue": {"venue": "Fresno State Field", "opponent": "Fresno State", "gamesWithoutVenue": 2, "wins": 3, "losses": 5, "ties": 0, "games": 8}}, "tv": "ESPN", "usPoints": None, "themPoints": None, "usLineScores": None, "themLineScores": None, "archived": False}
     g.update(game)
     return {
         "season": 2026,
         "game": g,
-        "us": team("Swampwater Tech", "SWT", form=[{"result": "W", "points": 66, "opponentPoints": 21, "opponent": "Swampwater Tech Atlantic", "week": 1}, {"result": "L", "points": 17, "opponentPoints": 20, "opponent": "Miami", "week": 2}]),
-        "them": team("Silver Dollar", "GRID", apRank=22, form=[]),
-        "line": {"spread": 2.5, "formatted": "Swampwater Tech -2.5", "spreadOpen": -1.5, "overUnder": 52.5, "overUnderOpen": 53.5},
+        "us": team("Florida", "FLA", form=[{"result": "W", "points": 66, "opponentPoints": 21, "opponent": "Florida Atlantic", "week": 1}, {"result": "L", "points": 17, "opponentPoints": 20, "opponent": "Miami", "week": 2}]),
+        "them": team("Fresno State", "FRES", apRank=22, form=[]),
+        "line": {"spread": 2.5, "formatted": "Florida -2.5", "spreadOpen": -1.5, "overUnder": 52.5, "overUnderOpen": 53.5},
         "pregame": {"homeWinProbability": 0.38, "usWinProbability": 0.62},
         "weather": {"available": True, "source": "National Weather Service", "tempF": 87.0, "windMph": 8.0, "windDir": "W", "sky": "Mostly Sunny", "precipChance": 6.0, "dome": False, "radarUrl": "https://forecast.weather.gov/MapClick.php?lat=32.6&lon=-85.49"},
         "profile": {
@@ -48,8 +48,8 @@ def payload(**game: object) -> dict:
             "them": [profile(30.0, 40, "ppg", "offense", "Points per game"), profile(8.0, 5, "ypp", "offense", "Yards per play"), profile(20.0, None, "opp_ppg", "defense", "Points allowed per game", False), profile(4.9, 57, "ypp_d", "defense", "Yards allowed per play", False)],
         },
         "edges": [
-            {"label": "Passing: Swampwater Tech offense vs Silver Dollar defense", "side": "offense", "usRank": 24, "themRank": 119, "of": 138, "themOf": 138, "edge": 95, "usValue": 298.333, "themValue": 252.0, "format": "0f", "usFormat": "0f", "themFormat": "0f", "usKey": "pass_ypg", "themKey": "pass_ypg_d", "usMetric": "profile:pass_ypg", "themMetric": "profile:pass_ypg_d"},
-            {"label": "Rushing: Silver Dollar offense vs Swampwater Tech defense", "side": "defense", "usRank": 60, "themRank": 20, "of": 138, "themOf": 138, "edge": -40, "usValue": 150.0, "themValue": 210.5, "format": "0f", "usFormat": "0f", "themFormat": "0f", "usKey": "rush_ypg_d", "themKey": "rush_ypg"},
+            {"label": "Passing: Florida offense vs Fresno State defense", "side": "offense", "usRank": 24, "themRank": 119, "of": 138, "themOf": 138, "edge": 95, "usValue": 298.333, "themValue": 252.0, "format": "0f", "usFormat": "0f", "themFormat": "0f", "usKey": "pass_ypg", "themKey": "pass_ypg_d", "usMetric": "profile:pass_ypg", "themMetric": "profile:pass_ypg_d"},
+            {"label": "Rushing: Fresno State offense vs Florida defense", "side": "defense", "usRank": 60, "themRank": 20, "of": 138, "themOf": 138, "edge": -40, "usValue": 150.0, "themValue": 210.5, "format": "0f", "usFormat": "0f", "themFormat": "0f", "usKey": "rush_ypg_d", "themKey": "rush_ypg"},
         ],
         "advanced": {"us": [{"side": "offense", "label": "Success rate", "key": "offense_success_rate", "metric": "advanced:offense_success_rate", "group": "Overall", "value": 0.486, "format": "pct", "higherIsBetter": True, "nationalRank": 41, "nationalOf": 138}], "them": [{"side": "offense", "label": "Success rate", "key": "offense_success_rate", "metric": "advanced:offense_success_rate", "group": "Overall", "value": 0.44, "format": "pct", "higherIsBetter": True, "nationalRank": 80, "nationalOf": 138}]},
         "adjusted": [],
@@ -59,17 +59,17 @@ def payload(**game: object) -> dict:
             {"label": "Passing yards", "stat": "YDS", "format": "0f", "us": {"playerId": "4536127", "player": "Mason Hamilton", "position": "QB", "value": 1204.0, "headshotUrl": "/media/headshot/4536127"}, "them": None},
             {"label": "Sacks", "stat": "SACKS", "format": "1f", "us": {"playerId": "1", "player": "Tyrese Sampson", "position": "DL", "value": 4.5, "headshotUrl": "/media/headshot/1"}, "them": {"playerId": "2", "player": "Kendric Faulkner", "position": "DL", "value": 1.0, "headshotUrl": None}},
         ],
-        "series": {"team1": "Silver Dollar", "team2": "Swampwater Tech", "usWins": 38, "themWins": 43, "ties": 2, "streak": {"team": "Swampwater Tech", "games": 2}, "lastTen": [{"season": 2019, "homeTeam": "Swampwater Tech", "awayTeam": "Silver Dollar", "homeScore": 24, "awayScore": 13, "winner": "Swampwater Tech"}]},
+        "series": {"team1": "Fresno State", "team2": "Florida", "usWins": 38, "themWins": 43, "ties": 2, "streak": {"team": "Florida", "games": 2}, "lastTen": [{"season": 2019, "homeTeam": "Florida", "awayTeam": "Fresno State", "homeScore": 24, "awayScore": 13, "winner": "Florida"}]},
         "notes": {"present": False},
         "final": None,
-        "ppa": {"available": True, "season": {"us": {"offense": {"overall": 0.437, "passing": 0.68, "rushing": 0.337}, "defense": {"overall": -0.09, "passing": 0.023, "rushing": -0.04}}, "them": {"offense": {"overall": None}, "defense": {}}}, "games": {"us": [{"week": 1, "opponent": "Swampwater Tech Atlantic", "offense": {"overall": 0.61}, "defense": {"overall": -0.01}}, {"week": 2, "opponent": "Campbell", "offense": {"overall": 0.39}, "defense": {"overall": -0.43}}], "them": []}, "players": {"us": [], "them": []}, "seasonLeaders": {"us": [], "them": []}},
+        "ppa": {"available": True, "season": {"us": {"offense": {"overall": 0.437, "passing": 0.68, "rushing": 0.337}, "defense": {"overall": -0.09, "passing": 0.023, "rushing": -0.04}}, "them": {"offense": {"overall": None}, "defense": {}}}, "games": {"us": [{"week": 1, "opponent": "Florida Atlantic", "offense": {"overall": 0.61}, "defense": {"overall": -0.01}}, {"week": 2, "opponent": "Campbell", "offense": {"overall": 0.39}, "defense": {"overall": -0.43}}], "them": []}, "players": {"us": [], "them": []}, "seasonLeaders": {"us": [], "them": []}},
         "commonOpponents": [],
         "lastSeason": {"year": 2025, "rows": [{"side": "offense", "label": "Points per game", "key": "ppg", "metric": "profile:ppg", "metricYear": 2025, "format": "1f", "higherIsBetter": True, "us": {"value": 30.1, "rank": 30, "of": 136}, "them": {"value": 25.0, "rank": 70, "of": 136}}]},
         "recruiting": {"us": {"talent": {"talent": 891.07, "rank": 10, "of": 138, "metric": "rating:talent"}, "blueChip": {"ratio": 0.709}, "returning": {"percentPPA": 0.69}}, "them": {"talent": {"talent": 828.19, "rank": 18, "of": 138, "metric": "rating:talent"}, "blueChip": {"ratio": 0.4}, "returning": None}},
         "picker": [
             {"gameId": 526000153, "week": 2, "opponent": {"school": "Campbell"}, "completed": True, "result": "W", "usPoints": 52, "themPoints": 3, "archived": True},
-            {"gameId": 526000600, "week": 3, "opponent": {"school": "Silver Dollar"}, "completed": False, "archived": False},
-            {"gameId": 526001015, "week": 4, "opponent": {"school": "Diner Tech"}, "completed": False},
+            {"gameId": 526000600, "week": 3, "opponent": {"school": "Fresno State"}, "completed": False, "archived": False},
+            {"gameId": 526001015, "week": 4, "opponent": {"school": "Texas State"}, "completed": False},
         ],
         "parts": {},
     }
@@ -120,7 +120,7 @@ scenarios.twoTeam = async () => {
     { label: "Third down", format: "pct", higherIsBetter: true, us: { value: 0.46, rank: 50, of: 138 }, them: { value: 0.46, rank: 50, of: 138 } },
     { label: "Blue-chip ratio", format: "pct", higherIsBetter: true, us: { value: 0.7 }, them: { value: null } },
   ];
-  const wrap = twoTeamTable({ rows, usAbbr: "SWT", themAbbr: "GRID", usTeam: "Swampwater Tech", themTeam: "Silver Dollar" });
+  const wrap = twoTeamTable({ rows, usAbbr: "FLA", themAbbr: "FRES", usTeam: "Florida", themTeam: "Fresno State" });
   clean("two-team table", wrap);
   const body = wrap.querySelectorAll("tbody tr");
   assert.equal(body.length, 4);
@@ -135,7 +135,7 @@ scenarios.twoTeam = async () => {
   assert.ok(wrap.querySelector("th.tt__them"), "the opponent's header carries the divider too");
   // lead and trail; the Better column is symmetric
   assert.ok(cls(us).includes("lead") && cls(them).includes("trail"));
-  assert.equal(text(better), "SWT");
+  assert.equal(text(better), "FLA");
   assert.ok(cls(better).includes("lead"));
   const [, , usD, themD] = body[1].childNodes;
   assert.ok(cls(usD).includes("lead") && cls(themD).includes("trail"), "lower is better: 4.5 beats 4.9");
@@ -151,14 +151,14 @@ scenarios.twoTeam = async () => {
   // linked chips: each side's own team
   const usLink = usChip.querySelector("a.rank-chip--link");
   const themLink = themChip.querySelector("a.rank-chip--link");
-  assert.equal(usLink.getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech");
-  assert.equal(themLink.getAttribute("href"), "#national=profile%3Aypp?team=Silver%20Dollar");
+  assert.equal(usLink.getAttribute("href"), "#national=profile%3Aypp?team=Florida");
+  assert.equal(themLink.getAttribute("href"), "#national=profile%3Aypp?team=Fresno%20State");
   assert.ok(!body[2].childNodes[1].querySelector("a"), "no metric, no link: a plain chip");
   // a year opens that season's list
-  const last = twoTeamTable({ rows: [{ ...rows[0], metricYear: 2025 }], usTeam: "Swampwater Tech" });
-  assert.equal(last.querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Aypp?team=Swampwater%20Tech&year=2025");
+  const last = twoTeamTable({ rows: [{ ...rows[0], metricYear: 2025 }], usTeam: "Florida" });
+  assert.equal(last.querySelector("a.rank-chip--link").getAttribute("href"), "#national=profile%3Aypp?team=Florida&year=2025");
   // groups draw group rows in one table
-  const grouped = twoTeamTable({ groups: [{ title: "Offense", note: "Spread", rows: rows.slice(0, 1) }, { title: "Defense", rows: rows.slice(1, 2) }], usAbbr: "SWT", themAbbr: "GRID", better: false });
+  const grouped = twoTeamTable({ groups: [{ title: "Offense", note: "Spread", rows: rows.slice(0, 1) }, { title: "Defense", rows: rows.slice(1, 2) }], usAbbr: "FLA", themAbbr: "FRES", better: false });
   assert.equal(grouped.querySelectorAll("table").length, 1);
   assert.equal(grouped.querySelectorAll("tr.tt__group").length, 2);
   assert.ok(text(grouped.querySelector("tr.tt__group")).includes("Spread"));
@@ -189,7 +189,7 @@ scenarios.ladderAndUnderline = async () => {
     { label: "Success rate", higherIsBetter: true, us: { value: 0.49, rank: 1, of: 101 }, them: { value: 0.4, rank: 101, of: 101 } },
     { label: "Havoc", higherIsBetter: true, us: { value: 0.2, rank: null }, them: { value: null } },
   ];
-  const wrap = twoTeamTable({ rows, usAbbr: "SWT", themAbbr: "GRID", ladder: true, underline: true });
+  const wrap = twoTeamTable({ rows, usAbbr: "FLA", themAbbr: "FRES", ladder: true, underline: true });
   clean("ladder", wrap);
   const marks = wrap.querySelectorAll("tbody tr")[0].querySelectorAll(".ladder__mark");
   assert.equal(marks.length, 2);
@@ -205,23 +205,23 @@ scenarios.ladderAndUnderline = async () => {
 scenarios.edges = async () => {
   const { edgesTable, edgeRows, edgesSummary } = await import(moduleUrl("ui/edges.js"));
   const edges = FIXTURE.edges;
-  const wrap = edgesTable(edges, { usAbbr: "SWT", themAbbr: "GRID", usTeam: "Swampwater Tech", themTeam: "Silver Dollar" });
+  const wrap = edgesTable(edges, { usAbbr: "FLA", themAbbr: "FRES", usTeam: "Florida", themTeam: "Fresno State" });
   clean("edges", wrap);
   const rows = wrap.querySelectorAll("tbody tr");
   assert.equal(rows.length, 2);
-  // offense row: Swampwater Tech's chip is its offense stat, the opponent's its defense stat
+  // offense row: Florida's chip is its offense stat, the opponent's its defense stat
   // Phase 17 #14, #16, sizes 2026-10-10: label | our chip | our value | the tug bar | their value | their chip
   const [offUsChip, offUs, offTug, offThem, offThemChip] = [rows[0].childNodes[1], rows[0].childNodes[2], rows[0].childNodes[3], rows[0].childNodes[4], rows[0].childNodes[5]];
-  assert.equal(offUsChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg?team=Swampwater%20Tech");
-  assert.equal(offThemChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg_d?team=Silver%20Dollar");
+  assert.equal(offUsChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg?team=Florida");
+  assert.equal(offThemChip.querySelector("a").getAttribute("href"), "#national=profile%3Apass_ypg_d?team=Fresno%20State");
   // defense row: the reverse (and a row with keys but no metrics still links)
-  assert.equal(rows[1].childNodes[1].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg_d?team=Swampwater%20Tech");
-  assert.equal(rows[1].childNodes[5].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Silver%20Dollar");
-  assert.equal(text(rows[0].childNodes[0]), "PassingSWT offense vs GRID defense");
-  assert.equal(text(rows[1].childNodes[0]), "RushingGRID offense vs SWT defense");
+  assert.equal(rows[1].childNodes[1].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg_d?team=Florida");
+  assert.equal(rows[1].childNodes[5].querySelector("a").getAttribute("href"), "#national=profile%3Arush_ypg?team=Fresno%20State");
+  assert.equal(text(rows[0].childNodes[0]), "PassingFLA offense vs FRES defense");
+  assert.equal(text(rows[1].childNodes[0]), "RushingFRES offense vs FLA defense");
   // the bar leans to the side with the edge, in its color, and says how far apart the ranks are
   assert.ok(offTug.querySelector(".tug__bar--us") && !offTug.querySelector(".tug__bar--them"));
-  assert.ok(offTug.querySelector(".tug").getAttribute("title").includes("SWT has the edge, 95 national ranks apart"));
+  assert.ok(offTug.querySelector(".tug").getAttribute("title").includes("FLA has the edge, 95 national ranks apart"));
   assert.ok(rows[1].childNodes[3].querySelector(".tug__bar--them"));
   // our chip sits outside our value in its own column, the opponent's mirrored: the values meet the bar
   assert.ok(cls(offUsChip).includes("tt__rank--natl") && cls(offThemChip).includes("tt__rank--natl") && cls(offUs).includes("tt__cell") && cls(offThem).includes("tt__cell"));
@@ -230,8 +230,8 @@ scenarios.edges = async () => {
   // values in each side's own format; the leader follows the edge, not the values (different stats)
   assert.equal(text(offUs.querySelector(".tt__val")), "298");
   assert.ok(cls(offUs).includes("lead") && cls(rows[1].childNodes[4]).includes("lead"));
-  assert.equal(edgesSummary(edges, { usAbbr: "SWT", themAbbr: "GRID" }), "SWT better in 1 of 2 · Biggest: Passing, SWT offense vs GRID defense, SWT by 95 ranks");
-  assert.equal(edgesSummary([], { usAbbr: "SWT" }), "");
+  assert.equal(edgesSummary(edges, { usAbbr: "FLA", themAbbr: "FRES" }), "FLA better in 1 of 2 · Biggest: Passing, FLA offense vs FRES defense, FLA by 95 ranks");
+  assert.equal(edgesSummary([], { usAbbr: "FLA" }), "");
   assert.equal(edgeRows([null, "x", { label: "Junk" }]).length, 0);
   clean("junk edges", edgesTable([null, { label: 5, usRank: 3 }, { edge: 4, side: "defense" }], {}));
 };
@@ -246,12 +246,12 @@ scenarios.leaders = async () => {
   assert.equal(statLine(null, "0f", "YDS"), "–");
   assert.equal(statLine(12, "0f", "WHAT"), "12");
   const cats = FIXTURE.leaders.map((cat) => ({ label: cat.label, us: programLeader(cat.us, cat), them: programLeader(cat.them, cat) }));
-  const grid = leadersGrid({ categories: cats, usAbbr: "SWT", themAbbr: "GRID", className: "leaders--program" });
+  const grid = leadersGrid({ categories: cats, usAbbr: "FLA", themAbbr: "FRES", className: "leaders--program" });
   const t = clean("leaders", grid);
   assert.ok(t.includes("4.5 sacks") && t.includes("1,204 yds") && t.includes("1.0 sack"));
-  assert.equal(text(grid.querySelector(".leaders__head")), "SWTGRID", "the SWT | GRID head row");
+  assert.equal(text(grid.querySelector(".leaders__head")), "FLAFRES", "the FLA | FRES head row");
   const empty = grid.querySelectorAll(".leader-cat")[0].querySelector(".leader--empty");
-  assert.ok(empty && cls(empty).includes("leader--them") && text(empty) === "No GRID line yet");
+  assert.ok(empty && cls(empty).includes("leader--them") && text(empty) === "No FRES line yet");
   assert.ok(grid.querySelector(".leader__hero"), "the key number is its own bold element");
   // a box-score line puts the category's key stat first
   assert.deepEqual(leaderLine("passing", { YDS: 245, "C/ATT": "18/27", TD: 2, INT: 1 }), { hero: "245 yds", rest: "18/27, 2 TD, 1 int" });
@@ -265,15 +265,15 @@ scenarios.leaders = async () => {
 
 scenarios.coverStates = async () => {
   const { cover, coverState } = await import(moduleUrl("ui/cover.js"));
-  const base = { us: FIXTURE.us, them: FIXTURE.them, homeIsUs: false, date: "2026-09-26T19:30:00.000Z", venue: "Silver Dollar Field", tv: "ESPN", line: FIXTURE.line, pregame: { homeWinProbability: 0.38 }, liveHref: "#live" };
+  const base = { us: FIXTURE.us, them: FIXTURE.them, homeIsUs: false, date: "2026-09-26T19:30:00.000Z", venue: "Fresno State Field", tv: "ESPN", line: FIXTURE.line, pregame: { homeWinProbability: 0.38 }, liveHref: "#live" };
   const at = (iso) => new Date(iso);
   // upcoming: a countdown, no Live button yet
   const pre = cover({ ...base, now: at("2026-09-24T19:30:00.000Z") });
   assert.equal(pre.dataset.state, "pre");
   assert.ok(text(pre).includes("2d 0h 0m") && !pre.querySelector("a.cover__action"), "no In Game button before the hour");
-  // P-15: the pregame win probability as a bar, Swampwater Tech from the left (home 38% here, so Swampwater Tech 62%)
+  // P-15: the pregame win probability as a bar, Florida from the left (home 38% here, so Florida 62%)
   const bar = pre.querySelector(".cover__wp");
-  assert.ok(bar && text(bar).includes("SWT 62%") && text(bar).includes("38% GRID"));
+  assert.ok(bar && text(bar).includes("FLA 62%") && text(bar).includes("38% FRES"));
   assert.equal(bar.querySelector(".wpbar__home--us").style.width, "62%");
   assert.ok(!cover({ ...base, pregame: { homeWinProbability: "high" } }).querySelector(".cover__wp"), "no number, no bar");
   // inside the hour: "Kickoff in 38 min" and a secondary Live button
@@ -298,7 +298,7 @@ scenarios.coverStates = async () => {
   // final: the score, W or L, the Archive link only when the archive holds the game
   const final = cover({ ...base, state: "final", usPoints: 31, themPoints: 24, now: at("2026-09-27T12:00:00Z") });
   const ft = clean("final cover", final);
-  assert.ok(ft.includes("SWT 31") && ft.includes("24 GRID") && ft.includes("Won"));
+  assert.ok(ft.includes("FLA 31") && ft.includes("24 FRES") && ft.includes("Won"));
   assert.ok(final.querySelector(".cover__score .is-winner") && text(final.querySelector(".cover__score .is-loser")).includes("24"));
   assert.ok(!final.querySelector("a.cover__action"), "no archive file: no Archive link");
   const archived = cover({ ...base, state: "final", usPoints: 17, themPoints: 20, archiveHref: "#archive=526000600", now: at("2026-10-05T12:00:00Z") });
@@ -315,7 +315,7 @@ scenarios.coverStates = async () => {
   assert.ok(text(cover({ ...base, state: "final", line: {}, pregame: {}, usPoints: 1, themPoints: 0 })).includes("No line was recorded."));
   // the old calls (Live sheet, Archive) still draw
   clean("old call", cover({ us: {}, them: {}, line: {}, pregame: {} }));
-  clean("final without points", cover({ state: "final", us: { school: "Swampwater Tech" }, them: {} }));
+  clean("final without points", cover({ state: "final", us: { school: "Florida" }, them: {} }));
 };
 
 scenarios.coverTick = async () => {
@@ -336,29 +336,29 @@ scenarios.coverTick = async () => {
 
 scenarios.faceOff = async () => {
   const { cover } = await import(moduleUrl("ui/cover.js"));
-  const props = { us: FIXTURE.us, them: FIXTURE.them, homeIsUs: false, date: "2026-09-26T19:30:00.000Z", venue: "Silver Dollar Field", line: FIXTURE.line, now: new Date("2026-09-20T12:00:00Z") };
+  const props = { us: FIXTURE.us, them: FIXTURE.them, homeIsUs: false, date: "2026-09-26T19:30:00.000Z", venue: "Fresno State Field", line: FIXTURE.line, now: new Date("2026-09-20T12:00:00Z") };
   const node = cover(props);
   const sides = node.querySelectorAll(".cover__side");
   assert.equal(sides.length, 2, "two team blocks face each other");
-  assert.ok(text(sides[0]).includes("Swampwater Tech") && text(sides[1]).includes("Silver Dollar"), "Swampwater Tech on the left, as in every two-team table");
-  assert.equal(text(node.querySelector(".cover__vs")), "at", "Swampwater Tech away: 'at'");
+  assert.ok(text(sides[0]).includes("Florida") && text(sides[1]).includes("Fresno State"), "Florida on the left, as in every two-team table");
+  assert.equal(text(node.querySelector(".cover__vs")), "at", "Florida away: 'at'");
   const logos = node.querySelectorAll(".cover__side img.team-logo");
   assert.equal(logos.length, 2);
-  assert.equal(logos[0].getAttribute("src"), "/media/logo/SWT?v=dark", "the dark variant on the navy cover");
+  assert.equal(logos[0].getAttribute("src"), "/media/logo/FLA?v=dark", "the dark variant on the navy cover");
   assert.equal(logos[0].getAttribute("width"), "112");
   assert.equal(logos[0].getAttribute("loading"), null, "the hero is never lazy");
   // a home game reads 'vs'; a neutral site too
   assert.equal(text(cover({ ...props, homeIsUs: true }).querySelector(".cover__vs")), "vs");
   assert.equal(text(cover({ ...props, neutralSite: true }).querySelector(".cover__vs")), "vs");
   // missing logos: the mono tile with the abbreviation, never a broken image
-  const bare = cover({ ...props, us: { school: "Swampwater Tech", abbreviation: "SWT" }, them: { school: "Silver Dollar" } });
+  const bare = cover({ ...props, us: { school: "Florida", abbreviation: "FLA" }, them: { school: "Fresno State" } });
   const tiles = bare.querySelectorAll(".cover__side .team-logo--mono");
   assert.equal(tiles.length, 2);
-  assert.equal(text(tiles[0]), "SWT");
+  assert.equal(text(tiles[0]), "FLA");
   clean("no logos", bare);
   // final in the middle; under way in the middle
   const fin = cover({ ...props, state: "final", usPoints: 31, themPoints: 24 });
-  assert.ok(text(fin.querySelector(".cover__middle")).includes("SWT 31"));
+  assert.ok(text(fin.querySelector(".cover__middle")).includes("FLA 31"));
   const live = cover({ ...props, now: new Date("2026-09-26T20:00:00Z") });
   assert.ok(text(live.querySelector(".cover__middle")).includes("Under way"));
   // the SP+ link and the AP poll badge open their lists
@@ -368,25 +368,25 @@ scenarios.faceOff = async () => {
   assert.ok(!text(rec).includes(" · "), "chips, not a dotted line");
   const chipLinks = node.querySelectorAll(".cover__side--us a.cover-chip--link");
   const sp = chipLinks.find((a) => a.textContent.includes("SP+"));
-  assert.equal(sp.getAttribute("href"), "#national=rating%3Asp?team=Swampwater%20Tech");
+  assert.equal(sp.getAttribute("href"), "#national=rating%3Asp?team=Florida");
   // Phase 17 #2: our conference record opens the standings
   assert.ok(chipLinks.some((a) => a.getAttribute("href") === "#season?band=standings"));
   const ap = node.querySelector("a.poll-badge--link");
-  assert.equal(ap.getAttribute("href"), "#national=poll%3AAP?team=Silver%20Dollar");
+  assert.equal(ap.getAttribute("href"), "#national=poll%3AAP?team=Fresno%20State");
 };
 
 scenarios.formGuide = async () => {
   const { cover } = await import(moduleUrl("ui/cover.js"));
   const node = cover({ us: FIXTURE.us, them: FIXTURE.them, date: "2026-09-26T19:30:00.000Z" });
   const guide = node.querySelectorAll(".form-guide")[0];
-  assert.ok(guide, "Swampwater Tech's last results");
+  assert.ok(guide, "Florida's last results");
   const games = guide.querySelectorAll(".form-guide__game");
   assert.equal(games.length, 2);
   assert.equal(text(games[1]), "L", "newest on the right");
   assert.ok(cls(games[0]).includes("form-guide__game--w") && cls(games[1]).includes("form-guide__game--l"));
   assert.ok(games[1].getAttribute("title").includes("17-20") && games[1].getAttribute("title").includes("Miami"));
   assert.equal(node.querySelectorAll(".form-guide").length, 1, "no games: no guide for the opponent");
-  clean("junk form", cover({ us: { school: "Swampwater Tech", form: [null, { result: "X" }, { result: "W", points: "a" }] }, them: { form: "x" } }));
+  clean("junk form", cover({ us: { school: "Florida", form: [null, { result: "X" }, { result: "W", points: "a" }] }, them: { form: "x" } }));
 };
 
 scenarios.weatherVenue = async () => {
@@ -397,18 +397,18 @@ scenarios.weatherVenue = async () => {
   for (const bad of [null, undefined, "", "javascript:alert(1)", 12, "/local"]) assert.ok(!weatherRow({ tempF: 80, radarUrl: bad }).querySelector("a.weather__radar"), `no radar for ${bad}`);
   assert.ok(!weatherRow({ note: "No forecast yet.", radarUrl: null }).querySelector("a.weather__radar"));
   assert.ok(text(weatherRow({ tempF: 80, label: "Kickoff weather" })).includes("Kickoff weather"));
-  const v = venueLine(FIXTURE.game.venueDetail, { us: "Swampwater Tech" });
+  const v = venueLine(FIXTURE.game.venueDetail, { us: "Florida" });
   // Phase 17 #3: the stadium's name first, and the record names the opponent it is against
-  assert.equal(text(v), "Silver Dollar Field · Capacity 87,451 · Grass · Elevation 660 ft · Built 1939 · Swampwater Tech 3-5 vs Silver Dollar here");
+  assert.equal(text(v), "Fresno State Field · Capacity 87,451 · Grass · Elevation 660 ft · Built 1939 · Florida 3-5 vs Fresno State here");
   assert.ok(v.querySelector(".venue-line__name") && v.querySelector("span[title]").getAttribute("title").includes("2 older games"));
   assert.equal(text(venueLine({ dome: true, grass: false })), "Artificial turf · Dome");
   assert.equal(text(venueLine({ name: "  Example Bowl " })), "Example Bowl");
   assert.equal(venueLine({}), null);
   assert.equal(venueLine(null), null);
   assert.equal(venueLine({ name: "", capacity: "big", grass: "yes", elevationFt: null, recordAtVenue: { wins: null } }), null);
-  assert.equal(text(venueLine({ recordAtVenue: { opponent: "Diner Tech", wins: 1, losses: 0, ties: 1, games: 2 } }, { us: "Swampwater Tech" })), "Swampwater Tech 1-0-1 vs Diner Tech here");
+  assert.equal(text(venueLine({ recordAtVenue: { opponent: "Texas State", wins: 1, losses: 0, ties: 1, games: 2 } }, { us: "Florida" })), "Florida 1-0-1 vs Texas State here");
   // a record that cannot say who it is against is left out rather than misread
-  assert.equal(venueLine({ recordAtVenue: { wins: 8, losses: 2, ties: 0 } }, { us: "Swampwater Tech" }), null);
+  assert.equal(venueLine({ recordAtVenue: { wins: 8, losses: 2, ties: 0 } }, { us: "Florida" }), null);
 };
 
 scenarios.zones = async () => {
@@ -420,7 +420,7 @@ scenarios.zones = async () => {
   assert.deepEqual(chart.runs.left, { attempts: 12, successRate: 0.417, yardsPerAttempt: 4.2 });
   assert.deepEqual(chart.unzoned, { passes: 2, runs: 0 });
   assert.equal(zonesChart({ passZones: [{ depth: "deep", direction: "right", attempts: 8, completionPct: 0.5 }] }).passes["deep-right"].completions, 4, "no completions count: the rate makes one");
-  const block = tendenciesBlock(FIXTURE.tendencies, "GRID");
+  const block = tendenciesBlock(FIXTURE.tendencies, "FRES");
   const t = clean("tendencies", block);
   assert.ok(block.querySelector(".shot-field--both") && block.querySelectorAll(".shot-row").length === 3, "deep, short, then the runs");
   const cells = block.querySelectorAll(".shot-cell");
@@ -440,6 +440,22 @@ async function mountProgram(data, hash = "") {
   route("/api/program", () => envelope(data));
   route("/api/notes/run", () => envelope({ running: false, commandFound: true }));
   route("/api/radio/sources", () => envelope({ sources: [{ id: "a", name: "WSTS", kind: "stream", url: "https://example.org/a" }] }));
+  // the season as one line (2026-10-30): the rail across the cover reads the stops; the picker's three games as stops
+  route("/api/stops", () => envelope({
+    now: "2026-09-17T12:00-04:00",
+    current: { kind: "pre", gameId: 526000600, week: 3, href: "#program=526000600", label: "Pre-Game Program", detail: "Week 3 · vs Fresno State" },
+    items: [
+      { kind: "preseason", state: "saved", href: "#preseason", label: "Preseason Magazine", date: "2026-08-20T12:00-04:00" },
+      { kind: "week", week: 2, seasonType: "regular", gameId: 526000153, opponent: "Campbell", homeAway: "home", date: "2026-09-12T19:00-04:00", result: { usPoints: 52, themPoints: 3, won: true },
+        stops: { pre: { kind: "pre", key: "pre:526000153", state: "saved", date: "2026-09-10T06:00-04:00", href: "#program=526000153?tab=pre", label: "Pre-Game Program" }, game: { kind: "game", key: "game:526000153", state: "done", date: "2026-09-12T19:00-04:00", href: "#archive=526000153", label: "The game" }, post: { kind: "post", key: "post:526000153", state: "saved", date: "2026-09-14T09:00-04:00", href: "#postgame=526000153", label: "Post-Game Program" } } },
+      { kind: "now", date: "2026-09-17T12:00-04:00", href: "#season", label: "Season now", state: "now" },
+      { kind: "week", week: 3, seasonType: "regular", gameId: 526000600, opponent: "Fresno State", homeAway: "home", date: "2026-09-19T19:00-04:00", result: null,
+        stops: { pre: { kind: "pre", key: "pre:526000600", state: "live", date: "2026-09-17T06:00-04:00", href: "#program=526000600", label: "Pre-Game Program" }, game: { kind: "game", key: "game:526000600", state: "to_come", date: "2026-09-19T19:00-04:00", href: null, label: "The game" }, post: { kind: "post", key: "post:526000600", state: "to_come", date: "2026-09-20T19:00-04:00", href: null, label: "Post-Game Program" } } },
+      { kind: "week", week: 4, seasonType: "regular", gameId: 526001015, opponent: "Texas State", homeAway: "home", date: "2026-09-26T19:00-04:00", result: null,
+        stops: { pre: { kind: "pre", key: "pre:526001015", state: "open", date: "2026-09-24T06:00-04:00", href: "#program=526001015", label: "Pre-Game Program" }, game: { kind: "game", key: "game:526001015", state: "to_come", date: "2026-09-26T19:00-04:00", href: null, label: "The game" }, post: { kind: "post", key: "post:526001015", state: "to_come", date: "2026-09-27T19:00-04:00", href: null, label: "Post-Game Program" } } },
+      { kind: "book", state: "to_come", href: null, label: "Season book", date: null },
+    ],
+  }));
   const { createProgramView } = await import(moduleUrl("views/program.js"));
   const root = document.createElement("div");
   document.body.append(root);
@@ -454,26 +470,56 @@ scenarios.programPage = async () => {
   const { root, view } = await mountProgram(data);
   const t = clean("program", root);
   assert.ok(root.querySelector(".cover") && root.querySelector(".tt"));
-  // the cover's arrows come from the picker's order
-  assert.equal(root.querySelector("a.cover__nav--prev").getAttribute("href"), "#program=526000153");
-  assert.equal(root.querySelector("a.cover__nav--next").getAttribute("href"), "#program=526001015");
+  // owner 2026-11-07: no Back row on a tab page; Print is the program's last band
+  assert.equal(root.querySelector(".back-row"), null, "no Back row");
+  const bands = [...root.querySelectorAll("section.band[id]")];
+  assert.ok(bands.length && bands[bands.length - 1].getAttribute("id") === "program-print", "Print last");
+  assert.ok(root.querySelector("#program-print .print-button") && !root.querySelector(".program-tools .print-button"), "the Print button in its band, not at the top");
+  // the rail across the cover's top (one short row since 2026-11-14) carries the way forward; the cover's own arrows are gone
+  assert.equal(root.querySelector("a.cover__nav--prev"), null);
+  const rail = root.querySelector(".cover .rail");
+  assert.ok(rail && !rail.classList.contains("rail--quiet"), "the rail drew from /api/stops");
+  assert.deepEqual(rail.querySelectorAll(".rail__chip").map((c) => c.getAttribute("href")), ["#preseason", "#postgame=526000153", "#season", "#program=526000600"], "Preseason, the last Post-Game, Now, this week's Pre-Game");
+  assert.equal(rail.querySelector("a.rail__step--prev").getAttribute("href"), "#season", "one step back is Now (1.40.4, owner 2026-11-15: the arrows step both ways through the walk)");
+  assert.equal(rail.querySelector("a.rail__step--next").getAttribute("href"), "#program=526001015", "one step forward is next week's Pre-Game, open to look at");
+  assert.equal(rail.querySelectorAll(".rail__chip--lit").length, 1);
+  assert.ok(rail.querySelector(".rail__chip--lit").classList.contains("rail__chip--pre"));
   // the radar link and the venue facts under the weather row
   assert.ok(root.querySelector("a.weather__radar"));
   assert.ok(t.includes("Built 1939"));
   assert.ok(t.includes("4.5 sacks"));
-  // the mock (owner 2026-10-20): no prior weeks' programs and no players to watch; the notes beside the headlines, the
-  // recruits beside the availability report, common opponents over the radio beside last season, the series last
+  // the mock (owner 2026-10-20): no prior weeks' programs and no players to watch; one column (owner 2026-11-01): the mock's
+  // pairs are stacked bands in the mock's order, the headlines under the notes, the report under the recruits
   assert.equal(root.querySelector("#program-picker"), null);
   assert.equal(root.querySelector("#program-watch"), null);
-  const notesPair = root.querySelector("#program-pair-notes");
-  assert.ok(notesPair && notesPair.className.includes("flow-wide") && notesPair.querySelector("#program-notes") && notesPair.querySelector("#program-headlines.band--fill"), "the notes and the headlines share a row");
-  assert.ok(root.querySelector("#program-pair-report #program-visitors") && root.querySelector("#program-pair-report #program-availability"));
-  const stackEl = root.querySelector("#program-pair-context .program-stack");
-  assert.ok(stackEl && stackEl.querySelector("#program-common") && stackEl.querySelector("#program-radio") && root.querySelector("#program-pair-context #program-last-season"), "common opponents over the radio, last season beside them");
+  assert.equal(root.querySelector(".program-pair"), null, "no pair rows: every band is a band of the page");
+  const page = root.querySelector(".page");
+  assert.equal(page.dataset.cols, "1", "one column at every width");
+  const top = [...page.children].map((c) => c.getAttribute("id") || "").filter((id) => id.startsWith("program-"));
+  assert.deepEqual(top.slice(0, 2), ["program-notes", "program-headlines"], "the notes, then the headlines");
+  assert.ok(top.indexOf("program-visitors") > 0 && top.indexOf("program-availability") === top.indexOf("program-visitors") + 1, "the recruits, then the report");
+  assert.ok(!root.querySelector("#program-headlines.band--fill"), "the headlines no longer fit the notes' depth");
+  assert.ok(!root.querySelector(".band--strip"), "both empty: neither shrinks");
+  // the season as one line, Wave 2 (2026-10-30): the like bands in their boxes; the radio pairs with Getting there, or
+  // stands alone when the game has no stadium on the schedule
+  assert.equal(root.querySelector("#program-pair-context"), null, "the common opponents moved into The two schools and the series");
+  assert.equal(root.querySelector("#program-radio"), null, "the radio went to In Game's panels (wave 3, 2026-11-01)");
+  assert.equal(root.querySelector("#program-tape"), null, "the Tale of the tape is The matchup's Stats view now");
+  const matchup = root.querySelector("#program-matchup");
+  assert.ok(matchup && matchup.querySelector(".box__switch") && matchup.querySelector(".tt"), "The matchup opens on Stats with the tape's table and its switch in the head");
+  assert.ok(matchup.querySelector('.box__switch button[data-view="last"]'), "Last season is a view of The matchup");
+  const schools = root.querySelector("#program-schools");
+  assert.ok(schools && schools.textContent.includes("Series") && schools.textContent.includes("Common opponents"), "the series and the common opponents inside The two schools and the series");
   const ids = [...root.querySelectorAll("section.band")].map((s) => s.getAttribute("id") || "");
-  const order = ["program-notes", "program-headlines", "program-tape", "program-visitors", "program-availability", "program-leaders", "program-recruiting", "program-lineups", "program-advanced", "program-tendencies", "program-ppa", "program-common", "program-radio", "program-last-season", "program-series"];
+  const order = ["program-notes", "program-headlines", "program-matchup", "program-visitors", "program-availability", "program-leaders", "program-talent", "program-lineups", "program-tendencies", "program-schools"]; // Getting there needs a venue the fixture lacks; the radio went to In Game (wave 3)
   assert.deepEqual(ids.filter((id) => order.includes(id)), order, ids.join(","));
   assert.ok(root.querySelector("#program-leaders .lpair"), "the leaders on the pole");
+  // BUG-25 (owner 2026-10-27): every band opens the first time; Play value, Last season and Series no longer start folded
+  for (const id of ["program-matchup", "program-talent", "program-schools"]) assert.equal(root.querySelector(`#${id}`).getAttribute("data-collapsed"), "false", `${id} opens the first time`);
+  // BUG-15 (owner board 2026-10-27), one column since 2026-11-01: What we need and the scouting report are bands of the page
+  assert.ok(!root.querySelector(".matchup-card"), "the opponent card is gone: its head strip is on the cover, its table in The matchup (the line, Wave 2)");
+  assert.ok(!root.querySelector("#program-race") && root.querySelector(".writing-host #program-scout"), "the scouting report is on the page; What we need is My Team's (wave 3, 2026-11-01)");
+  assert.equal(root.querySelector(".flow-full, .flow-wide"), null, "nothing marked for the old packer");
   // the opponent's colors are switched on while the page is up, and reset when it goes
   assert.ok(document.documentElement.style["--opp"]);
   view.unmount();
@@ -499,6 +545,33 @@ scenarios.notesNoReload = async () => {
   root.remove();
 };
 
+// BUG-15 (the owner's note on his board of 2026-10-27, "fix the same way"): of Recruits on hand and the Availability report,
+// the one with nothing yet shrinks to one line and the other takes the whole width; filled or empty alike, they share the row.
+scenarios.reportStrip = async () => {
+  const report = [{ team: "Fresno State", name: "Kendric Faulkner", position: "DL", status: "Out", note: "lower-body injury, out for the season after surgery" }];
+  const visitors = { source: "On3", home: [{ name: "Jalen Price", position: "WR", stars: 4, classYear: 2027 }], away: [] };
+  const cases = [
+    [{ availability: report }, "program-visitors"],
+    [{ availability: [], visitors }, "program-availability"],
+    [{ availability: report, visitors }, null],
+  ];
+  for (const [notes, strip] of cases) {
+    const data = clone(FIXTURE);
+    data.notes = { present: true, author: "Claude", sections: [], ...notes };
+    const { root, view } = await mountProgram(data);
+    const page = root.querySelector(".page");
+    const ids = [...page.children].map((c) => c.getAttribute("id") || "");
+    assert.equal(ids.indexOf("program-availability"), ids.indexOf("program-visitors") + 1, "the recruits, then the report, bands of the page (one column, 2026-11-01)");
+    const strips = root.querySelectorAll(".band--strip").map((b) => b.getAttribute("id"));
+    assert.deepEqual(strips, strip ? [strip] : [], "only the empty band shrinks to one line");
+    if (strip === "program-visitors") assert.ok(text(root.querySelector("#program-visitors")).includes("No visitor list for this game yet."), "the one line says why");
+    if (strip === "program-availability") assert.ok(text(root.querySelector("#program-availability")).includes("No availability report for this game yet."));
+    clean("program report row", root);
+    view.unmount();
+    root.remove();
+  }
+};
+
 scenarios.pickerOneFetch = async () => {
   installWindow();
   const data = clone(FIXTURE);
@@ -506,8 +579,8 @@ scenarios.pickerOneFetch = async () => {
   const before = programCalls("/api/program");
   assert.equal(before, 1);
   // choosing another game only changes the hash: the router builds the next view once (bug 13)
-  const next = root.querySelector("a.cover__nav--next");
-  assert.ok(next);
+  const next = root.querySelector("a.rail__step--next");
+  assert.ok(next, "the rail's forward step");
   view.open(526001015);
   await advance(1000);
   assert.equal(window.location.hash, "#program=526001015");
@@ -529,11 +602,110 @@ scenarios.finalPage = async () => {
   data.weather = { available: false, source: "National Weather Service", error: "Game day has passed; no forecast to show." };
   const { root, view } = await mountProgram(data);
   const t = clean("final program", root);
-  assert.ok(t.includes("SWT 31") && t.includes("Full game in the Archive"));
+  assert.ok(t.includes("FLA 31") && t.includes("Full game in the Archive"));
   assert.ok(root.querySelectorAll("a.cover__action").some((a) => a.getAttribute("href") === "#archive=526000600"));
   assert.ok(!t.includes("Under way"));
   view.unmount();
   root.remove();
+};
+
+scenarios.postgameStop = async () => {
+  // the Post-Game stop (the season as one line, Wave 3; the owner's board of 2026-10-30): a finished game's page is the stop
+  // itself, not the program doubled: the closing checklist, then What decided it, the Box score box, Expectations and results,
+  // the Circle of Blame for this game and the game in the news. No Pre-Game / Post-Game tab pair since 2026-11-15 (owner:
+  // "There are the post and pregame above the place where I want the navigation to be"): the rail's ‹ › step between them.
+  const data = clone(FIXTURE);
+  data.game.completed = true;
+  data.game.usPoints = 31;
+  data.game.themPoints = 24;
+  data.game.usLineScores = [7, 10, 7, 7];
+  data.game.themLineScores = [0, 14, 3, 7];
+  data.game.archived = true;
+  data.ours = true;
+  route("/api/blame/now", () => envelope({
+    available: true, season: 2026, history: [],
+    latest: { key: "week-3", week: 3, gameId: 526000600, label: "Week 3", opponent: "Fresno State", score: { us: 31, them: 24 }, generatedAt: "2026-09-20T09:00:00Z", modelUsed: "claude-opus-5", people: { "Billy Napier": "head coach" },
+      report: { verdict: "The line lost the first half.", after_result: "win", slices: [{ name: "Offensive line", kind: "unit", share_pct: 60, case: "Four sacks before halftime.", trend: "up", evidence: [] }, { name: "Billy Napier", kind: "coach", share_pct: 40, case: "The clock at the end of the half.", trend: "flat", evidence: [] }] } },
+  }));
+  const { root, view } = await mountProgram(data, "526000600");
+  const t = clean("the Post-Game stop", root);
+  assert.equal(root.querySelector(".program-tabs"), null, "no tab pair above the rail");
+  assert.equal(root.querySelector(".program-tab"), null);
+  assert.ok(root.querySelector(".cover .rail-host"), "the rail across the cover's top is the way between the stops");
+  assert.ok(!root.querySelector(".program-doubled") && !root.querySelector("#program-matchup"), "nothing is doubled on the stop; The matchup stays the Pre-Game's own");
+  assert.ok(root.querySelector("#program-lineups") && root.querySelector("#program-tendencies") && root.querySelector("#program-weather") && root.querySelector("#program-road") && root.querySelector("#program-lessons"), "wave 3 (owner 2026-11-01, his inventory): the Pre-Game's bands drawn once from today's answer, the game's weather, Road ahead and What Claude learned at the bottom");
+  assert.equal(root.querySelectorAll("#program-lineups").length, 1, "one copy");
+  const walk = (node, out = []) => {
+    for (const kid of node.children || []) {
+      out.push(kid);
+      walk(kid, out);
+    }
+    return out;
+  };
+  const all = walk(root);
+  const at = (sel) => all.indexOf(root.querySelector(sel));
+  const order = [".closing", "#program-recap", "#program-box", "#program-results", "#program-blame", "#program-news"].map(at);
+  assert.ok(order.every((i) => i >= 0) && order.every((i, k) => k === 0 || i > order[k - 1]), `the board's order: ${order.join(" < ")}`);
+  // the Box score box: the score by quarter across the top, Box or Advanced on the switch
+  const box = root.querySelector("#program-box");
+  assert.ok(box.querySelector(".qline") && text(box).includes("FLA 31"), "the quarter line and the score in the head");
+  const seg = box.querySelector(".box__switch");
+  assert.deepEqual(seg.querySelectorAll("button").map((b) => text(b)), ["Box", "Advanced"]);
+  seg.querySelectorAll("button")[1].click();
+  assert.ok(text(box.querySelector(".box__view .d2-head")).includes("Advanced box score"), "the Advanced view");
+  assert.equal(seg.querySelector('button[aria-pressed="true"]').dataset.view, "advanced");
+  // the Circle of Blame for this game: the latest report is about it
+  const blame = root.querySelector("#program-blame");
+  assert.ok(blame.querySelector(".blame-wheel__svg") && text(blame).includes("Offensive line") && text(blame).includes("60%") && text(blame).includes("The line lost the first half."), "the wheel, the top slice and the verdict");
+  assert.ok(blame.querySelector('a[href="#band=season:blame-wheel"]'), "the way to the whole report, on My Team (wave 3, 2026-11-01)");
+  // the closing checklist follows the line: live with checks, then saved
+  const { _setStops } = await import(moduleUrl("stops.js"));
+  const week = { kind: "week", week: 3, gameId: 526000600, opponent: "Fresno State", result: { usPoints: 31, themPoints: 24, won: true }, stops: {
+    pre: { kind: "pre", key: "pre:526000600", state: "saved", href: "#program=526000600?tab=pre", label: "Pre-Game Program", date: "2026-09-17T06:00-04:00" },
+    game: { kind: "game", key: "game:526000600", state: "done", href: "#archive=526000600", label: "The game", date: "2026-09-19T19:00-04:00" },
+    post: { kind: "post", key: "post:526000600", state: "live", href: "#postgame=526000600", label: "Post-Game Program", date: "2026-09-20T19:00-04:00", checks: { final: true, poll: false, recap: false }, backstop: "2026-09-22T06:00-04:00" },
+  } };
+  _setStops({ now: "2026-09-20T12:00-04:00", current: { kind: "post", gameId: 526000600, href: "#postgame=526000600", label: "Post-Game Program", detail: "Week 3 · vs Fresno State" }, items: [week] });
+  const strip = root.querySelector(".closing");
+  assert.ok(text(strip).startsWith("Closing out"), text(strip));
+  assert.ok(strip.querySelector('[data-check="final"].is-in') && strip.querySelector('[data-check="poll"]:not(.is-in)') && strip.querySelector('[data-check="recap"]:not(.is-in)'), "the final is in, the poll and What decided it wait");
+  assert.equal(strip.querySelectorAll(".closing__check").length, 3, "three checks: the final, the poll, What decided it");
+  assert.ok(text(strip).includes("waiting") && text(strip).includes("Closes out when every check is in, or by"), text(strip));
+  _setStops({ now: "2026-09-21T12:00-04:00", current: { kind: "season", href: "#season", label: "Season", detail: "the season right now" }, items: [{ ...week, stops: { ...week.stops, post: { ...week.stops.post, state: "saved", checks: undefined, backstop: undefined, date: "2026-09-21T08:00-04:00" } } }] });
+  assert.ok(text(strip).startsWith("Saved") && text(strip).includes("as it stood"), text(strip));
+  clean("the Post-Game stop after the line", root);
+  view.unmount();
+  root.remove();
+  // the Pre-Game as it stood: the other stop, the same address shape the line hands out
+  const { createProgramView } = await import(moduleUrl("views/program.js"));
+  const pre = document.createElement("div");
+  document.body.append(pre);
+  const preView = createProgramView({ onStatus: () => {}, gameId: "526000600", tab: "pre" });
+  preView.mount(pre);
+  await settle();
+  assert.equal(pre.querySelector(".program-tabs"), null, "no tab pair on the Pre-Game as it stood either");
+  assert.equal(pre.querySelector(".rail__chip--lit")?.getAttribute("href"), "#program=526000600?tab=pre", "?tab=pre opens the Pre-Game as it stood, lit on the rail, even with no kickoff copy kept");
+  assert.equal(pre.querySelector("a.rail__step--next")?.getAttribute("href"), "#postgame=526000600", "› steps to the same game's Post-Game");
+  assert.ok(pre.querySelector("#program-matchup") && !pre.querySelector("#program-box"), "the Pre-Game keeps its boxes, never the Post-Game's");
+  clean("the Pre-Game as it stood", pre);
+  preView.unmount();
+  pre.remove();
+  // the Post-Game tab's one extra fact lives on the closing checklist now (owner 2026-11-15, "Under the checklist"): a Post-Game
+  // saved after its close-out says it was filled in later
+  route("/api/program/526000600/postgame", () => envelope({ lockedAt: "2026-09-21T08:00-04:00", backfilled: true, news: [] }));
+  const late = document.createElement("div");
+  document.body.append(late);
+  const lateView = createProgramView({ onStatus: () => {}, gameId: "526000600" });
+  lateView.mount(late);
+  await settle();
+  await settle();
+  const lateStrip = late.querySelector(".closing");
+  assert.ok(text(lateStrip).startsWith("Saved") && text(lateStrip).includes("filled in later."), text(lateStrip));
+  assert.equal(late.querySelector(".rail__chip--lit")?.getAttribute("href"), "#postgame=526000600");
+  assert.equal(late.querySelector("a.rail__step--prev")?.getAttribute("href"), "#program=526000600?tab=pre", "‹ steps back to the same game's Pre-Game as it stood");
+  clean("a Post-Game filled in later", late);
+  lateView.unmount();
+  late.remove();
 };
 
 scenarios.countdownTicks = async () => {
@@ -559,7 +731,7 @@ scenarios.revealOnce = async () => {
   data.game.kickoff = new Date(Date.now() + 5 * 86400 * 1000).toISOString();
   const { root, view } = await mountProgram(data);
   assert.ok(cls(root.querySelector(".cover")).includes("cover--reveal"), "the first draw reveals");
-  data.line.formatted = "Swampwater Tech -3.5";
+  data.line.formatted = "Florida -3.5";
   await view.refresh();
   await settle();
   assert.ok(!cls(root.querySelector(".cover")).includes("cover--reveal"), "a refresh does not replay it");
@@ -581,7 +753,7 @@ scenarios.damagedPage = async () => {
 };
 """
 
-NAMES = ["twoTeam", "percentile", "ladderAndUnderline", "edges", "leaders", "coverStates", "coverTick", "faceOff", "formGuide", "weatherVenue", "zones", "programPage", "pickerOneFetch", "finalPage", "countdownTicks", "revealOnce", "damagedPage", "notesNoReload"]
+NAMES = ["twoTeam", "percentile", "ladderAndUnderline", "edges", "leaders", "coverStates", "coverTick", "faceOff", "formGuide", "weatherVenue", "zones", "programPage", "pickerOneFetch", "finalPage", "postgameStop", "countdownTicks", "revealOnce", "damagedPage", "notesNoReload", "reportStrip"]
 
 
 @pytest.fixture
@@ -622,11 +794,3 @@ def test_page_check_has_the_program_routes() -> None:
 def test_the_damaged_payload_is_really_damaged() -> None:
     bad = damaged(payload())
     assert bad["them"]["school"] is None and bad["profile"]["them"] == "nope" and bad["picker"][0] is None
-
-
-def test_the_season_ppa_pairs_lean_on_the_ppa_scale() -> None:
-    """Wave 2 review: PPA per play is a small number either side of zero; without the scale a gap of 0.07 drew a full bar."""
-    source = (Path(__file__).resolve().parent.parent / "static" / "js" / "views" / "program.js").read_text(encoding="utf-8")
-    assert 'import { PPA_SCALE, twoTeamTable } from "../ui/two-team.js";' in source
-    pair_row = source.split("const pairRow = ", 1)[1].split("});", 1)[0]
-    assert "scale: PPA_SCALE" in pair_row

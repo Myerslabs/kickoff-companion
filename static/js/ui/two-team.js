@@ -16,7 +16,7 @@
 //
 // Frozen API (the Live stream consumes these; do not change the signatures):
 //   twoTeamTable({ rows, usAbbr, themAbbr, groups, better = true, usTeam, themTeam, usName, themName, usConf, themConf,
-//                  year, ladder = false, underline = false, tug = false, labelHead = "Statistic", caption, extra,
+//                  year, ladder = false, underline = false, tug = false, centered = false, bar = true, labelHead = "Statistic", caption, extra,
 //                  className, onSize })  -> .stat-table-wrap.tt-wrap[data-size]
 //       row: { label, sub, format, higherIsBetter, leads, metric, metricYear, rowClass, key, scale, team, labelMid,
 //              labelShort, us: { value, text, textShort, rank, of, tie, metric, href, conf }, them: { ...the same } }
@@ -39,7 +39,7 @@
 //                   ignored). us/them: a line under each team's own columns (its scheme); missing: { label, onClick }
 //                   or { label, href } shown where a side has none, the way to go get it (never a blank).
 //       usName/themName: the school and mascot for the large head; usTeam/themTeam the school; usAbbr/themAbbr short.
-//       usHead/themHead: { long, mid, short } for a head that names a unit instead (the tape's "Swampwater Tech offense").
+//       usHead/themHead: { long, mid, short } for a head that names a unit instead (the tape's "Florida offense").
 //       row.tag: a word under the row's bar (the tape's "by 39 ranks").
 //       usConf/themConf: each side's conference short name for its rank head (ours from the identity by default).
 //       better: a symmetric "Better" column (the leader's abbreviation in bold chalk, "Even" in fog).
@@ -53,6 +53,8 @@
 //                   never a fixed amount), so In Game's tables lean by the real margin.
 //       centered (owner 2026-10-10, the leader lines): the stat name sits over its bar in the middle column and the two
 //                   teams' columns mirror around it, so the edges and the center line run down the middle of the band.
+//       bar (default true): false keeps a centered table's middle column to its label, no bar (ENH-34, owner 2026-10-27,
+//                   Leaders' vs opponent: "The bigger number is already bolder so the arrow is just confusing").
 //       onSize(size): called with "large", "medium", "small" or "none" whenever the table measures itself.
 //       Players (tables wave 3, owner 2026-10-10: Leaders' "vs opponent" boards): a side's who, whoName and onWho put a
 //                   player column on each team's side, outermost (our player outside our chips, theirs outside theirs), at
@@ -399,8 +401,8 @@ function bodyRow(row, opts) {
   const sub = typeof row.sub === "string" && row.sub.trim() ? el("small", {}, row.sub.trim()) : null;
   if (opts.centered) {
     // the label over its bar in the middle column, a team's columns mirrored on each side (the leader lines)
-    const mid = tugCell(row, lead, opts);
-    mid.className = "tt__tug tt__mid";
+    const mid = opts.bar ? tugCell(row, lead, opts) : el("td", {});
+    mid.className = opts.bar ? "tt__tug tt__mid" : "tt__tug tt__mid tt__mid--plain";
     mid.dataset.term = label;
     mid.prepend(el("span", { class: "tt__mid-words" }, formsOf(label), sub));
     return el(
@@ -544,7 +546,7 @@ export function applySize(wrap, size) {
   }
 }
 
-export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups, better = true, usTeam, themTeam, usName, themName, usHead, themHead, usConf, themConf, year, ladder = false, underline = false, tug = false, centered = false, labelHead = "Statistic", whoHead = "Player", whoSubHead = "Pos", caption, extra, className, onSize } = {}) {
+export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups, better = true, usTeam, themTeam, usName, themName, usHead, themHead, usConf, themConf, year, ladder = false, underline = false, tug = false, centered = false, bar = true, labelHead = "Statistic", whoHead = "Player", whoSubHead = "Pos", caption, extra, className, onSize } = {}) {
   const sets = Array.isArray(groups)
     ? records(groups).map((g) => ({ title: g.title, note: g.note, rows: records(g.rows), us: g.us, them: g.them, missing: g.missing }))
     : [{ title: null, note: null, rows: records(rows) }];
@@ -554,7 +556,7 @@ export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups
   const cols = Object.fromEntries(SIDES.map((side) => [side, { natl: all.some((r) => isNum(obj(r[side]).rank)), conf: all.some((r) => isNum(obj(obj(r[side]).conf).rank)), who: withWho, pos: withSub }]));
   const extras = (Array.isArray(extra) ? extra : []).filter((c) => c && typeof c.cell === "function");
   const withTug = tug === true || centered === true; // centered (owner 2026-10-10, the leader lines: "the edges sucked to the middle"): the label over its bar in the middle, both teams mirrored around it
-  const opts = { usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, year, better: better !== false && !withTug, ladder: Boolean(ladder), underline: Boolean(underline), tug: withTug, centered: centered === true, extra: extras, cols };
+  const opts = { usAbbr: text(usAbbr), themAbbr: text(themAbbr), usTeam, themTeam, year, better: better !== false && !withTug, ladder: Boolean(ladder), underline: Boolean(underline), tug: withTug, centered: centered === true, bar: bar !== false, extra: extras, cols };
   opts.span = layout(opts);
   opts.width = { large: opts.span.large.width };
   // each side's conference for its rank head: the option, else the name the rows carry, else ours from the identity
@@ -565,7 +567,7 @@ export function twoTeamTable({ rows, usAbbr = usLabel(), themAbbr = DASH, groups
   const conf = { us: text(usConf || rowConf("us") || confLabel()), them: text(themConf || rowConf("them") || usConf || confLabel()) };
   const head = text(labelHead);
   // each team's head in its three forms: usHead/themHead { long, mid, short } when a caller names units (the tape's
-  // "Swampwater Tech offense"), else the school and mascot, the school, the abbreviation
+  // "Florida offense"), else the school and mascot, the school, the abbreviation
   const words = (side) => {
     const given = side === "us" ? usHead : themHead;
     if (given && typeof given === "object") return nameForms(given.long, given.mid, given.short);

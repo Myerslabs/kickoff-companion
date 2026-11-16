@@ -101,6 +101,7 @@ class WikiClient:
         self._failures = 0
         self._paused_until = 0.0
         self._store: dict[str, Any] = self._load()
+        self._pending: dict[str, asyncio.Task[Any]] = {}  # batch 1: the names being looked up behind an answer
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -181,6 +182,59 @@ class WikiClient:
     async def _lead(self, title: str) -> str | None:
         body = await self._get(action="parse", page=title, prop="wikitext", section=0, redirects=1)
         return lead_link(((body or {}).get("parse") or {}).get("wikitext"))
+
+    # --- batch 1 (owner 2026-11-15, "Look up in the background"): answer at once, look up behind ---------------------------
+    # The home page waited 4 to 8 s for these links (Wikipedia, one request at a time, a name not found tried again every six
+    # hours), holding connections the other bands waited behind. Now the route answers from what is kept (a page found
+    # before, or a Wikipedia search, which always works) and looks a new or old name up behind the answer, once at a time
+    # per name; the next page has the found page.
+
+    def _behind(self, key: str, look: Any) -> None:
+        if not self.lookups or key in self._pending:
+            return
+        try:
+            task = asyncio.get_running_loop().create_task(look())
+        except RuntimeError:
+            return  # no loop (a test outside one): the next ask looks again
+        self._pending[key] = task
+
+        def done(t: asyncio.Task[Any]) -> None:
+            self._pending.pop(key, None)
+            if not t.cancelled() and t.exception() is not None:
+                log.warning("Wikipedia: looking up %s failed behind the page: %s", key, t.exception())
+
+        task.add_done_callback(done)
+
+    def _kept(self, key: str, fields: tuple[str, ...]) -> dict[str, Any] | None:
+        entry = self._store.get(key)
+        return {k: entry.get(k) for k in fields} if isinstance(entry, dict) else None
+
+    def team_now(self, school: Any, mascot: Any) -> dict[str, Any]:
+        name = _clean(school)
+        if not name:
+            return {"football": None, "school": None, "resolved": False}
+        key = f"team:{name}"
+        if self._fresh(key) is None:
+            self._behind(key, lambda: self.team(school, mascot))
+        return self._kept(key, ("football", "school", "resolved")) or {"football": search_url(f"{name} football"), "school": search_url(f"{name} university"), "resolved": False}
+
+    def coach_now(self, name: Any, school: Any = None) -> dict[str, Any]:
+        person = _clean(name)
+        if not person:
+            return {"page": None, "resolved": False}
+        key = f"coach:{person}|{_clean(school) or ''}"
+        if self._fresh(key) is None:
+            self._behind(key, lambda: self.coach(name, school))
+        return self._kept(key, ("page", "resolved")) or {"page": search_url(f"{person} football coach"), "resolved": False}
+
+    def venue_now(self, name: Any) -> dict[str, Any]:
+        venue = _clean(name)
+        if not venue:
+            return {"stadium": None, "resolved": False}
+        key = f"venue:{venue}"
+        if self._fresh(key) is None:
+            self._behind(key, lambda: self.venue(name))
+        return self._kept(key, ("stadium", "resolved")) or {"stadium": search_url(venue), "resolved": False}
 
     # --- what the headers ask for -------------------------------------------------------------------------
 

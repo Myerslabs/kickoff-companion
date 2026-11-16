@@ -2,7 +2,7 @@
 with white laces on a dark ground of its primary color's hue, drawn with the standard library
 only and kept on disk under data/icons/ by color, so each icon is drawn once.
 
-The program's icon (owner 2026-10-23, the icon board https://claude.ai/artifact/CAnmauKcs6mpTcndK3PBWQ): the Myers Labs
+The program's icon (owner 2026-10-23, the icon board): the Myers Labs
 sun, the app's own loading sun (static/js/ui/states.js), on the app's charcoal. tools/make_icons.py draws it for the
 neutral icons in static/icons/ (the ones a page links to before the team is known, and the fallback when drawing fails),
 the browser tab, the tray and the program; the team's own home-screen icon stays the football.

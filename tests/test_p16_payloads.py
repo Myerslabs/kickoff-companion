@@ -1,5 +1,5 @@
 """Phase 16 payload fields for the page streams: archived flags on the schedule, the program and
-Swampwater Tech's team page; isUs on roster, impact and team-page roster rows; the edges' per-side keys
+Florida's team page; isUs on roster, impact and team-page roster rows; the edges' per-side keys
 (defense rows reversed); the visitors' kickoff date; SP+ "of" 136 with the nationalAverages
 pseudo-team gone; per-rating counts; metric keys on every ranked row."""
 
@@ -34,10 +34,10 @@ def test_archived_flags_on_the_schedule_the_program_and_floridas_team_page(app, 
     assert program["game"]["archived"] is True
     assert {r["gameId"] for r in program["picker"] if r["archived"]} == {LAST_GAME}
     assert client.get("/api/program/next").json()["data"]["game"]["archived"] is False
-    swt = client.get("/api/team/Swampwater Tech").json()["data"]["schedule"]
+    swt = client.get("/api/team/Florida").json()["data"]["schedule"]
     assert {r["gameId"] for r in swt if r["archived"]} == {LAST_GAME}
-    other = client.get("/api/team/Diner%20Tech").json()["data"]["schedule"]
-    assert all("archived" not in r for r in other)  # another team's games are not the Mudpuppies' archive
+    other = client.get("/api/team/Texas%20State").json()["data"]["schedule"]
+    assert all("archived" not in r for r in other)  # another team's games are not the Gators' archive
 
 
 def test_no_archive_folder_means_nothing_is_archived(client: TestClient, fake_cfbd: FakeCfbd):
@@ -52,8 +52,8 @@ def test_is_us_on_roster_impact_and_team_page_rows(client: TestClient, fake_cfbd
     assert roster["players"] and all(p["isUs"] is True for p in roster["players"])
     impact = roster["impact"]["offense"] + roster["impact"]["defense"]
     assert impact and all(p["isUs"] is True for p in impact)
-    assert all(p["isUs"] is True for p in client.get("/api/team/Swampwater Tech").json()["data"]["roster"])
-    assert all(p["isUs"] is False for p in client.get("/api/team/Diner%20Tech").json()["data"]["roster"])
+    assert all(p["isUs"] is True for p in client.get("/api/team/Florida").json()["data"]["roster"])
+    assert all(p["isUs"] is False for p in client.get("/api/team/Texas%20State").json()["data"]["roster"])
 
 
 def test_edges_name_each_sides_stat_with_defense_rows_reversed(client: TestClient, fake_cfbd: FakeCfbd):
@@ -67,7 +67,7 @@ def test_edges_name_each_sides_stat_with_defense_rows_reversed(client: TestClien
         if edge["side"] == "offense":
             assert pairs[edge["usKey"]] == edge["themKey"]
         else:
-            assert pairs[edge["themKey"]] == edge["usKey"]  # Swampwater Tech's defense stat, the opponent's offense stat
+            assert pairs[edge["themKey"]] == edge["usKey"]  # Florida's defense stat, the opponent's offense stat
         assert profile_us[edge["usKey"]]["nationalRank"] == edge["usRank"] and profile_us[edge["usKey"]]["value"] == edge["usValue"]
         assert profile_them[edge["themKey"]]["nationalRank"] == edge["themRank"] and profile_them[edge["themKey"]]["value"] == edge["themValue"]
         assert edge["of"] == profile_us[edge["usKey"]]["nationalOf"] and edge["themOf"] == profile_them[edge["themKey"]]["nationalOf"]
@@ -120,7 +120,7 @@ def test_metric_keys_on_every_ranked_row(client: TestClient, fake_cfbd: FakeCfbd
     assert all(r["metric"] == f"profile:{r['key']}" and r["metricYear"] == 2025 and r["now"]["year"] == 2026 and r["last"]["year"] == 2025 for r in season["lastSeason"]["rows"])
     assert [p["metric"] for p in season["polls"]] == [f"poll:{p['poll']}" for p in season["polls"]]
     assert season["record"]["spMetric"] == "rating:sp" and season["resume"]["remaining"]["metric"] == "rating:sosPlayed"
-    assert season["profile"]["conference"] == "Biscuit Belt"
+    assert season["profile"]["conference"] == "SEC"
     program = client.get("/api/program/next").json()["data"]
     for side in ("us", "them"):
         assert all(r["metric"] == f"profile:{r['key']}" for r in program["profile"][side])
@@ -131,7 +131,7 @@ def test_metric_keys_on_every_ranked_row(client: TestClient, fake_cfbd: FakeCfbd
     for board in leaders["boards"] + leaders["extraBoards"]:
         entries = board["team"] + board["opponent"] + board["conference"] + board["national"]
         assert all(e["metric"] == board["metric"] for e in entries), board["id"]
-    team = client.get("/api/team/Diner%20Tech").json()["data"]
+    team = client.get("/api/team/Texas%20State").json()["data"]
     assert all(r["metric"] for r in team["profile"]["rows"]) and all(r["metric"] for r in team["advanced"]["rows"])
     assert team["recruiting"]["talent"]["metric"] == "rating:talent"
     assert all(isinstance(m, str) or m is None for m in walk(season, "metric") + walk(program, "metric") + walk(leaders, "metric"))

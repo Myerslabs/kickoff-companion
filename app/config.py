@@ -1,6 +1,6 @@
 """Settings loaded from .env and validated at startup.
 
-Rules (docs/02-ARCHITECTURE.md, "Configuration"):
+Rules ("Configuration"):
 - Every value is validated before the server starts. A bad value stops startup
   with a readable message that names the key and the fix. Never start half-configured.
 - Three values may be blank since public release Phase 5a: the CFBD key, TEAM and CONFERENCE.
@@ -12,6 +12,7 @@ Rules (docs/02-ARCHITECTURE.md, "Configuration"):
 from __future__ import annotations
 
 import json
+import os
 import re
 from ipaddress import ip_address
 from pathlib import Path
@@ -101,6 +102,7 @@ class Settings(BaseSettings):
     claude_lookup_model: str = ""  # Phase 18.7: a smaller model for the injury-report runs ("haiku"); blank: the tool's own default
     claude_command: str = "claude"  # Phase 18.1: the one program the notes runs start; set here in .env, never over the network
     monthly_call_budget: int = 30000
+    monthly_call_target: int = 20000  # ENH-27 (owner 2026-10-25, "2/3rds in a month"): what the background loads may spend
     quota_hard_stop_pct: int = 90
     live_poll_seconds: int = 12
     radio_sources: Annotated[list[RadioSource], NoDecode] = Field(
@@ -225,6 +227,13 @@ class Settings(BaseSettings):
             raise ValueError(f"must be greater than 0 (got {value})")
         return value
 
+    @field_validator("monthly_call_target")
+    @classmethod
+    def _target(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError(f"must be 0 or more (got {value})")
+        return value
+
     @field_validator("quota_hard_stop_pct")
     @classmethod
     def _hard_stop(cls, value: int) -> int:
@@ -273,7 +282,7 @@ class Settings(BaseSettings):
     def _anchor_dir(cls, value: Any, info: Any) -> Path | None:
         if info.field_name == "backup_dir" and (value is None or not str(value).strip()):
             return None
-        path = Path(str(value).strip()).expanduser()
+        path = Path(os.path.expandvars(str(value).strip())).expanduser()  # BUG-24: %LOCALAPPDATA%\Gators works too
         if not path.is_absolute():
             path = PROJECT_ROOT / path
         return path
@@ -317,6 +326,7 @@ class Settings(BaseSettings):
             "https": self.https,
             "live_poll_seconds": self.live_poll_seconds,
             "monthly_call_budget": self.monthly_call_budget,
+            "monthly_call_target": self.monthly_call_target,
             "quota_hard_stop_pct": self.quota_hard_stop_pct,
             "radio_sources": [source.model_dump() for source in self.radio_sources],
             "api_key_configured": self.api_key_configured,

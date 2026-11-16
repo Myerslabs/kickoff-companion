@@ -14,7 +14,12 @@
 //                                  back out; any other reason leaves the history alone.
 //   closeLayers()                  every open layer closes and their entries go (the Menu button; a tab for the page
 //                                  already showing).
-//   goTo(hash)                     go to another page; from a layer's entry the new page replaces it.
+//   goTo(hash)                     go to another page; from a layer's entry the new page replaces it. The page already
+//                                  showing goes back to its top instead (ENH-33).
+//   toTop()                        ENH-33 (owner 2026-10-27: "If I'm on the newspaper page and I select newspaper from the
+//                                  menu again, it should take me to the top of the page"): the page showing scrolls to its
+//                                  top once the layers' own history steps have landed (landing on an entry puts its scroll
+//                                  back, so a scroll made before would be undone). The menu, a tab and goTo call it.
 //   placeLayers()                  where the layers start: the top bar's bottom edge, as --layer-top on <html> (0 on the
 //                                  board, which hides the top bar).
 //   installLayerHistory()          Back closes layers (installed by the first layer, or by app.js at start).
@@ -246,11 +251,40 @@ export function closeLayers() {
   });
 }
 
+const TOP_HOLD_MS = 500; // how long a scroll the reader did not make is taken back to the top
+
+export function toTop() {
+  soon(() => whenSettled(() => {
+    if (typeof window === "undefined" || typeof window.scrollTo !== "function") return;
+    window.scrollTo(0, 0);
+    // landing on the page's own entry (the menu's entry going back out) has the browser put that entry's old scroll back
+    // a moment later (measured 2026-10-27: 23 ms after popstate): for a short while a move away from the top that the
+    // reader did not make goes back up; a touch, wheel or key of the reader's ends it at once
+    if (typeof window.addEventListener !== "function") return;
+    let done = false;
+    const keep = () => {
+      if (!done && window.scrollY > 0) window.scrollTo(0, 0);
+    };
+    const stop = () => {
+      if (done) return;
+      done = true;
+      window.removeEventListener("scroll", keep);
+      for (const type of READER_INPUT) window.removeEventListener(type, stop, true);
+    };
+    window.addEventListener("scroll", keep, { passive: true });
+    for (const type of READER_INPUT) window.addEventListener(type, stop, true);
+    setTimeout(stop, TOP_HOLD_MS);
+  }));
+}
+
+const READER_INPUT = ["touchstart", "wheel", "keydown", "pointerdown"];
+
 export function goTo(hash) {
   const target = `#${String(hash ?? "").replace(/^#/, "")}`;
   if (typeof window === "undefined" || !window.location) return;
   if (target === window.location.hash) {
     closeLayers(); // the page already showing: the layers close and their entries go
+    toTop(); // ENH-33: and it goes back to its top
     return;
   }
   for (const entry of [...stack].reverse()) {

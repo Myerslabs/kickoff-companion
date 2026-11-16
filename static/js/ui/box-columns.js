@@ -2,7 +2,7 @@
 // Archive and the Box page. Row tap opens the player card.
 //
 // Table sizes, wave 2 (owner 2026-10-10): the sizes are declared here once, so every page's box score sizes itself by its
-// own box the same way (docs/03-DESIGN.md, Table sizes). Large has whole heads (Carries, Yards, Tackles); medium the box's
+// own box the same way (the design rules, Table sizes). Large has whole heads (Carries, Yards, Tackles); medium the box's
 // own abbreviations (Car, Yds, Tkl); small every stat but the passer's QBR. The players' names step down with the table
 // (item 6, owner 2026-10-11): full names at large, "K. Crawford" from large down, then the surname and the reduced surname. Comp-Att, Sacks, Y/C and Y/R are the app's one name for those stats (design rule 6) at every size. Every table of
 // players sorts (owner 2026-09-26); text columns such as Comp-Att and FG sort by their first number.

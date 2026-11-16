@@ -233,14 +233,27 @@ class TestBuildTooling:
 
     def test_the_spec_bundles_what_the_program_reads(self):
         spec = (ROOT / "tools" / "package" / "kickoff.spec").read_text(encoding="utf-8")
-        for needed in ('"static"', '".env.example"', '"radio_stations.json"', '"demo-sources.sha1"', 'collect_data_files("tzdata")', 'hiddenimports=["app.main"]', "upx=False", "console=True"):
+        for needed in ('"static"', '".env.example"', "app_datas(ROOT)", '"demo-sources.sha1"', 'collect_data_files("tzdata")', 'hiddenimports=["app.main"]', "upx=False", "console=True"):
             assert needed in spec, needed
         assert "onefile" not in spec.lower()
 
-    def test_the_release_workflow_builds_on_every_system_and_attaches_the_archives(self):
+    def test_every_data_file_under_app_is_bundled(self):
+        # the batch review (2026-11-16): the map's grid and the Circle of Blame's prompts were missing from the program
+        from tools.package.datafiles import app_datas
+
+        bundled = {Path(source).resolve() for source, _ in app_datas(ROOT)}
+        wanted = {p.resolve() for p in (ROOT / "app").rglob("*") if p.is_file() and p.suffix not in (".py", ".pyc") and "__pycache__" not in p.parts}
+        assert wanted and wanted == bundled
+        folders = {Path(source).name: folder for source, folder in app_datas(ROOT)}
+        assert folders["grid.json"] == "app/facts/imperialism" and folders["circle_of_blame.system.md"] == "app/prompts" and folders["radio_stations.json"] == "app"
+
+    def test_the_release_workflow_builds_the_windows_program_and_attaches_its_archive(self):
         text = (ROOT / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
-        for needed in ("windows-latest", "ubuntu-latest", "macos-latest", "tools/package/build.py", "gh release upload", "--group build", "github.event.repository.name == 'kickoff-companion'", "app/__init__.py says"):
+        for needed in ("windows-latest", "tools/package/build.py", "gh release upload", "--group build", "github.event.repository.name == 'kickoff-companion'", "app/__init__.py says"):
             assert needed in text, needed
+        steps = chr(10).join(line for line in text.lower().splitlines() if not line.lstrip().startswith("#"))
+        for gone in ("ubuntu", "macos", "pypi", "wheel"):  # Kickoff Companion 2.0 is Windows only; PyPI stays at 1.0.1
+            assert gone not in steps, gone
 
     def test_build_files_are_ignored_and_the_entry_runs_main_then_pauses(self):
         ignore = (ROOT / ".gitignore").read_text(encoding="utf-8")

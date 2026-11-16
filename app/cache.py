@@ -1,6 +1,6 @@
 """The response cache: raw CFBD payloads in SQLite with a TTL per kind of data.
 
-Rules from docs/02-ARCHITECTURE.md, "Cache policy":
+The rules, "Cache policy":
 - Every kind of data has a TTL. Finished-game data is permanent once it has settled: an empty
   answer is kept ten minutes while a just-played game settles (the client's settle_until, kickoff
   + 24 h) and six hours otherwise, and non-empty answers written while the game settles are kept
@@ -51,24 +51,32 @@ FINISHED_GAME_SETTLING_TTL = timedelta(hours=1)  # CFBD still corrects a game in
 FINISHED_GAME_SETTLING_LEAN_TTL = timedelta(hours=6)  # the free profile takes CFBD's corrections a few times, not hourly
 
 
-def ttl_for(kind: DataKind, local_now: datetime, *, game_day: bool = False) -> timedelta | None:
-    """How long a payload of this kind stays fresh. None means permanent, NO_CACHE means never store."""
+def ttl_for(kind: DataKind, local_now: datetime, *, game_day: bool = False, lean: bool = False) -> timedelta | None:
+    """How long a payload of this kind stays fresh. None means permanent, NO_CACHE means never store. `lean` (the Free
+    profile, Kickoff Companion 2.0) keeps the lifetimes from before ENH-27's shorter ones; the client stretches them too."""
     weekday = local_now.weekday()
-    weekend = weekday >= SATURDAY
     if kind in (DataKind.TEAMS, DataKind.ROSTER, DataKind.RECRUITING, DataKind.REFERENCE):
         return timedelta(days=7)
     if kind is DataKind.HISTORY:
         return timedelta(days=30)
     if kind is DataKind.SCHEDULE:  # our game on a Friday or a bowl weekday is game day too (Phase 12)
-        # Phase 14: Thursday and Friday carry other teams' games (an hour); Sunday to Wednesday nothing
-        # is played, only kickoff times get announced (twelve hours).
-        if weekday == SATURDAY or game_day:
+        # ENH-27 (owner 2026-10-25: "use all the calls we can"): every 15 minutes Thursday to Saturday, when games are
+        # played, and hourly Sunday to Wednesday, when kickoff times get announced (was an hour and twelve hours).
+        if lean:  # Phase 14's: Saturday every 15 minutes, Thursday and Friday hourly, Sunday to Wednesday twice a day
+            if weekday == SATURDAY or game_day:
+                return timedelta(minutes=15)
+            return timedelta(hours=1) if weekday in (THURSDAY, THURSDAY + 1) else timedelta(hours=12)
+        if THURSDAY <= weekday <= SATURDAY or game_day:
             return timedelta(minutes=15)
-        return timedelta(hours=1) if weekday in (THURSDAY, THURSDAY + 1) else timedelta(hours=12)
+        return timedelta(hours=1)
     if kind is DataKind.SEASON_STATS:
-        return timedelta(hours=1) if weekend or game_day else timedelta(hours=6)
+        if lean:
+            return timedelta(hours=1) if weekday >= SATURDAY or game_day else timedelta(hours=6)
+        return timedelta(hours=1)  # ENH-27: hourly every day (was six hours on weekdays)
     if kind in (DataKind.LINES, DataKind.WEATHER):
-        return timedelta(minutes=30) if game_day else timedelta(hours=3)
+        if lean:
+            return timedelta(minutes=30) if game_day else timedelta(hours=3)
+        return timedelta(minutes=15) if game_day else timedelta(hours=1)  # ENH-27 (was 30 minutes and three hours)
     if kind is DataKind.FINISHED_GAME:
         return None  # the settled default; the client applies finished_game_ttl for empty and settling answers
     if kind is DataKind.SCOREBOARD:

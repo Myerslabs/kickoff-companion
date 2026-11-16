@@ -15,6 +15,7 @@ from fastapi import APIRouter, Request
 
 from app.api.envelope import error_response
 from app.api.players import respond
+from app.services.fullstats import CATEGORIES, FullStatsService
 from app.services.national import NationalService, validate
 
 router = APIRouter(tags=["national"])
@@ -29,4 +30,16 @@ async def national(metric: str, request: Request, team: str | None = None, year:
     result = await service.listing(checked)
     if isinstance(result, str):
         return error_response(404, "not_found", result)
+    return respond(result)
+
+
+@router.get("/api/stats/{category}")
+async def full_stats(category: str, request: Request) -> Any:
+    """ENH-10: one category's full national lists, every FBS team and every qualified player (app/services/fullstats.py)."""
+    if category not in CATEGORIES:
+        return error_response(404, "not_found", f"No full list called {category[:40]!r}; there are {', '.join(CATEGORIES)}.")
+    service: FullStatsService = request.app.state.fullstats
+    result = await service.listing(category)
+    if result is None:
+        return error_response(404, "not_found", "No such list.")
     return respond(result)

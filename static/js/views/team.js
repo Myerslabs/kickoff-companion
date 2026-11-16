@@ -1,15 +1,18 @@
-// A team page (T1) for any FBS team, reached from the program cover: header with tabs,
-// Summary (tiles, stat tables with ranks, advanced), Schedule, Roster, Coaches, History (the school's history and facts from
-// the facts prompt, the Prompts phase 2026-10-13, then the series with us).
+// A team's side sheet, and the team page's own bands (Talent and recruiting, Play value and usage, Staff, School facts) for
+// My Team (wave 3 of the one-column page, owner 2026-11-01: "my team and season are the same in my eyes"; his inventory
+// picks for the Season page and the team page were one list, so #team=<school> is the My Team page of that team now,
+// views/season.js, and the tabs of the old team page are gone). Before that: a team page (T1) for any FBS team, reached
+// from the program cover, with tabs Summary, Schedule, Roster, Coaches, History.
 //
 // Phase 16 (stream SEASON): a Back row above the header (DS-03); the header's AP rank is a poll badge and its
 // SP+ a dotted link to Ratings (design rule 19), with the last five results; every national number is a value
 // with its chip in one cell, the chip opening the national (or conference) list with this team marked;
-// Our schedule rows open the game, another team's rows promise no tap; the series reads from our
+// Our schedule rows open the game, another team's rows promise no tap (its margin strip's bars open its games from its side,
+// ENH-19); the series reads from our
 // side; sub-headings use the one subhead style (DS-14). The tab and the roster's sort survive refreshes.
 // Phase 17 #2: the Summary tab ends with the team's conference standings; #team=<school>?band=standings (a
 // cover's conference record chip) opens the page there.
-// Tables wave 3 (owner 2026-10-10, docs/03-DESIGN.md "Table sizes"): every table sizes itself by its own box, each data
+// Tables wave 3 (owner 2026-10-10, the design rules "Table sizes"): every table sizes itself by its own box, each data
 // point in its own column. Talent and recruiting: Measure | Value | FBS rank (medium). Play value and usage: the player
 // (stepping down with the table, item 6) with his position in its own column at large and medium, sorted by the value. Coaches: the
 // hire date (its year at small, sorting by the day), the record (This season, "Record" at small), SP+ and SRS (large).
@@ -23,13 +26,12 @@ import { advancedPaired } from "../ui/depth2.js";
 import { nationalHref, pollHref } from "../ui/national-link.js";
 import { seriesTable } from "../ui/series.js";
 import { openGame, ratingsHref, scheduleList } from "../ui/schedule.js";
+import { marginStrip } from "../ui/margin-strip.js"; // ENH-19 chart 3 on every team page (owner 2026-10-30: every open item before the game)
 import { eloLine } from "../ui/sparkline.js";
 import { backRow, band, note, subhead } from "../ui/states.js";
-import { mountFlow, stopFlow } from "../ui/flow.js";
 import { pollBadge, statTable, statTableSkeleton, twoCol } from "../ui/stat-table.js";
 import { profileTable, profileTiles, standingsTable, teamHeader } from "../ui/team-page.js";
-import { errorPanel, fetchJson, partState, poller } from "./common.js";
-import { jumpToBand } from "./season.js";
+import { fetchJson, partState } from "./common.js";
 import { openSheet } from "../ui/remote.js";
 import { goTo } from "../ui/layers.js";
 import { fillWiki, wikiLink } from "../ui/wiki-links.js";
@@ -39,8 +41,7 @@ import { blueChipNote } from "./roster.js";
 import { injurySheetBand } from "./injuries.js";
 import { coachesLine } from "../ui/matchup-card.js";
 import { factsBand } from "../ui/school-facts.js";
-
-const TABS = [{ id: "summary", label: "Summary" }, { id: "schedule", label: "Schedule" }, { id: "roster", label: "Roster" }, { id: "coaches", label: "Coaches" }, { id: "history", label: "History" }];
+import { teamLinks } from "../ui/other-team.js"; // FEAT-5: every team's own pages
 
 function schoolOf(data) {
   const name = data?.team?.school;
@@ -76,7 +77,7 @@ function headerFacts(team, facts = null) {
 }
 
 /** The conference's short name for a rank column head: ours from the identity, another team's from the server's short
- *  name for the conference it is ranked in (wave 3: "PA rank", never "Pancake Athletic rank"), else its full name. */
+ *  name for the conference it is ranked in (wave 3: "PA rank", never "Pac-12 rank"), else its full name. */
 function confShort(data) {
   if (data?.team?.isUs) return confLabel();
   for (const name of [data?.team?.conferenceShort, data?.team?.conference]) if (typeof name === "string" && name.trim()) return name.trim();
@@ -99,12 +100,15 @@ function summary(data, { prefix = null } = {}) {
   ];
 }
 
-function schedule(data, { id = "team-schedule" } = {}) {
+function schedule(data, { id = "sheet-schedule" } = {}) {
   const games = records(data.schedule);
   const isUs = Boolean(data.team?.isUs);
   // Our games open their archive or program; another team's games are not on our schedule,
   // so its rows promise no tap (G3-05, bug 10).
-  return band({ id, title: "Schedule", collapsible: false, state: partState(data.parts?.teamGames, games.length > 0), emptyText: "No schedule yet.", body: () => scheduleList({ games, nextGameId: (games.find((g) => !g.completed) || {}).gameId ?? null, onSelect: isUs ? openGame : undefined }) });
+  // ENH-19 chart 3: the season's shape above the list, as on the Season page; another team's bars open its games from its side (FEAT-5)
+  const nextGameId = (games.find((g) => !g.completed) || {}).gameId ?? null;
+  const school = typeof data.team?.school === "string" ? data.team.school : null;
+  return band({ id, title: "Schedule", collapsible: false, state: partState(data.parts?.teamGames, games.length > 0), emptyText: "No schedule yet.", body: () => el("div", {}, marginStrip({ games, nextGameId, team: isUs ? null : school }), scheduleList({ games, nextGameId, onSelect: isUs ? openGame : undefined })) });
 }
 
 /** A roster's player column (item 6): CFBD's first and last name, the redshirt mark kept after whichever form shows. */
@@ -140,12 +144,6 @@ function roster(data, state, { id = "team-roster", collapsed = false } = {}) {
         typeof data.classesInferred === "string" && data.classesInferred ? el("p", { class: "note" }, data.classesInferred) : null, // post-freeze Wave 1
       ),
   });
-}
-
-/** Freeze wave F3 (one fact, one source): the Coaches table and the Staff band were two answers to one question; the
- *  Staff band is the one, with CFBD's hire date and record on the head coach's line. */
-function coaches(data) {
-  return [staffBand(data)];
 }
 
 /** One coach as the table reads him: the hire date (its year for the small table, the moment it names to sort by) and
@@ -184,6 +182,7 @@ function staffBand(data) {
     id: "team-staff",
     title: "Staff",
     collapsible: false,
+    foldable: true, // every band on the program can be minimised (it sits on the Pre-Game since wave 3, 2026-11-01)
     summary: [source ? `from ${source === "CFBD" ? source : source.charAt(0).toLowerCase() + source.slice(1)}` : null, s?.savedAt ? fmtDate(s.savedAt, "short") : null].filter(Boolean).join(", "),
     state: top.length || full.length || others.length ? { status: "ready" } : { status: "empty", message: "CFBD lists no coach for this team this season; the coordinators come from the season's coaches load on the Load data page." },
     body: () => {
@@ -339,34 +338,17 @@ function standingsBand(data, state, { id = "team-standings" } = {}) {
   });
 }
 
-function render(envelope, container, state) {
-  const data = envelope?.data && typeof envelope.data === "object" ? envelope.data : {};
-  const team = data.team && typeof data.team === "object" ? data.team : {};
-  state.ui ??= {};
-  const page = el("div", { class: "page team" });
-  const bodies = {
-    summary: () => [...summary(data, { prefix: "team-" }), recruitingBand(data), playValueBand(data, state), costsBand(data.costs, { id: "team-costs", team: schoolOf(data), outside: data.inLoadSet === false }), standingsBand(data, state)],
-    schedule: () => [schedule(data)],
-    roster: () => [roster(data, state)],
-    coaches: () => coaches(data),
-    history: () => [factsBand(data.facts, { id: "team-facts", school: schoolOf(data), outside: data.inLoadSet === false }), history(data)], // the Prompts phase: school history first
+/** The team page's own bands for My Team (wave 3 of the one-column page): from a team's /api/team answer, Talent and
+ *  recruiting, Play value and usage, Staff and School facts, each with the id the catalog lists. `state.sorts` keeps the
+ *  play value tables' order across refreshes. */
+export function teamExtraBands(data, state) {
+  const school = schoolOf(data);
+  return {
+    talent: recruitingBand(data),
+    playValue: playValueBand(data, state),
+    staff: staffBand(data),
+    facts: factsBand(data.facts, { id: "team-facts", school, outside: data.inLoadSet === false }),
   };
-  if (!bodies[state.tab]) state.tab = "summary";
-  let shown = [];
-  const show = (id) => {
-    for (const node of shown) node.remove();
-    shown = bodies[id]().flat().filter(Boolean);
-    page.append(...shown); // the flow places each new band as it arrives
-  };
-  const header = teamHeader({ team, season: String(data.season ?? ""), location: location(data), facts: headerFacts(team, data.facts), tabs: TABS, current: state.tab, onTab: (id) => { state.tab = id; show(id); } });
-  page.append(el("div", { class: "flow-full" }, backRow()), el("div", { class: "flow-full" }, header.root));
-  show(state.tab);
-  mountFlow(state.ui, container, page, { wide: TEAM_WIDE }); // final pass: the flowing page with its section chips
-  if (state.focus && state.tab === "summary") {
-    const target = state.focus;
-    state.focus = null; // once: a refresh leaves the reader where they are
-    setTimeout(() => jumpToBand(container.querySelector(target)), 0); // after the router's scroll to the top
-  }
 }
 
 /** The flyout for a team other than ours: header, tiles, schedule, the stat tables, injuries, roster, recruiting, in a side sheet. */
@@ -385,8 +367,8 @@ export function openTeamFlyout(school) {
       // list) and its recruiting, the same bands as the team page under their own ids so a page beneath keeps its own
       // (wave 3: the schedule, the standings and the series too, which once reused the page's ids)
       const sheet = { sorts: {} };
-      const extra = [injurySheetBand(school), roster(data, sheet, { id: "sheet-roster", collapsed: true }), recruitingBand(data, { id: "sheet-recruiting" })];
-      host.replaceChildren(...[header.root, tiles, schedule(data, { id: "sheet-schedule" }), ...statBands, ...extra, standingsBand(data, sheet, { id: "sheet-standings" }), factsBand(data.facts, { id: "sheet-facts", school, outside: data.inLoadSet === false }), data.series ? history(data, { id: "sheet-history" }) : null].filter(Boolean)); // final pass: no "null" text for a missing band
+      const extra = [injurySheetBand(school), roster(data, sheet, { id: "sheet-roster", collapsed: true }), recruitingBand(data, { id: "sheet-recruiting" })]; // the app's numbers left the sheet (his inventory, 2026-11-01: dropped)
+      host.replaceChildren(...[header.root, teamLinks(school, data.schedule), tiles, schedule(data), ...statBands, ...extra, standingsBand(data, sheet, { id: "sheet-standings" }), factsBand(data.facts, { id: "sheet-facts", school, outside: data.inLoadSet === false }), data.series ? history(data, { id: "sheet-history" }) : null].filter(Boolean)); // final pass: no "null" text for a missing band
     })
     .catch((error) => host.replaceChildren(band({ title: text(school), collapsible: false, state: { status: "error", message: `${text(error?.message)}.` } })));
   return handle;
@@ -401,21 +383,6 @@ export function openTeam(school) {
     return;
   }
   openTeamFlyout(school);
-}
-
-const TEAM_WIDE = ["team-advanced", "team-schedule", "team-roster", "team-playvalue"]; // the paired table, the schedule list, the roster and the two play-value tables take two columns
-
-export function createTeamView({ onStatus, school, params } = {}) {
-  const state = { tab: "summary", sorts: {}, focus: params?.band === "standings" ? "#team-standings" : null };
-  const view = poller({
-    url: `/api/team/${encodeURIComponent(school || "")}`,
-    refreshMs: 30 * 60 * 1000,
-    onStatus,
-    render: (envelope, container) => render(envelope, container, state),
-    renderError: (message, container, retry) => container.replaceChildren(errorPanel(`Team page: ${text(school)}`, message, retry)),
-    renderLoading: () => el("div", { class: "page" }, backRow(), el("div", { class: "skel skel--block", style: { height: "140px", margin: 0 } }), band({ title: "Summary", collapsible: false, state: { status: "loading" }, skeleton: () => statTableSkeleton(8) })),
-  });
-  return { ...view, unmount() { stopFlow(state.ui); view.unmount(); } };
 }
 
 export { fmtNum };

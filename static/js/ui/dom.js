@@ -1,5 +1,5 @@
 // DOM and formatting helpers shared by every component.
-// Rule from CLAUDE.md: a missing value renders as a dash, never undefined, null, or NaN.
+// The rule: a missing value renders as a dash, never undefined, null, or NaN.
 
 export const DASH = "–";
 
@@ -386,14 +386,20 @@ function overflows(box) {
   return isNum(right) && isNum(room) ? right - left > room + 0.01 : box.scrollWidth > box.clientWidth;
 }
 
-/** Keep a root's card names fitted: once it is on the page, when it changes width, and when the fonts arrive. */
+/** Keep a root's card names fitted: once it is on the page, when it changes width, and when the fonts arrive. after(root),
+ *  when given, runs after every fit (BUG-14: the Leaders band levels the two names of a category to one form). */
 let namesFontsHooked = false;
 
-export function watchNames(root) {
+export function watchNames(root, { after = null } = {}) {
   if (!root || !isNum(root.clientWidth) || typeof requestAnimationFrame !== "function") return root; // no layout engine (tests)
+  if (typeof after === "function") {
+    root.__namesAfter = after;
+    root.dataset.namesAfter = "";
+  }
   const fit = () => {
     try {
       fitNames(root);
+      if (typeof after === "function") after(root);
     } catch (error) {
       console.error("names: could not fit a card's names.", error);
     }
@@ -422,6 +428,7 @@ export function watchNames(root) {
     document.fonts.addEventListener("loadingdone", () => {
       try {
         fitNames(document);
+        for (const root of document.querySelectorAll("[data-names-after]")) if (typeof root.__namesAfter === "function") root.__namesAfter(root);
       } catch (error) {
         console.error("names: could not fit the cards' names.", error);
       }

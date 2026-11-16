@@ -7,7 +7,7 @@
 // time in fog, each in a small boxed tag; poll ranks as linked poll badges. The table is built once and update(games)
 // patches it in place, flashing only the points that changed.
 //
-// Table sizes, wave 2 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): the table sizes itself by its own box like a
+// Table sizes, wave 2 (owner 2026-10-10; the design rules, Table sizes): the table sizes itself by its own box like a
 // stat table (applyStatSize, fitSize), in place, since the kit has no group rows or update(). Every data point has its own
 // column (rule 3): the AP rank leaves the name cell for a column before each team ("AP rank" at large, "AP" at medium, a
 // dash for an unranked team), gone at small; the school at large and medium, its abbreviation at small; the points under

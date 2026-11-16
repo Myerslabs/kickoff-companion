@@ -10,7 +10,9 @@ GET  /api/preseason                        the Preseason page: every primary tea
 Part 3b: kind "costs", one batch per conference: rumored roster costs (every team's total, the primary teams' detail).
 The Prompts phase (owner 2026-10-13): kind "facts", one batch per conference: each school's history, facts and dated events.
 
-No CFBD call beyond the cached team list. Any device on the home network may paste, as with the game notes."""
+No CFBD call beyond the cached team list, but /api/preseason (ENH-13): it reads the program's shared answers (records, games,
+polls) and, for a team with players to know, the season lines the program and the roster share. Any device on the home network
+may paste, as with the game notes."""
 
 from __future__ import annotations
 
@@ -22,9 +24,15 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel, Field
 
 from app.api.envelope import envelope, error_response
+from app.cache import DataKind
+from app.cfbd.models import PlayerStat
+from app.services import gamekeys, season_all, season_prompts, teamset
 from app.services import readiness as readiness_service
-from app.services import season_all, season_prompts, teamset
+from app.services.last_season import last_season_text
+from app.services.lineup_stats import name_key, short_key
 from app.services.notes import load_notes
+from app.services.players import lines_from
+from app.services.preseason_cards import now_block, stars_block, starters_block
 from app.services.season_notes import SeasonNotes
 from app.services.season_task import Batch, SeasonRunner
 
@@ -96,15 +104,15 @@ def _prompt(request: Request, kind: str, key: str, primaries: list[str], confere
     """(prompt, error)."""
     data_dir = request.app.state.settings.data_dir
     season = request.app.state.settings.season
-    if kind == "season":
-        return season_prompts.season_prompt(data_dir, primaries=primaries, conferences=conferences, season=season), None
+    if kind == "season":  # rollover R3: last season's results and lessons at the end, labelled as last season's
+        return season_prompts.season_prompt(data_dir, primaries=primaries, conferences=conferences, season=season) + last_season_text(data_dir, season), None
     if kind == "preseason":
         school = next((p for p in primaries if p.lower() == key.strip().lower()), None)
         if school is None:
             return None, f"{key} is not one of your primary teams."
         row = meta.get(school) or {}
         name = " ".join(x for x in (school, row.get("mascot")) if isinstance(x, str) and x)
-        return season_prompts.preseason_prompt(data_dir, school=school, team_name=name, conference=row.get("conference"), season=season), None
+        return season_prompts.preseason_prompt(data_dir, school=school, team_name=name, conference=row.get("conference"), season=season) + last_season_text(data_dir, season), None
     if kind == "coaches" and key.strip().lower() == "all":
         return season_all.coaches_all_prompt(data_dir, conferences=conferences, season=season), None
     if kind == "costs" and key.strip().lower() == "all":
@@ -372,17 +380,73 @@ async def today(request: Request) -> Any:
     return envelope({"date": day.isoformat(), "events": events}, source="live")
 
 
+async def _cards_context(request: Request, schools: list[str]) -> dict[str, Any]:
+    """ENH-13: what the four bands need beyond the load, from the program's shared answers (no call of their own) and this
+    week's notes: every team's record, the regular season's games, the AP poll, the names on this week's depth charts."""
+    state = request.app.state
+    program = state.program
+    out: dict[str, Any] = {"records": {}, "games": {}, "ap": {}, "starting": {}}
+    try:
+        core = await program._core()
+        out["records"] = {r.team: r for r in core["records"].records if getattr(r, "team", None)}
+        seen: dict[str, set[int]] = {school: set() for school in schools}
+        for g in core["games"].records:
+            if gamekeys.is_post(g) or not isinstance(getattr(g, "id", None), int):
+                continue
+            for school in (g.home_team, g.away_team):
+                if school in seen:
+                    seen[school].add(g.id)
+        out["games"] = {school: len(ids) for school, ids in seen.items()}
+        ranks, _week = program._poll_ranks(core["rankings"])
+        out["ap"] = ranks.get("AP", {})
+    except Exception:  # noqa: BLE001 - the bands draw the load without the record; logged
+        log.warning("The Preseason page could not read the records and the polls", exc_info=True)
+    try:
+        from app.api.notes import _game  # the next game on our schedule (imported here: the notes routes import this module's helpers)
+
+        game, _ok = await _game(request, None)
+        chart_notes, _error = load_notes(state.settings.data_dir, game.id) if game is not None and not game.completed else (None, None)
+        lineups = getattr(chart_notes, "lineups", None) if chart_notes is not None else None
+        if lineups is not None:
+            them = game.away_team if game.home_team == state.settings.team else game.home_team
+            for side, school in (("us", state.settings.team), ("them", them)):
+                chart = getattr(lineups, side, None)
+                names = {key(slot.players[0].name) for slot in (chart.slots if chart else []) for key in (name_key, short_key) if slot.players}
+                if names - {""}:
+                    out["starting"][school] = names - {""}
+    except Exception:  # noqa: BLE001 - no chart this week: no "still starting" marks; logged
+        log.warning("The Preseason page could not read this week's depth charts", exc_info=True)
+    return out
+
+
+async def _star_lines(request: Request, school: str) -> dict[tuple[str, str], Any]:
+    """A team's season lines for its players to know (the season stats key the program and the roster share)."""
+    state = request.app.state
+    try:
+        part = await state.program._f("playersTeam", "/stats/player/season", {"year": state.settings.season, "team": school}, PlayerStat, DataKind.SEASON_STATS)
+        return lines_from(part.records)
+    except Exception:  # noqa: BLE001 - the cards draw without numbers; logged
+        log.warning("The season lines for %s could not be read for the Preseason page", school, exc_info=True)
+        return {}
+
+
 @router.get("/api/preseason")
 async def preseason_page(request: Request) -> Any:
     primaries, conferences, meta = await _context(request)
     notes = _notes(request)
     loaded = notes.preseason()
     saved = notes.preseason_meta()
+    cards = await _cards_context(request, list(primaries))
     teams = []
     for school in primaries:
         team = loaded.get(school)
         row = meta.get(school) or {}
+        outlook = team.outlook if team is not None else None
+        stars = list(outlook.stars) if outlook is not None else []
         teams.append({
+            "now": now_block(cards["records"].get(school), cards["games"].get(school), cards["ap"].get(school), outlook.predictedRecord if outlook is not None else None),  # ENH-13
+            "starters": starters_block(outlook.projectedStarters if outlook is not None else None, team.arrivals if team is not None else [], cards["starting"].get(school)),
+            "stars": stars_block(stars, await _star_lines(request, school) if stars else {}),
             "school": school,
             "mascot": row.get("mascot"),
             "conference": row.get("conference"),

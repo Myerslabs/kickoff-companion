@@ -1,13 +1,14 @@
 // The loading bar (owner 2026-10-16: "for Claude Code, it runs silently in the background. No refreshes until ALL data is
 // loaded. Until then just save in the background... There should also be a loading bar"). While Claude Code loads data on
 // the server (the one run of every prompt, a season run, or this week's notes), a slim bar sits above every page with what
-// it is on and how far along. The pages hold their timed refreshes meanwhile (views/common.js, poller) and refresh once,
-// together, when every run has ended. Never on the board, never printed.
+// it is on and how far along. Since 2026-11-14 (owner: manual refresh only) no page refreshes for it: when every run has
+// ended the To do says the new data is in, with Refresh (app.js, on "kickoff:data-loaded"). Never on the board, never
+// printed.
 //
 //   installRunBar(slot)  the bar, placed before `slot` (the shell's .page-notes); asks the server now, every minute while
 //                        nothing runs, every 5 s while a run goes, and again whenever the page comes back into view
 //   watchRun()           ask now and follow closely: a page that has just started a run calls it
-//   dataRunActive()      true while a run goes (the pollers hold their redraws)
+//   dataRunActive()      true while a run goes
 //   onRunProgress(fn)    fn(progress) on every answer from the server; returns the function that stops it
 //   runBarView(progress) the bar's contents for one answer (exported for the tests and the design system)
 //
@@ -74,7 +75,7 @@ export function runBarView(progress, { now = Date.now() } = {}) {
       el("span", { class: "run-bar__when" }, [fraction === null ? null : `${Math.round(fraction * 100)}%`, since ? `running ${since}` : null].filter(Boolean).join(" · ")),
     ),
     track,
-    el("p", { class: "run-bar__note" }, "It saves in the background. The page refreshes once, when everything is in."),
+    el("p", { class: "run-bar__note" }, "It saves in the background. When everything is in, the To do says so; Refresh shows it."),
   ];
 }
 

@@ -41,11 +41,11 @@ from app.services.archive import ArchiveService
 from app.services.matchup import slate_game, talent_ranks
 from app.services.season import SeasonService
 from tests import league_facts as facts
-from tests.conftest import ROLES, TEST_KEY, FakeCfbd, fixture_payload
+from tests.conftest import ROLES, TEST_KEY, FakeCfbd, fixture_payload, quiet_background, settle_refreshes
 from tests.test_phase8 import quiet_engine
 from tests.test_program import FakeSites, route_program
 
-US = "Swampwater Tech"
+US = "Florida"
 LAST = facts.last_game()  # our last game, the archived final
 LAST_GAME = LAST["id"]
 HOME_IS_US = LAST["homeTeam"] == US
@@ -153,7 +153,7 @@ def test_form_is_the_last_five_newest_last_and_counts_a_game_once():
     assert [r["opponent"] for r in table[US]] == [side(g)["opponent"] for g in PLAYED]
     last = side(LAST)
     assert table[US][-1] == {"gameId": LAST_GAME, "week": LAST["week"], "postseason": None, "result": result(LAST), "points": last["points"], "opponentPoints": last["against"], "opponent": LAST_OPP, "homeAway": last["homeAway"]}
-    assert table[LAST_OPP][-1]["result"] == result(LAST, LAST_OPP) and "Diner Tech" not in table  # an unplayed game is no form
+    assert table[LAST_OPP][-1]["result"] == result(LAST, LAST_OPP) and "Texas State" not in table  # an unplayed game is no form
     champion = context16.form_table(recs("games_team_2025_default", Game))[ROLES["POSTTEAM"]]
     assert len(champion) == 5 and champion[-1]["postseason"]  # newest last: the bowl season closes it
     assert context16.form_for(table, None) == [] and context16.form_for(table, "Nowhere") == []
@@ -210,7 +210,7 @@ def test_elo_path_from_the_games_answer():
     path = context16.elo_path(ours, US)
     assert path["current"] == side(LAST)["post"] and [p["post"] for p in path["points"]] == [side(g)["post"] for g in PLAYED]
     assert path["points"][0]["pre"] == side(PLAYED[0])["pre"]
-    assert context16.elo_path(ours, "Diner Tech") == {"current": side(NEXT, "Diner Tech")["pre"], "points": []}  # before its first game here: the pregame Elo
+    assert context16.elo_path(ours, "Texas State") == {"current": side(NEXT, "Texas State")["pre"], "points": []}  # before its first game here: the pregame Elo
     assert context16.elo_path(ours, "Nowhere") is None and context16.elo_path(ours, None) is None
 
 
@@ -228,7 +228,7 @@ def test_strip_uses_postgame_expectancy_then_an_elo_estimate():
     home_wp = LAST["homePostgameWinProbability"]
     assert last["winPct"] == {"value": round(home_wp if HOME_IS_US else 1 - home_wp, 3), "estimate": False, "source": "postgame"} and last["opponentSp"]["rank"] == sp_rank
     upcoming = next(r for r in rows if r["gameId"] == NEXT_GAME)
-    ours, theirs = side(NEXT)["pre"], side(NEXT, "Diner Tech")["pre"]
+    ours, theirs = side(NEXT)["pre"], side(NEXT, "Texas State")["pre"]
     assert upcoming["winPct"] == {"value": context16.elo_expectation(ours, theirs), "estimate": True, "source": "pregame Elo"}
     assert (upcoming["winPct"]["value"] > 0.5) == (ours > theirs)
     assert next(r for r in rows if r["gameId"] == 2)["opponentSp"] is None  # an FCS team has no SP+
@@ -238,11 +238,11 @@ def test_strip_uses_postgame_expectancy_then_an_elo_estimate():
 
 
 def test_strip_falls_back_to_current_elo_and_never_emits_nan():
-    game = Game.model_validate({"id": 9, "homeTeam": "Swampwater Tech", "awayTeam": "Silo City", "completed": False})
-    played = Game.model_validate({"id": 10, "homeTeam": "Swampwater Tech", "awayTeam": "Silo City", "completed": True, "homePostgameWinProbability": float("nan")})
-    elo = [TeamElo.model_validate({"team": "Swampwater Tech", "elo": 1700}), TeamElo.model_validate({"team": "Silo City", "elo": 1900})]
+    game = Game.model_validate({"id": 9, "homeTeam": "Florida", "awayTeam": "USC", "completed": False})
+    played = Game.model_validate({"id": 10, "homeTeam": "Florida", "awayTeam": "USC", "completed": True, "homePostgameWinProbability": float("nan")})
+    elo = [TeamElo.model_validate({"team": "Florida", "elo": 1700}), TeamElo.model_validate({"team": "USC", "elo": 1900})]
     rows = [{"gameId": 9}, {"gameId": 10}]
-    context16.attach_strip(rows, [game, played], "Swampwater Tech", [], elo)
+    context16.attach_strip(rows, [game, played], "Florida", [], elo)
     assert rows[0]["winPct"] == {"value": context16.elo_expectation(1700, 1900), "estimate": True, "source": "current Elo"}
     assert rows[1]["winPct"] is None
     strict_json(rows)
@@ -253,8 +253,8 @@ def test_strip_falls_back_to_current_elo_and_never_emits_nan():
 
 def test_pass_zones_and_run_lanes_from_the_plays():
     passes, rushes = recs("passing_plays_opponent", PassingPlay), recs("rushing_plays_opponent", RushingPlay)
-    tables = context16.throw_run_tables(rushes, passes, "Diner Tech")
-    raw_passes = [p for p in fixture_payload("passing_plays_opponent") if p["offense"] == "Diner Tech" and not p["isSpike"]]
+    tables = context16.throw_run_tables(rushes, passes, "Texas State")
+    raw_passes = [p for p in fixture_payload("passing_plays_opponent") if p["offense"] == "Texas State" and not p["isSpike"]]
     assert raw_passes
     for zone in tables["passZones"]:
         mine = [p for p in raw_passes if p.get("passLocation") == f"{zone['depth']} {zone['direction']}"]  # CFBD's passLocation agrees with depth x direction
@@ -262,14 +262,14 @@ def test_pass_zones_and_run_lanes_from_the_plays():
         assert zone["success"] == {"made": sum(p["success"] is True for p in mine), "of": sum(isinstance(p["success"], bool) for p in mine)}
     assert [z["key"] for z in tables["passZones"]] == ["deep_left", "deep_middle", "deep_right", "short_left", "short_middle", "short_right"]
     assert sum(z["attempts"] for z in tables["passZones"]) + tables["unplacedPasses"] == len(raw_passes)
-    raw_runs = [r for r in fixture_payload("rushing_plays_opponent") if r["offense"] == "Diner Tech" and not r["isSack"] and not r["isKneel"]]
+    raw_runs = [r for r in fixture_payload("rushing_plays_opponent") if r["offense"] == "Texas State" and not r["isSack"] and not r["isKneel"]]
     assert raw_runs
     for lane in tables["runLanes"]:
         mine = [r for r in raw_runs if r["rushDirection"] == lane["key"]]
         yards = [r["rushingYards"] for r in mine if isinstance(r["rushingYards"], int)]
         assert lane["carries"] == len(mine) and lane["yardsPerCarry"] == (round(sum(yards) / len(yards), 1) if yards else None)
     assert sum(lane["carries"] for lane in tables["runLanes"]) + tables["unplacedRuns"] == len(raw_runs)
-    empty = context16.throw_run_tables(rushes, passes, "Sweet Tea State")  # a team with no plays in the answer
+    empty = context16.throw_run_tables(rushes, passes, "Ole Miss")  # a team with no plays in the answer
     assert all(z["attempts"] == 0 and z["completionPct"] is None for z in empty["passZones"])
     strict_json(tables)
 
@@ -278,14 +278,14 @@ def test_pass_zones_and_run_lanes_from_the_plays():
 
 
 def test_venue_facts_and_the_radar_link():
-    raw = next(v for v in fixture_payload("venues") if v["name"] == "Swampwater Tech Memorial Stadium")
+    raw = next(v for v in fixture_payload("venues") if v["name"] == "Florida Memorial Stadium")
     venue = next(v for v in recs("venues", Venue) if v.name == raw["name"])
     series = recs("teams_matchup", Matchup)
     found = context16.venue_facts(venue, series, US, raw["name"])
     metres = round(float(raw["elevation"]), 1)
     assert found == {"elevationM": metres, "elevationFt": round(metres * 3.28084), "yearBuilt": raw["constructionYear"], "recordAtVenue": at_venue(raw["name"])}
     assert found["recordAtVenue"]["games"] >= 1
-    theirs = next(t["location"]["name"] for t in fixture_payload("teams_fbs") if t["school"] == "Diner Tech")
+    theirs = next(t["location"]["name"] for t in fixture_payload("teams_fbs") if t["school"] == "Texas State")
     assert context16.record_at_venue(series, US, theirs)["games"] == at_venue(theirs)["games"] >= 1
     assert context16.radar_url(venue) == f"https://forecast.weather.gov/MapClick.php?lat={raw['latitude']:.4f}&lon={raw['longitude']:.4f}"
     assert context16.radar_url(venue.model_copy(update={"latitude": None})) is None
@@ -293,7 +293,7 @@ def test_venue_facts_and_the_radar_link():
     assert context16.radar_url(venue.model_copy(update={"latitude": float("nan")})) is None
     assert context16.radar_url(None) is None
     assert [context16.elevation_m(v) for v in ("1634.041138", "abc", "NaN", None, 12, "99999")] == [1634.0, None, None, None, 12.0, None]
-    assert context16.venue_facts(None, [], "Swampwater Tech", None) == {"elevationM": None, "elevationFt": None, "yearBuilt": None, "recordAtVenue": None}
+    assert context16.venue_facts(None, [], "Florida", None) == {"elevationM": None, "elevationFt": None, "yearBuilt": None, "recordAtVenue": None}
 
 
 # --- GX-20 where they're from -----------------------------------------------------------------------------------------------
@@ -380,14 +380,14 @@ def test_the_win_probability_block_is_enriched_in_place():
 
 def test_the_recap_of_our_last_final():
     schedule = recs("games_team", Game)
-    advanced = {"players": [{"player": "Lucas Griffin", "team": "Swampwater Tech", "position": "RB", "totalPpa": 10.7}, {"player": "Somebody Else", "team": "Diner Tech", "totalPpa": 40.0}]}
+    advanced = {"players": [{"player": "Lucas Griffin", "team": "Florida", "position": "RB", "totalPpa": 10.7}, {"player": "Somebody Else", "team": "Texas State", "totalPpa": 40.0}]}
     recap = recap16.recap(archive_body(), series(), team=US, schedule=schedule, advanced=advanced)
     last = side(LAST)
     assert recap["final"] == {"usScore": last["points"], "themScore": last["against"], "homeScore": LAST["homePoints"], "awayScore": LAST["awayPoints"], "result": result(LAST)}
     assert recap["record"] == record_through_last() and recap["opponent"] == LAST_OPP and recap["homeIsUs"] is HOME_IS_US
     top = top_swing()
     assert recap["turningPoint"]["play"] == top["play"] and recap["turningPoint"]["period"] == top["period"] and recap["turningPoint"]["usWpAfter"] == top["usWpAfter"]
-    assert recap["playerOfGame"] == {"name": "Lucas Griffin", "team": "Swampwater Tech", "position": "RB", "isUs": True, "value": 10.7, "basis": "total play value (PPA)"}  # another game's player never wins it
+    assert recap["playerOfGame"] == {"name": "Lucas Griffin", "team": "Florida", "position": "RB", "isUs": True, "value": 10.7, "basis": "total play value (PPA)"}  # another game's player never wins it
     stats = recap["keyStats"]
     assert len(stats) == 3 and [s["weight"] for s in stats] == sorted((s["weight"] for s in stats), reverse=True)
     for stat in stats:  # the edge goes to the side the stat favors
@@ -398,17 +398,17 @@ def test_the_recap_of_our_last_final():
 
 def test_recap_player_falls_back_to_play_value_per_play():
     ppa = {"players": {"us": [{"name": "A", "position": "QB", "all": 0.4}], "them": [{"name": "B", "position": "WR", "all": 0.9}, {"name": "C", "all": float("nan")}]}}
-    assert recap16.player_of_game(None, ppa, "Swampwater Tech") == {"name": "B", "team": None, "position": "WR", "isUs": False, "value": 0.9, "basis": "play value per play (PPA)"}
-    assert recap16.player_of_game({"players": "junk"}, {"players": None}, "Swampwater Tech") is None
+    assert recap16.player_of_game(None, ppa, "Florida") == {"name": "B", "team": None, "position": "WR", "isUs": False, "value": 0.9, "basis": "play value per play (PPA)"}
+    assert recap16.player_of_game({"players": "junk"}, {"players": None}, "Florida") is None
 
 
 def test_no_recap_for_a_partial_a_live_or_someone_elses_game():
-    assert recap16.recap(archive_body(partial=True), [], team="Swampwater Tech", schedule=[]) is None
+    assert recap16.recap(archive_body(partial=True), [], team="Florida", schedule=[]) is None
     live = archive_body()
     live["state"] = {**live["state"], "status": "in"}
-    assert recap16.recap(live, [], team="Swampwater Tech", schedule=[]) is None
-    assert recap16.recap(archive_body(home=LAST_OPP, away="Silo City"), [], team="Swampwater Tech", schedule=[]) is None
-    bare = recap16.recap(archive_body(), [], team="Swampwater Tech", schedule=[])
+    assert recap16.recap(live, [], team="Florida", schedule=[]) is None
+    assert recap16.recap(archive_body(home=LAST_OPP, away="USC"), [], team="Florida", schedule=[]) is None
+    bare = recap16.recap(archive_body(), [], team="Florida", schedule=[])
     assert bare["record"] is None and bare["next"] is None and bare["turningPoint"] is None and bare["final"]["result"] == result(LAST)
 
 
@@ -428,11 +428,11 @@ def test_the_36_hour_window():
 def test_matchup_helpers():
     games = recs("games_team", Game)
     now = NEXT_KICKOFF - timedelta(days=3)
-    game = slate_game(games, "Diner Tech", US, now)
+    game = slate_game(games, "Texas State", US, now)
     assert game["gameId"] == NEXT_GAME and game["status"] == "scheduled" and game["homeTeam"] == NEXT["homeTeam"]
-    assert slate_game(games, US, "Diner Tech", now)["gameId"] == NEXT_GAME  # either order finds it
-    assert slate_game(games, "Diner Tech", US, now + timedelta(days=12)) is None  # not this week's slate
-    assert slate_game(games, "Diner Tech", US, NEXT_KICKOFF + timedelta(minutes=30))["status"] == "underway"
+    assert slate_game(games, US, "Texas State", now)["gameId"] == NEXT_GAME  # either order finds it
+    assert slate_game(games, "Texas State", US, now + timedelta(days=12)) is None  # not this week's slate
+    assert slate_game(games, "Texas State", US, NEXT_KICKOFF + timedelta(minutes=30))["status"] == "underway"
     assert slate_game(games, LAST_OPP, US, KICKOFF + timedelta(hours=17))["status"] == "final"
     ranks = talent_ranks([TeamTalent(team="A", talent=900), TeamTalent(team="B", talent=900), TeamTalent(team="C", talent=800), TeamTalent(team="D", talent=float("inf"))])
     assert ranks == {"A": {"talent": 900.0, "rank": 1, "of": 3}, "B": {"talent": 900.0, "rank": 1, "of": 3}, "C": {"talent": 800.0, "rank": 3, "of": 3}}
@@ -443,31 +443,31 @@ def test_matchup_helpers():
 
 PARSERS: list[tuple[str, Any, Any]] = [
     ("form", Game, lambda r: context16.form_table(r)),
-    ("elo path", Game, lambda r: context16.elo_path(r, "Swampwater Tech")),
+    ("elo path", Game, lambda r: context16.elo_path(r, "Florida")),
     ("strip", Game, lambda r: _strip(r)),
-    ("slate game", Game, lambda r: slate_game(r, "Diner Tech", "Swampwater Tech", datetime(2026, 9, 23, tzinfo=timezone.utc))),
-    ("recap schedule", Game, lambda r: recap16.recap(archive_body(), series(), team="Swampwater Tech", schedule=r)),
+    ("slate game", Game, lambda r: slate_game(r, "Texas State", "Florida", datetime(2026, 9, 23, tzinfo=timezone.utc))),
+    ("recap schedule", Game, lambda r: recap16.recap(archive_body(), series(), team="Florida", schedule=r)),
     ("polls", PollWeek, lambda r: _polls(r)),
     ("sp", TeamSP, lambda r: context16.sp_rank_lookup(r)),
     ("talent", TeamTalent, lambda r: talent_ranks(r)),
-    ("passes", PassingPlay, lambda r: context16.throw_run_tables([], r, "Diner Tech")),
-    ("rushes", RushingPlay, lambda r: context16.throw_run_tables(r, [], "Diner Tech")),
-    ("venues", Venue, lambda r: [context16.venue_facts(v, [], "Swampwater Tech", v.name) for v in r] + [context16.radar_url(v) for v in r]),
-    ("series", Matchup, lambda r: context16.record_at_venue(r, "Swampwater Tech", "Swampwater Tech Memorial Stadium")),
-    ("recruits", Recruit, lambda r: context16.where_from(r, "Swampwater Tech", "AL")),
-    ("teams", Team, lambda r: context16.home_state(r, "Swampwater Tech")),
+    ("passes", PassingPlay, lambda r: context16.throw_run_tables([], r, "Texas State")),
+    ("rushes", RushingPlay, lambda r: context16.throw_run_tables(r, [], "Texas State")),
+    ("venues", Venue, lambda r: [context16.venue_facts(v, [], "Florida", v.name) for v in r] + [context16.radar_url(v) for v in r]),
+    ("series", Matchup, lambda r: context16.record_at_venue(r, "Florida", "Florida Memorial Stadium")),
+    ("recruits", Recruit, lambda r: context16.where_from(r, "Florida", "AL")),
+    ("teams", Team, lambda r: context16.home_state(r, "Florida")),
     ("wp", PlayWinProbability, lambda r: _wp(r)),
 ]
 
 
 def _strip(games: list[Game]) -> list[dict[str, Any]]:
     rows = [{"gameId": g.id} for g in games] + [None, "row"]
-    context16.attach_strip(rows, games, "Swampwater Tech", [], [])
+    context16.attach_strip(rows, games, "Florida", [], [])
     return rows
 
 
 def _polls(weeks: list[PollWeek]) -> list[dict[str, Any]]:
-    blocks = [{"poll": "AP", "week": 3, "ranks": [{"rank": 1, "school": "Magnolia Flats"}, None, {"school": 5}]}, "junk", None]
+    blocks = [{"poll": "AP", "week": 3, "ranks": [{"rank": 1, "school": "Kentucky"}, None, {"school": 5}]}, "junk", None]
     context16.attach_poll_paths(blocks, weeks)
     return blocks
 
@@ -494,21 +494,21 @@ def test_junk_inside_dict_payloads():
         assert isinstance(recap16.attach_game_time(junk), bool)
         strict_json(recap16.biggest_swings(junk, True))
         strict_json(recap16.play_swings(junk, False))
-    for box in (None, "x", {}, {"Swampwater Tech": "x"}, {"Swampwater Tech": {}, LAST_OPP: {"successRate": float("nan"), "thirdDown": "7-9", "explosive": 3}}):
-        assert strict_json(recap16.key_stats(box, "Swampwater Tech", LAST_OPP)) == "[]"
+    for box in (None, "x", {}, {"Florida": "x"}, {"Florida": {}, LAST_OPP: {"successRate": float("nan"), "thirdDown": "7-9", "explosive": 3}}):
+        assert strict_json(recap16.key_stats(box, "Florida", LAST_OPP)) == "[]"
     for raw in (None, "x", [], {"gameId": "1"}, {"gameId": 1, "state": "x"}, {"gameId": 1, "state": {"status": "final"}, "home": None}):
-        assert recap16.recap(raw, None, team="Swampwater Tech", schedule=[]) is None
+        assert recap16.recap(raw, None, team="Florida", schedule=[]) is None
     state_junk = archive_body()
     state_junk["state"] = {"status": "final", "homeScore": "39", "awayScore": None, "box": "junk"}
-    recap = recap16.recap(state_junk, "junk", team="Swampwater Tech", schedule=recs("games_team", Game))
+    recap = recap16.recap(state_junk, "junk", team="Florida", schedule=recs("games_team", Game))
     assert recap["final"]["result"] is None and recap["record"] is None and recap["keyStats"] == []
     for data in ({}, {"standings": "x", "polls": None, "schedule": [None]}, {"standings": [None, {"team": 5}]}):
-        context16.season_extras(data, {"games": "x", "schedule": None}, "Swampwater Tech")
+        context16.season_extras(data, {"games": "x", "schedule": None}, "Florida")
         strict_json(data)
     data = {"us": "x", "them": None, "game": {"venueDetail": "x"}, "weather": None, "tendencies": {"x": 1}}
-    context16.program_extras(data, {}, team="Swampwater Tech", opponent="Diner Tech", venue=None)
+    context16.program_extras(data, {}, team="Florida", opponent="Texas State", venue=None)
     assert data["tendencies"]["passZones"][0]["attempts"] == 0
-    context16.team_extras({"team": None}, {}, "Swampwater Tech")
+    context16.team_extras({"team": None}, {}, "Florida")
     context16.newspaper_extras({"slate": [None, {"home": "x", "away": {"school": None}}]}, {})
 
 
@@ -518,7 +518,7 @@ def test_a_failing_extra_is_logged_and_shown_without_killing_the_page(caplog, mo
 
     monkeypatch.setattr(context16, "form_table", boom)
     data: dict[str, Any] = {"standings": [], "parts": {}}
-    context16.season_extras(data, {}, "Swampwater Tech")
+    context16.season_extras(data, {}, "Florida")
     assert data["parts"]["extras"]["status"] == "error" and "RuntimeError" in data["parts"]["extras"]["error"]
     assert "Season extras failed" in caplog.text
 
@@ -544,7 +544,7 @@ def write_archive(data_dir: Path) -> None:
     (folder / f"{LAST_GAME}.json").write_text(json.dumps(archive_body()), encoding="utf-8")
 
 
-PAGES = ["/api/season/overview", NEXT_PROGRAM, f"/api/program/{LAST_GAME}", "/api/team/Diner%20Tech", "/api/recruiting", f"/api/games/{LAST_GAME}/analytics", f"/api/archive/{LAST_GAME}", "/api/newspaper"]
+PAGES = ["/api/season/overview", NEXT_PROGRAM, f"/api/program/{LAST_GAME}", "/api/team/Texas%20State", "/api/recruiting", f"/api/games/{LAST_GAME}/analytics", f"/api/archive/{LAST_GAME}", "/api/newspaper"]
 
 
 def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch) -> tuple[list[tuple[str, str]], dict[str, Any]]:
@@ -564,7 +564,9 @@ def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch)
             patch.setattr(recap16, "enrich_win_probability", lambda *_, **__: None)
             patch.setattr(ArchiveService, "_recap", nothing)
             patch.setattr(ArchiveService, "attach_recent_recap", nothing)
-        settings = load_settings(env_file=None, cfbd_api_key=TEST_KEY, log_dir=str(tmp / "logs"), data_dir=str(tmp / "data"))
+        # the bug round (2026-11-15): the season pinned (the calendar's would move to 2027 on March 1) and Claude Code never
+        # found, so neither app starts a Claude run whose reads would add calls to one count and not the other
+        settings = load_settings(env_file=None, cfbd_api_key=TEST_KEY, log_dir=str(tmp / "logs"), data_dir=str(tmp / "data"), season=2026, claude_command="no-claude-in-these-tests")
         fake, sites = FakeCfbd(), FakeSites()
         route_all(fake)
         transport = httpx.MockTransport(sites.handler)
@@ -573,7 +575,7 @@ def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch)
         write_archive(settings.data_dir)
         answers: dict[str, Any] = {}
         with TestClient(app, base_url="https://testserver") as client:
-            quiet_engine(app, client)
+            quiet_background(app, client)  # every background job stopped and the start-up checks settled before the counted pages
             app.state.cfbd._clock = lambda: SUNDAY
             for page in PAGES:
                 response = client.get(page)
@@ -582,6 +584,9 @@ def load_pages(tmp: Path, *, with_extras: bool, monkeypatch: pytest.MonkeyPatch)
                 answers[page] = response.json()
             app.state.cfbd._clock = lambda: SATURDAY
             answers["saturday"] = client.get("/api/newspaper").json()
+            # batch 1 (2026-11-15): GitHub's run counted a refresh begun behind a page (the Saturday read finds the game-day
+            # copies expired) that had not finished on the host: every refresh is waited for before the calls are read
+            settle_refreshes(app, client)
         calls = sorted((r.url.path, str(r.url.params)) for r in fake.requests)
         return calls, answers
 
@@ -602,14 +607,14 @@ def test_the_new_fields_cost_no_cfbd_call(tmp_path: Path, settings, monkeypatch:
     ours = next(r for r in season["standings"] if r["team"] == US)
     assert [f["result"] for f in ours["form"]] == [result(g) for g in PLAYED]
     program = answers[NEXT_PROGRAM]["data"]
-    assert program["us"]["eloPath"]["current"] == side(LAST)["post"] and program["them"]["eloPath"]["current"] == side(NEXT, "Diner Tech")["pre"]
-    stadium = next(v for v in fixture_payload("venues") if v["name"] == "Swampwater Tech Memorial Stadium")
+    assert program["us"]["eloPath"]["current"] == side(LAST)["post"] and program["them"]["eloPath"]["current"] == side(NEXT, "Texas State")["pre"]
+    stadium = next(v for v in fixture_payload("venues") if v["name"] == "Florida Memorial Stadium")
     assert program["game"]["venueDetail"]["yearBuilt"] == stadium["constructionYear"] and program["game"]["venueDetail"]["recordAtVenue"]["games"] == at_venue(stadium["name"])["games"]
     assert program["weather"]["radarUrl"].startswith(f"https://forecast.weather.gov/MapClick.php?lat={stadium['latitude']:.4f}")
     assert len(program["tendencies"]["passZones"]) == 6 and len(program["tendencies"]["runLanes"]) == 3
     assert "radarUrl" not in without[NEXT_PROGRAM]["data"]["weather"]
     their_games = sorted((g for g in fixture_payload("games_opponent") if g["completed"]), key=lambda g: g["week"])
-    assert [f["opponent"] for f in answers["/api/team/Diner%20Tech"]["data"]["team"]["form"]] == [side(g, "Diner Tech")["opponent"] for g in their_games]
+    assert [f["opponent"] for f in answers["/api/team/Texas%20State"]["data"]["team"]["form"]] == [side(g, "Texas State")["opponent"] for g in their_games]
     classes = answers["/api/recruiting"]["data"]["classes"]
     state, commits, signed = in_state()
     assert classes[0]["inState"] == {"state": state, "commits": len(commits), "of": signed, "share": round(len(commits) / signed, 3)}  # /teams/fbs was cached by the season page
@@ -620,7 +625,7 @@ def test_the_new_fields_cost_no_cfbd_call(tmp_path: Path, settings, monkeypatch:
     assert archive["recap"]["turningPoint"]["play"] == top["play"] and archive["recap"]["record"] == record_through_last() and archive["winProbability"]["swings"]
     assert without[f"/api/archive/{LAST_GAME}"]["data"].get("recap") is None
     news = answers["/api/newspaper"]["data"]
-    assert news["recap"]["gameId"] == LAST_GAME and news["recap"]["turningPoint"]["period"] == top["period"] and news["recap"]["next"]["opponent"] == "Diner Tech"
+    assert news["recap"]["gameId"] == LAST_GAME and news["recap"]["turningPoint"]["period"] == top["period"] and news["recap"]["next"]["opponent"] == "Texas State"
     assert "recap" not in without["/api/newspaper"]["data"]
     saturday = answers["saturday"]["data"]
     assert "recap" not in saturday  # days on: absent
@@ -638,13 +643,13 @@ def test_the_matchup_sheet_costs_nothing_once_the_season_page_has_loaded(app, cl
     assert client.get("/api/season/overview").status_code == 200
     client.get(NEXT_PROGRAM)  # the talent table comes with the program
     before = fake_cfbd.count()
-    body = client.get("/api/matchup", params={"away": "diner tech", "home": US}).json()
+    body = client.get("/api/matchup", params={"away": "texas state", "home": US}).json()
     assert fake_cfbd.count() == before  # every part is a cache hit
     data = body["data"]
     assert body["errors"] == []
     sp = {r["team"]: r for r in fixture_payload("ratings_sp")}
-    assert data["away"]["school"] == "Diner Tech" and data["away"]["apRank"] == facts.ap_rank("Diner Tech")
-    assert data["away"]["record"]["wins"] == facts.record("Diner Tech")["total"]["wins"] and data["away"]["sp"]["rank"] == sp["Diner Tech"]["ranking"]
+    assert data["away"]["school"] == "Texas State" and data["away"]["apRank"] == facts.ap_rank("Texas State")
+    assert data["away"]["record"]["wins"] == facts.record("Texas State")["total"]["wins"] and data["away"]["sp"]["rank"] == sp["Texas State"]["ranking"]
     talent = {r["team"]: r["talent"] for r in fixture_payload("talent")}
     assert data["home"]["isUs"] and data["home"]["talent"]["rank"] == 1 + sum(v > talent[US] for v in talent.values())
     assert data["home"]["sp"]["defense"]["rank"] == sp[US]["defense"]["ranking"]
@@ -661,7 +666,7 @@ def test_the_matchup_sheet_costs_nothing_once_the_season_page_has_loaded(app, cl
     peers = {t: v for t, v in ypg.items() if conf_of.get(t) == conf_of[US]}
     assert (home["confRank"], home["confOf"]) == (1 + sum(v > ypg[US] for v in peers.values()), len(peers))
     assert data["home"]["conferenceShort"] and data["away"]["conferenceShort"]
-    assert rows["ypg"]["away"]["rank"] == 1 + sum(v > ypg["Diner Tech"] for v in ypg.values()) and rows["ypg"]["of"] == len(ypg)
+    assert rows["ypg"]["away"]["rank"] == 1 + sum(v > ypg["Texas State"] for v in ypg.values()) and rows["ypg"]["of"] == len(ypg)
     assert rows["offense_success_rate"]["group"] == "Offense" and rows["offense_success_rate"]["home"]["rank"]
     assert data["game"]["gameId"] == NEXT_GAME and data["game"]["status"] == "scheduled" and data["game"]["homePoints"] is None
     assert data["parts"]["teams"]["status"] == "ok" and "NaN" not in json.dumps(body)
@@ -671,32 +676,32 @@ def test_matchup_refusals_cost_no_call(app, client: TestClient, fake_cfbd: FakeC
     quiet_engine(app, client)
     route_all(fake_cfbd)
     before = fake_cfbd.count()
-    for params in ({}, {"away": "Swampwater Tech"}, {"away": " ", "home": "Swampwater Tech"}, {"away": "x" * 61, "home": "Swampwater Tech"}):
+    for params in ({}, {"away": "Florida"}, {"away": " ", "home": "Florida"}, {"away": "x" * 61, "home": "Florida"}):
         response = client.get("/api/matchup", params=params)
         assert response.status_code == 404 and response.json()["data"] is None
     assert fake_cfbd.count() == before  # nothing asked for a request that names no two teams
-    assert client.get("/api/matchup", params={"away": "Swampwater Tech", "home": "Diner Tech"}).status_code == 200  # warms the teams list
+    assert client.get("/api/matchup", params={"away": "Florida", "home": "Texas State"}).status_code == 200  # warms the teams list
     before = fake_cfbd.count()
-    response = client.get("/api/matchup", params={"away": "Nowhere State", "home": "Swampwater Tech"})
+    response = client.get("/api/matchup", params={"away": "Nowhere State", "home": "Florida"})
     assert response.status_code == 404 and "Nowhere State" in response.json()["errors"][0]["message"]
-    assert client.get("/api/matchup", params={"away": "swampwater", "home": "Swampwater Tech"}).status_code == 404
+    assert client.get("/api/matchup", params={"away": "swampwater", "home": "Florida"}).status_code == 404
     assert fake_cfbd.count() == before
 
 
 def test_matchup_without_a_teams_list_is_a_503(app, client: TestClient, fake_cfbd: FakeCfbd):
     quiet_engine(app, client)
     fake_cfbd.route("/teams/fbs", status=500, text="down")
-    response = client.get("/api/matchup", params={"away": "Swampwater Tech", "home": "Diner Tech"})
+    response = client.get("/api/matchup", params={"away": "Florida", "home": "Texas State"})
     assert response.status_code == 503 and fake_cfbd.count("/stats/season") == 0
 
 
 def test_matchup_survives_junk_parts(app, client: TestClient, fake_cfbd: FakeCfbd):
     quiet_engine(app, client)
     fake_cfbd.fixture("/teams/fbs", "teams_fbs")
-    junk = [None, "x", {"team": 5}, {"team": "Swampwater Tech", "talent": "lots", "rating": "high", "statValue": "abc"}]
+    junk = [None, "x", {"team": 5}, {"team": "Florida", "talent": "lots", "rating": "high", "statValue": "abc"}]
     for path in ("/stats/season", "/stats/season/advanced", "/ratings/sp", "/talent", "/rankings", "/records", "/games"):
         fake_cfbd.route(path, json=junk)
-    body = client.get("/api/matchup", params={"away": "Swampwater Tech", "home": "Diner Tech"}).json()
+    body = client.get("/api/matchup", params={"away": "Florida", "home": "Texas State"}).json()
     data = body["data"]
     assert data["home"]["talent"] is None and data["home"]["sp"] is None and data["game"] is None and data["home"]["form"] == []
     assert any(e["code"] == "records_skipped" for e in body["errors"])

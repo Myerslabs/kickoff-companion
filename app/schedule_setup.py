@@ -21,6 +21,7 @@ from app.services.notes import load_notes, notes_path
 from app.services.notes_task import NotesRunner
 from app.services.prompt_runs import PromptRuns, Step
 from app.services.readiness import missing_notes
+from app.services.rollover import switched_at
 
 log = logging.getLogger("kickoff.schedule")
 
@@ -71,6 +72,12 @@ def build_prompt_runs(app: FastAPI) -> PromptRuns:
         async def missing() -> str | None:
             s = await season_status()
             if kind == "preseason":
+                # rollover R1 (2026-11-15): a new season's preseason load is due from August, when its sources publish; after
+                # the switch in winter the catch-up would otherwise run the whole load at once
+                from datetime import date
+
+                if datetime.now(state.settings.tzinfo).date() < date(state.settings.season, 8, 1):
+                    return None
                 absent = [str(r.get("school")) for r in s.get("preseason", []) if not r.get("savedAt")]
                 return f"preseason not loaded for {', '.join(absent[:4])}{'…' if len(absent) > 4 else ''}" if absent else None
             saved, of = s.get(f"{kind}Saved"), s.get("coachesOf")
@@ -85,12 +92,12 @@ def build_prompt_runs(app: FastAPI) -> PromptRuns:
         return missing
 
     async def notes_start(all: bool) -> dict[str, Any]:  # noqa: A002
-        from app.api.notes import _game
+        from app.api.notes import _game, with_figures
 
         game, _ok = await _game(shim, None)
         if game is None or game.completed:
             return {"error": "no upcoming game on the schedule"}
-        info = {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": game.start_date}
+        info = await with_figures(state, {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": game.start_date})  # Wave 5: the layout's figures
         return await state.notes.start(info, command(), "full", state.settings.claude_lookup_model or None)
 
     def notes_poll() -> dict[str, Any]:
@@ -179,6 +186,8 @@ def build_postgame_lock(app: FastAPI):
         from app.services.playoff import picture
         from app.services.postgame_lock import BACKFILL_AFTER, as_of, news_for, poll_after, records_after, snapshot_after
         from app.services.race import race
+        from app.services.stops import backstop_at
+        from app.stops_setup import game_checks
 
         lock = state.postgame_lock
         program = state.program
@@ -196,8 +205,16 @@ def build_postgame_lock(app: FastAPI):
         weeks = core["rankings"].records
         for game in pending:
             poll_week, ranks = poll_after(weeks, game)
-            if not ranks.get("AP"):
-                continue  # the poll after this game is not out yet
+            # the season as one line (owner 2026-10-30): the Post-Game closes out when the checklist is in (the final, the
+            # poll, What decided it) or at 6 AM on the Tuesday after the game, whichever comes first; a game played long
+            # before (the back-fill) closes at once
+            kickoff_local = _parse(game.start_date)
+            kickoff_local = kickoff_local.astimezone(state.settings.tzinfo) if kickoff_local is not None else None
+            checks = game_checks(state, game, ranks)
+            past_backstop = kickoff_local is not None and now.astimezone(state.settings.tzinfo) >= backstop_at(kickoff_local)
+            long_ago = kickoff_local is not None and now - kickoff_local > BACKFILL_AFTER
+            if not (checks.complete() or past_backstop or long_ago):
+                continue  # still closing out
             last = tried.get(game.id)
             if last is not None and now - last < timedelta(minutes=5):
                 continue
@@ -230,7 +247,13 @@ def build_postgame_lock(app: FastAPI):
                 items += merge_headlines(await state.feeds.all())
             except Exception:  # noqa: BLE001 - the archive alone then; logged
                 log.warning("The feeds could not be read for the Post-Game lock", exc_info=True)
-            news = news_for(items, team_matcher(who.school, who.mascot), team_matcher(opponent, them_meta.get("mascot")) if opponent else None, kickoff)
+            # Wave 6 (owner 2026-11-15): The game in the news is the Sunday paper's stories; the old rule (a team named, four
+            # days) only when the Sunday paper had none
+            from app.services.paper import sunday_end, sunday_stories
+
+            sunday = sunday_stories(items, kickoff, opponent, state.settings.tzinfo)
+            news = news_for(sunday, None, None, kickoff, named=False, until=sunday_end(kickoff, state.settings.tzinfo)) if sunday and kickoff else []
+            news = news or news_for(items, team_matcher(who.school, who.mascot), team_matcher(opponent, them_meta.get("mascot")) if opponent else None, kickoff)
             snap = snapshot_after(assembled.data, now, poll_week=poll_week, ranks=ranks, records=records_after(games, game.week), race=the_race, picture=pic, news=news, backfilled=backfilled)
             return lock.save(game.id, snap)
         return False
@@ -256,7 +279,39 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         kickoff = _parse(getattr(game, "start_date", None)) if game is not None else None
         if game is None or game.completed or kickoff is None or getattr(game, "start_time_tbd", False):
             return None
-        return {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": kickoff}
+        return {"gameId": game.id, "home": game.home_team, "away": game.away_team, "kickoff": kickoff, "week": game.week, "seasonType": game.season_type, "venues": await trip_venues(game)}
+
+    async def trip_venues(game: Any) -> list[int]:
+        """ENH-15: the stadiums Getting there is loaded for, our next game's and each primary team's home (owner 2026-10-24:
+        "Just the primary teams"), from the cached FBS list; none when that cannot be read."""
+        venues = [game.venue_id] if isinstance(getattr(game, "venue_id", None), int) else []
+        try:
+            from app.api.season_notes import _context
+
+            primaries, _conferences, _meta = await _context(shim)
+            homes = {t.school: t.location.get("id") for t in await state.program.fbs_teams() if isinstance(t.location, dict)}
+            venues += [homes[school] for school in primaries if isinstance(homes.get(school), int)]
+        except Exception:  # noqa: BLE001 - the game's own stadium still loads; logged
+            log.warning("The primary teams' stadiums could not be read for Getting there.", exc_info=True)
+        return list(dict.fromkeys(venues))
+
+    async def last_game() -> dict[str, Any] | None:
+        """P4: our latest final within the last four days, for the morning after."""
+        try:
+            parts = await state.program._core()
+        except Exception:  # noqa: BLE001 - no schedule is a quiet "nothing to run"; logged
+            log.warning("The Claude schedule could not read our games for the morning after.", exc_info=True)
+            return None
+        now = datetime.now(timezone.utc)
+        finals = []
+        for game in parts["schedule"].records:
+            kickoff = _parse(getattr(game, "start_date", None))
+            if game.completed and kickoff is not None and timedelta(0) <= now - kickoff <= timedelta(days=4):
+                finals.append((kickoff, game))
+        if not finals:
+            return None
+        kickoff, game = max(finals, key=lambda pair: pair[0])
+        return {"gameId": game.id, "kickoff": kickoff}
 
     def notes_file(game_id: int) -> dict[str, Any]:
         try:
@@ -266,6 +321,37 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         return raw if isinstance(raw, dict) else {}
 
     async def data_is_current(slot: Slot) -> bool:
+        if slot.kind in ("editor", "art"):  # FEAT-14 wave 4: run only when there is something new to lay out or draw
+            from app.services.paper_layout import needs_drawing
+            from app.writing_setup import paper_week
+
+            week, rows, built = await paper_week(app)
+            if not week or not rows:
+                return True
+            if slot.kind == "art":
+                return not needs_drawing(built)
+            from app.services.writing import WritingStore
+
+            record = WritingStore(state.settings.data_dir, state.settings.season).load("editor", week) or {}
+            laid = set(record.get("storyIds") or [])
+            from app.writing_setup import EDITOR_STORIES
+
+            newest = sorted(rows, key=lambda r: r.get("publishedAt") or "", reverse=True)[:EDITOR_STORIES]  # what the editor is shown
+            return bool(laid) and all(r["id"] in laid for r in newest)
+        if slot.kind == "trip":
+            from app.services.writing import WritingStore
+
+            return WritingStore(state.settings.data_dir, state.settings.season).load("trip", slot.writing_key or "") is not None  # once a season
+        if slot.kind in ("recap", "review", "scout", "paper", "trivia", "datacheck", "editor", "art", "picks", "numbers"):
+            if slot.kind == "review":
+                from app.services.writing import Lessons
+
+                return any(r.get("gameId") == slot.game_id for r in Lessons(state.settings.data_dir).load()["lessons"])
+            from app.services.writing import WritingStore
+
+            record = WritingStore(state.settings.data_dir, state.settings.season).load(slot.kind, slot.writing_key or "")
+            stamp = _parse(record.get("writtenAt")) if record else None
+            return stamp is not None and stamp >= slot.at
         if slot.game_id is not None:
             raw = notes_file(slot.game_id)
             stamp = _parse(raw.get("availabilityUpdatedAt")) if slot.kind == "injuries" else None
@@ -283,18 +369,39 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         return state.settings.tzinfo
 
     async def start(slot: Slot, game: dict[str, Any] | None) -> dict[str, Any]:
+        if slot.kind in ("recap", "review", "scout", "paper", "trivia", "datacheck", "editor", "art", "trip", "picks", "numbers"):
+            from app.writing_setup import build_job
+
+            job = await build_job(app, slot.kind, slot.writing_key or "")
+            if job is None:
+                return {"error": "nothing to write about yet"}
+            return await state.writing.start(job, command())
+        if slot.kind == "parts":
+            if game is None or game["gameId"] != slot.game_id:
+                return {"error": "the game is not on the schedule any more"}
+            info = {"gameId": game["gameId"], "home": game["home"], "away": game["away"], "kickoff": game["kickoff"].isoformat()}
+            return await state.notes.start(info, command(), slot.mode or "full", state.settings.claude_lookup_model or None)
         if slot.kind in ("notes", "injuries"):
             if game is None or game["gameId"] != slot.game_id:
                 return {"error": "the game is not on the schedule any more"}
             info = {"gameId": game["gameId"], "home": game["home"], "away": game["away"], "kickoff": game["kickoff"].isoformat()}
             mode = "injuries" if slot.kind == "injuries" else "full"
+            if mode == "full":
+                from app.api.notes import with_figures
+
+                info = await with_figures(state, info)  # Wave 5: the layout's figures
             return await state.notes.start(info, command(), mode, state.settings.claude_lookup_model or None)
         from app.api.season_notes import start_season_run
 
         return await start_season_run(shim, slot.kind, None, slot.only_if_missing)
 
     def poll(slot: Slot) -> dict[str, Any]:
-        if slot.kind in ("notes", "injuries"):
+        if slot.kind in ("recap", "review", "scout", "paper", "trivia", "datacheck", "editor", "art", "trip", "picks", "numbers"):
+            writer = state.writing
+            if writer.running:
+                return {"running": True}
+            return {"running": False, "ok": bool(writer.saved and not writer.error), "error": writer.error or ("no usable answer saved" if not writer.saved else None), "changed": writer.changed}
+        if slot.kind in ("notes", "injuries", "parts"):
             runner: NotesRunner = state.notes
             if runner.running:
                 return {"running": True}
@@ -309,11 +416,18 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         return NotesRunner.resolve_command(command()) is not None
 
     def enabled() -> bool:
-        # the Prompts phase (owner 2026-10-13): on whenever the command is found, unless Settings said otherwise
-        choice = state.prefs.prefs.scheduledRuns
-        return command_found() if choice is None else bool(choice)
+        # Kickoff Companion 2.0: Claude Code's runs are a choice, off until Settings turns them on (each run uses the
+        # person's own Claude plan); the schedule itself says "no command" when it is on and Claude Code is not found
+        return state.prefs.prefs.scheduledRuns is True
 
     runs: PromptRuns = state.prompt_runs
+
+    async def paper_offseason(now: datetime) -> bool:
+        core = await state.program._core()
+        schedule = core.get("schedule")
+        if schedule is None or not schedule.ok:
+            return False  # the schedule unread: the paper's runs keep their daily rhythm
+        return state.rankedweek.offseason_window(schedule.records, now) is not None
 
     return ClaudeSchedule(
         ledger=Ledger(state.settings.data_dir / "claude" / "ledger.json"),
@@ -322,7 +436,11 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         catch_up=lambda: runs.start(all=False),
         busy=lambda: runs.running,
         current_game=current_game,
+        last_game=last_game,
+        writing=True,  # P4: the game week's other runs, the morning after and the weekly data check
         season=lambda: state.settings.season,
+        switched_at=lambda: switched_at(state.settings.data_dir, state.settings.season),  # rollover R2: the runs the switch came too late for
+        offseason=paper_offseason,  # rollover R3: the off-season paper's editor and drawings once a week
         tz=ZoneInfo("America/New_York"),  # the publishers' times are Eastern, wherever this computer is
         data_is_current=data_is_current,
         start=start,

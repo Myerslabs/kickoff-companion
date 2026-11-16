@@ -183,9 +183,9 @@ def test_no_payload_the_tablet_reads_carries_a_cdn_url(client: TestClient, fake_
     route_all(fake_cfbd)
     fake_cfbd.fixture("/player/search", "player_search_name")
     paths = [
-        "/api/season/overview", "/api/program/next", "/api/search?q=swa", "/api/search?q=din&wide=1", "/api/roster", "/api/team/Diner%20Tech",
-        "/api/team/Swampwater Tech", "/api/season/leaders", "/api/ratings", "/api/recruiting", f"/api/players/{ROLES['QBID']}",
-        "/api/national/profile:ypp", "/api/national/rating:sp?scope=conference", "/api/national/board:passing:YDS?team=Diner%20Tech", "/api/national/poll:AP", "/api/national/class:2026",
+        "/api/season/overview", "/api/program/next", "/api/search?q=flo", "/api/search?q=tex&wide=1", "/api/roster", "/api/team/Texas%20State",
+        "/api/team/Florida", "/api/season/leaders", "/api/ratings", "/api/recruiting", f"/api/players/{ROLES['QBID']}",
+        "/api/national/profile:ypp", "/api/national/rating:sp?scope=conference", "/api/national/board:passing:YDS?team=Texas%20State", "/api/national/poll:AP", "/api/national/class:2026",
     ]
     for path in paths:
         response = client.get(path)

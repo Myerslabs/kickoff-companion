@@ -1,20 +1,14 @@
-"""Phase 16 wave 3, the server side: the Origin check on every change, restarting from the app, the update check, the
-"code changed" flag, and the tray for the packaged program. GitHub is scripted; no test reaches the network."""
+"""Phase 16 wave 3, the server side: the Origin check on every change, restarting from the app, the "code changed" flag
+and the tray script. The update check from GitHub is tests/test_host_updates.py (FEAT-13)."""
 
 from __future__ import annotations
 
-import asyncio
-import json
-from datetime import datetime, timedelta, timezone
-
-import httpx
 import pytest
 
 from app import build, restart
 from app.api import server as server_api
 from app.origin_guard import same_origin
 from app.services.launcher import Launcher
-from app.services.updates import UpdateChecker, version_key
 from tests.test_package import frozen_layout
 
 # --- the Origin check ----------------------------------------------------------------------------------------
@@ -96,70 +90,6 @@ def test_every_envelope_says_whether_a_restart_is_needed(client):
 # --- the update check ---------------------------------------------------------------------------------------
 
 
-def releases(*tags, draft=()):
-    return [{"tag_name": t, "html_url": f"https://github.com/Myerslabs/kickoff-companion/releases/tag/{t}", "body": "Notes for " + t, "published_at": "2026-10-09T00:00:00Z", "prerelease": True, "draft": t in draft} for t in tags]
-
-
-def checker(tmp_path, answers, now, **kw):
-    calls = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(str(request.url))
-        answer = answers.pop(0)
-        return answer if isinstance(answer, httpx.Response) else httpx.Response(200, json=answer)
-
-    return UpdateChecker(tmp_path, transport=httpx.MockTransport(handler), clock=lambda: now[0], **kw), calls
-
-
-def test_version_keys():
-    assert version_key("v0.12.1") == (0, 12, 1) and version_key("1.2") == (1, 2, 0)
-    assert [version_key(x) for x in ("nope", None, "v1.2.3-rc1", 5)] == [None, None, None, None]
-
-
-def test_a_newer_release_is_found_once_a_day(tmp_path):
-    now = [datetime(2026, 10, 9, tzinfo=timezone.utc)]
-    c, calls = checker(tmp_path, [releases("v0.12.0", "v0.13.1", "v0.14.0", "junk", draft=("v0.14.0",))], now, current="0.12.1")
-    got = asyncio.run(c.status())
-    assert got["newer"] is True and got["latest"] == "0.13.1" and got["url"].endswith("/v0.13.1") and got["notes"] == "Notes for v0.13.1"
-    assert asyncio.run(c.status())["latest"] == "0.13.1" and len(calls) == 1, "kept for a day"
-    now[0] += timedelta(days=1, seconds=1)
-    c._http._transport = httpx.MockTransport(lambda r: httpx.Response(200, json=releases("v0.12.1")))
-    assert asyncio.run(c.status())["newer"] is False
-
-
-def test_failures_and_the_switch(tmp_path):
-    now = [datetime(2026, 10, 9, tzinfo=timezone.utc)]
-    c, calls = checker(tmp_path, [httpx.Response(503), {"not": "a list"}], now, current="0.12.1")
-    down = asyncio.run(c.status())
-    assert down["newer"] is False and "didn't get an answer" in down["error"]
-    assert "earlier" in asyncio.run(c.status())["error"] and len(calls) == 1, "paused after a failure"
-    off, offcalls = checker(tmp_path / "off", [], now, enabled=lambda: False)
-    assert asyncio.run(off.status(force=True))["enabled"] is False and offcalls == []
-    (tmp_path / "update.json").write_text("{broken", encoding="utf-8")
-    assert c._stored() == {}
-
-
-def test_the_route(settings, fake_cfbd):
-    from fastapi.testclient import TestClient
-
-    from app.logging_setup import configure_logging, shutdown_logging
-    from app.main import create_app
-
-    configure_logging(settings)
-    application = create_app(settings, cfbd_transport=fake_cfbd.transport, updates_transport=httpx.MockTransport(lambda r: httpx.Response(200, json=releases("v99.0.0"))))
-    try:
-        with TestClient(application, base_url="https://testserver") as tc:
-            tc.portal.call(application.state.live.stop_background)
-            data = tc.get("/api/updates").json()["data"]
-            assert data["newer"] is True and data["latest"] == "99.0.0"
-            tc.put("/api/settings", json={"updateCheck": False})
-            assert tc.get("/api/updates?force=1").json()["data"]["enabled"] is False
-    finally:
-        shutdown_logging()
-    stored = json.loads((settings.data_dir / "update.json").read_text(encoding="utf-8"))
-    assert stored["latest"] == "99.0.0"
-
-
 # --- the tray for the packaged program ------------------------------------------------------------------------
 
 
@@ -189,10 +119,3 @@ def test_the_tray_script_reads_the_scheme_and_takes_the_program():
     assert "https://$hostName" not in text, "plain HTTP unless HTTPS=on"
 
 
-def test_a_private_repository_is_not_a_failure(tmp_path):
-    # Phase 18.4: GitHub answers 404 for a private repository's releases. Nothing to compare is not an error in Settings.
-    now = [datetime(2026, 10, 9, tzinfo=timezone.utc)]
-    c, calls = checker(tmp_path, [httpx.Response(404)], now, current="0.12.2")
-    got = asyncio.run(c.status())
-    assert got["newer"] is False and got["error"] is None and len(calls) == 1
-    assert asyncio.run(c.status())["error"] is None and len(calls) == 1, "asked again tomorrow, not on every look"

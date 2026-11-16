@@ -13,12 +13,12 @@ from types import SimpleNamespace
 from app.services.injuries import injury_report, row_team, team_names
 from app.services.notes import AvailabilityRow, load_notes
 
-US = "Swampwater Tech"
+US = "Florida"
 TEAMS = {
-    US: {"school": US, "mascot": "Mudpuppies", "abbreviation": "SWT"},
-    "Diner Tech": {"school": "Diner Tech", "mascot": "Cooks", "abbreviation": "DT"},
-    "Diner Tech State": {"school": "Diner Tech State", "mascot": "Grills", "abbreviation": "DTS"},
-    "Lake Effect": {"school": "Lake Effect", "mascot": "Squalls", "abbreviation": "LE"},
+    US: {"school": US, "mascot": "Gators", "abbreviation": "FLA"},
+    "Texas State": {"school": "Texas State", "mascot": "Bobcats", "abbreviation": "DT"},
+    "Texas State State": {"school": "Texas State State", "mascot": "Grills", "abbreviation": "DTS"},
+    "Charlotte": {"school": "Charlotte", "mascot": "Squalls", "abbreviation": "LE"},
 }
 
 
@@ -27,10 +27,10 @@ def game(gid: int, week: int, home: str, away: str, completed: bool, **extra) ->
 
 
 GAMES = [
-    game(1, 1, US, "Lake Effect", True),
-    game(2, 2, "Diner Tech", US, True),
-    game(3, 3, US, "Diner Tech State", False),
-    game(4, 4, "Lake Effect", US, False),
+    game(1, 1, US, "Charlotte", True),
+    game(2, 2, "Texas State", US, True),
+    game(3, 3, US, "Texas State State", False),
+    game(4, 4, "Charlotte", US, False),
 ]
 
 
@@ -45,41 +45,41 @@ def report(data_dir: Path, team: str = US) -> dict:
 
 
 def test_names_longest_first() -> None:
-    names = team_names("Diner Tech", TEAMS["Diner Tech"])
-    assert names[0] == "diner tech cooks" and "dt" in names and "cooks" in names
+    names = team_names("Texas State", TEAMS["Texas State"])
+    assert names[0] == "texas state bobcats" and "dt" in names and "bobcats" in names
     assert team_names("Nowhere", None) == ["nowhere"]
 
 
 def test_row_team_by_field_then_note_longest_name_wins() -> None:
-    sides = {s: team_names(s, TEAMS[s]) for s in ("Diner Tech", "Diner Tech State")}
-    assert row_team(AvailabilityRow(name="A", team="Diner Tech State"), sides) == ("Diner Tech State", False)
-    assert row_team(AvailabilityRow(name="A", note="Diner Tech State. Knee"), sides) == ("Diner Tech State", True)
-    assert row_team(AvailabilityRow(name="A", note="Diner Tech. Knee"), sides) == ("Diner Tech", True)
-    assert row_team(AvailabilityRow(name="A", note="Diner Technical issue"), sides) == (None, False), "a name inside a longer word is no match"
+    sides = {s: team_names(s, TEAMS[s]) for s in ("Texas State", "Texas State State")}
+    assert row_team(AvailabilityRow(name="A", team="Texas State State"), sides) == ("Texas State State", False)
+    assert row_team(AvailabilityRow(name="A", note="Texas State State. Knee"), sides) == ("Texas State State", True)
+    assert row_team(AvailabilityRow(name="A", note="Texas State. Knee"), sides) == ("Texas State", True)
+    assert row_team(AvailabilityRow(name="A", note="Texas Statewide issue"), sides) == (None, False), "a name inside a longer word is no match"
     assert row_team(AvailabilityRow(name="A", note="ankle"), sides) == (None, False)
     assert row_team(AvailabilityRow(name="A", team="  "), sides) == (None, False)
 
 
 def test_a_longer_name_a_suffix_or_a_shared_mascot_is_never_guessed() -> None:
-    """Review 2026-10-10: "Lake Effect St." is no Lake Effect, in the team field or in the note; a name both teams share
+    """Review 2026-10-10: "Charlotte St." is no Charlotte, in the team field or in the note; a name both teams share
     (a mascot) settles nothing; a parenthesis after the name is another school."""
-    teams = {"Lake Effect": {"mascot": "Squalls", "abbreviation": "LE"}, "Diner Tech": {"mascot": "Squalls", "abbreviation": "DT"}}
+    teams = {"Charlotte": {"mascot": "Squalls", "abbreviation": "LE"}, "Texas State": {"mascot": "Squalls", "abbreviation": "DT"}}
     sides = {s: team_names(s, teams[s]) for s in teams}
-    assert row_team(AvailabilityRow(name="A", team="Lake Effect St."), sides) == (None, False)
-    assert row_team(AvailabilityRow(name="A", note="Lake Effect St. Knee"), sides) == (None, False)
-    assert row_team(AvailabilityRow(name="A", note="Lake Effect (OH) knee"), sides) == (None, False)
+    assert row_team(AvailabilityRow(name="A", team="Charlotte St."), sides) == (None, False)
+    assert row_team(AvailabilityRow(name="A", note="Charlotte St. Knee"), sides) == (None, False)
+    assert row_team(AvailabilityRow(name="A", note="Charlotte (OH) knee"), sides) == (None, False)
     assert row_team(AvailabilityRow(name="A", team="Squalls"), sides) == (None, False), "both teams' mascot"
-    assert row_team(AvailabilityRow(name="A", team="Squalls", note="Diner Tech. Knee"), sides) == ("Diner Tech", True), "the note settles a shared mascot"
-    assert row_team(AvailabilityRow(name="A", team="lake effect."), sides) == ("Lake Effect", False), "case and a trailing period are fine"
-    assert row_team(AvailabilityRow(name="A", note="Lake Effect - ankle"), sides) == ("Lake Effect", True)
-    assert row_team(AvailabilityRow(name="A", note="Lake Effect"), sides) == ("Lake Effect", True)
+    assert row_team(AvailabilityRow(name="A", team="Squalls", note="Texas State. Knee"), sides) == ("Texas State", True), "the note settles a shared mascot"
+    assert row_team(AvailabilityRow(name="A", team="charlotte."), sides) == ("Charlotte", False), "case and a trailing period are fine"
+    assert row_team(AvailabilityRow(name="A", note="Charlotte - ankle"), sides) == ("Charlotte", True)
+    assert row_team(AvailabilityRow(name="A", note="Charlotte"), sides) == ("Charlotte", True)
 
 
 def test_our_report_newest_first_with_the_next_game(tmp_path: Path) -> None:
     write(tmp_path, 1, {"gameId": 1, "availability": [
-        {"name": "Zed Out", "position": "WR", "status": "Out", "note": "Swampwater Tech. Knee, week 1"},
-        {"name": "Al Probable", "position": "LB", "status": "Probable", "team": "Swampwater Tech", "note": "ankle"},
-        {"name": "Them Guy", "position": "QB", "status": "Out", "note": "Lake Effect. Shoulder"},
+        {"name": "Zed Out", "position": "WR", "status": "Out", "note": "Florida. Knee, week 1"},
+        {"name": "Al Probable", "position": "LB", "status": "Probable", "team": "Florida", "note": "ankle"},
+        {"name": "Them Guy", "position": "QB", "status": "Out", "note": "Charlotte. Shoulder"},
         {"name": "Who Knows", "position": "OL", "status": "Questionable", "note": "hand"},
     ], "availabilitySource": "Conference report", "availabilityUpdatedAt": "2026-09-01"})
     data = report(tmp_path)
@@ -97,15 +97,15 @@ def test_our_report_newest_first_with_the_next_game(tmp_path: Path) -> None:
 
 
 def test_an_opponents_report_from_our_games_against_it(tmp_path: Path) -> None:
-    write(tmp_path, 1, {"gameId": 1, "availability": [{"name": "Them Guy", "position": "QB", "status": "Out", "note": "Lake Effect Squalls; shoulder"}, {"name": "Who Knows", "status": "Questionable"}]})
-    data = report(tmp_path, team="Lake Effect")
+    write(tmp_path, 1, {"gameId": 1, "availability": [{"name": "Them Guy", "position": "QB", "status": "Out", "note": "Charlotte Squalls; shoulder"}, {"name": "Who Knows", "status": "Questionable"}]})
+    data = report(tmp_path, team="Charlotte")
     assert data["isUs"] is False
     assert [g["gameId"] for g in data["games"]] == [4, 1], "both meetings, newest first"
     assert [r["name"] for r in data["games"][1]["rows"]] == ["Them Guy"]
     assert data["games"][1]["rows"][0]["note"] == "Shoulder"
     assert data["games"][1]["unassigned"] == [], "another team's report never shows the unplaced rows"
     assert data["games"][1]["rows"][0]["position"] == "QB"
-    none = report(tmp_path, team="Diner Tech State")
+    none = report(tmp_path, team="Texas State State")
     assert [g["gameId"] for g in none["games"]] == [3]
 
 
@@ -123,7 +123,7 @@ def test_broken_and_odd_notes_files_never_break_it(tmp_path: Path) -> None:
 
 def test_no_games_and_postseason(tmp_path: Path) -> None:
     assert injury_report([], lambda gid: (None, None), us=US, team=US, teams=TEAMS, season=2026)["games"] == []
-    bowl = game(9, None, US, "Diner Tech", True)
+    bowl = game(9, None, US, "Texas State", True)
     bowl.season_type = "postseason"
     bowl.notes = "Vrbo Fiesta Bowl"
     data = injury_report([*GAMES[:2], bowl], lambda gid: (None, None), us=US, team=US, teams=TEAMS, season=2026)

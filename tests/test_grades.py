@@ -111,7 +111,7 @@ def test_grades_cost_no_call_once_season_and_leaders_have_loaded(loaded: TestCli
     assert board["errors"] == [] and len(data["rows"]) == 10 and data["rows"][0]["rank"] == 1 and data["of"] >= 100
     assert [r["grade"] for r in data["rows"]] == sorted((r["grade"] for r in data["rows"]), reverse=True)
     ours = {r["playerId"] for r in data["ours"]}
-    assert ROLES["QBID"] in ours and all(r["team"] == "Swampwater Tech" for r in data["ours"])
+    assert ROLES["QBID"] in ours and all(r["team"] == "Florida" for r in data["ours"])
     assert {g["id"] for g in data["groups"]} == set(grades.GRADED) and "components" not in data["rows"][0]
     # tables wave 3: each row names its team's abbreviation, so the Top graded table keeps the team at small
     abbrs = {t["school"]: t["abbreviation"] for t in fixture_payload("teams_fbs") if t.get("abbreviation")}
@@ -129,8 +129,8 @@ def test_roster_card_and_players_to_watch_read_the_same_grade(loaded: TestClient
     assert lineman["grade"]["grade"] is None and "linemen" in lineman["grade"]["reason"]
     card = loaded.get(f"/api/players/{ROLES['QBID']}").json()["data"]["grade"]
     assert card["grade"] == ours["grade"] and card["components"] and all("percentile" in c for c in card["components"])
-    watch = loaded.get(f"/api/grades/teams?teams=Swampwater Tech,{ROLES['OPP']}&top=3").json()["data"]["teams"]
-    assert [t["team"] for t in watch] == ["Swampwater Tech", ROLES["OPP"]]
+    watch = loaded.get(f"/api/grades/teams?teams=Florida,{ROLES['OPP']}&top=3").json()["data"]["teams"]
+    assert [t["team"] for t in watch] == ["Florida", ROLES["OPP"]]
     assert all(len(t["players"]) == 3 for t in watch) and all(p["team"] == t["team"] for t in watch for p in t["players"])
     assert loaded.get("/api/grades/teams?teams=").status_code == 422
 

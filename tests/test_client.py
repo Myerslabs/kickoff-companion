@@ -63,8 +63,8 @@ def test_get_caches_and_serves_from_cache(harness):
     harness.upstream.route("/games", json=GAMES)
 
     async def scenario():
-        first = await harness.client.get("/games", {"year": 2026, "team": "Swampwater Tech"}, kind=DataKind.SCHEDULE)
-        second = await harness.client.get("/games", {"team": "Swampwater Tech", "year": 2026}, kind=DataKind.SCHEDULE)
+        first = await harness.client.get("/games", {"year": 2026, "team": "Florida"}, kind=DataKind.SCHEDULE)
+        second = await harness.client.get("/games", {"team": "Florida", "year": 2026}, kind=DataKind.SCHEDULE)
         return first, second
 
     first, second = run(scenario())
@@ -74,7 +74,7 @@ def test_get_caches_and_serves_from_cache(harness):
     assert harness.client.stats["cache_hits"] == 1
     request = harness.upstream.requests[0]
     assert request.headers["authorization"] == f"Bearer {TEST_KEY}"
-    assert request.url.params["team"] == "Swampwater Tech"
+    assert request.url.params["team"] == "Florida"
 
 
 def test_ttl_is_scaled_to_a_small_budget(harness):
@@ -212,7 +212,7 @@ def test_breaker_opens_after_repeated_failures_and_recovers(harness):
 
         harness.clock.advance(seconds=BREAKER_OPEN_SECONDS)
         assert harness.client.breaker.state(harness.clock()) == "half_open"
-        harness.upstream.route("/records", json=[{"team": "Swampwater Tech"}])
+        harness.upstream.route("/records", json=[{"team": "Florida"}])
         recovered = await harness.client.get("/records", kind=DataKind.SCHEDULE)
         assert recovered.source == "live"
         assert harness.client.breaker.state(harness.clock()) == "closed"
@@ -395,7 +395,7 @@ def test_calls_to_one_endpoint_run_one_at_a_time_while_endpoints_overlap(setting
         await asyncio.sleep(0.02)
         in_flight[path] -= 1
         active["total"] -= 1
-        return httpx.Response(200, json=[{"team": "Swampwater Tech", "statName": "x", "statValue": 1}])
+        return httpx.Response(200, json=[{"team": "Florida", "statName": "x", "statValue": 1}])
 
     async def run() -> None:
         db = Database(tmp_path / "c.db")

@@ -5,6 +5,9 @@
 // its SP+ chip, at large its last five results (each that game's box score), and the game's tags (the conference's
 // short name alone, a bowl's name). No Team page chip: the name is the way there. Thin on purpose (owner 2026-09-23).
 // The card follows the table's size (data-size on the article), so the logo and the name shrink with it.
+// BUG-15 (the owner's board of 2026-10-27): the head is one strip from left to right, the logo, the name and the staff on the
+// left, the chips on the right (SP+ and the game's tag, then the last five under them), the chips under the name on a card too
+// narrow for both; on a wide screen (a card 1400 px wide) the table splits Offense beside Defense, two tables of one group.
 
 import { icon } from "./icons.js";
 import { usLabel, usSchool } from "../identity.js";
@@ -28,7 +31,7 @@ export function recordLine(team) {
   return conf ? `${rec} (${conf})` : rec;
 }
 
-/** The school and its mascot for the large table head ("Swampwater Tech Mudcats"); the school alone without one. */
+/** The school and its mascot for the large table head ("Florida Mudcats"); the school alone without one. */
 export function fullName(team) {
   const t = team && typeof team === "object" ? team : {};
   const school = typeof t.school === "string" ? t.school.trim() : "";
@@ -95,7 +98,33 @@ export function matchupCard({ kicker = "This week's opponent", us = {}, them = {
   const school = typeof t.school === "string" && t.school.trim() ? t.school.trim() : null;
   const mascot = typeof t.mascot === "string" && t.mascot.trim() && school && !school.toLowerCase().includes(t.mascot.trim().toLowerCase()) ? t.mascot.trim() : null;
   const record = recordLine(t);
-  const card = el(
+  const last5 = lastFive(t.form);
+  // a table the stylesheet hides (the whole one on a wide screen, the halves elsewhere) never sets the card's size
+  const shown = (node) => !node || typeof node.getClientRects !== "function" || node.getClientRects().length > 0;
+  let card = null;
+  const table = (sets, className, mine) => twoTeamTable({
+    groups: sets,
+    usAbbr: text(u.abbreviation || usLabel()),
+    themAbbr: text(t.abbreviation),
+    usTeam: u.school,
+    themTeam: school,
+    usName: fullName(u),
+    themName: fullName(t),
+    tug: true,
+    labelHead: "This season",
+    caption: `${text(u.school || usSchool())} and ${text(school)} this season${sets.length === 1 ? `, ${sets[0].title.toLowerCase()}` : ""}`,
+    className,
+    onSize: (size) => {
+      if (card && shown(mine())) card.dataset.size = size;
+    },
+  });
+  let whole = null;
+  let halves = null;
+  if (groups.length) {
+    whole = table(groups, "mcard__table mcard__table--whole", () => whole);
+    if (groups.length === 2) halves = el("div", { class: "mcard__halves" }, groups.map((g, i) => table([g], "mcard__table mcard__table--half", () => halves?.children[i])));
+  }
+  card = el(
     "article",
     { class: "mcard mcard--thin", id: "program-matchup", "aria-label": `Matchup: ${text(school)}`, dataset: { size: "large" } },
     el("div", { class: "mcard__kicker" }, kicker),
@@ -115,27 +144,11 @@ export function matchupCard({ kicker = "This week's opponent", us = {}, them = {
           record ? el("span", { class: "mcard__rec" }, record) : null,
         ),
         coachesLine(coaches) ? el("div", { class: "mcard__staff", "aria-label": "Their coaches" }, coachesLine(coaches)) : null, // freeze wave F4
-        teamChips.length || gameChips.length || t.form ? el("div", { class: "mcard__chips", "aria-label": "This team and this game" }, teamChips, lastFive(t.form), gameChips) : null,
       ),
+      teamChips.length || gameChips.length || last5 ? el("div", { class: "mcard__chips", "aria-label": "This team and this game" }, teamChips.length || gameChips.length ? el("span", { class: "mcard__chip-row" }, teamChips, gameChips) : null, last5) : null, // BUG-15: the strip's right end
     ),
-    groups.length
-      ? twoTeamTable({
-          groups,
-          usAbbr: text(u.abbreviation || usLabel()),
-          themAbbr: text(t.abbreviation),
-          usTeam: u.school,
-          themTeam: school,
-          usName: fullName(u),
-          themName: fullName(t),
-          tug: true,
-          labelHead: "This season",
-          caption: `${text(u.school || usSchool())} and ${text(school)} this season`,
-          className: "mcard__table",
-          onSize: (size) => {
-            card.dataset.size = size;
-          },
-        })
-      : el("p", { class: "note" }, "No season stats yet."),
+    whole || el("p", { class: "note" }, "No season stats yet."),
+    halves,
     foot ? el("div", { class: "mcard__foot" }, foot) : null,
   );
   fillWiki(card);

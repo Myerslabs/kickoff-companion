@@ -37,9 +37,9 @@ def test_page_notes_never_on_in_game():
 SCENARIOS = r"""
 const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
 const text = (node) => (node ? node.textContent : "");
-const us = { name: "Swampwater Tech", abbr: "SWT" };
-const them = { name: "Silver Dollar", abbr: "SLV" };
-const play = (over) => ({ id: 1, period: 1, clock: { minutes: 2, seconds: 8 }, offense: "Silver Dollar", down: 1, distance: 10, yardsToGoal: 29, playType: "Passing Touchdown", yardsGained: 29, success: true, ppa: 3.43, scoring: true, text: "the long text", ...over });
+const us = { name: "Florida", abbr: "FLA" };
+const them = { name: "Fresno State", abbr: "SLV" };
+const play = (over) => ({ id: 1, period: 1, clock: { minutes: 2, seconds: 8 }, offense: "Fresno State", down: 1, distance: 10, yardsToGoal: 29, playType: "Passing Touchdown", yardsGained: 29, success: true, ppa: 3.43, scoring: true, text: "the long text", ...over });
 
 scenarios.stageKit = async () => {
   const { wpSummary, lastPlayWords, playWords, lastPlaysList, driveLines, scoreCell, stripExtras } = await import(moduleUrl("ui/stage.js"));
@@ -54,7 +54,7 @@ scenarios.stageKit = async () => {
   assert.equal(playWords({ playType: "Something New" }), "Something New", "an unknown type keeps its name");
   assert.equal(playWords(null), "Play");
   // the strip's last play line
-  assert.equal(lastPlayWords(play(), { abbr: (school) => (school === "Silver Dollar" ? "SLV" : "SWT") }), "TD pass, +29 yds, SLV · +3.4 PPA · Q1 2:08");
+  assert.equal(lastPlayWords(play(), { abbr: (school) => (school === "Fresno State" ? "SLV" : "FLA") }), "TD pass, +29 yds, SLV · +3.4 PPA · Q1 2:08");
   assert.equal(lastPlayWords(play({ down: 0, playType: "Kickoff", yardsGained: 0, ppa: null }), { abbr: () => "SLV" }), "Kickoff, SLV · Q1 2:08", "no yards or value on a kickoff");
   assert.equal(lastPlayWords(null), null);
   assert.equal(lastPlayWords("junk"), null);
@@ -64,25 +64,25 @@ scenarios.stageKit = async () => {
   assert.deepEqual(wpSummary({ liveWinProbability: { homeWp: 7 } }, { usHome: true, pregame: 2 }), { pct: null, kickoff: null }, "out of range is unknown");
   assert.deepEqual(wpSummary(null, {}), { pct: null, kickoff: null });
   // the strip's extras
-  const extras = stripExtras({ wp: { pct: 0.639, kickoff: 0.69 }, lastPlay: "TD pass, +29 yds, SLV", usAbbr: "SWT" });
+  const extras = stripExtras({ wp: { pct: 0.639, kickoff: 0.69 }, lastPlay: "TD pass, +29 yds, SLV", usAbbr: "FLA" });
   document.body.append(extras);
   assert.equal(text(extras.querySelector(".strip__wp-pct")), "64%");
-  assert.ok(text(extras.querySelector(".strip__wp")).includes("SWT to win") && text(extras.querySelector(".strip__wp-kick")).includes("69% at kickoff"), text(extras));
+  assert.ok(text(extras.querySelector(".strip__wp")).includes("FLA to win") && text(extras.querySelector(".strip__wp-kick")).includes("69% at kickoff"), text(extras));
   assert.equal(text(extras.querySelector(".strip__last-words")), "TD pass, +29 yds, SLV");
   assert.equal(stripExtras({ wp: {}, lastPlay: null }), null, "nothing known: nothing drawn");
-  assert.ok(text(stripExtras({ wp: { pct: null, kickoff: 0.69 }, usAbbr: "SWT" })).includes("69%"), "before kickoff the pregame number");
+  assert.ok(text(stripExtras({ wp: { pct: null, kickoff: 0.69 }, usAbbr: "FLA" })).includes("69%"), "before kickoff the pregame number");
   // the last five plays, newest first, nothing raw
-  const plays = [play({ id: 9 }), play({ id: 8, offense: "Swampwater Tech", playType: "Rush", yardsGained: -3, success: false, ppa: -0.7, scoring: false, yardsToGoal: 75 }), play({ id: 7 }), play({ id: 6 }), play({ id: 5 }), play({ id: 4 }), play({ id: 3 }), "junk", null];
+  const plays = [play({ id: 9 }), play({ id: 8, offense: "Florida", playType: "Rush", yardsGained: -3, success: false, ppa: -0.7, scoring: false, yardsToGoal: 75 }), play({ id: 7 }), play({ id: 6 }), play({ id: 5 }), play({ id: 4 }), play({ id: 3 }), "junk", null];
   const list = lastPlaysList({ plays, us, them, limit: 5 });
   document.body.append(list);
   assert.equal(list.querySelectorAll(".stage-play").length, 5);
   assert.ok(!RAW.test(text(list)), text(list));
   const second = list.querySelectorAll(".stage-play")[1];
-  assert.ok(second.className.includes("stage-play--us") && text(second).includes("Run, −3 yds") && text(second).includes("1st & 10 at SWT 25"), text(second));
+  assert.ok(second.className.includes("stage-play--us") && text(second).includes("Run, −3 yds") && text(second).includes("1st & 10 at FLA 25"), text(second));
   assert.ok(list.querySelectorAll(".stage-play")[0].className.includes("stage-play--score"), "a scoring play is marked");
   assert.ok(text(lastPlaysList({ plays: [] })).includes("Plays appear after kickoff"));
   // the drive lines and the score cell
-  assert.deepEqual(driveLines({ "Swampwater Tech": { drives: 4, pointsPerDrive: 3, opportunities: 2, threeAndOuts: 0 }, "Silver Dollar": { drives: 4, pointsPerDrive: 4.5 } }, "Swampwater Tech", "Silver Dollar"), [
+  assert.deepEqual(driveLines({ "Florida": { drives: 4, pointsPerDrive: 3, opportunities: 2, threeAndOuts: 0 }, "Fresno State": { drives: 4, pointsPerDrive: 4.5 } }, "Florida", "Fresno State"), [
     { label: "Drives", us: "4", them: "4" }, { label: "Points per drive", us: "3.0", them: "4.5" }, { label: "Scoring chances", us: "2", them: "–" }, { label: "Three and outs", us: "0", them: "–" },
   ]);
   const cell = scoreCell({ s: { homeLineScores: [21], awayLineScores: [14], homeScore: 21, awayScore: 14, driveSummary: {} }, us, them, usHome: false });
@@ -93,7 +93,7 @@ scenarios.stageKit = async () => {
 scenarios.shotChartBoth = async () => {
   const { shotChart } = await import(moduleUrl("ui/shot-chart.js"));
   const chart = { passes: { "deep-left": { attempts: 3, completions: 2, successRate: 0.667, yardsPerAttempt: 15.7 } }, runs: { left: { attempts: 5, successRate: 0.8, yardsPerAttempt: 6.6 }, middle: { attempts: 1, successRate: 0 } }, sacks: 1 };
-  const node = shotChart({ chart, view: "both", team: "Swampwater Tech", fixed: true });
+  const node = shotChart({ chart, view: "both", team: "Florida", fixed: true });
   document.body.append(node);
   assert.ok(node.querySelector(".shot-field--both"), "one field");
   assert.equal(node.querySelectorAll(".shot-row").length, 3, "deep, short, then the runs");

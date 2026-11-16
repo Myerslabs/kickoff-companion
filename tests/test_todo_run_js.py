@@ -19,7 +19,7 @@ scenarios.run = async () => {
   route("/api/prompts/run", (url) => { posted.push(String(url)); return envelope({ running: true }); });
   const items = [
     { id: "season", title: "The 2026 season load", detail: "Not loaded: coaches.", href: "#prompts", run: { kind: "prompts" }, canRun: true },
-    { id: "notes", title: "This week's notes, Diner Tech", detail: "Missing: both depth charts.", href: "#prompts", run: { kind: "notes", gameId: 41, parts: ["lineups"] }, canRun: true },
+    { id: "notes", title: "This week's notes, Texas State", detail: "Missing: both depth charts.", href: "#prompts", run: { kind: "notes", gameId: 41, parts: ["lineups"] }, canRun: true },
     { id: "costs", title: "Roster costs", detail: "Rumored costs for 18 of 136 teams.", href: "#prompts", run: { kind: "prompts" }, canRun: false },
     { id: "odd", title: "Odd", detail: "No run here.", href: "#prompts", run: { kind: "nonsense" }, canRun: true },
   ];
@@ -62,11 +62,11 @@ scenarios.partWithoutClaude = async () => {
 
 scenarios.costs = async () => {
   const { costsBand } = await import(moduleUrl("ui/roster-costs.js"));
-  const few = costsBand({ school: "Swampwater Tech", totalUsd: 31000000, players: [{ name: "A Passer", position: "QB", amountUsd: 1800000 }, { name: "B Runner", position: "RB", amountUsd: 1300000 }, { name: "C Rusher", position: "EDGE", amountUsd: 1100000 }] });
+  const few = costsBand({ school: "Florida", totalUsd: 31000000, players: [{ name: "A Passer", position: "QB", amountUsd: 1800000 }, { name: "B Runner", position: "RB", amountUsd: 1300000 }, { name: "C Rusher", position: "EDGE", amountUsd: 1100000 }] });
   document.body.append(few);
   assert.ok(text(few).includes("A rumored figure was reported for 3 players; the rest of the roster has none."), text(few));
   assert.equal(few.querySelector(".costs__partial a").getAttribute("href"), "#prompts");
-  const many = costsBand({ school: "Swampwater Tech", totalUsd: 31000000, players: Array.from({ length: 30 }, (_, i) => ({ name: `Player ${i}`, position: "WR", amountUsd: 100000 })) });
+  const many = costsBand({ school: "Florida", totalUsd: 31000000, players: Array.from({ length: 30 }, (_, i) => ({ name: `Player ${i}`, position: "WR", amountUsd: 100000 })) });
   assert.equal(many.querySelector(".costs__partial"), null, "a full list says nothing more");
 };
 """

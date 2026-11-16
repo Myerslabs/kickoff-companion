@@ -3,12 +3,12 @@ export const sample = {
  "generatedFrom": "the made-up league (app/demo), as of the Monday after week 3",
  "season": 2026,
  "team": {
-  "school": "Swampwater Tech",
-  "abbreviation": "SWT",
-  "mascot": "Mudpuppies",
-  "conference": "Biscuit Belt",
-  "color": "#00838f",
-  "altColor": "#f2b705",
+  "school": "Florida",
+  "abbreviation": "FLA",
+  "mascot": "Gators",
+  "conference": "SEC",
+  "color": "#0021a5",
+  "altColor": "#fa4616",
   "logo": "/media/logo/932",
   "logoDark": "/media/logo/932?v=dark"
  },
@@ -45,17 +45,17 @@ export const sample = {
    "date": "2026-09-05T19:30:00.000Z",
    "startTimeTbd": false,
    "opponent": {
-    "school": "Rhubarb State",
-    "abbreviation": "RHUB",
-    "mascot": "Stalkers",
-    "conference": "Mid-Prairie Pie",
-    "color": "#80671f",
-    "altColor": "#2b5cee",
+    "school": "Akron",
+    "abbreviation": "AKR",
+    "mascot": "Zips",
+    "conference": "Mid-American",
+    "color": "#041e42",
+    "altColor": "#a89968",
     "logo": "/media/logo/2343",
     "logoDark": "/media/logo/2343?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": true,
    "result": "W",
    "usPoints": 59,
@@ -69,12 +69,12 @@ export const sample = {
    "date": "2026-09-12T23:00:00.000Z",
    "startTimeTbd": false,
    "opponent": {
-    "school": "Silver Dollar",
-    "abbreviation": "GRID",
-    "mascot": "Griddles",
-    "conference": "Pancake Athletic",
-    "color": "#1b3b7b",
-    "altColor": "#f4bb25",
+    "school": "Fresno State",
+    "abbreviation": "FRES",
+    "mascot": "Bulldogs",
+    "conference": "Pac-12",
+    "color": "#c41230",
+    "altColor": "#13284c",
     "logo": "/media/logo/2532",
     "logoDark": "/media/logo/2532?v=dark"
    },
@@ -93,17 +93,17 @@ export const sample = {
    "date": "2026-09-26T19:30:00.000Z",
    "startTimeTbd": false,
    "opponent": {
-    "school": "Diner Tech",
-    "abbreviation": "DINR",
-    "mascot": "Cooks",
-    "conference": "Pancake Athletic",
-    "color": "#1c957a",
-    "altColor": "#ffffff",
+    "school": "Texas State",
+    "abbreviation": "TXST",
+    "mascot": "Bobcats",
+    "conference": "Pac-12",
+    "color": "#501214",
+    "altColor": "#6a5638",
     "logo": "/media/logo/328",
     "logoDark": "/media/logo/328?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -117,17 +117,17 @@ export const sample = {
    "date": "2026-10-03T19:30:00.000Z",
    "startTimeTbd": false,
    "opponent": {
-    "school": "Sweet Tea State",
-    "abbreviation": "STS",
-    "mascot": "Sippers",
-    "conference": "Biscuit Belt",
-    "color": "#a70e5a",
-    "altColor": "#ffffff",
+    "school": "Ole Miss",
+    "abbreviation": "MISS",
+    "mascot": "Rebels",
+    "conference": "SEC",
+    "color": "#13294b",
+    "altColor": "#cf142b",
     "logo": "/media/logo/823",
     "logoDark": "/media/logo/823?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -141,17 +141,17 @@ export const sample = {
    "date": "2026-10-10T04:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Lower Kudzu",
-    "abbreviation": "KUDZ",
-    "mascot": "Vines",
-    "conference": "Biscuit Belt",
-    "color": "#297d94",
-    "altColor": "#ffffff",
+    "school": "South Carolina",
+    "abbreviation": "SC",
+    "mascot": "Gamecocks",
+    "conference": "SEC",
+    "color": "#73000a",
+    "altColor": "#000000",
     "logo": "/media/logo/2684",
     "logoDark": "/media/logo/2684?v=dark"
    },
    "homeAway": "away",
-   "venue": "Lower Kudzu Coliseum",
+   "venue": "South Carolina Coliseum",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -165,17 +165,17 @@ export const sample = {
    "date": "2026-10-17T04:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Catfish Bend",
-    "abbreviation": "CATB",
-    "mascot": "Whiskers",
-    "conference": "Biscuit Belt",
-    "color": "#1a559d",
-    "altColor": "#ee962b",
+    "school": "Auburn",
+    "abbreviation": "AUB",
+    "mascot": "Tigers",
+    "conference": "SEC",
+    "color": "#0c2340",
+    "altColor": "#f26522",
     "logo": "/media/logo/2813",
     "logoDark": "/media/logo/2813?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -189,17 +189,17 @@ export const sample = {
    "date": "2026-10-24T04:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Bluegrass Bottoms",
-    "abbreviation": "BLUE",
-    "mascot": "Banjos",
-    "conference": "Biscuit Belt",
-    "color": "#5a1d7e",
+    "school": "Texas",
+    "abbreviation": "TEX",
+    "mascot": "Longhorns",
+    "conference": "SEC",
+    "color": "#bf5700",
     "altColor": "#ffffff",
     "logo": "/media/logo/100",
     "logoDark": "/media/logo/100?v=dark"
    },
    "homeAway": "away",
-   "venue": "The Banjos Den",
+   "venue": "The Longhorns Den",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -213,17 +213,17 @@ export const sample = {
    "date": "2026-10-31T04:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Front Porch State",
-    "abbreviation": "PORC",
-    "mascot": "Rockers",
-    "conference": "Biscuit Belt",
-    "color": "#8b1711",
-    "altColor": "#2be5ee",
+    "school": "Vanderbilt",
+    "abbreviation": "VAN",
+    "mascot": "Commodores",
+    "conference": "SEC",
+    "color": "#000000",
+    "altColor": "#cfae70",
     "logo": "/media/logo/1519",
     "logoDark": "/media/logo/1519?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -237,17 +237,17 @@ export const sample = {
    "date": "2026-11-14T05:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Bayou Bottom",
-    "abbreviation": "BAYB",
-    "mascot": "Crawdads",
-    "conference": "Biscuit Belt",
-    "color": "#9c4c1a",
-    "altColor": "#2ba3ee",
+    "school": "Mississippi State",
+    "abbreviation": "MSST",
+    "mascot": "Bulldogs",
+    "conference": "SEC",
+    "color": "#5d1725",
+    "altColor": "#c1c6c8",
     "logo": "/media/logo/445",
     "logoDark": "/media/logo/445?v=dark"
    },
    "homeAway": "away",
-   "venue": "Bayou Bottom Memorial Stadium",
+   "venue": "Mississippi State Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -261,17 +261,17 @@ export const sample = {
    "date": "2026-11-21T05:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Gravy Boat State",
-    "abbreviation": "GBS",
-    "mascot": "Ladles",
-    "conference": "Biscuit Belt",
-    "color": "#148122",
-    "altColor": "#f4d725",
+    "school": "Alabama",
+    "abbreviation": "ALA",
+    "mascot": "Crimson Tide",
+    "conference": "SEC",
+    "color": "#9e1b32",
+    "altColor": "#ffffff",
     "logo": "/media/logo/1819",
     "logoDark": "/media/logo/1819?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -285,12 +285,12 @@ export const sample = {
    "date": "2026-11-28T05:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Moonpie Mountain",
-    "abbreviation": "MOON",
-    "mascot": "Marshmallows",
-    "conference": "Biscuit Belt",
-    "color": "#a2981f",
-    "altColor": "#f4a625",
+    "school": "Tennessee",
+    "abbreviation": "TENN",
+    "mascot": "Volunteers",
+    "conference": "SEC",
+    "color": "#ff8200",
+    "altColor": "#ffffff",
     "logo": "/media/logo/1127",
     "logoDark": "/media/logo/1127?v=dark"
    },
@@ -309,17 +309,17 @@ export const sample = {
    "date": "2026-12-05T05:00:00.000Z",
    "startTimeTbd": true,
    "opponent": {
-    "school": "Possum Holler",
-    "abbreviation": "POSS",
-    "mascot": "Thunder Possums",
-    "conference": "Biscuit Belt",
-    "color": "#a10e26",
-    "altColor": "#f4b625",
+    "school": "Arkansas",
+    "abbreviation": "ARK",
+    "mascot": "Razorbacks",
+    "conference": "SEC",
+    "color": "#a32136",
+    "altColor": "#ffffff",
     "logo": "/media/logo/1229",
     "logoDark": "/media/logo/1229?v=dark"
    },
    "homeAway": "home",
-   "venue": "Swampwater Tech Memorial Stadium",
+   "venue": "Florida Memorial Stadium",
    "completed": false,
    "result": null,
    "usPoints": null,
@@ -335,80 +335,80 @@ export const sample = {
     {
      "rank": 1,
      "teamId": 1586,
-     "school": "Peach Fuzz Tech",
-     "conference": "Biscuit Belt",
+     "school": "Missouri",
+     "conference": "SEC",
      "firstPlaceVotes": 39,
      "points": 1576
     },
     {
      "rank": 2,
      "teamId": 964,
-     "school": "Seagull Shores",
-     "conference": "Atlantic Pickle",
+     "school": "Florida State",
+     "conference": "ACC",
      "firstPlaceVotes": 6,
      "points": 1468
     },
     {
      "rank": 3,
      "teamId": 1341,
-     "school": "Saddle Sore",
-     "conference": "Big Casserole",
+     "school": "West Virginia",
+     "conference": "Big 12",
      "firstPlaceVotes": 2,
      "points": 1366
     },
     {
      "rank": 4,
      "teamId": 445,
-     "school": "Bayou Bottom",
-     "conference": "Biscuit Belt",
+     "school": "Mississippi State",
+     "conference": "SEC",
      "firstPlaceVotes": 4,
      "points": 1350
     },
     {
      "rank": 5,
      "teamId": 2099,
-     "school": "Rust Belt",
-     "conference": "Gravy Ten",
+     "school": "UCLA",
+     "conference": "Big Ten",
      "firstPlaceVotes": 0,
      "points": 1196
     },
     {
      "rank": 6,
      "teamId": 932,
-     "school": "Swampwater Tech",
-     "conference": "Biscuit Belt",
+     "school": "Florida",
+     "conference": "SEC",
      "firstPlaceVotes": 0,
      "points": 1005
     },
     {
      "rank": 7,
      "teamId": 1228,
-     "school": "Jackrabbit Junction",
-     "conference": "Big Casserole",
+     "school": "Baylor",
+     "conference": "Big 12",
      "firstPlaceVotes": 0,
      "points": 1161
     },
     {
      "rank": 8,
      "teamId": 1812,
-     "school": "Crab Cake",
-     "conference": "Atlantic Pickle",
+     "school": "SMU",
+     "conference": "ACC",
      "firstPlaceVotes": 0,
      "points": 1080
     },
     {
      "rank": 9,
      "teamId": 83,
-     "school": "Ice Fishing State",
-     "conference": "Gravy Ten",
+     "school": "Ohio State",
+     "conference": "Big Ten",
      "firstPlaceVotes": 0,
      "points": 922
     },
     {
      "rank": 10,
      "teamId": 2329,
-     "school": "Boardwalk State",
-     "conference": "Atlantic Pickle",
+     "school": "Duke",
+     "conference": "ACC",
      "firstPlaceVotes": 0,
      "points": 904
     }
@@ -420,80 +420,80 @@ export const sample = {
     {
      "rank": 1,
      "teamId": 1586,
-     "school": "Peach Fuzz Tech",
-     "conference": "Biscuit Belt",
+     "school": "Missouri",
+     "conference": "SEC",
      "firstPlaceVotes": 50,
      "points": 1700
     },
     {
      "rank": 2,
      "teamId": 2099,
-     "school": "Rust Belt",
-     "conference": "Gravy Ten",
+     "school": "UCLA",
+     "conference": "Big Ten",
      "firstPlaceVotes": 4,
      "points": 1549
     },
     {
      "rank": 3,
      "teamId": 964,
-     "school": "Seagull Shores",
-     "conference": "Atlantic Pickle",
+     "school": "Florida State",
+     "conference": "ACC",
      "firstPlaceVotes": 7,
      "points": 1396
     },
     {
      "rank": 4,
      "teamId": 445,
-     "school": "Bayou Bottom",
-     "conference": "Biscuit Belt",
+     "school": "Mississippi State",
+     "conference": "SEC",
      "firstPlaceVotes": 2,
      "points": 1324
     },
     {
      "rank": 5,
      "teamId": 1341,
-     "school": "Saddle Sore",
-     "conference": "Big Casserole",
+     "school": "West Virginia",
+     "conference": "Big 12",
      "firstPlaceVotes": 0,
      "points": 1212
     },
     {
      "rank": 6,
      "teamId": 83,
-     "school": "Ice Fishing State",
-     "conference": "Gravy Ten",
+     "school": "Ohio State",
+     "conference": "Big Ten",
      "firstPlaceVotes": 0,
      "points": 1023
     },
     {
      "rank": 7,
      "teamId": 1228,
-     "school": "Jackrabbit Junction",
-     "conference": "Big Casserole",
+     "school": "Baylor",
+     "conference": "Big 12",
      "firstPlaceVotes": 0,
      "points": 1006
     },
     {
      "rank": 8,
      "teamId": 932,
-     "school": "Swampwater Tech",
-     "conference": "Biscuit Belt",
+     "school": "Florida",
+     "conference": "SEC",
      "firstPlaceVotes": 0,
      "points": 1087
     },
     {
      "rank": 9,
      "teamId": 1812,
-     "school": "Crab Cake",
-     "conference": "Atlantic Pickle",
+     "school": "SMU",
+     "conference": "ACC",
      "firstPlaceVotes": 0,
      "points": 1112
     },
     {
      "rank": 10,
      "teamId": 566,
-     "school": "Red Clay",
-     "conference": "Biscuit Belt",
+     "school": "Texas A&M",
+     "conference": "SEC",
      "firstPlaceVotes": 0,
      "points": 740
     }
@@ -501,8 +501,8 @@ export const sample = {
   }
  ],
  "profile": {
-  "team": "Swampwater Tech",
-  "conference": "Biscuit Belt",
+  "team": "Florida",
+  "conference": "SEC",
   "rows": [
    {
     "side": "offense",
@@ -590,9 +590,9 @@ export const sample = {
     "value": 2.0,
     "format": "1f",
     "higherIsBetter": false,
-    "nationalRank": 120,
+    "nationalRank": 109,
     "nationalOf": 136,
-    "conferenceRank": 15,
+    "conferenceRank": 14,
     "conferenceOf": 16
    },
    {
@@ -655,9 +655,9 @@ export const sample = {
     "value": 0.312,
     "format": "pct",
     "higherIsBetter": false,
-    "nationalRank": 65,
+    "nationalRank": 62,
     "nationalOf": 136,
-    "conferenceRank": 12,
+    "conferenceRank": 11,
     "conferenceOf": 16
    },
    {
@@ -668,7 +668,7 @@ export const sample = {
     "value": 1.5,
     "format": "1f",
     "higherIsBetter": true,
-    "nationalRank": 113,
+    "nationalRank": 109,
     "nationalOf": 136,
     "conferenceRank": 14,
     "conferenceOf": 16
@@ -681,9 +681,9 @@ export const sample = {
     "value": 1.0,
     "format": "1f",
     "higherIsBetter": true,
-    "nationalRank": 112,
+    "nationalRank": 98,
     "nationalOf": 136,
-    "conferenceRank": 14,
+    "conferenceRank": 13,
     "conferenceOf": 16
    },
    {
@@ -694,7 +694,7 @@ export const sample = {
     "value": -2.0,
     "format": "+0f",
     "higherIsBetter": true,
-    "nationalRank": 122,
+    "nationalRank": 116,
     "nationalOf": 136,
     "conferenceRank": 15,
     "conferenceOf": 16
@@ -707,17 +707,17 @@ export const sample = {
     "value": 50.0,
     "format": "0f",
     "higherIsBetter": false,
-    "nationalRank": 82,
+    "nationalRank": 79,
     "nationalOf": 136,
-    "conferenceRank": 9,
+    "conferenceRank": 8,
     "conferenceOf": 16
    }
   ]
  },
  "profiles": {
-  "Swampwater Tech": {
-   "team": "Swampwater Tech",
-   "conference": "Biscuit Belt",
+  "Florida": {
+   "team": "Florida",
+   "conference": "SEC",
    "rows": [
     {
      "side": "offense",
@@ -805,9 +805,9 @@ export const sample = {
      "value": 2.0,
      "format": "1f",
      "higherIsBetter": false,
-     "nationalRank": 120,
+     "nationalRank": 109,
      "nationalOf": 136,
-     "conferenceRank": 15,
+     "conferenceRank": 14,
      "conferenceOf": 16
     },
     {
@@ -870,9 +870,9 @@ export const sample = {
      "value": 0.312,
      "format": "pct",
      "higherIsBetter": false,
-     "nationalRank": 65,
+     "nationalRank": 62,
      "nationalOf": 136,
-     "conferenceRank": 12,
+     "conferenceRank": 11,
      "conferenceOf": 16
     },
     {
@@ -883,7 +883,7 @@ export const sample = {
      "value": 1.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 113,
+     "nationalRank": 109,
      "nationalOf": 136,
      "conferenceRank": 14,
      "conferenceOf": 16
@@ -896,9 +896,9 @@ export const sample = {
      "value": 1.0,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 112,
+     "nationalRank": 98,
      "nationalOf": 136,
-     "conferenceRank": 14,
+     "conferenceRank": 13,
      "conferenceOf": 16
     },
     {
@@ -909,7 +909,7 @@ export const sample = {
      "value": -2.0,
      "format": "+0f",
      "higherIsBetter": true,
-     "nationalRank": 122,
+     "nationalRank": 116,
      "nationalOf": 136,
      "conferenceRank": 15,
      "conferenceOf": 16
@@ -922,16 +922,16 @@ export const sample = {
      "value": 50.0,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 82,
+     "nationalRank": 79,
      "nationalOf": 136,
-     "conferenceRank": 9,
+     "conferenceRank": 8,
      "conferenceOf": 16
     }
    ]
   },
-  "Diner Tech": {
-   "team": "Diner Tech",
-   "conference": "Pancake Athletic",
+  "Texas State": {
+   "team": "Texas State",
+   "conference": "Pac-12",
    "rows": [
     {
      "side": "offense",
@@ -993,7 +993,7 @@ export const sample = {
      "value": 0.333,
      "format": "pct",
      "higherIsBetter": true,
-     "nationalRank": 60,
+     "nationalRank": 63,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1006,7 +1006,7 @@ export const sample = {
      "value": 22.0,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 87,
+     "nationalRank": 90,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1019,7 +1019,7 @@ export const sample = {
      "value": 1.0,
      "format": "1f",
      "higherIsBetter": false,
-     "nationalRank": 42,
+     "nationalRank": 62,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1045,7 +1045,7 @@ export const sample = {
      "value": 367.5,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 31,
+     "nationalRank": 32,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1097,7 +1097,7 @@ export const sample = {
      "value": 1.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 107,
+     "nationalRank": 112,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1110,7 +1110,7 @@ export const sample = {
      "value": 2.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 25,
+     "nationalRank": 33,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1123,7 +1123,7 @@ export const sample = {
      "value": 3.0,
      "format": "+0f",
      "higherIsBetter": true,
-     "nationalRank": 22,
+     "nationalRank": 31,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1136,7 +1136,7 @@ export const sample = {
      "value": 32.0,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 29,
+     "nationalRank": 30,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -1204,61 +1204,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Mitchell Stewart",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "QB",
      "value": 1128.0
     },
     {
      "player": "Brian Nichols",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "QB",
      "value": 1093.0
     },
     {
      "player": "Jordan Ford",
-     "team": "Peach Fuzz Tech",
+     "team": "Missouri",
      "position": "QB",
      "value": 1014.0
     },
     {
      "player": "Dale Hughes",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "QB",
      "value": 928.0
     },
     {
      "player": "Victor Watson",
-     "team": "Bayou Bottom",
+     "team": "Mississippi State",
      "position": "QB",
      "value": 835.0
     },
     {
      "player": "Derek Hunt",
-     "team": "Red Clay",
+     "team": "Texas A&M",
      "position": "QB",
      "value": 749.0
     },
     {
      "player": "Cameron Phillips",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "QB",
      "value": 748.0
     },
     {
      "player": "Hudson Simpson",
-     "team": "Front Porch State",
+     "team": "Vanderbilt",
      "position": "QB",
      "value": 747.0
     },
     {
      "player": "Keegan Crawford",
-     "team": "Swampwater Tech",
+     "team": "Florida",
      "position": "QB",
      "value": 706.0
     },
     {
      "player": "Darius Ramirez",
-     "team": "Lower Kudzu",
+     "team": "South Carolina",
      "position": "QB",
      "value": 614.0
     }
@@ -1266,61 +1266,61 @@ export const sample = {
    "nationalTop": [
     {
      "player": "Troy Palmer",
-     "team": "Jackrabbit Junction",
+     "team": "Baylor",
      "position": "QB",
      "value": 1378.0
     },
     {
      "player": "Dante Weaver",
-     "team": "Brackish Bay",
+     "team": "South Alabama",
      "position": "QB",
      "value": 1155.0
     },
     {
      "player": "Jayden Green",
-     "team": "Nugget Gulch",
+     "team": "North Dakota State",
      "position": "QB",
      "value": 1150.0
     },
     {
      "player": "Mitchell Stewart",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "QB",
      "value": 1128.0
     },
     {
      "player": "Mario Mills",
-     "team": "Hayloft",
+     "team": "Purdue",
      "position": "QB",
      "value": 1115.0
     },
     {
      "player": "Jonah Simpson",
-     "team": "Short Stack Tech",
+     "team": "Colorado State",
      "position": "QB",
      "value": 1098.0
     },
     {
      "player": "Brian Nichols",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "QB",
      "value": 1093.0
     },
     {
      "player": "Josh Riley",
-     "team": "Avalanche Valley",
+     "team": "Air Force",
      "position": "QB",
      "value": 1067.0
     },
     {
      "player": "Riley Mason",
-     "team": "Cranberry Bog",
+     "team": "Georgia Tech",
      "position": "QB",
      "value": 1029.0
     },
     {
      "player": "Dominic West",
-     "team": "Coffee Pot State",
+     "team": "Washington State",
      "position": "QB",
      "value": 1023.0
     }
@@ -1415,61 +1415,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Peyton Wheeler",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "RB",
      "value": 257.0
     },
     {
      "player": "Cooper Nichols",
-     "team": "Swampwater Tech",
+     "team": "Florida",
      "position": "RB",
      "value": 244.0
     },
     {
      "player": "Malik Reed",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "RB",
      "value": 243.0
     },
     {
      "player": "Aaron Mills",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "RB",
      "value": 231.0
     },
     {
      "player": "Peyton Moore",
-     "team": "Moonpie Mountain",
+     "team": "Tennessee",
      "position": "RB",
      "value": 229.0
     },
     {
      "player": "Terrell Gray",
-     "team": "Peach Fuzz Tech",
+     "team": "Missouri",
      "position": "RB",
      "value": 164.0
     },
     {
      "player": "Landon Patterson",
-     "team": "Okra Valley",
+     "team": "Georgia",
      "position": "RB",
      "value": 150.0
     },
     {
      "player": "Andrew Ray",
-     "team": "Red Clay",
+     "team": "Texas A&M",
      "position": "RB",
      "value": 142.0
     },
     {
      "player": "Jalen Patterson",
-     "team": "Bayou Bottom",
+     "team": "Mississippi State",
      "position": "RB",
      "value": 139.0
     },
     {
      "player": "Javon Hart",
-     "team": "Swampwater Tech",
+     "team": "Florida",
      "position": "RB",
      "value": 134.0
     }
@@ -1565,61 +1565,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Jack Watson",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "WR",
      "value": 331.0
     },
     {
      "player": "Aiden Ramirez",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "WR",
      "value": 329.0
     },
     {
      "player": "Dillon Nelson",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "WR",
      "value": 302.0
     },
     {
      "player": "Jared Ferguson",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "WR",
      "value": 290.0
     },
     {
      "player": "Nathan Parker",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "WR",
      "value": 261.0
     },
     {
      "player": "Jaden Tucker",
-     "team": "Front Porch State",
+     "team": "Vanderbilt",
      "position": "TE",
      "value": 238.0
     },
     {
      "player": "Isaiah Fields",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "WR",
      "value": 236.0
     },
     {
      "player": "James Adams",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "WR",
      "value": 220.0
     },
     {
      "player": "Paul Taylor",
-     "team": "Peach Fuzz Tech",
+     "team": "Missouri",
      "position": "WR",
      "value": 200.0
     },
     {
      "player": "Matt Jenkins",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "WR",
      "value": 195.0
     }
@@ -1725,61 +1725,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Will Perry",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "LB",
      "value": 46.0
     },
     {
      "player": "Daniel Cox",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "LB",
      "value": 40.0
     },
     {
      "player": "Brian Adams",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "LB",
      "value": 40.0
     },
     {
      "player": "Damon Stephens",
-     "team": "Catfish Bend",
+     "team": "Auburn",
      "position": "LB",
      "value": 33.0
     },
     {
      "player": "Brady Lowe",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "LB",
      "value": 29.0
     },
     {
      "player": "Jared Harper",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "LB",
      "value": 29.0
     },
     {
      "player": "Bailey Stephens",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "LB",
      "value": 29.0
     },
     {
      "player": "Quinn Bryant",
-     "team": "Hushpuppy State",
+     "team": "LSU",
      "position": "LB",
      "value": 28.0
     },
     {
      "player": "Keith Hart",
-     "team": "Gravy Boat State",
+     "team": "Alabama",
      "position": "LB",
      "value": 28.0
     },
     {
      "player": "Joseph Tucker",
-     "team": "Okra Valley",
+     "team": "Georgia",
      "position": "LB",
      "value": 27.0
     }
@@ -1885,61 +1885,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Adrian Douglas",
-     "team": "Red Clay",
+     "team": "Texas A&M",
      "position": "DL",
      "value": 4.0
     },
     {
      "player": "Julian Baker",
-     "team": "Gravy Boat State",
+     "team": "Alabama",
      "position": "DL",
      "value": 4.0
     },
     {
      "player": "Logan Hall",
-     "team": "Lower Kudzu",
+     "team": "South Carolina",
      "position": "LB",
      "value": 4.0
     },
     {
      "player": "David Gardner",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "DL",
      "value": 2.5
     },
     {
      "player": "Jared Harper",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "LB",
      "value": 2.5
     },
     {
      "player": "Caleb Mills",
-     "team": "Moonpie Mountain",
+     "team": "Tennessee",
      "position": "DL",
      "value": 2.5
     },
     {
      "player": "Nate White",
-     "team": "Peach Fuzz Tech",
+     "team": "Missouri",
      "position": "DL",
      "value": 2.5
     },
     {
      "player": "Brock West",
-     "team": "Peach Fuzz Tech",
+     "team": "Missouri",
      "position": "LB",
      "value": 2.5
     },
     {
      "player": "Noah Sanders",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "DL",
      "value": 2.5
     },
     {
      "player": "Grant Price",
-     "team": "Bayou Bottom",
+     "team": "Mississippi State",
      "position": "LB",
      "value": 2.0
     }
@@ -1970,61 +1970,61 @@ export const sample = {
    "conferenceTop": [
     {
      "player": "Travis Mitchell",
-     "team": "Bayou Bottom",
+     "team": "Mississippi State",
      "position": "CB",
      "value": 3.0
     },
     {
      "player": "Justin Taylor",
-     "team": "Hushpuppy State",
+     "team": "LSU",
      "position": "S",
      "value": 3.0
     },
     {
      "player": "Brian Stephens",
-     "team": "Bluegrass Bottoms",
+     "team": "Texas",
      "position": "S",
      "value": 2.0
     },
     {
      "player": "Evan Cox",
-     "team": "Grits Junction",
+     "team": "Oklahoma",
      "position": "S",
      "value": 2.0
     },
     {
      "player": "Lucas Anderson",
-     "team": "Bayou Bottom",
+     "team": "Mississippi State",
      "position": "LB",
      "value": 1.0
     },
     {
      "player": "Mario Carter",
-     "team": "Red Clay",
+     "team": "Texas A&M",
      "position": "S",
      "value": 1.0
     },
     {
      "player": "Cole Kelly",
-     "team": "Sweet Tea State",
+     "team": "Ole Miss",
      "position": "CB",
      "value": 1.0
     },
     {
      "player": "Jonah Daniels",
-     "team": "Swampwater Tech",
+     "team": "Florida",
      "position": "CB",
      "value": 1.0
     },
     {
      "player": "Bailey Stephens",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "LB",
      "value": 1.0
     },
     {
      "player": "Wes Mason",
-     "team": "Possum Holler",
+     "team": "Arkansas",
      "position": "S",
      "value": 1.0
     }
@@ -2038,23 +2038,23 @@ export const sample = {
   "date": "2026-09-12T23:00:00.000Z",
   "venue": "Kennedy Field",
   "home": {
-   "school": "Silver Dollar",
-   "abbreviation": "GRID",
-   "mascot": "Griddles",
-   "conference": "Pancake Athletic",
-   "color": "#1b3b7b",
-   "altColor": "#f4bb25",
+   "school": "Fresno State",
+   "abbreviation": "FRES",
+   "mascot": "Bulldogs",
+   "conference": "Pac-12",
+   "color": "#c41230",
+   "altColor": "#13284c",
    "logo": "/media/logo/2532",
    "logoDark": "/media/logo/2532?v=dark",
    "points": 27
   },
   "away": {
-   "school": "Swampwater Tech",
-   "abbreviation": "SWT",
-   "mascot": "Mudpuppies",
-   "conference": "Biscuit Belt",
-   "color": "#00838f",
-   "altColor": "#f2b705",
+   "school": "Florida",
+   "abbreviation": "FLA",
+   "mascot": "Gators",
+   "conference": "SEC",
+   "color": "#0021a5",
+   "altColor": "#fa4616",
    "logo": "/media/logo/932",
    "logoDark": "/media/logo/932?v=dark",
    "points": 35
@@ -2075,8 +2075,8 @@ export const sample = {
    ]
   },
   "box": {
-   "Silver Dollar": {
-    "team": "Silver Dollar",
+   "Fresno State": {
+    "team": "Fresno State",
     "homeAway": "home",
     "points": 27,
     "totalYards": 400.0,
@@ -2150,8 +2150,8 @@ export const sample = {
      "trips": 2
     }
    },
-   "Swampwater Tech": {
-    "team": "Swampwater Tech",
+   "Florida": {
+    "team": "Florida",
     "homeAway": "away",
     "points": 35,
     "totalYards": 549.0,
@@ -2224,7 +2224,7 @@ export const sample = {
    }
   },
   "playerStats": {
-   "Silver Dollar": {
+   "Fresno State": {
     "passing": [
      {
       "playerId": "5046818",
@@ -2647,7 +2647,7 @@ export const sample = {
      }
     ]
    },
-   "Swampwater Tech": {
+   "Florida": {
     "passing": [
      {
       "playerId": "4599360",
@@ -3022,7 +3022,7 @@ export const sample = {
    {
     "id": "5260006001",
     "number": 1,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 74,
     "endYardsToGoal": 0,
     "plays": 12,
@@ -3047,7 +3047,7 @@ export const sample = {
    {
     "id": "5260006002",
     "number": 2,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 75,
     "plays": 6,
@@ -3072,7 +3072,7 @@ export const sample = {
    {
     "id": "5260006003",
     "number": 3,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 66,
     "endYardsToGoal": 62,
     "plays": 4,
@@ -3097,7 +3097,7 @@ export const sample = {
    {
     "id": "5260006004",
     "number": 4,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 80,
     "endYardsToGoal": 78,
     "plays": 4,
@@ -3122,7 +3122,7 @@ export const sample = {
    {
     "id": "5260006005",
     "number": 5,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 61,
     "endYardsToGoal": 0,
     "plays": 8,
@@ -3147,7 +3147,7 @@ export const sample = {
    {
     "id": "5260006006",
     "number": 6,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 28,
     "plays": 11,
@@ -3172,7 +3172,7 @@ export const sample = {
    {
     "id": "5260006007",
     "number": 7,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 0,
     "plays": 11,
@@ -3197,7 +3197,7 @@ export const sample = {
    {
     "id": "5260006008",
     "number": 8,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 36,
     "plays": 6,
@@ -3222,7 +3222,7 @@ export const sample = {
    {
     "id": "5260006009",
     "number": 9,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 64,
     "endYardsToGoal": 41,
     "plays": 2,
@@ -3247,7 +3247,7 @@ export const sample = {
    {
     "id": "52600060010",
     "number": 10,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 59,
     "endYardsToGoal": 0,
     "plays": 2,
@@ -3272,7 +3272,7 @@ export const sample = {
    {
     "id": "52600060011",
     "number": 11,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 70,
     "plays": 5,
@@ -3297,7 +3297,7 @@ export const sample = {
    {
     "id": "52600060012",
     "number": 12,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 52,
     "endYardsToGoal": 16,
     "plays": 10,
@@ -3322,7 +3322,7 @@ export const sample = {
    {
     "id": "52600060013",
     "number": 13,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 59,
     "plays": 8,
@@ -3347,7 +3347,7 @@ export const sample = {
    {
     "id": "52600060014",
     "number": 14,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 81,
     "endYardsToGoal": 71,
     "plays": 5,
@@ -3372,7 +3372,7 @@ export const sample = {
    {
     "id": "52600060015",
     "number": 15,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 72,
     "endYardsToGoal": 72,
     "plays": 2,
@@ -3397,7 +3397,7 @@ export const sample = {
    {
     "id": "52600060016",
     "number": 16,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 28,
     "endYardsToGoal": 18,
     "plays": 2,
@@ -3422,7 +3422,7 @@ export const sample = {
    {
     "id": "52600060017",
     "number": 17,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 74,
     "plays": 5,
@@ -3447,7 +3447,7 @@ export const sample = {
    {
     "id": "52600060018",
     "number": 18,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 70,
     "endYardsToGoal": 30,
     "plays": 7,
@@ -3472,7 +3472,7 @@ export const sample = {
    {
     "id": "52600060019",
     "number": 19,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 70,
     "endYardsToGoal": 64,
     "plays": 4,
@@ -3497,7 +3497,7 @@ export const sample = {
    {
     "id": "52600060020",
     "number": 20,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 80,
     "endYardsToGoal": 0,
     "plays": 8,
@@ -3522,7 +3522,7 @@ export const sample = {
    {
     "id": "52600060021",
     "number": 21,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 100,
     "endYardsToGoal": 95,
     "plays": 5,
@@ -3547,7 +3547,7 @@ export const sample = {
    {
     "id": "52600060022",
     "number": 22,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 45,
     "endYardsToGoal": 0,
     "plays": 5,
@@ -3572,7 +3572,7 @@ export const sample = {
    {
     "id": "52600060023",
     "number": 23,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 0,
     "plays": 8,
@@ -3597,7 +3597,7 @@ export const sample = {
    {
     "id": "52600060024",
     "number": 24,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 9,
     "plays": 8,
@@ -3622,7 +3622,7 @@ export const sample = {
    {
     "id": "52600060025",
     "number": 25,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 91,
     "endYardsToGoal": 69,
     "plays": 6,
@@ -3647,7 +3647,7 @@ export const sample = {
    {
     "id": "52600060026",
     "number": 26,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 46,
     "plays": 7,
@@ -3672,7 +3672,7 @@ export const sample = {
    {
     "id": "52600060027",
     "number": 27,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 89,
     "endYardsToGoal": 89,
     "plays": 5,
@@ -3697,7 +3697,7 @@ export const sample = {
    {
     "id": "52600060028",
     "number": 28,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 65,
     "endYardsToGoal": 45,
     "plays": 8,
@@ -3722,7 +3722,7 @@ export const sample = {
    {
     "id": "52600060029",
     "number": 29,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 89,
     "endYardsToGoal": 84,
     "plays": 4,
@@ -3747,7 +3747,7 @@ export const sample = {
    {
     "id": "52600060030",
     "number": 30,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 16,
     "endYardsToGoal": 8,
     "plays": 1,
@@ -3772,7 +3772,7 @@ export const sample = {
    {
     "id": "52600060031",
     "number": 31,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 92,
     "endYardsToGoal": 0,
     "plays": 5,
@@ -3797,7 +3797,7 @@ export const sample = {
    {
     "id": "52600060032",
     "number": 32,
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "startYardsToGoal": 75,
     "endYardsToGoal": 49,
     "plays": 6,
@@ -3822,7 +3822,7 @@ export const sample = {
    {
     "id": "52600060033",
     "number": 33,
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "startYardsToGoal": 75,
     "endYardsToGoal": 60,
     "plays": 2,
@@ -3854,7 +3854,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 0,
@@ -3876,7 +3876,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 0,
@@ -3898,13 +3898,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 18
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 63,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(00:18) No Huddle #15 R.Morgan rush middle for 3 yards gain to the GRID40 (#28 T.Barnes)",
+    "text": "(00:18) No Huddle #15 R.Morgan rush middle for 3 yards gain to the FRES40 (#28 T.Barnes)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -3920,13 +3920,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 43
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 12,
     "playType": "Pass Reception",
-    "text": "(00:43) No Huddle #12 M.Hart pass complete short right to #40 B.Mason caught at GRID35, for 12 yards to the GRID37 (#42 M.Duncan), 1ST DOWN",
+    "text": "(00:43) No Huddle #12 M.Hart pass complete short right to #40 B.Mason caught at FRES35, for 12 yards to the FRES37 (#42 M.Duncan), 1ST DOWN",
     "scoring": false,
     "ppa": 0.72,
     "success": true,
@@ -3942,13 +3942,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 52
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 49,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(00:52) #20 N.Ramirez punt 34 yards to the GRID15 #1 A.Tucker return 10 yards to the GRID25 (#39 M.Fields)",
+    "text": "(00:52) #20 N.Ramirez punt 34 yards to the FRES15 #1 A.Tucker return 10 yards to the FRES25 (#39 M.Fields)",
     "scoring": false,
     "ppa": -1.28,
     "success": null,
@@ -3964,13 +3964,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 32
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 3,
     "yardsToGoal": 48,
     "yardsGained": -1,
     "playType": "Rush",
-    "text": "(01:32) #19 K.Crawford rush middle for 1 yard loss to the GRID49 (kneel)",
+    "text": "(01:32) #19 K.Crawford rush middle for 1 yard loss to the FRES49 (kneel)",
     "scoring": false,
     "ppa": -0.9,
     "success": false,
@@ -3986,13 +3986,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 8
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 55,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(02:08) Shotgun #19 K.Crawford rush left for 7 yards gain to the GRID48 (#4 H.Dawson)",
+    "text": "(02:08) Shotgun #19 K.Crawford rush left for 7 yards gain to the FRES48 (#4 H.Dawson)",
     "scoring": false,
     "ppa": -0.01,
     "success": true,
@@ -4008,13 +4008,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 37
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 55,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(02:37) No Huddle #31 J.Hart rush right end for no gain to the SWT45 (#57 C.West)",
+    "text": "(02:37) No Huddle #31 J.Hart rush right end for no gain to the FLA45 (#57 C.West)",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4030,13 +4030,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 14
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 20,
     "playType": "Rush",
-    "text": "(03:14) Shotgun #29 C.Nichols rush middle for 20 yards gain to the SWT45 (#49 N.Bennett), 1ST DOWN",
+    "text": "(03:14) Shotgun #29 C.Nichols rush middle for 20 yards gain to the FLA45 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 1.2,
     "success": true,
@@ -4054,13 +4054,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 14
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(03:14) #28 C.Murphy kickoff 59 yards to the SWT06, Touchback",
+    "text": "(03:14) #28 C.Murphy kickoff 59 yards to the FLA06, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -4076,13 +4076,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 22
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 8,
     "yardsToGoal": 8,
     "yardsGained": 8,
     "playType": "Passing Touchdown",
-    "text": "(03:22) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at SWT01, for 8 yards to the SWT00 TOUCHDOWN, clock 03:22 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
+    "text": "(03:22) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at FLA01, for 8 yards to the FLA00 TOUCHDOWN, clock 03:22 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
     "scoring": true,
     "ppa": 1.67,
     "success": true,
@@ -4100,13 +4100,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 49
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 67,
     "yardsGained": 59,
     "playType": "Pass Reception",
-    "text": "(03:49) Shotgun #12 M.Hart pass complete deep left to #40 B.Mason caught at SWT13, for 59 yards to the SWT08 (#32 J.Daniels, #42 M.Duncan), 1ST DOWN",
+    "text": "(03:49) Shotgun #12 M.Hart pass complete deep left to #40 B.Mason caught at FLA13, for 59 yards to the FLA08 (#32 J.Daniels, #42 M.Duncan), 1ST DOWN",
     "scoring": false,
     "ppa": 4.75,
     "success": true,
@@ -4124,13 +4124,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 53
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 67,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(03:53) Shotgun #12 M.Hart pass incomplete short left to #11 G.Owens thrown to GRID30",
+    "text": "(03:53) Shotgun #12 M.Hart pass incomplete short left to #11 G.Owens thrown to FRES30",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4146,13 +4146,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 53
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 82,
     "yardsGained": 15,
     "playType": "Penalty",
-    "text": "(03:53) PENALTY SWT Pass Interference 15 yards from GRID18 to GRID33, 1ST DOWN. NO PLAY",
+    "text": "(03:53) PENALTY FLA Pass Interference 15 yards from FRES18 to FRES33, 1ST DOWN. NO PLAY",
     "scoring": false,
     "ppa": 1.04,
     "success": null,
@@ -4170,13 +4170,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 21
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 92,
     "yardsGained": 10,
     "playType": "Pass Reception",
-    "text": "(04:21) No Huddle-Shotgun #12 M.Hart pass complete short right to #40 B.Mason caught at GRID16, for 10 yards to the GRID18 (#27 T.Gardner), 1ST DOWN",
+    "text": "(04:21) No Huddle-Shotgun #12 M.Hart pass complete short right to #40 B.Mason caught at FRES16, for 10 yards to the FRES18 (#27 T.Gardner), 1ST DOWN",
     "scoring": false,
     "ppa": 0.796,
     "success": true,
@@ -4192,13 +4192,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 28
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 16,
     "yardsGained": 0,
     "playType": "Pass Interception Return",
-    "text": "(04:28) Shotgun #19 K.Crawford pass intercepted by #7 J.Bryant at GRID07 #7 J.Bryant return 1 yard to the GRID08 (#5 L.Griffin)",
+    "text": "(04:28) Shotgun #19 K.Crawford pass intercepted by #7 J.Bryant at FRES07 #7 J.Bryant return 1 yard to the FRES08 (#5 L.Griffin)",
     "scoring": false,
     "ppa": -3.864,
     "success": false,
@@ -4216,13 +4216,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 35
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 5,
     "yardsToGoal": 84,
     "yardsGained": 0,
     "playType": "Pass Reception",
-    "text": "(04:35) No Huddle-Shotgun #12 M.Hart pass complete short right to #11 G.Owens caught at GRID14, for 0 yards to the GRID16 (#19 C.Cook)",
+    "text": "(04:35) No Huddle-Shotgun #12 M.Hart pass complete short right to #11 G.Owens caught at FRES14, for 0 yards to the FRES16 (#19 C.Cook)",
     "scoring": false,
     "ppa": -2.5,
     "success": false,
@@ -4240,13 +4240,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 4
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 6,
     "yardsToGoal": 85,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(05:04) No Huddle #12 M.Hart rush left end for 1 yard gain to the GRID16 (#27 T.Gardner)",
+    "text": "(05:04) No Huddle #12 M.Hart rush left end for 1 yard gain to the FRES16 (#27 T.Gardner)",
     "scoring": false,
     "ppa": -0.66,
     "success": false,
@@ -4262,13 +4262,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 32
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 6,
     "yardsToGoal": 85,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(05:32) Shotgun #15 R.Morgan rush right end for no gain to the GRID15 (#19 C.Cook)",
+    "text": "(05:32) Shotgun #15 R.Morgan rush right end for no gain to the FRES15 (#19 C.Cook)",
     "scoring": false,
     "ppa": -0.73,
     "success": false,
@@ -4284,13 +4284,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 40
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 89,
     "yardsGained": 4,
     "playType": "Pass Reception",
-    "text": "(05:40) Shotgun #12 M.Hart pass complete short left to #40 B.Mason caught at GRID14, for 4 yards to the GRID15 (#27 T.Gardner)",
+    "text": "(05:40) Shotgun #12 M.Hart pass complete short left to #40 B.Mason caught at FRES14, for 4 yards to the FRES15 (#27 T.Gardner)",
     "scoring": false,
     "ppa": -0.21,
     "success": false,
@@ -4306,13 +4306,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 49
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 45,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(05:49) #20 N.Ramirez punt 41 yards to the GRID04 #1 A.Tucker return 7 yards to the GRID11 (#19 C.Cook, #32 J.Daniels)",
+    "text": "(05:49) #20 N.Ramirez punt 41 yards to the FRES04 #1 A.Tucker return 7 yards to the FRES11 (#19 C.Cook, #32 J.Daniels)",
     "scoring": false,
     "ppa": -0.4,
     "success": null,
@@ -4328,13 +4328,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 58
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 20,
     "yardsToGoal": 49,
     "yardsGained": 4,
     "playType": "Pass Reception",
-    "text": "(05:58) #19 K.Crawford pass complete short left to #29 C.Nichols caught at GRID45, for 4 yards to the GRID45 (#2 C.Rice)",
+    "text": "(05:58) #19 K.Crawford pass complete short left to #29 C.Nichols caught at FRES45, for 4 yards to the FRES45 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.54,
     "success": false,
@@ -4350,13 +4350,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 4
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 20,
     "yardsToGoal": 49,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(06:04) No Huddle-Shotgun #19 K.Crawford pass incomplete short right to #5 L.Griffin thrown to GRID38",
+    "text": "(06:04) No Huddle-Shotgun #19 K.Crawford pass incomplete short right to #5 L.Griffin thrown to FRES38",
     "scoring": false,
     "ppa": -1.15,
     "success": false,
@@ -4372,13 +4372,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 11
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 20,
     "yardsToGoal": 49,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(06:11) No Huddle-Shotgun #19 K.Crawford pass incomplete short left to #87 B.Washington thrown to GRID40, broken up by #23 N.Jones",
+    "text": "(06:11) No Huddle-Shotgun #19 K.Crawford pass incomplete short left to #87 B.Washington thrown to FRES40, broken up by #23 N.Jones",
     "scoring": false,
     "ppa": -0.75,
     "success": false,
@@ -4394,13 +4394,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 11
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 39,
     "yardsGained": -10,
     "playType": "Penalty",
-    "text": "(06:11) PENALTY SWT Holding 10 yards from GRID39 to GRID49. NO PLAY",
+    "text": "(06:11) PENALTY FLA Holding 10 yards from FRES39 to FRES49. NO PLAY",
     "scoring": false,
     "ppa": -0.8,
     "success": null,
@@ -4416,13 +4416,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 45
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 2,
     "yardsToGoal": 57,
     "yardsGained": 18,
     "playType": "Pass Reception",
-    "text": "(06:45) #19 K.Crawford pass complete short middle to #5 L.Griffin caught at GRID47, for 18 yards to the GRID39 (#49 N.Bennett), 1ST DOWN",
+    "text": "(06:45) #19 K.Crawford pass complete short middle to #5 L.Griffin caught at FRES47, for 18 yards to the FRES39 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 2.1,
     "success": true,
@@ -4438,13 +4438,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 13
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 65,
     "yardsGained": 8,
     "playType": "Rush",
-    "text": "(07:13) No Huddle-Shotgun #31 J.Hart rush left for 8 yards gain to the SWT43 (#23 N.Jones)",
+    "text": "(07:13) No Huddle-Shotgun #31 J.Hart rush left for 8 yards gain to the FLA43 (#23 N.Jones)",
     "scoring": false,
     "ppa": 0.11,
     "success": true,
@@ -4460,13 +4460,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 17
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(07:17) #19 K.Crawford pass incomplete short middle to #29 C.Nichols thrown to SWT49",
+    "text": "(07:17) #19 K.Crawford pass incomplete short middle to #29 C.Nichols thrown to FLA49",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4482,13 +4482,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 25
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 89,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(07:25) #25 C.Thompson punt 54 yards to the SWT35 fair catch by #10 T.Watkins at SWT35",
+    "text": "(07:25) #25 C.Thompson punt 54 yards to the FLA35 fair catch by #10 T.Watkins at FLA35",
     "scoring": false,
     "ppa": 0.8,
     "success": null,
@@ -4504,13 +4504,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 32
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 10,
     "yardsToGoal": 89,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(07:32) No Huddle #12 M.Hart pass incomplete short right to #11 G.Owens thrown to GRID11",
+    "text": "(07:32) No Huddle #12 M.Hart pass incomplete short right to #11 G.Owens thrown to FRES11",
     "scoring": false,
     "ppa": -0.9,
     "success": false,
@@ -4526,13 +4526,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 15,
     "yardsToGoal": 94,
     "yardsGained": 5,
     "playType": "Pass Reception",
-    "text": "(08:00) Shotgun #12 M.Hart pass complete short right to #88 G.Phillips caught at GRID10, for 5 yards to the GRID11 (#58 P.Duncan)",
+    "text": "(08:00) Shotgun #12 M.Hart pass complete short right to #88 G.Phillips caught at FRES10, for 5 yards to the FRES11 (#58 P.Duncan)",
     "scoring": false,
     "ppa": -0.309,
     "success": false,
@@ -4548,13 +4548,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 89,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(08:00) PENALTY GRID Holding 5 yards from GRID11 to GRID06. NO PLAY",
+    "text": "(08:00) PENALTY FRES Holding 5 yards from FRES11 to FRES06. NO PLAY",
     "scoring": false,
     "ppa": -0.541,
     "success": null,
@@ -4570,13 +4570,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 6
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 89,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(08:06) #12 M.Hart pass incomplete short right to #11 G.Owens thrown to GRID21",
+    "text": "(08:06) #12 M.Hart pass incomplete short right to #11 G.Owens thrown to FRES21",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4592,13 +4592,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 12
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 46,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(08:12) #20 N.Ramirez punt 35 yards to the GRID11 fair catch by #1 A.Tucker at GRID11",
+    "text": "(08:12) #20 N.Ramirez punt 35 yards to the FRES11 fair catch by #1 A.Tucker at FRES11",
     "scoring": false,
     "ppa": -0.34,
     "success": null,
@@ -4614,13 +4614,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 46
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 47,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(08:46) Shotgun #29 C.Nichols rush right end for 1 yard gain to the GRID46 (#62 G.Little)",
+    "text": "(08:46) Shotgun #29 C.Nichols rush right end for 1 yard gain to the FRES46 (#62 G.Little)",
     "scoring": false,
     "ppa": -0.72,
     "success": false,
@@ -4636,13 +4636,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 26
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 49,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(09:26) Shotgun #31 J.Hart rush middle for 2 yards gain to the GRID47 (#2 C.Rice)",
+    "text": "(09:26) Shotgun #31 J.Hart rush middle for 2 yards gain to the FRES47 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.61,
     "success": false,
@@ -4658,13 +4658,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 49,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(10:00) No Huddle #29 C.Nichols rush right end for no gain to the GRID49 (#23 N.Jones)",
+    "text": "(10:00) No Huddle #29 C.Nichols rush right end for no gain to the FRES49 (#23 N.Jones)",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4680,13 +4680,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 9
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 3,
     "yardsToGoal": 68,
     "yardsGained": 19,
     "playType": "Pass Reception",
-    "text": "(10:09) #19 K.Crawford pass complete short right to #86 X.Ellis caught at SWT45, for 19 yards to the GRID49 (#49 N.Bennett), 1ST DOWN",
+    "text": "(10:09) #19 K.Crawford pass complete short right to #86 X.Ellis caught at FLA45, for 19 yards to the FRES49 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 2.22,
     "success": true,
@@ -4702,13 +4702,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 47
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 2,
     "yardsToGoal": 67,
     "yardsGained": -1,
     "playType": "Rush",
-    "text": "(10:47) Shotgun #31 J.Hart rush right for 1 yard loss to the SWT32 (#2 C.Rice)",
+    "text": "(10:47) Shotgun #31 J.Hart rush right for 1 yard loss to the FLA32 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.73,
     "success": false,
@@ -4724,13 +4724,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 19
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 8,
     "playType": "Rush",
-    "text": "(11:19) No Huddle-Shotgun #45 R.Nichols rush right for 8 yards gain to the SWT33 (#62 G.Little)",
+    "text": "(11:19) No Huddle-Shotgun #45 R.Nichols rush right for 8 yards gain to the FLA33 (#62 G.Little)",
     "scoring": false,
     "ppa": 0.07,
     "success": true,
@@ -4746,13 +4746,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 26
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 69,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(11:26) #25 C.Thompson punt 44 yards to the SWT25 fair catch by #10 T.Watkins at SWT25",
+    "text": "(11:26) #25 C.Thompson punt 44 yards to the FLA25 fair catch by #10 T.Watkins at FLA25",
     "scoring": false,
     "ppa": -0.08,
     "success": null,
@@ -4768,13 +4768,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 2
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 6,
     "yardsToGoal": 69,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(12:02) Shotgun #40 B.Mason rush left for no gain to the GRID31 (#32 J.Daniels)",
+    "text": "(12:02) Shotgun #40 B.Mason rush left for no gain to the FRES31 (#32 J.Daniels)",
     "scoring": false,
     "ppa": -0.82,
     "success": false,
@@ -4790,13 +4790,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 37
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 73,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(12:37) Shotgun #26 L.Robinson rush left end for 4 yards gain to the GRID31 (#58 P.Duncan, #39 M.Fields)",
+    "text": "(12:37) Shotgun #26 L.Robinson rush left end for 4 yards gain to the FRES31 (#58 P.Duncan, #39 M.Fields)",
     "scoring": false,
     "ppa": -0.37,
     "success": false,
@@ -4812,13 +4812,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 43
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 73,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(12:43) Shotgun #12 M.Hart pass incomplete short right to #11 G.Owens thrown to GRID31",
+    "text": "(12:43) Shotgun #12 M.Hart pass incomplete short right to #11 G.Owens thrown to FRES31",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4834,13 +4834,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 10
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 91,
     "yardsGained": 18,
     "playType": "Pass Reception",
-    "text": "(13:10) #12 M.Hart pass complete short middle to #11 G.Owens caught at GRID23, for 18 yards to the GRID27 (#42 M.Duncan), 1ST DOWN",
+    "text": "(13:10) #12 M.Hart pass complete short middle to #11 G.Owens caught at FRES23, for 18 yards to the FRES27 (#42 M.Duncan), 1ST DOWN",
     "scoring": false,
     "ppa": 2.048,
     "success": true,
@@ -4856,13 +4856,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 14
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 91,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(13:14) No Huddle #12 M.Hart pass incomplete short left to #18 G.Lawrence thrown to GRID23",
+    "text": "(13:14) No Huddle #12 M.Hart pass incomplete short left to #18 G.Lawrence thrown to FRES23",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -4878,13 +4878,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 19
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 7,
     "yardsToGoal": 7,
     "yardsGained": -2,
     "playType": "Fumble Recovery (Opponent)",
-    "text": "(13:19) No Huddle-Shotgun #19 K.Crawford sacked for loss of 2 yards to the GRID09 (#95 K.Spencer) #19 K.Crawford FUMBLES, recovered by GRID #95 K.Spencer at the GRID09",
+    "text": "(13:19) No Huddle-Shotgun #19 K.Crawford sacked for loss of 2 yards to the FRES09 (#95 K.Spencer) #19 K.Crawford FUMBLES, recovered by FRES #95 K.Spencer at the FRES09",
     "scoring": false,
     "ppa": -4.842,
     "success": false,
@@ -4902,13 +4902,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 50
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 37,
     "yardsGained": 30,
     "playType": "Rush",
-    "text": "(13:50) No Huddle #29 C.Nichols rush left for 30 yards gain to the GRID07 (#4 H.Dawson), 1ST DOWN",
+    "text": "(13:50) No Huddle #29 C.Nichols rush left for 30 yards gain to the FRES07 (#4 H.Dawson), 1ST DOWN",
     "scoring": false,
     "ppa": 2.44,
     "success": true,
@@ -4926,13 +4926,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 26
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 8,
     "yardsToGoal": 50,
     "yardsGained": 13,
     "playType": "Pass Reception",
-    "text": "(14:26) #19 K.Crawford pass complete short right to #29 C.Nichols caught at GRID39, for 13 yards to the GRID37 (#48 D.Bryant, #2 C.Rice), 1ST DOWN",
+    "text": "(14:26) #19 K.Crawford pass complete short right to #29 C.Nichols caught at FRES39, for 13 yards to the FRES37 (#48 D.Bryant, #2 C.Rice), 1ST DOWN",
     "scoring": false,
     "ppa": 1.37,
     "success": true,
@@ -4948,13 +4948,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 15,
     "yardsToGoal": 57,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(15:00) #31 J.Hart rush right for 7 yards gain to the GRID50 (#2 C.Rice)",
+    "text": "(15:00) #31 J.Hart rush right for 7 yards gain to the FRES50 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.07,
     "success": false,
@@ -4970,13 +4970,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 52,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(15:00) PENALTY SWT False Start 5 yards from SWT48 to SWT43. NO PLAY",
+    "text": "(15:00) PENALTY FLA False Start 5 yards from FLA48 to FLA43. NO PLAY",
     "scoring": false,
     "ppa": -0.4,
     "success": null,
@@ -4992,13 +4992,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 2,
     "yardsToGoal": 67,
     "yardsGained": 15,
     "playType": "Penalty",
-    "text": "(15:00) PENALTY GRID Pass Interference 15 yards from SWT33 to SWT48, 1ST DOWN. NO PLAY",
+    "text": "(15:00) PENALTY FRES Pass Interference 15 yards from FLA33 to FLA48, 1ST DOWN. NO PLAY",
     "scoring": false,
     "ppa": 1.31,
     "success": null,
@@ -5016,7 +5016,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 0,
@@ -5038,13 +5038,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 5
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 8,
     "playType": "Rush",
-    "text": "(00:05) Shotgun #29 C.Nichols rush middle for 8 yards gain to the SWT33 (#95 K.Spencer)",
+    "text": "(00:05) Shotgun #29 C.Nichols rush middle for 8 yards gain to the FLA33 (#95 K.Spencer)",
     "scoring": false,
     "ppa": 0.07,
     "success": true,
@@ -5060,13 +5060,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 5
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(00:05) #28 C.Murphy kickoff 58 yards to the SWT07, Touchback",
+    "text": "(00:05) #28 C.Murphy kickoff 58 yards to the FLA07, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -5082,13 +5082,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 10
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 1,
     "yardsToGoal": 29,
     "yardsGained": 29,
     "playType": "Rushing Touchdown",
-    "text": "(00:10) Shotgun #15 R.Morgan rush left for 29 yards gain to the SWT00 TOUCHDOWN, clock 00:10 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
+    "text": "(00:10) Shotgun #15 R.Morgan rush left for 29 yards gain to the FLA00 TOUCHDOWN, clock 00:10 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
     "scoring": true,
     "ppa": 4.39,
     "success": true,
@@ -5107,13 +5107,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 44
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 3,
     "yardsToGoal": 31,
     "yardsGained": 2,
     "playType": "Pass Reception",
-    "text": "(00:44) No Huddle-Shotgun #12 M.Hart pass complete short right to #16 A.Williams caught at SWT30, for 2 yards to the SWT29 (#32 J.Daniels)",
+    "text": "(00:44) No Huddle-Shotgun #12 M.Hart pass complete short right to #16 A.Williams caught at FLA30, for 2 yards to the FLA29 (#32 J.Daniels)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -5129,13 +5129,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 23
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 38,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(01:23) Shotgun #40 B.Mason rush middle for 7 yards gain to the SWT31 (#39 M.Fields)",
+    "text": "(01:23) Shotgun #40 B.Mason rush middle for 7 yards gain to the FLA31 (#39 M.Fields)",
     "scoring": false,
     "ppa": 0.02,
     "success": true,
@@ -5151,13 +5151,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 55
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 54,
     "yardsGained": 16,
     "playType": "Pass Reception",
-    "text": "(01:55) No Huddle #12 M.Hart pass complete short right to #88 G.Phillips caught at SWT45, for 16 yards to the SWT38 (#32 J.Daniels), 1ST DOWN",
+    "text": "(01:55) No Huddle #12 M.Hart pass complete short right to #88 G.Phillips caught at FLA45, for 16 yards to the FLA38 (#32 J.Daniels), 1ST DOWN",
     "scoring": false,
     "ppa": 1.61,
     "success": true,
@@ -5173,13 +5173,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 2
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 54,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(02:02) No Huddle-Shotgun #12 M.Hart pass incomplete short right to #40 B.Mason thrown to SWT45",
+    "text": "(02:02) No Huddle-Shotgun #12 M.Hart pass incomplete short right to #40 B.Mason thrown to FLA45",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -5195,13 +5195,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 36
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 7,
     "yardsToGoal": 72,
     "yardsGained": 18,
     "playType": "Pass Reception",
-    "text": "(02:36) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at GRID36, for 18 yards to the GRID46 (#32 J.Daniels), 1ST DOWN",
+    "text": "(02:36) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at FRES36, for 18 yards to the FRES46 (#32 J.Daniels), 1ST DOWN",
     "scoring": false,
     "ppa": 1.64,
     "success": true,
@@ -5217,13 +5217,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 15
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(03:15) No Huddle-Shotgun #15 R.Morgan rush right end for 3 yards gain to the GRID28 (#19 C.Cook)",
+    "text": "(03:15) No Huddle-Shotgun #15 R.Morgan rush right end for 3 yards gain to the FRES28 (#19 C.Cook)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -5239,13 +5239,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 15
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(03:15) #26 K.Sullivan kickoff 64 yards to the GRID01, Touchback",
+    "text": "(03:15) #26 K.Sullivan kickoff 64 yards to the FRES01, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -5261,13 +5261,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 21
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 12,
     "yardsToGoal": 12,
     "yardsGained": 12,
     "playType": "Passing Touchdown",
-    "text": "(03:21) No Huddle #19 K.Crawford pass complete short right to #88 J.Baker caught at GRID00, for 12 yards to the GRID00 TOUCHDOWN, clock 03:21 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
+    "text": "(03:21) No Huddle #19 K.Crawford pass complete short right to #88 J.Baker caught at FRES00, for 12 yards to the FRES00 TOUCHDOWN, clock 03:21 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
     "scoring": true,
     "ppa": 2.82,
     "success": true,
@@ -5285,13 +5285,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 1
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 8,
     "yardsToGoal": 8,
     "yardsGained": -4,
     "playType": "Rush",
-    "text": "(04:01) No Huddle #19 K.Crawford rush right for 4 yards loss to the GRID12 (#71 I.Morgan, #23 N.Jones)",
+    "text": "(04:01) No Huddle #19 K.Crawford rush right for 4 yards loss to the FRES12 (#71 I.Morgan, #23 N.Jones)",
     "scoring": false,
     "ppa": -1.15,
     "success": false,
@@ -5307,13 +5307,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 8
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 1,
     "yardsToGoal": 36,
     "yardsGained": 28,
     "playType": "Rush",
-    "text": "(04:08) No Huddle-Shotgun #31 J.Hart rush left for 28 yards gain to the GRID08 (#49 N.Bennett), 1ST DOWN",
+    "text": "(04:08) No Huddle-Shotgun #31 J.Hart rush left for 28 yards gain to the FRES08 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 3.2,
     "success": true,
@@ -5331,13 +5331,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 43
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 6,
     "yardsToGoal": 41,
     "yardsGained": 5,
     "playType": "Rush",
-    "text": "(04:43) Shotgun #29 C.Nichols rush left end for 5 yards gain to the GRID36 (#23 N.Jones)",
+    "text": "(04:43) Shotgun #29 C.Nichols rush left end for 5 yards gain to the FRES36 (#23 N.Jones)",
     "scoring": false,
     "ppa": -0.13,
     "success": true,
@@ -5353,13 +5353,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 16
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 45,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(05:16) No Huddle #19 K.Crawford rush left for 4 yards gain to the GRID41 (#23 N.Jones, #2 C.Rice)",
+    "text": "(05:16) No Huddle #19 K.Crawford rush left for 4 yards gain to the FRES41 (#23 N.Jones, #2 C.Rice)",
     "scoring": false,
     "ppa": -0.29,
     "success": false,
@@ -5375,13 +5375,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 22
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 95,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(05:22) #25 C.Thompson punt 40 yards to the GRID45 fair catch by #10 T.Watkins at GRID45",
+    "text": "(05:22) #25 C.Thompson punt 40 yards to the FRES45 fair catch by #10 T.Watkins at FRES45",
     "scoring": false,
     "ppa": 0.069,
     "success": null,
@@ -5397,13 +5397,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 98,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(06:00) Shotgun #40 B.Mason rush right end for 3 yards gain to the GRID05 (#27 T.Gardner)",
+    "text": "(06:00) Shotgun #40 B.Mason rush right end for 3 yards gain to the FRES05 (#27 T.Gardner)",
     "scoring": false,
     "ppa": -0.387,
     "success": false,
@@ -5419,13 +5419,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 30
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 9,
     "yardsToGoal": 99,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(06:30) Shotgun #40 B.Mason rush left end for 1 yard gain to the GRID02 (#28 T.Barnes)",
+    "text": "(06:30) Shotgun #40 B.Mason rush left end for 1 yard gain to the FRES02 (#28 T.Barnes)",
     "scoring": false,
     "ppa": -0.682,
     "success": false,
@@ -5441,13 +5441,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 8
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 100,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(07:08) No Huddle #26 L.Robinson rush middle for 1 yard gain to the GRID01 (#99 D.Green, #27 T.Gardner)",
+    "text": "(07:08) No Huddle #26 L.Robinson rush middle for 1 yard gain to the FRES01 (#99 D.Green, #27 T.Gardner)",
     "scoring": false,
     "ppa": -0.62,
     "success": false,
@@ -5463,13 +5463,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 14
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(07:14) #26 K.Sullivan kickoff 65 yards to the GRID00 #1 A.Tucker return 0 yards to the GRID00 (#39 M.Fields)",
+    "text": "(07:14) #26 K.Sullivan kickoff 65 yards to the FRES00 #1 A.Tucker return 0 yards to the FRES00 (#39 M.Fields)",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -5485,13 +5485,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 23
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 7,
     "yardsToGoal": 7,
     "yardsGained": 7,
     "playType": "Passing Touchdown",
-    "text": "(07:23) #19 K.Crawford pass complete short middle to #29 C.Nichols caught at GRID04, for 7 yards to the GRID00 TOUCHDOWN, clock 07:23 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
+    "text": "(07:23) #19 K.Crawford pass complete short middle to #29 C.Nichols caught at FRES04, for 7 yards to the FRES00 TOUCHDOWN, clock 07:23 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
     "scoring": true,
     "ppa": 1.53,
     "success": true,
@@ -5509,13 +5509,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 54
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 11,
     "yardsToGoal": 31,
     "yardsGained": 24,
     "playType": "Pass Reception",
-    "text": "(07:54) No Huddle-Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at GRID17, for 24 yards to the GRID07 (#48 D.Bryant), 1ST DOWN",
+    "text": "(07:54) No Huddle-Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at FRES17, for 24 yards to the FRES07 (#48 D.Bryant), 1ST DOWN",
     "scoring": false,
     "ppa": 2.72,
     "success": true,
@@ -5533,13 +5533,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 30
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 30,
     "yardsGained": -1,
     "playType": "Rush",
-    "text": "(08:30) No Huddle-Shotgun #29 C.Nichols rush middle for 1 yard loss to the GRID31 (#57 C.West)",
+    "text": "(08:30) No Huddle-Shotgun #29 C.Nichols rush middle for 1 yard loss to the FRES31 (#57 C.West)",
     "scoring": false,
     "ppa": -0.75,
     "success": false,
@@ -5555,13 +5555,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 37
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 45,
     "yardsGained": 15,
     "playType": "Pass Reception",
-    "text": "(08:37) Shotgun #19 K.Crawford pass complete short middle to #29 C.Nichols caught at GRID38, for 15 yards to the GRID30 (#23 N.Jones, #57 C.West), 1ST DOWN",
+    "text": "(08:37) Shotgun #19 K.Crawford pass complete short middle to #29 C.Nichols caught at FRES38, for 15 yards to the FRES30 (#23 N.Jones, #57 C.West), 1ST DOWN",
     "scoring": false,
     "ppa": 0.95,
     "success": true,
@@ -5577,13 +5577,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 44
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 15,
     "yardsToGoal": 69,
     "yardsGained": 24,
     "playType": "Pass Reception",
-    "text": "(08:44) No Huddle #19 K.Crawford pass complete short right to #10 T.Watkins caught at SWT44, for 24 yards to the GRID45 (#4 H.Dawson), 1ST DOWN",
+    "text": "(08:44) No Huddle #19 K.Crawford pass complete short right to #10 T.Watkins caught at FLA44, for 24 yards to the FRES45 (#4 H.Dawson), 1ST DOWN",
     "scoring": false,
     "ppa": 1.54,
     "success": true,
@@ -5601,13 +5601,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 44
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 64,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(08:44) PENALTY SWT Illegal Formation 5 yards from SWT36 to SWT31. NO PLAY",
+    "text": "(08:44) PENALTY FLA Illegal Formation 5 yards from FLA36 to FLA31. NO PLAY",
     "scoring": false,
     "ppa": -0.4,
     "success": null,
@@ -5623,13 +5623,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 16
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 80,
     "yardsGained": 16,
     "playType": "Rush",
-    "text": "(09:16) Shotgun #31 J.Hart rush right for 16 yards gain to the SWT36 (#4 H.Dawson), 1ST DOWN",
+    "text": "(09:16) Shotgun #31 J.Hart rush right for 16 yards gain to the FLA36 (#4 H.Dawson), 1ST DOWN",
     "scoring": false,
     "ppa": 1.71,
     "success": true,
@@ -5647,13 +5647,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 20
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 80,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(09:20) Shotgun #19 K.Crawford pass incomplete deep middle to #29 C.Nichols thrown to SWT38",
+    "text": "(09:20) Shotgun #19 K.Crawford pass incomplete deep middle to #29 C.Nichols thrown to FLA38",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -5669,13 +5669,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 29
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 64,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(09:29) #25 C.Thompson punt 44 yards to the SWT20 fair catch by #10 T.Watkins at SWT20",
+    "text": "(09:29) #25 C.Thompson punt 44 yards to the FLA20 fair catch by #10 T.Watkins at FLA20",
     "scoring": false,
     "ppa": 0.02,
     "success": null,
@@ -5691,13 +5691,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 36
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 68,
     "yardsGained": 4,
     "playType": "Fumble Recovery (Own)",
-    "text": "(09:36) No Huddle-Shotgun #26 L.Robinson rush middle for 4 yards gain to the GRID36 #26 L.Robinson FUMBLES, recovered by GRID #26 L.Robinson at the GRID36",
+    "text": "(09:36) No Huddle-Shotgun #26 L.Robinson rush middle for 4 yards gain to the FRES36 #26 L.Robinson FUMBLES, recovered by FRES #26 L.Robinson at the FRES36",
     "scoring": false,
     "ppa": -0.3,
     "success": false,
@@ -5713,13 +5713,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 43
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 8,
     "yardsToGoal": 68,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(09:43) Shotgun #12 M.Hart pass incomplete deep right to #1 A.Tucker thrown to SWT30",
+    "text": "(09:43) Shotgun #12 M.Hart pass incomplete deep right to #1 A.Tucker thrown to FLA30",
     "scoring": false,
     "ppa": -0.79,
     "success": false,
@@ -5735,13 +5735,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 16
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 70,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(10:16) No Huddle-Shotgun #12 M.Hart rush right for 2 yards gain to the GRID32 (#28 T.Barnes)",
+    "text": "(10:16) No Huddle-Shotgun #12 M.Hart rush right for 2 yards gain to the FRES32 (#28 T.Barnes)",
     "scoring": false,
     "ppa": -0.47,
     "success": false,
@@ -5757,13 +5757,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 24
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 31,
     "yardsGained": 2,
     "playType": "Fumble Recovery (Opponent)",
-    "text": "(10:24) Shotgun #19 K.Crawford rush right for 2 yards gain to the GRID29 #19 K.Crawford FUMBLES, recovered by GRID #62 G.Little at the GRID29",
+    "text": "(10:24) Shotgun #19 K.Crawford rush right for 2 yards gain to the FRES29 #19 K.Crawford FUMBLES, recovered by FRES #62 G.Little at the FRES29",
     "scoring": false,
     "ppa": -4.38,
     "success": false,
@@ -5781,13 +5781,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 32
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 2,
     "yardsToGoal": 33,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(10:32) Shotgun #29 C.Nichols rush middle for 2 yards gain to the GRID31 (#23 N.Jones), 1ST DOWN",
+    "text": "(10:32) Shotgun #29 C.Nichols rush middle for 2 yards gain to the FRES31 (#23 N.Jones), 1ST DOWN",
     "scoring": false,
     "ppa": 1.16,
     "success": true,
@@ -5803,13 +5803,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 2
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 7,
     "yardsToGoal": 38,
     "yardsGained": 5,
     "playType": "Rush",
-    "text": "(11:02) Shotgun #31 J.Hart rush left end for 5 yards gain to the GRID33 (#97 T.Dixon)",
+    "text": "(11:02) Shotgun #31 J.Hart rush left end for 5 yards gain to the FRES33 (#97 T.Dixon)",
     "scoring": false,
     "ppa": -0.14,
     "success": true,
@@ -5825,13 +5825,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 31
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 41,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(11:31) Shotgun #29 C.Nichols rush right for 3 yards gain to the GRID38 (#62 G.Little)",
+    "text": "(11:31) Shotgun #29 C.Nichols rush right for 3 yards gain to the FRES38 (#62 G.Little)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -5847,13 +5847,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 2
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 60,
     "yardsGained": 19,
     "playType": "Pass Reception",
-    "text": "(12:02) #19 K.Crawford pass complete deep left to #88 J.Baker caught at GRID41, for 19 yards to the GRID41 (#2 C.Rice), 1ST DOWN",
+    "text": "(12:02) #19 K.Crawford pass complete deep left to #88 J.Baker caught at FRES41, for 19 yards to the FRES41 (#2 C.Rice), 1ST DOWN",
     "scoring": false,
     "ppa": 1.14,
     "success": true,
@@ -5869,13 +5869,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 39
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 3,
     "yardsToGoal": 63,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(12:39) No Huddle-Shotgun #31 J.Hart rush right for 3 yards gain to the SWT40 (#49 N.Bennett, #2 C.Rice), 1ST DOWN",
+    "text": "(12:39) No Huddle-Shotgun #31 J.Hart rush right for 3 yards gain to the FLA40 (#49 N.Bennett, #2 C.Rice), 1ST DOWN",
     "scoring": false,
     "ppa": 0.62,
     "success": true,
@@ -5891,13 +5891,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 11
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 70,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(13:11) Shotgun #45 R.Nichols rush left end for 7 yards gain to the SWT37 (#49 N.Bennett)",
+    "text": "(13:11) Shotgun #45 R.Nichols rush left end for 7 yards gain to the FLA37 (#49 N.Bennett)",
     "scoring": false,
     "ppa": -0.02,
     "success": true,
@@ -5913,13 +5913,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 20
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 74,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(13:20) #25 C.Thompson punt 44 yards to the SWT30 fair catch by #10 T.Watkins at SWT30",
+    "text": "(13:20) #25 C.Thompson punt 44 yards to the FLA30 fair catch by #10 T.Watkins at FLA30",
     "scoring": false,
     "ppa": -0.08,
     "success": null,
@@ -5935,13 +5935,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 49
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 5,
     "yardsToGoal": 70,
     "yardsGained": -4,
     "playType": "Rush",
-    "text": "(13:49) Shotgun #15 R.Morgan rush right end for 4 yards loss to the GRID26 (#58 P.Duncan, #39 M.Fields)",
+    "text": "(13:49) Shotgun #15 R.Morgan rush right end for 4 yards loss to the FRES26 (#58 P.Duncan, #39 M.Fields)",
     "scoring": false,
     "ppa": -1.36,
     "success": false,
@@ -5957,13 +5957,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 26
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 9,
     "yardsToGoal": 74,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(14:26) #15 R.Morgan rush right for 4 yards gain to the GRID30 (#19 C.Cook)",
+    "text": "(14:26) #15 R.Morgan rush right for 4 yards gain to the FRES30 (#19 C.Cook)",
     "scoring": false,
     "ppa": -0.34,
     "success": false,
@@ -5979,13 +5979,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(15:00) No Huddle #12 M.Hart rush middle for 1 yard gain to the GRID26 (#39 M.Fields)",
+    "text": "(15:00) No Huddle #12 M.Hart rush middle for 1 yard gain to the FRES26 (#39 M.Fields)",
     "scoring": false,
     "ppa": -0.56,
     "success": false,
@@ -6001,13 +6001,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(15:00) #26 K.Sullivan kickoff 58 yards to the GRID07, Touchback",
+    "text": "(15:00) #26 K.Sullivan kickoff 58 yards to the FRES07, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -6023,7 +6023,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 0,
@@ -6045,13 +6045,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 25
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 3,
     "yardsToGoal": 21,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(00:25) No Huddle #15 R.Morgan rush left end for 3 yards gain to the SWT18 (#99 D.Green), 1ST DOWN",
+    "text": "(00:25) No Huddle #15 R.Morgan rush left end for 3 yards gain to the FLA18 (#99 D.Green), 1ST DOWN",
     "scoring": false,
     "ppa": 0.68,
     "success": true,
@@ -6067,13 +6067,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 4
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 28,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(01:04) No Huddle-Shotgun #15 R.Morgan rush left end for 7 yards gain to the SWT21 (#27 T.Gardner, #96 G.Price)",
+    "text": "(01:04) No Huddle-Shotgun #15 R.Morgan rush left end for 7 yards gain to the FLA21 (#27 T.Gardner, #96 G.Price)",
     "scoring": false,
     "ppa": 0.09,
     "success": true,
@@ -6089,13 +6089,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 11
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 72,
     "yardsGained": 0,
     "playType": "Fumble Recovery (Opponent)",
-    "text": "(01:11) Shotgun #19 K.Crawford pass complete short right to #29 C.Nichols caught at SWT26, for 0 yards to the SWT28 #29 C.Nichols FUMBLES, recovered by GRID #4 H.Dawson at the SWT28",
+    "text": "(01:11) Shotgun #19 K.Crawford pass complete short right to #29 C.Nichols caught at FLA26, for 0 yards to the FLA28 #29 C.Nichols FUMBLES, recovered by FRES #4 H.Dawson at the FLA28",
     "scoring": false,
     "ppa": -3.82,
     "success": false,
@@ -6113,13 +6113,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 40
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 72,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(01:40) No Huddle-Shotgun #31 J.Hart rush middle for no gain to the SWT28 (#2 C.Rice)",
+    "text": "(01:40) No Huddle-Shotgun #31 J.Hart rush middle for no gain to the FLA28 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -6135,13 +6135,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 45
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 71,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(01:45) #25 C.Thompson punt 43 yards to the SWT28 fair catch by #10 T.Watkins at SWT28",
+    "text": "(01:45) #25 C.Thompson punt 43 yards to the FLA28 fair catch by #10 T.Watkins at FLA28",
     "scoring": false,
     "ppa": -0.14,
     "success": null,
@@ -6157,13 +6157,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 15
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 9,
     "yardsToGoal": 68,
     "yardsGained": -3,
     "playType": "Pass Reception",
-    "text": "(02:15) No Huddle #12 M.Hart pass complete short right to #16 A.Williams caught at GRID29, for 3 yards to the GRID29 (#39 M.Fields)",
+    "text": "(02:15) No Huddle #12 M.Hart pass complete short right to #16 A.Williams caught at FRES29, for 3 yards to the FRES29 (#39 M.Fields)",
     "scoring": false,
     "ppa": -1.3,
     "success": false,
@@ -6179,13 +6179,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 54
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 7,
     "yardsToGoal": 66,
     "yardsGained": -2,
     "playType": "Rush",
-    "text": "(02:54) #15 R.Morgan rush left for 2 yards loss to the GRID32 (#28 T.Barnes)",
+    "text": "(02:54) #15 R.Morgan rush left for 2 yards loss to the FRES32 (#28 T.Barnes)",
     "scoring": false,
     "ppa": -1.0,
     "success": false,
@@ -6201,13 +6201,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 25
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 69,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(03:25) No Huddle #15 R.Morgan rush middle for 3 yards gain to the GRID34 (#96 G.Price)",
+    "text": "(03:25) No Huddle #15 R.Morgan rush middle for 3 yards gain to the FRES34 (#96 G.Price)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -6223,13 +6223,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 33
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 81,
     "yardsGained": 12,
     "playType": "Pass Reception",
-    "text": "(03:33) #12 M.Hart pass complete short middle to #11 G.Owens caught at GRID31, for 12 yards to the GRID31 (#19 C.Cook), 1ST DOWN",
+    "text": "(03:33) #12 M.Hart pass complete short middle to #11 G.Owens caught at FRES31, for 12 yards to the FRES31 (#19 C.Cook), 1ST DOWN",
     "scoring": false,
     "ppa": 0.84,
     "success": true,
@@ -6245,13 +6245,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 38
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 59,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(03:38) #20 N.Ramirez punt 40 yards to the GRID19 fair catch by #1 A.Tucker at GRID19",
+    "text": "(03:38) #20 N.Ramirez punt 40 yards to the FRES19 fair catch by #1 A.Tucker at FRES19",
     "scoring": false,
     "ppa": -0.2,
     "success": null,
@@ -6267,13 +6267,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 13
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 15,
     "yardsToGoal": 63,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(04:13) Shotgun #29 C.Nichols rush left end for 4 yards gain to the SWT41 (#57 C.West, #49 N.Bennett)",
+    "text": "(04:13) Shotgun #29 C.Nichols rush left end for 4 yards gain to the FLA41 (#57 C.West, #49 N.Bennett)",
     "scoring": false,
     "ppa": -0.44,
     "success": false,
@@ -6289,13 +6289,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 13
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 10,
     "yardsToGoal": 58,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(04:13) PENALTY SWT False Start 5 yards from SWT42 to SWT37. NO PLAY",
+    "text": "(04:13) PENALTY FLA False Start 5 yards from FLA42 to FLA37. NO PLAY",
     "scoring": false,
     "ppa": -0.6,
     "success": null,
@@ -6311,13 +6311,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 44
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 22,
     "yardsToGoal": 70,
     "yardsGained": 12,
     "playType": "Pass Reception",
-    "text": "(04:44) Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at SWT40, for 12 yards to the SWT42 (#4 H.Dawson)",
+    "text": "(04:44) Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at FLA40, for 12 yards to the FLA42 (#4 H.Dawson)",
     "scoring": false,
     "ppa": 0.23,
     "success": false,
@@ -6333,13 +6333,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 14
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 58,
     "yardsGained": -12,
     "playType": "Sack",
-    "text": "(05:14) Shotgun #19 K.Crawford sacked for loss of 12 yards to the SWT30 (#95 K.Spencer)",
+    "text": "(05:14) Shotgun #19 K.Crawford sacked for loss of 12 yards to the FLA30 (#95 K.Spencer)",
     "scoring": false,
     "ppa": -1.73,
     "success": false,
@@ -6357,13 +6357,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 22
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 17,
     "playType": "Pass Reception",
-    "text": "(05:22) Shotgun #19 K.Crawford pass complete short left to #88 J.Baker caught at SWT37, for 17 yards to the SWT42 (#4 H.Dawson), 1ST DOWN",
+    "text": "(05:22) Shotgun #19 K.Crawford pass complete short left to #88 J.Baker caught at FLA37, for 17 yards to the FLA42 (#4 H.Dawson), 1ST DOWN",
     "scoring": false,
     "ppa": 1.67,
     "success": true,
@@ -6379,13 +6379,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 27
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(05:27) No Huddle #19 K.Crawford pass incomplete deep middle to #5 L.Griffin thrown to SWT41",
+    "text": "(05:27) No Huddle #19 K.Crawford pass incomplete deep middle to #5 L.Griffin thrown to FLA41",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -6401,13 +6401,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 27
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(05:27) #28 C.Murphy kickoff 59 yards to the SWT06, Touchback",
+    "text": "(05:27) #28 C.Murphy kickoff 59 yards to the FLA06, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -6423,7 +6423,7 @@ export const sample = {
      "minutes": 5,
      "seconds": 31
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 16,
@@ -6445,13 +6445,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 10,
     "yardsToGoal": 18,
     "yardsGained": 2,
     "playType": "Pass Reception",
-    "text": "(06:00) Shotgun #12 M.Hart pass complete short right to #11 G.Owens caught at SWT16, for 2 yards to the SWT16 (#27 T.Gardner)",
+    "text": "(06:00) Shotgun #12 M.Hart pass complete short right to #11 G.Owens caught at FLA16, for 2 yards to the FLA16 (#27 T.Gardner)",
     "scoring": false,
     "ppa": -0.58,
     "success": false,
@@ -6467,13 +6467,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 5
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 18,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(06:05) No Huddle #12 M.Hart pass incomplete deep right to #88 G.Phillips thrown to SWT00",
+    "text": "(06:05) No Huddle #12 M.Hart pass incomplete deep right to #88 G.Phillips thrown to FLA00",
     "scoring": false,
     "ppa": -0.85,
     "success": false,
@@ -6489,13 +6489,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 12
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 18,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(06:12) #12 M.Hart pass incomplete short middle to #16 A.Williams thrown to SWT13, broken up by #32 J.Daniels",
+    "text": "(06:12) #12 M.Hart pass incomplete short middle to #16 A.Williams thrown to FLA13, broken up by #32 J.Daniels",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -6511,13 +6511,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 45
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 30,
     "yardsGained": 12,
     "playType": "Pass Reception",
-    "text": "(06:45) Shotgun #12 M.Hart pass complete short right to #83 C.Garcia caught at SWT18, for 12 yards to the SWT18 (#40 L.Walker), 1ST DOWN",
+    "text": "(06:45) Shotgun #12 M.Hart pass complete short right to #83 C.Garcia caught at FLA18, for 12 yards to the FLA18 (#40 L.Walker), 1ST DOWN",
     "scoring": false,
     "ppa": 2.29,
     "success": true,
@@ -6533,13 +6533,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 20
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 32,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(07:20) Shotgun #15 R.Morgan rush left end for 2 yards gain to the SWT30 (#39 M.Fields, #19 C.Cook)",
+    "text": "(07:20) Shotgun #15 R.Morgan rush left end for 2 yards gain to the FLA30 (#39 M.Fields, #19 C.Cook)",
     "scoring": false,
     "ppa": -0.59,
     "success": false,
@@ -6555,13 +6555,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 20
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 5,
     "yardsToGoal": 27,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(07:20) PENALTY GRID False Start 5 yards from SWT27 to SWT32. NO PLAY",
+    "text": "(07:20) PENALTY FRES False Start 5 yards from FLA27 to FLA32. NO PLAY",
     "scoring": false,
     "ppa": -0.5,
     "success": null,
@@ -6577,13 +6577,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 44
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 32,
     "yardsGained": 5,
     "playType": "Pass Reception",
-    "text": "(07:44) No Huddle-Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at SWT31, for 5 yards to the SWT27 (#58 P.Duncan)",
+    "text": "(07:44) No Huddle-Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at FLA31, for 5 yards to the FLA27 (#58 P.Duncan)",
     "scoring": false,
     "ppa": -0.15,
     "success": true,
@@ -6599,13 +6599,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 17
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 5,
     "yardsToGoal": 47,
     "yardsGained": 15,
     "playType": "Pass Reception",
-    "text": "(08:17) Shotgun #12 M.Hart pass complete short right to #16 A.Williams caught at SWT45, for 15 yards to the SWT32 (#42 M.Duncan), 1ST DOWN",
+    "text": "(08:17) Shotgun #12 M.Hart pass complete short right to #16 A.Williams caught at FLA45, for 15 yards to the FLA32 (#42 M.Duncan), 1ST DOWN",
     "scoring": false,
     "ppa": 1.43,
     "success": true,
@@ -6621,13 +6621,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 44
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 52,
     "yardsGained": 5,
     "playType": "Pass Reception",
-    "text": "(08:44) Shotgun #12 M.Hart pass complete short right to #83 C.Garcia caught at GRID47, for 5 yards to the SWT47 (#39 M.Fields)",
+    "text": "(08:44) Shotgun #12 M.Hart pass complete short right to #83 C.Garcia caught at FRES47, for 5 yards to the FLA47 (#39 M.Fields)",
     "scoring": false,
     "ppa": -0.2,
     "success": true,
@@ -6643,13 +6643,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 49
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 70,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(08:49) #20 N.Ramirez punt 39 yards to the GRID31 #1 A.Tucker return 17 yards to the GRID48 (#40 L.Walker)",
+    "text": "(08:49) #20 N.Ramirez punt 39 yards to the FRES31 #1 A.Tucker return 17 yards to the FRES48 (#40 L.Walker)",
     "scoring": false,
     "ppa": -1.4,
     "success": null,
@@ -6665,13 +6665,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 19
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 9,
     "yardsToGoal": 74,
     "yardsGained": 4,
     "playType": "Pass Reception",
-    "text": "(09:19) #19 K.Crawford pass complete short right to #29 C.Nichols caught at SWT29, for 4 yards to the SWT30 (#23 N.Jones)",
+    "text": "(09:19) #19 K.Crawford pass complete short right to #29 C.Nichols caught at FLA29, for 4 yards to the FLA30 (#23 N.Jones)",
     "scoring": false,
     "ppa": -0.32,
     "success": false,
@@ -6687,13 +6687,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 25
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(09:25) #29 C.Nichols rush left end for 1 yard gain to the SWT26 (#97 T.Dixon, #4 H.Dawson)",
+    "text": "(09:25) #29 C.Nichols rush left end for 1 yard gain to the FLA26 (#97 T.Dixon, #4 H.Dawson)",
     "scoring": false,
     "ppa": -0.73,
     "success": false,
@@ -6709,13 +6709,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 29
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(09:29) No Huddle-Shotgun #19 K.Crawford pass incomplete short right to #15 D.Ferguson thrown to SWT30, broken up by #57 C.West",
+    "text": "(09:29) No Huddle-Shotgun #19 K.Crawford pass incomplete short right to #15 D.Ferguson thrown to FLA30, broken up by #57 C.West",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -6731,13 +6731,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 29
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(09:29) #28 C.Murphy kickoff 61 yards to the SWT04, Touchback",
+    "text": "(09:29) #28 C.Murphy kickoff 61 yards to the FLA04, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -6753,13 +6753,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 36
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 19,
     "yardsGained": 19,
     "playType": "Passing Touchdown",
-    "text": "(09:36) Shotgun #12 M.Hart pass complete short left to #16 A.Williams caught at SWT14, for 19 yards to the SWT00 TOUCHDOWN, clock 09:36 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
+    "text": "(09:36) Shotgun #12 M.Hart pass complete short left to #16 A.Williams caught at FLA14, for 19 yards to the FLA00 TOUCHDOWN, clock 09:36 #28 C.Murphy kick attempt good (H: #25 C.Thompson, LS: #67 D.Coleman)",
     "scoring": true,
     "ppa": 2.67,
     "success": true,
@@ -6777,13 +6777,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 9
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 59,
     "yardsGained": 40,
     "playType": "Pass Reception",
-    "text": "(10:09) No Huddle-Shotgun #12 M.Hart pass complete deep left to #18 G.Lawrence caught at SWT35, for 40 yards to the SWT19 (#28 T.Barnes), 1ST DOWN",
+    "text": "(10:09) No Huddle-Shotgun #12 M.Hart pass complete deep left to #18 G.Lawrence caught at FLA35, for 40 yards to the FLA19 (#28 T.Barnes), 1ST DOWN",
     "scoring": false,
     "ppa": 2.62,
     "success": true,
@@ -6801,13 +6801,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 15
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 3,
     "yardsToGoal": 57,
     "yardsGained": 0,
     "playType": "Pass Interception Return",
-    "text": "(10:15) Shotgun #19 K.Crawford pass intercepted by #4 H.Dawson at GRID39 #4 H.Dawson return 2 yards to the GRID41 (#87 B.Washington)",
+    "text": "(10:15) Shotgun #19 K.Crawford pass intercepted by #4 H.Dawson at FRES39 #4 H.Dawson return 2 yards to the FRES41 (#87 B.Washington)",
     "scoring": false,
     "ppa": -3.0,
     "success": false,
@@ -6825,13 +6825,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 24
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 64,
     "yardsGained": 7,
     "playType": "Pass Reception",
-    "text": "(10:24) #19 K.Crawford pass complete short middle to #88 J.Baker caught at SWT43, for 7 yards to the SWT43 (#2 C.Rice)",
+    "text": "(10:24) #19 K.Crawford pass complete short middle to #88 J.Baker caught at FLA43, for 7 yards to the FLA43 (#2 C.Rice)",
     "scoring": false,
     "ppa": -0.02,
     "success": true,
@@ -6847,13 +6847,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 31
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 10,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Pass Interception Return",
-    "text": "(10:31) No Huddle-Shotgun #12 M.Hart pass intercepted by #32 J.Daniels at SWT13 #32 J.Daniels return 23 yards to the SWT36 (#15 R.Morgan)",
+    "text": "(10:31) No Huddle-Shotgun #12 M.Hart pass intercepted by #32 J.Daniels at FLA13 #32 J.Daniels return 23 yards to the FLA36 (#15 R.Morgan)",
     "scoring": false,
     "ppa": -1.16,
     "success": false,
@@ -6871,13 +6871,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 4
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Rush",
-    "text": "(11:04) #40 B.Mason rush left for no gain to the GRID35 (#99 D.Green)",
+    "text": "(11:04) #40 B.Mason rush left for no gain to the FRES35 (#99 D.Green)",
     "scoring": false,
     "ppa": -0.85,
     "success": false,
@@ -6893,13 +6893,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 11
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(11:11) #12 M.Hart pass incomplete deep right to #88 G.Phillips thrown to SWT32",
+    "text": "(11:11) #12 M.Hart pass incomplete deep right to #88 G.Phillips thrown to FLA32",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -6915,13 +6915,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 41
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 6,
     "yardsToGoal": 71,
     "yardsGained": 6,
     "playType": "Rush",
-    "text": "(11:41) No Huddle #15 R.Morgan rush right for 6 yards gain to the GRID35 (#96 G.Price), 1ST DOWN",
+    "text": "(11:41) No Huddle #15 R.Morgan rush right for 6 yards gain to the FRES35 (#96 G.Price), 1ST DOWN",
     "scoring": false,
     "ppa": 0.89,
     "success": true,
@@ -6937,13 +6937,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 21
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(12:21) Shotgun #15 R.Morgan rush right for 4 yards gain to the GRID29 (#32 J.Daniels)",
+    "text": "(12:21) Shotgun #15 R.Morgan rush right for 4 yards gain to the FRES29 (#32 J.Daniels)",
     "scoring": false,
     "ppa": -0.29,
     "success": false,
@@ -6959,13 +6959,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 21
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(12:21) #26 K.Sullivan kickoff 64 yards to the GRID01, Touchback",
+    "text": "(12:21) #26 K.Sullivan kickoff 64 yards to the FRES01, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -6981,13 +6981,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 30
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 1,
     "yardsToGoal": 1,
     "yardsGained": 1,
     "playType": "Rushing Touchdown",
-    "text": "(12:30) Shotgun #19 K.Crawford rush middle for 1 yard gain to the GRID00 TOUCHDOWN, clock 12:30 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
+    "text": "(12:30) Shotgun #19 K.Crawford rush middle for 1 yard gain to the FRES00 TOUCHDOWN, clock 12:30 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
     "scoring": true,
     "ppa": 1.13,
     "success": true,
@@ -7005,13 +7005,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 59
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 5,
     "yardsToGoal": 5,
     "yardsGained": 4,
     "playType": "Pass Reception",
-    "text": "(12:59) Shotgun #19 K.Crawford pass complete short right to #10 T.Watkins caught at GRID03, for 4 yards to the GRID01 (#71 I.Morgan)",
+    "text": "(12:59) Shotgun #19 K.Crawford pass complete short right to #10 T.Watkins caught at FRES03, for 4 yards to the FRES01 (#71 I.Morgan)",
     "scoring": false,
     "ppa": 0.12,
     "success": true,
@@ -7027,13 +7027,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 32
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 3,
     "yardsToGoal": 9,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(13:32) No Huddle #45 R.Nichols rush right for 4 yards gain to the GRID05 (#57 C.West), 1ST DOWN",
+    "text": "(13:32) No Huddle #45 R.Nichols rush right for 4 yards gain to the FRES05 (#57 C.West), 1ST DOWN",
     "scoring": false,
     "ppa": 1.02,
     "success": true,
@@ -7049,13 +7049,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 8
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 16,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(14:08) Shotgun #29 C.Nichols rush left for 7 yards gain to the GRID09 (#95 K.Spencer)",
+    "text": "(14:08) Shotgun #29 C.Nichols rush left for 7 yards gain to the FRES09 (#95 K.Spencer)",
     "scoring": false,
     "ppa": 0.16,
     "success": true,
@@ -7071,13 +7071,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 16
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 6,
     "yardsToGoal": 53,
     "yardsGained": 37,
     "playType": "Pass Reception",
-    "text": "(14:16) #19 K.Crawford pass complete short left to #5 L.Griffin caught at GRID48, for 37 yards to the GRID16 (#49 N.Bennett), 1ST DOWN",
+    "text": "(14:16) #19 K.Crawford pass complete short left to #5 L.Griffin caught at FRES48, for 37 yards to the FRES16 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 3.76,
     "success": true,
@@ -7095,13 +7095,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 53
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 57,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(14:53) No Huddle #31 J.Hart rush left for 4 yards gain to the SWT47 (#71 I.Morgan)",
+    "text": "(14:53) No Huddle #31 J.Hart rush left for 4 yards gain to the FLA47 (#71 I.Morgan)",
     "scoring": false,
     "ppa": -0.37,
     "success": false,
@@ -7117,13 +7117,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 57,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(15:00) No Huddle-Shotgun #19 K.Crawford pass incomplete short left to #29 C.Nichols thrown to GRID43",
+    "text": "(15:00) No Huddle-Shotgun #19 K.Crawford pass incomplete short left to #29 C.Nichols thrown to FRES43",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -7139,7 +7139,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 0,
@@ -7161,13 +7161,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 1
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 5,
     "yardsToGoal": 70,
     "yardsGained": 13,
     "playType": "Pass Reception",
-    "text": "(00:01) No Huddle-Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at SWT41, for 13 yards to the SWT43 (#7 J.Bryant), 1ST DOWN",
+    "text": "(00:01) No Huddle-Shotgun #19 K.Crawford pass complete short right to #15 D.Ferguson caught at FLA41, for 13 yards to the FLA43 (#7 J.Bryant), 1ST DOWN",
     "scoring": false,
     "ppa": 1.98,
     "success": true,
@@ -7183,13 +7183,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 5
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 5,
     "yardsToGoal": 70,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(00:05) Shotgun #19 K.Crawford pass incomplete deep left to #15 D.Ferguson thrown to GRID25",
+    "text": "(00:05) Shotgun #19 K.Crawford pass incomplete deep left to #15 D.Ferguson thrown to FRES25",
     "scoring": false,
     "ppa": -0.7,
     "success": false,
@@ -7205,13 +7205,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 12
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 5,
     "playType": "Pass Reception",
-    "text": "(00:12) No Huddle-Shotgun #19 K.Crawford pass complete short right to #86 X.Ellis caught at SWT22, for 5 yards to the SWT30 (#49 N.Bennett)",
+    "text": "(00:12) No Huddle-Shotgun #19 K.Crawford pass complete short right to #86 X.Ellis caught at FLA22, for 5 yards to the FLA30 (#49 N.Bennett)",
     "scoring": false,
     "ppa": -0.2,
     "success": true,
@@ -7227,13 +7227,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 12
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(00:12) #28 C.Murphy kickoff 65 yards to the SWT00, Touchback",
+    "text": "(00:12) #28 C.Murphy kickoff 65 yards to the FLA00, Touchback",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -7249,7 +7249,7 @@ export const sample = {
      "minutes": 0,
      "seconds": 17
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 28,
@@ -7271,13 +7271,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 48
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 14,
     "yardsToGoal": 32,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(00:48) Shotgun #15 R.Morgan rush middle for 4 yards gain to the SWT28 (#99 D.Green)",
+    "text": "(00:48) Shotgun #15 R.Morgan rush middle for 4 yards gain to the FLA28 (#99 D.Green)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -7293,13 +7293,13 @@ export const sample = {
      "minutes": 0,
      "seconds": 52
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 14,
     "yardsToGoal": 32,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(00:52) No Huddle-Shotgun #12 M.Hart pass incomplete short left to #11 G.Owens thrown to SWT18",
+    "text": "(00:52) No Huddle-Shotgun #12 M.Hart pass incomplete short left to #11 G.Owens thrown to FLA18",
     "scoring": false,
     "ppa": -0.97,
     "success": false,
@@ -7315,13 +7315,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 25
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 15,
     "yardsToGoal": 33,
     "yardsGained": 1,
     "playType": "Rush",
-    "text": "(01:25) No Huddle-Shotgun #15 R.Morgan rush right for 1 yard gain to the SWT32 (#96 G.Price, #28 T.Barnes)",
+    "text": "(01:25) No Huddle-Shotgun #15 R.Morgan rush right for 1 yard gain to the FLA32 (#96 G.Price, #28 T.Barnes)",
     "scoring": false,
     "ppa": -0.6,
     "success": false,
@@ -7337,13 +7337,13 @@ export const sample = {
      "minutes": 1,
      "seconds": 25
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 28,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(01:25) PENALTY GRID False Start 5 yards from SWT28 to SWT33. NO PLAY",
+    "text": "(01:25) PENALTY FRES False Start 5 yards from FLA28 to FLA33. NO PLAY",
     "scoring": false,
     "ppa": -0.45,
     "success": null,
@@ -7359,13 +7359,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 1
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 41,
     "yardsGained": 13,
     "playType": "Rush",
-    "text": "(02:01) Shotgun #15 R.Morgan rush middle for 13 yards gain to the SWT28 (#19 C.Cook), 1ST DOWN",
+    "text": "(02:01) Shotgun #15 R.Morgan rush middle for 13 yards gain to the FLA28 (#19 C.Cook), 1ST DOWN",
     "scoring": false,
     "ppa": 0.85,
     "success": true,
@@ -7383,13 +7383,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 41
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 3,
     "yardsToGoal": 46,
     "yardsGained": 5,
     "playType": "Rush",
-    "text": "(02:41) Shotgun #15 R.Morgan rush left for 5 yards gain to the SWT41 (#32 J.Daniels), 1ST DOWN",
+    "text": "(02:41) Shotgun #15 R.Morgan rush left for 5 yards gain to the FLA41 (#32 J.Daniels), 1ST DOWN",
     "scoring": false,
     "ppa": 1.38,
     "success": true,
@@ -7405,13 +7405,13 @@ export const sample = {
      "minutes": 2,
      "seconds": 41
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 3,
     "yardsToGoal": 46,
     "yardsGained": 0,
     "playType": "Timeout",
-    "text": "Timeout Silver Dollar, clock 02:41",
+    "text": "Timeout Fresno State, clock 02:41",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -7427,13 +7427,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 17
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 5,
     "yardsToGoal": 48,
     "yardsGained": 2,
     "playType": "Pass Reception",
-    "text": "(03:17) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at SWT50, for 2 yards to the SWT46 (#28 T.Barnes)",
+    "text": "(03:17) Shotgun #12 M.Hart pass complete short left to #11 G.Owens caught at FLA50, for 2 yards to the FLA46 (#28 T.Barnes)",
     "scoring": false,
     "ppa": -0.46,
     "success": false,
@@ -7449,13 +7449,13 @@ export const sample = {
      "minutes": 3,
      "seconds": 51
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 53,
     "yardsGained": 5,
     "playType": "Pass Reception",
-    "text": "(03:51) Shotgun #12 M.Hart pass complete short right to #88 G.Phillips caught at SWT48, for 5 yards to the SWT48 (#19 C.Cook)",
+    "text": "(03:51) Shotgun #12 M.Hart pass complete short right to #88 G.Phillips caught at FLA48, for 5 yards to the FLA48 (#19 C.Cook)",
     "scoring": false,
     "ppa": -0.2,
     "success": true,
@@ -7471,13 +7471,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 20
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 22,
     "playType": "Pass Reception",
-    "text": "(04:20) No Huddle #12 M.Hart pass complete short right to #15 R.Morgan caught at GRID39, for 22 yards to the GRID47 (#32 J.Daniels), 1ST DOWN",
+    "text": "(04:20) No Huddle #12 M.Hart pass complete short right to #15 R.Morgan caught at FRES39, for 22 yards to the FRES47 (#32 J.Daniels), 1ST DOWN",
     "scoring": false,
     "ppa": 1.32,
     "success": true,
@@ -7495,13 +7495,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 20
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(04:20) #26 K.Sullivan kickoff 61 yards to the GRID04, fair catch by TEAM",
+    "text": "(04:20) #26 K.Sullivan kickoff 61 yards to the FRES04, fair catch by TEAM",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -7517,13 +7517,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 27
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 15,
     "yardsGained": 15,
     "playType": "Rushing Touchdown",
-    "text": "(04:27) No Huddle-Shotgun #19 K.Crawford rush left for 15 yards gain to the GRID00 TOUCHDOWN, clock 04:27 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
+    "text": "(04:27) No Huddle-Shotgun #19 K.Crawford rush left for 15 yards gain to the FRES00 TOUCHDOWN, clock 04:27 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
     "scoring": true,
     "ppa": 2.35,
     "success": true,
@@ -7542,13 +7542,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 54
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 38,
     "yardsGained": 23,
     "playType": "Pass Reception",
-    "text": "(04:54) No Huddle-Shotgun #19 K.Crawford pass complete short left to #5 L.Griffin caught at GRID24, for 23 yards to the GRID15 (#48 D.Bryant), 1ST DOWN",
+    "text": "(04:54) No Huddle-Shotgun #19 K.Crawford pass complete short left to #5 L.Griffin caught at FRES24, for 23 yards to the FRES15 (#48 D.Bryant), 1ST DOWN",
     "scoring": false,
     "ppa": 1.68,
     "success": true,
@@ -7566,13 +7566,13 @@ export const sample = {
      "minutes": 4,
      "seconds": 54
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 13,
     "yardsToGoal": 53,
     "yardsGained": 15,
     "playType": "Penalty",
-    "text": "(04:54) PENALTY GRID Pass Interference 15 yards from SWT47 to GRID38, 1ST DOWN. NO PLAY",
+    "text": "(04:54) PENALTY FRES Pass Interference 15 yards from FLA47 to FRES38, 1ST DOWN. NO PLAY",
     "scoring": false,
     "ppa": 2.58,
     "success": null,
@@ -7590,13 +7590,13 @@ export const sample = {
      "minutes": 5,
      "seconds": 32
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 17,
     "yardsToGoal": 57,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(05:32) No Huddle #31 J.Hart rush right end for 4 yards gain to the SWT47 (#57 C.West)",
+    "text": "(05:32) No Huddle #31 J.Hart rush right end for 4 yards gain to the FLA47 (#57 C.West)",
     "scoring": false,
     "ppa": -0.58,
     "success": false,
@@ -7612,13 +7612,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 7
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 50,
     "yardsGained": -7,
     "playType": "Sack",
-    "text": "(06:07) #19 K.Crawford sacked for loss of 7 yards to the SWT43 (#2 C.Rice)",
+    "text": "(06:07) #19 K.Crawford sacked for loss of 7 yards to the FLA43 (#2 C.Rice)",
     "scoring": false,
     "ppa": -1.28,
     "success": false,
@@ -7636,13 +7636,13 @@ export const sample = {
      "minutes": 6,
      "seconds": 38
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 3,
     "yardsToGoal": 54,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(06:38) No Huddle #19 K.Crawford rush middle for 4 yards gain to the GRID50 (#57 C.West), 1ST DOWN",
+    "text": "(06:38) No Huddle #19 K.Crawford rush middle for 4 yards gain to the FRES50 (#57 C.West), 1ST DOWN",
     "scoring": false,
     "ppa": 1.32,
     "success": true,
@@ -7658,13 +7658,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 15
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 61,
     "yardsGained": 7,
     "playType": "Rush",
-    "text": "(07:15) Shotgun #31 J.Hart rush left end for 7 yards gain to the SWT46 (#62 G.Little)",
+    "text": "(07:15) Shotgun #31 J.Hart rush left end for 7 yards gain to the FLA46 (#62 G.Little)",
     "scoring": false,
     "ppa": -0.01,
     "success": true,
@@ -7680,13 +7680,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 19
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 61,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(07:19) Shotgun #19 K.Crawford pass incomplete deep right to #10 T.Watkins thrown to GRID29, broken up by #4 H.Dawson",
+    "text": "(07:19) Shotgun #19 K.Crawford pass incomplete deep right to #10 T.Watkins thrown to FRES29, broken up by #4 H.Dawson",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -7702,13 +7702,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 27
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 78,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(07:27) #25 C.Thompson punt 39 yards to the SWT39 fair catch by #10 T.Watkins at SWT39",
+    "text": "(07:27) #25 C.Thompson punt 39 yards to the FLA39 fair catch by #10 T.Watkins at FLA39",
     "scoring": false,
     "ppa": -0.32,
     "success": null,
@@ -7724,13 +7724,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 33
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 78,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(07:33) No Huddle-Shotgun #12 M.Hart pass incomplete deep right to #11 G.Owens thrown to SWT48",
+    "text": "(07:33) No Huddle-Shotgun #12 M.Hart pass incomplete deep right to #11 G.Owens thrown to FLA48",
     "scoring": false,
     "ppa": -0.86,
     "success": false,
@@ -7746,13 +7746,13 @@ export const sample = {
      "minutes": 7,
      "seconds": 39
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 8,
     "yardsToGoal": 78,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(07:39) #12 M.Hart pass incomplete short left to #15 R.Morgan thrown to GRID36",
+    "text": "(07:39) #12 M.Hart pass incomplete short left to #15 R.Morgan thrown to FRES36",
     "scoring": false,
     "ppa": -0.79,
     "success": false,
@@ -7768,13 +7768,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 19
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 80,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(08:19) #26 L.Robinson rush middle for 2 yards gain to the GRID22 (#32 J.Daniels)",
+    "text": "(08:19) #26 L.Robinson rush middle for 2 yards gain to the FRES22 (#32 J.Daniels)",
     "scoring": false,
     "ppa": -0.43,
     "success": false,
@@ -7790,13 +7790,13 @@ export const sample = {
      "minutes": 8,
      "seconds": 27
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 62,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(08:27) #20 N.Ramirez punt 45 yards to the GRID17 #1 A.Tucker return 3 yards to the GRID20 (#42 M.Duncan)",
+    "text": "(08:27) #20 N.Ramirez punt 45 yards to the FRES17 #1 A.Tucker return 3 yards to the FRES20 (#42 M.Duncan)",
     "scoring": false,
     "ppa": -0.1,
     "success": null,
@@ -7812,13 +7812,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 3
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 8,
     "yardsToGoal": 64,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(09:03) #45 R.Nichols rush left end for 2 yards gain to the SWT38 (#57 C.West)",
+    "text": "(09:03) #45 R.Nichols rush left end for 2 yards gain to the FLA38 (#57 C.West)",
     "scoring": false,
     "ppa": -0.58,
     "success": false,
@@ -7834,13 +7834,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 8
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 8,
     "yardsToGoal": 64,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(09:08) #19 K.Crawford pass incomplete short left to #10 T.Watkins thrown to SWT38",
+    "text": "(09:08) #19 K.Crawford pass incomplete short left to #10 T.Watkins thrown to FLA38",
     "scoring": false,
     "ppa": -0.79,
     "success": false,
@@ -7856,13 +7856,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 40
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 66,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(09:40) No Huddle-Shotgun #29 C.Nichols rush left end for 2 yards gain to the SWT36 (#57 C.West, #71 I.Morgan)",
+    "text": "(09:40) No Huddle-Shotgun #29 C.Nichols rush left end for 2 yards gain to the FLA36 (#57 C.West, #71 I.Morgan)",
     "scoring": false,
     "ppa": -0.47,
     "success": false,
@@ -7878,13 +7878,13 @@ export const sample = {
      "minutes": 9,
      "seconds": 45
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 4,
     "distance": 0,
     "yardsToGoal": 75,
     "yardsGained": 0,
     "playType": "Punt",
-    "text": "(09:45) #25 C.Thompson punt 41 yards to the SWT34 fair catch by #10 T.Watkins at SWT34",
+    "text": "(09:45) #25 C.Thompson punt 41 yards to the FLA34 fair catch by #10 T.Watkins at FLA34",
     "scoring": false,
     "ppa": -0.26,
     "success": null,
@@ -7900,13 +7900,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 13
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 3,
     "distance": 12,
     "yardsToGoal": 77,
     "yardsGained": 2,
     "playType": "Rush",
-    "text": "(10:13) Shotgun #40 B.Mason rush right end for 2 yards gain to the GRID25 (#39 M.Fields)",
+    "text": "(10:13) Shotgun #40 B.Mason rush right end for 2 yards gain to the FRES25 (#39 M.Fields)",
     "scoring": false,
     "ppa": -0.62,
     "success": false,
@@ -7922,13 +7922,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 18
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 12,
     "yardsToGoal": 77,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(10:18) No Huddle #12 M.Hart pass incomplete short right to #16 A.Williams thrown to GRID36",
+    "text": "(10:18) No Huddle #12 M.Hart pass incomplete short right to #16 A.Williams thrown to FRES36",
     "scoring": false,
     "ppa": -0.91,
     "success": false,
@@ -7944,13 +7944,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 18
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 2,
     "distance": 7,
     "yardsToGoal": 72,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(10:18) PENALTY GRID False Start 5 yards from GRID28 to GRID23. NO PLAY",
+    "text": "(10:18) PENALTY FRES False Start 5 yards from FRES28 to FRES23. NO PLAY",
     "scoring": false,
     "ppa": -0.49,
     "success": null,
@@ -7966,13 +7966,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 46
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 75,
     "yardsGained": 3,
     "playType": "Rush",
-    "text": "(10:46) Shotgun #15 R.Morgan rush middle for 3 yards gain to the GRID28 (#58 P.Duncan)",
+    "text": "(10:46) Shotgun #15 R.Morgan rush middle for 3 yards gain to the FRES28 (#58 P.Duncan)",
     "scoring": false,
     "ppa": -0.38,
     "success": false,
@@ -7988,13 +7988,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 46
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(10:46) #26 K.Sullivan kickoff 63 yards to the GRID02, fair catch by TEAM",
+    "text": "(10:46) #26 K.Sullivan kickoff 63 yards to the FRES02, fair catch by TEAM",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -8010,13 +8010,13 @@ export const sample = {
      "minutes": 10,
      "seconds": 54
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 1,
     "yardsToGoal": 1,
     "yardsGained": 1,
     "playType": "Rushing Touchdown",
-    "text": "(10:54) #19 K.Crawford rush left end for 1 yard gain to the GRID00 TOUCHDOWN, clock 10:54 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
+    "text": "(10:54) #19 K.Crawford rush left end for 1 yard gain to the FRES00 TOUCHDOWN, clock 10:54 #26 K.Sullivan kick attempt good (H: #20 N.Ramirez, LS: #61 L.Henry)",
     "scoring": true,
     "ppa": 1.13,
     "success": true,
@@ -8034,13 +8034,13 @@ export const sample = {
      "minutes": 11,
      "seconds": 27
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 4,
     "yardsToGoal": 4,
     "yardsGained": 3,
     "playType": "Pass Reception",
-    "text": "(11:27) #19 K.Crawford pass complete short middle to #15 D.Ferguson caught at GRID06, for 3 yards to the GRID01 (#71 I.Morgan, #2 C.Rice)",
+    "text": "(11:27) #19 K.Crawford pass complete short middle to #15 D.Ferguson caught at FRES06, for 3 yards to the FRES01 (#71 I.Morgan, #2 C.Rice)",
     "scoring": false,
     "ppa": -0.05,
     "success": true,
@@ -8056,13 +8056,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 6
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 6,
     "yardsToGoal": 12,
     "yardsGained": 8,
     "playType": "Rush",
-    "text": "(12:06) No Huddle-Shotgun #29 C.Nichols rush middle for 8 yards gain to the GRID04 (#62 G.Little, #49 N.Bennett), 1ST DOWN",
+    "text": "(12:06) No Huddle-Shotgun #29 C.Nichols rush middle for 8 yards gain to the FRES04 (#62 G.Little, #49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 1.56,
     "success": true,
@@ -8078,13 +8078,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 36
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 16,
     "yardsGained": 4,
     "playType": "Pass Reception",
-    "text": "(12:36) #19 K.Crawford pass complete short left to #5 L.Griffin caught at GRID12, for 4 yards to the GRID12 (#62 G.Little)",
+    "text": "(12:36) #19 K.Crawford pass complete short left to #5 L.Griffin caught at FRES12, for 4 yards to the FRES12 (#62 G.Little)",
     "scoring": false,
     "ppa": -0.21,
     "success": false,
@@ -8100,13 +8100,13 @@ export const sample = {
      "minutes": 12,
      "seconds": 45
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 3,
     "distance": 4,
     "yardsToGoal": 24,
     "yardsGained": 8,
     "playType": "Pass Reception",
-    "text": "(12:45) #19 K.Crawford pass complete short right to #5 L.Griffin caught at GRID22, for 8 yards to the GRID16 (#49 N.Bennett), 1ST DOWN",
+    "text": "(12:45) #19 K.Crawford pass complete short right to #5 L.Griffin caught at FRES22, for 8 yards to the FRES16 (#49 N.Bennett), 1ST DOWN",
     "scoring": false,
     "ppa": 1.78,
     "success": true,
@@ -8122,13 +8122,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 14
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 11,
     "yardsToGoal": 31,
     "yardsGained": 7,
     "playType": "Pass Reception",
-    "text": "(13:14) No Huddle-Shotgun #19 K.Crawford pass complete short left to #29 C.Nichols caught at GRID30, for 7 yards to the GRID24 (#2 C.Rice, #57 C.West)",
+    "text": "(13:14) No Huddle-Shotgun #19 K.Crawford pass complete short left to #29 C.Nichols caught at FRES30, for 7 yards to the FRES24 (#2 C.Rice, #57 C.West)",
     "scoring": false,
     "ppa": 0.04,
     "success": false,
@@ -8144,13 +8144,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 14
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 6,
     "yardsToGoal": 26,
     "yardsGained": -5,
     "playType": "Penalty",
-    "text": "(13:14) PENALTY SWT Delay of Game 5 yards from GRID26 to GRID31. NO PLAY",
+    "text": "(13:14) PENALTY FLA Delay of Game 5 yards from FRES26 to FRES31. NO PLAY",
     "scoring": false,
     "ppa": -0.5,
     "success": null,
@@ -8166,13 +8166,13 @@ export const sample = {
      "minutes": 13,
      "seconds": 51
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 30,
     "yardsGained": 4,
     "playType": "Rush",
-    "text": "(13:51) #31 J.Hart rush middle for 4 yards gain to the GRID26 (#49 N.Bennett)",
+    "text": "(13:51) #31 J.Hart rush middle for 4 yards gain to the FRES26 (#49 N.Bennett)",
     "scoring": false,
     "ppa": -0.25,
     "success": false,
@@ -8188,13 +8188,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 16
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 40,
     "yardsGained": 10,
     "playType": "Pass Reception",
-    "text": "(14:16) No Huddle #19 K.Crawford pass complete short middle to #31 J.Hart caught at GRID38, for 10 yards to the GRID30 (#95 K.Spencer), 1ST DOWN",
+    "text": "(14:16) No Huddle #19 K.Crawford pass complete short middle to #31 J.Hart caught at FRES38, for 10 yards to the FRES30 (#95 K.Spencer), 1ST DOWN",
     "scoring": false,
     "ppa": 0.65,
     "success": true,
@@ -8210,13 +8210,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 52
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 2,
     "distance": 10,
     "yardsToGoal": 74,
     "yardsGained": 34,
     "playType": "Pass Reception",
-    "text": "(14:52) No Huddle-Shotgun #19 K.Crawford pass complete deep right to #31 J.Hart caught at SWT42, for 34 yards to the GRID40 (#4 H.Dawson), 1ST DOWN",
+    "text": "(14:52) No Huddle-Shotgun #19 K.Crawford pass complete deep right to #31 J.Hart caught at FLA42, for 34 yards to the FRES40 (#4 H.Dawson), 1ST DOWN",
     "scoring": false,
     "ppa": 2.69,
     "success": true,
@@ -8234,13 +8234,13 @@ export const sample = {
      "minutes": 14,
      "seconds": 56
     },
-    "offense": "Swampwater Tech",
+    "offense": "Florida",
     "down": 1,
     "distance": 10,
     "yardsToGoal": 74,
     "yardsGained": 0,
     "playType": "Pass Incompletion",
-    "text": "(14:56) Shotgun #19 K.Crawford pass incomplete deep right to #5 L.Griffin thrown to GRID24",
+    "text": "(14:56) Shotgun #19 K.Crawford pass incomplete deep right to #5 L.Griffin thrown to FRES24",
     "scoring": false,
     "ppa": -0.65,
     "success": false,
@@ -8256,13 +8256,13 @@ export const sample = {
      "minutes": 15,
      "seconds": 0
     },
-    "offense": "Silver Dollar",
+    "offense": "Fresno State",
     "down": 0,
     "distance": 0,
     "yardsToGoal": 65,
     "yardsGained": 0,
     "playType": "Kickoff",
-    "text": "(15:00) #28 C.Murphy kickoff 62 yards to the SWT03 #10 T.Watkins return 23 yards to the SWT26 (#7 J.Bryant)",
+    "text": "(15:00) #28 C.Murphy kickoff 62 yards to the FLA03 #10 T.Watkins return 23 yards to the FLA26 (#7 J.Bryant)",
     "scoring": false,
     "ppa": null,
     "success": null,
@@ -9455,17 +9455,17 @@ export const sample = {
   "week": 4,
   "date": "2026-09-26T19:30:00.000Z",
   "startTimeTbd": false,
-  "venue": "Swampwater Tech Memorial Stadium",
+  "venue": "Florida Memorial Stadium",
   "neutralSite": false,
   "tv": "KCN",
   "homeIsUs": true,
   "us": {
-   "school": "Swampwater Tech",
-   "abbreviation": "SWT",
-   "mascot": "Mudpuppies",
-   "conference": "Biscuit Belt",
-   "color": "#00838f",
-   "altColor": "#f2b705",
+   "school": "Florida",
+   "abbreviation": "FLA",
+   "mascot": "Gators",
+   "conference": "SEC",
+   "color": "#0021a5",
+   "altColor": "#fa4616",
    "logo": "/media/logo/932",
    "logoDark": "/media/logo/932?v=dark",
    "record": {
@@ -9492,12 +9492,12 @@ export const sample = {
    "elo": 1690
   },
   "them": {
-   "school": "Diner Tech",
-   "abbreviation": "DINR",
-   "mascot": "Cooks",
-   "conference": "Pancake Athletic",
-   "color": "#1c957a",
-   "altColor": "#ffffff",
+   "school": "Texas State",
+   "abbreviation": "TXST",
+   "mascot": "Bobcats",
+   "conference": "Pac-12",
+   "color": "#501214",
+   "altColor": "#6a5638",
    "logo": "/media/logo/328",
    "logoDark": "/media/logo/328?v=dark",
    "record": null,
@@ -9515,7 +9515,7 @@ export const sample = {
   },
   "line": {
    "spread": -48.0,
-   "formatted": "Swampwater Tech -48",
+   "formatted": "Florida -48",
    "spreadOpen": -48.0,
    "overUnder": 65.0,
    "overUnderOpen": 64.0
@@ -9678,7 +9678,7 @@ export const sample = {
      "value": 0.333,
      "format": "pct",
      "higherIsBetter": true,
-     "nationalRank": 60,
+     "nationalRank": 63,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9710,7 +9710,7 @@ export const sample = {
      "value": 22.0,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 87,
+     "nationalRank": 90,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9729,9 +9729,9 @@ export const sample = {
      "value": 2.0,
      "format": "1f",
      "higherIsBetter": false,
-     "nationalRank": 120,
+     "nationalRank": 109,
      "nationalOf": 136,
-     "conferenceRank": 15,
+     "conferenceRank": 14,
      "conferenceOf": 16
     },
     "them": {
@@ -9742,7 +9742,7 @@ export const sample = {
      "value": 1.0,
      "format": "1f",
      "higherIsBetter": false,
-     "nationalRank": 42,
+     "nationalRank": 62,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9806,7 +9806,7 @@ export const sample = {
      "value": 367.5,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 31,
+     "nationalRank": 32,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9889,9 +9889,9 @@ export const sample = {
      "value": 0.312,
      "format": "pct",
      "higherIsBetter": false,
-     "nationalRank": 65,
+     "nationalRank": 62,
      "nationalOf": 136,
-     "conferenceRank": 12,
+     "conferenceRank": 11,
      "conferenceOf": 16
     },
     "them": {
@@ -9921,7 +9921,7 @@ export const sample = {
      "value": 1.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 113,
+     "nationalRank": 109,
      "nationalOf": 136,
      "conferenceRank": 14,
      "conferenceOf": 16
@@ -9934,7 +9934,7 @@ export const sample = {
      "value": 1.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 107,
+     "nationalRank": 112,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9953,9 +9953,9 @@ export const sample = {
      "value": 1.0,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 112,
+     "nationalRank": 98,
      "nationalOf": 136,
-     "conferenceRank": 14,
+     "conferenceRank": 13,
      "conferenceOf": 16
     },
     "them": {
@@ -9966,7 +9966,7 @@ export const sample = {
      "value": 2.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 25,
+     "nationalRank": 33,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -9985,7 +9985,7 @@ export const sample = {
      "value": -2.0,
      "format": "+0f",
      "higherIsBetter": true,
-     "nationalRank": 122,
+     "nationalRank": 116,
      "nationalOf": 136,
      "conferenceRank": 15,
      "conferenceOf": 16
@@ -9998,7 +9998,7 @@ export const sample = {
      "value": 3.0,
      "format": "+0f",
      "higherIsBetter": true,
-     "nationalRank": 22,
+     "nationalRank": 31,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10017,9 +10017,9 @@ export const sample = {
      "value": 50.0,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 82,
+     "nationalRank": 79,
      "nationalOf": 136,
-     "conferenceRank": 9,
+     "conferenceRank": 8,
      "conferenceOf": 16
     },
     "them": {
@@ -10030,7 +10030,7 @@ export const sample = {
      "value": 32.0,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 29,
+     "nationalRank": 30,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10039,7 +10039,7 @@ export const sample = {
   ],
   "edges": [
    {
-    "label": "Diner Tech passing vs Swampwater Tech defense",
+    "label": "Texas State passing vs Florida defense",
     "side": "defense",
     "usRank": 24,
     "themRank": 123,
@@ -10054,7 +10054,7 @@ export const sample = {
     "themMetric": "profile:pass_ypg"
    },
    {
-    "label": "Swampwater Tech rushing vs Diner Tech defense",
+    "label": "Florida rushing vs Texas State defense",
     "side": "offense",
     "usRank": 4,
     "themRank": 97,
@@ -10069,7 +10069,7 @@ export const sample = {
     "themMetric": "profile:rush_ypg_d"
    },
    {
-    "label": "Diner Tech yards per play vs Swampwater Tech defense",
+    "label": "Texas State yards per play vs Florida defense",
     "side": "defense",
     "usRank": 59,
     "themRank": 118,
@@ -10084,7 +10084,7 @@ export const sample = {
     "themMetric": "profile:ypp"
    },
    {
-    "label": "Diner Tech rushing vs Swampwater Tech defense",
+    "label": "Texas State rushing vs Florida defense",
     "side": "defense",
     "usRank": 52,
     "themRank": 28,
@@ -10099,7 +10099,7 @@ export const sample = {
     "themMetric": "profile:rush_ypg"
    },
    {
-    "label": "Swampwater Tech passing vs Diner Tech defense",
+    "label": "Florida passing vs Texas State defense",
     "side": "offense",
     "usRank": 28,
     "themRank": 14,
@@ -10114,7 +10114,7 @@ export const sample = {
     "themMetric": "profile:pass_ypg_d"
    },
    {
-    "label": "Swampwater Tech yards per play vs Diner Tech defense",
+    "label": "Florida yards per play vs Texas State defense",
     "side": "offense",
     "usRank": 12,
     "themRank": 25,
@@ -10159,8 +10159,8 @@ export const sample = {
    }
   ],
   "series": {
-   "team1": "Swampwater Tech",
-   "team2": "Diner Tech",
+   "team1": "Florida",
+   "team2": "Texas State",
    "team1Wins": 19,
    "team2Wins": 11,
    "ties": 0,
@@ -10171,12 +10171,12 @@ export const sample = {
      "seasonType": "regular",
      "date": "2024-11-02T00:00:00.000Z",
      "neutralSite": false,
-     "venue": "Swampwater Tech Memorial Stadium",
-     "homeTeam": "Swampwater Tech",
+     "venue": "Florida Memorial Stadium",
+     "homeTeam": "Florida",
      "homeScore": 20,
-     "awayTeam": "Diner Tech",
+     "awayTeam": "Texas State",
      "awayScore": 19,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2023,
@@ -10185,11 +10185,11 @@ export const sample = {
      "date": "2023-11-11T00:00:00.000Z",
      "neutralSite": false,
      "venue": "Butler Stadium",
-     "homeTeam": "Diner Tech",
+     "homeTeam": "Texas State",
      "homeScore": 14,
-     "awayTeam": "Swampwater Tech",
+     "awayTeam": "Florida",
      "awayScore": 28,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2022,
@@ -10197,12 +10197,12 @@ export const sample = {
      "seasonType": "regular",
      "date": "2022-10-29T00:00:00.000Z",
      "neutralSite": false,
-     "venue": "Swampwater Tech Memorial Stadium",
-     "homeTeam": "Swampwater Tech",
+     "venue": "Florida Memorial Stadium",
+     "homeTeam": "Florida",
      "homeScore": 27,
-     "awayTeam": "Diner Tech",
+     "awayTeam": "Texas State",
      "awayScore": 8,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2020,
@@ -10211,11 +10211,11 @@ export const sample = {
      "date": "2020-10-10T00:00:00.000Z",
      "neutralSite": false,
      "venue": "Butler Stadium",
-     "homeTeam": "Diner Tech",
+     "homeTeam": "Texas State",
      "homeScore": 22,
-     "awayTeam": "Swampwater Tech",
+     "awayTeam": "Florida",
      "awayScore": 27,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2019,
@@ -10224,11 +10224,11 @@ export const sample = {
      "date": "2019-11-16T00:00:00.000Z",
      "neutralSite": false,
      "venue": "Butler Stadium",
-     "homeTeam": "Diner Tech",
+     "homeTeam": "Texas State",
      "homeScore": 38,
-     "awayTeam": "Swampwater Tech",
+     "awayTeam": "Florida",
      "awayScore": 16,
-     "winner": "Diner Tech"
+     "winner": "Texas State"
     },
     {
      "season": 2015,
@@ -10237,11 +10237,11 @@ export const sample = {
      "date": "2015-09-26T00:00:00.000Z",
      "neutralSite": false,
      "venue": "Butler Stadium",
-     "homeTeam": "Diner Tech",
+     "homeTeam": "Texas State",
      "homeScore": 16,
-     "awayTeam": "Swampwater Tech",
+     "awayTeam": "Florida",
      "awayScore": 18,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2014,
@@ -10249,12 +10249,12 @@ export const sample = {
      "seasonType": "regular",
      "date": "2014-09-20T00:00:00.000Z",
      "neutralSite": false,
-     "venue": "Swampwater Tech Memorial Stadium",
-     "homeTeam": "Swampwater Tech",
+     "venue": "Florida Memorial Stadium",
+     "homeTeam": "Florida",
      "homeScore": 19,
-     "awayTeam": "Diner Tech",
+     "awayTeam": "Texas State",
      "awayScore": 36,
-     "winner": "Diner Tech"
+     "winner": "Texas State"
     },
     {
      "season": 2013,
@@ -10262,12 +10262,12 @@ export const sample = {
      "seasonType": "regular",
      "date": "2013-10-12T00:00:00.000Z",
      "neutralSite": false,
-     "venue": "Swampwater Tech Memorial Stadium",
-     "homeTeam": "Swampwater Tech",
+     "venue": "Florida Memorial Stadium",
+     "homeTeam": "Florida",
      "homeScore": 18,
-     "awayTeam": "Diner Tech",
+     "awayTeam": "Texas State",
      "awayScore": 9,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2011,
@@ -10276,11 +10276,11 @@ export const sample = {
      "date": "2011-11-19T00:00:00.000Z",
      "neutralSite": false,
      "venue": "Butler Stadium",
-     "homeTeam": "Diner Tech",
+     "homeTeam": "Texas State",
      "homeScore": 20,
-     "awayTeam": "Swampwater Tech",
+     "awayTeam": "Florida",
      "awayScore": 47,
-     "winner": "Swampwater Tech"
+     "winner": "Florida"
     },
     {
      "season": 2010,
@@ -10288,21 +10288,21 @@ export const sample = {
      "seasonType": "regular",
      "date": "2010-09-25T00:00:00.000Z",
      "neutralSite": false,
-     "venue": "Swampwater Tech Memorial Stadium",
-     "homeTeam": "Swampwater Tech",
+     "venue": "Florida Memorial Stadium",
+     "homeTeam": "Florida",
      "homeScore": 13,
-     "awayTeam": "Diner Tech",
+     "awayTeam": "Texas State",
      "awayScore": 22,
-     "winner": "Diner Tech"
+     "winner": "Texas State"
     }
    ],
    "streak": {
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "games": 4
    }
   },
   "tendencies": {
-   "offense": "Silver Dollar",
+   "offense": "Fresno State",
    "rows": [
     {
      "split": "dist:long (7+)",
@@ -10351,8 +10351,8 @@ export const sample = {
   },
   "weather": null,
   "themProfile": {
-   "team": "Diner Tech",
-   "conference": "Pancake Athletic",
+   "team": "Texas State",
+   "conference": "Pac-12",
    "rows": [
     {
      "side": "offense",
@@ -10414,7 +10414,7 @@ export const sample = {
      "value": 0.333,
      "format": "pct",
      "higherIsBetter": true,
-     "nationalRank": 60,
+     "nationalRank": 63,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10427,7 +10427,7 @@ export const sample = {
      "value": 22.0,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 87,
+     "nationalRank": 90,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10440,7 +10440,7 @@ export const sample = {
      "value": 1.0,
      "format": "1f",
      "higherIsBetter": false,
-     "nationalRank": 42,
+     "nationalRank": 62,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10466,7 +10466,7 @@ export const sample = {
      "value": 367.5,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 31,
+     "nationalRank": 32,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10518,7 +10518,7 @@ export const sample = {
      "value": 1.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 107,
+     "nationalRank": 112,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10531,7 +10531,7 @@ export const sample = {
      "value": 2.5,
      "format": "1f",
      "higherIsBetter": true,
-     "nationalRank": 25,
+     "nationalRank": 33,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10544,7 +10544,7 @@ export const sample = {
      "value": 3.0,
      "format": "+0f",
      "higherIsBetter": true,
-     "nationalRank": 22,
+     "nationalRank": 31,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10557,7 +10557,7 @@ export const sample = {
      "value": 32.0,
      "format": "0f",
      "higherIsBetter": false,
-     "nationalRank": 29,
+     "nationalRank": 30,
      "nationalOf": 136,
      "conferenceRank": null,
      "conferenceOf": 16
@@ -10565,7 +10565,7 @@ export const sample = {
    ]
   },
   "advanced": {
-   "Swampwater Tech": {
+   "Florida": {
     "offense": {
      "successRate": 0.5232558139534884,
      "explosiveness": 1.3473333333333333,
@@ -10581,7 +10581,7 @@ export const sample = {
      "drives": 29
     }
    },
-   "Diner Tech": {
+   "Texas State": {
     "offense": {
      "successRate": 0.39263803680981596,
      "explosiveness": 0.98125,
@@ -10609,16 +10609,16 @@ export const sample = {
     "kickoff": "2026-09-26T19:30:00.000Z",
     "startTimeTbd": false,
     "tv": "KCN",
-    "venue": "Swampwater Tech Memorial Stadium",
+    "venue": "Florida Memorial Stadium",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Swampwater Tech",
-     "abbreviation": "SWT",
-     "mascot": "Mudpuppies",
-     "conference": "Biscuit Belt",
-     "color": "#00838f",
-     "altColor": "#f2b705",
+     "school": "Florida",
+     "abbreviation": "FLA",
+     "mascot": "Gators",
+     "conference": "SEC",
+     "color": "#0021a5",
+     "altColor": "#fa4616",
      "logo": "/media/logo/932",
      "logoDark": "/media/logo/932?v=dark",
      "record": {
@@ -10637,12 +10637,12 @@ export const sample = {
      "coachesRank": 8
     },
     "away": {
-     "school": "Diner Tech",
-     "abbreviation": "DINR",
-     "mascot": "Cooks",
-     "conference": "Pancake Athletic",
-     "color": "#1c957a",
-     "altColor": "#ffffff",
+     "school": "Texas State",
+     "abbreviation": "TXST",
+     "mascot": "Bobcats",
+     "conference": "Pac-12",
+     "color": "#501214",
+     "altColor": "#6a5638",
      "logo": "/media/logo/328",
      "logoDark": "/media/logo/328?v=dark",
      "record": {
@@ -10663,7 +10663,7 @@ export const sample = {
     "isUs": true,
     "line": {
      "spread": -48.0,
-     "formatted": "Swampwater Tech -48",
+     "formatted": "Florida -48",
      "overUnder": 65.0
     },
     "homeWinProbability": 0.999
@@ -10674,16 +10674,16 @@ export const sample = {
     "kickoff": "2026-09-26T16:00:00.000Z",
     "startTimeTbd": false,
     "tv": "Couch Network",
-    "venue": "The Rollers Den",
+    "venue": "The Sun Devils Den",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Tumbleweed Tech",
-     "abbreviation": "TUMB",
-     "mascot": "Rollers",
-     "conference": "Big Casserole",
-     "color": "#72611d",
-     "altColor": "#2b53ee",
+     "school": "Arizona State",
+     "abbreviation": "ASU",
+     "mascot": "Sun Devils",
+     "conference": "Big 12",
+     "color": "#ffc627",
+     "altColor": "#8c1d40",
      "logo": "/media/logo/132",
      "logoDark": "/media/logo/132?v=dark",
      "record": {
@@ -10702,12 +10702,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Brownstone",
-     "abbreviation": "PIGN",
-     "mascot": "Pigeons",
-     "conference": "Atlantic Pickle",
-     "color": "#255687",
-     "altColor": "#ffffff",
+     "school": "Pittsburgh",
+     "abbreviation": "PITT",
+     "mascot": "Panthers",
+     "conference": "ACC",
+     "color": "#003594",
+     "altColor": "#ffb81c",
      "logo": "/media/logo/2404",
      "logoDark": "/media/logo/2404?v=dark",
      "record": {
@@ -10728,7 +10728,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": 33.5,
-     "formatted": "Brownstone -33.5",
+     "formatted": "Pittsburgh -33.5",
      "overUnder": 52.0
     },
     "homeWinProbability": 0.009
@@ -10743,12 +10743,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Cornfield Central",
-     "abbreviation": "CORN",
-     "mascot": "Stalks",
-     "conference": "Gravy Ten",
-     "color": "#179e8e",
-     "altColor": "#f4d825",
+     "school": "Maryland",
+     "abbreviation": "MD",
+     "mascot": "Terrapins",
+     "conference": "Big Ten",
+     "color": "#ce1126",
+     "altColor": "#ffffff",
      "logo": "/media/logo/394",
      "logoDark": "/media/logo/394?v=dark",
      "record": {
@@ -10767,12 +10767,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Seagull Shores",
-     "abbreviation": "GULL",
-     "mascot": "Squawkers",
-     "conference": "Atlantic Pickle",
-     "color": "#900d6f",
-     "altColor": "#f4dd25",
+     "school": "Florida State",
+     "abbreviation": "FSU",
+     "mascot": "Seminoles",
+     "conference": "ACC",
+     "color": "#782f40",
+     "altColor": "#ceb888",
      "logo": "/media/logo/964",
      "logoDark": "/media/logo/964?v=dark",
      "record": {
@@ -10793,7 +10793,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": 22.0,
-     "formatted": "Seagull Shores -22",
+     "formatted": "Florida State -22",
      "overUnder": 48.0
     },
     "homeWinProbability": 0.057
@@ -10804,16 +10804,16 @@ export const sample = {
     "kickoff": "2026-09-26T16:00:00.000Z",
     "startTimeTbd": false,
     "tv": "Couch Network 2",
-    "venue": "Sunny Side Coliseum",
+    "venue": "Utah State Coliseum",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Sunny Side",
-     "abbreviation": "YOLK",
-     "mascot": "Yolks",
-     "conference": "Pancake Athletic",
-     "color": "#844a11",
-     "altColor": "#2b8eee",
+     "school": "Utah State",
+     "abbreviation": "USU",
+     "mascot": "Aggies",
+     "conference": "Pac-12",
+     "color": "#0f2439",
+     "altColor": "#ffffff",
      "logo": "/media/logo/2674",
      "logoDark": "/media/logo/2674?v=dark",
      "record": {
@@ -10832,12 +10832,12 @@ export const sample = {
      "coachesRank": 12
     },
     "away": {
-     "school": "Elk Ridge",
-     "abbreviation": "ELK",
-     "mascot": "Buglers",
-     "conference": "Mountain Muffin",
-     "color": "#a51593",
-     "altColor": "#2bee43",
+     "school": "Wyoming",
+     "abbreviation": "WYO",
+     "mascot": "Cowboys",
+     "conference": "Mountain West",
+     "color": "#492f24",
+     "altColor": "#ffc425",
      "logo": "/media/logo/844",
      "logoDark": "/media/logo/844?v=dark",
      "record": {
@@ -10858,7 +10858,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -20.0,
-     "formatted": "Sunny Side -20",
+     "formatted": "Utah State -20",
      "overUnder": 58.5
     },
     "homeWinProbability": 0.921
@@ -10873,12 +10873,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Steelmill Polytech",
-     "abbreviation": "INGT",
-     "mascot": "Ingots",
-     "conference": "Gravy Ten",
-     "color": "#1eae6d",
-     "altColor": "#ee2b83",
+     "school": "Penn State",
+     "abbreviation": "PSU",
+     "mascot": "Nittany Lions",
+     "conference": "Big Ten",
+     "color": "#001e44",
+     "altColor": "#ffffff",
      "logo": "/media/logo/2897",
      "logoDark": "/media/logo/2897?v=dark",
      "record": {
@@ -10897,12 +10897,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Catfish Bend",
-     "abbreviation": "CATB",
-     "mascot": "Whiskers",
-     "conference": "Biscuit Belt",
-     "color": "#1a559d",
-     "altColor": "#ee962b",
+     "school": "Auburn",
+     "abbreviation": "AUB",
+     "mascot": "Tigers",
+     "conference": "SEC",
+     "color": "#0c2340",
+     "altColor": "#f26522",
      "logo": "/media/logo/2813",
      "logoDark": "/media/logo/2813?v=dark",
      "record": {
@@ -10923,7 +10923,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -6.5,
-     "formatted": "Steelmill Polytech -6.5",
+     "formatted": "Penn State -6.5",
      "overUnder": 49.0
     },
     "homeWinProbability": 0.681
@@ -10938,12 +10938,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Lobster Pot Tech",
-     "abbreviation": "LOBS",
-     "mascot": "Claws",
-     "conference": "Atlantic Pickle",
-     "color": "#1a2d8b",
-     "altColor": "#ffffff",
+     "school": "Clemson",
+     "abbreviation": "CLEM",
+     "mascot": "Tigers",
+     "conference": "ACC",
+     "color": "#f56600",
+     "altColor": "#522d80",
      "logo": "/media/logo/2961",
      "logoDark": "/media/logo/2961?v=dark",
      "record": {
@@ -10962,12 +10962,12 @@ export const sample = {
      "coachesRank": 21
     },
     "away": {
-     "school": "Cherry Pit",
-     "abbreviation": "PIT",
-     "mascot": "Spitters",
-     "conference": "Lakeshore Lemonade",
-     "color": "#721c7f",
-     "altColor": "#f4ae25",
+     "school": "Florida Atlantic",
+     "abbreviation": "FAU",
+     "mascot": "Owls",
+     "conference": "American Athletic",
+     "color": "#003366",
+     "altColor": "#cc0000",
      "logo": "/media/logo/700",
      "logoDark": "/media/logo/700?v=dark",
      "record": {
@@ -10988,7 +10988,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -15.5,
-     "formatted": "Lobster Pot Tech -15.5",
+     "formatted": "Clemson -15.5",
      "overUnder": 54.5
     },
     "homeWinProbability": 0.873
@@ -10999,16 +10999,16 @@ export const sample = {
     "kickoff": "2026-09-26T19:30:00.000Z",
     "startTimeTbd": false,
     "tv": "Couch Network",
-    "venue": "The Ferrymen Den",
+    "venue": "The Owls Den",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Ferry Boat",
-     "abbreviation": "FERY",
-     "mascot": "Ferrymen",
-     "conference": "Lakeshore Lemonade",
-     "color": "#3ea513",
-     "altColor": "#ffffff",
+     "school": "Rice",
+     "abbreviation": "RICE",
+     "mascot": "Owls",
+     "conference": "American Athletic",
+     "color": "#00205b",
+     "altColor": "#c1c6c8",
      "logo": "/media/logo/1317",
      "logoDark": "/media/logo/1317?v=dark",
      "record": {
@@ -11027,12 +11027,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Pine Barrens",
-     "abbreviation": "PINE",
-     "mascot": "Pinecones",
-     "conference": "Atlantic Pickle",
-     "color": "#8e4927",
-     "altColor": "#ffffff",
+     "school": "Virginia",
+     "abbreviation": "UVA",
+     "mascot": "Cavaliers",
+     "conference": "ACC",
+     "color": "#232d4b",
+     "altColor": "#f84c1e",
      "logo": "/media/logo/2997",
      "logoDark": "/media/logo/2997?v=dark",
      "record": {
@@ -11053,7 +11053,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -3.0,
-     "formatted": "Ferry Boat -3",
+     "formatted": "Rice -3",
      "overUnder": 60.0
     },
     "homeWinProbability": 0.572
@@ -11068,12 +11068,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Saddle Sore",
-     "abbreviation": "SADL",
-     "mascot": "Saddlebags",
-     "conference": "Big Casserole",
-     "color": "#7c2b9d",
-     "altColor": "#ffffff",
+     "school": "West Virginia",
+     "abbreviation": "WVU",
+     "mascot": "Mountaineers",
+     "conference": "Big 12",
+     "color": "#eaaa00",
+     "altColor": "#002855",
      "logo": "/media/logo/1341",
      "logoDark": "/media/logo/1341?v=dark",
      "record": {
@@ -11112,16 +11112,16 @@ export const sample = {
     "kickoff": "2026-09-26T20:00:00.000Z",
     "startTimeTbd": false,
     "tv": "KCN",
-    "venue": "Buttered Corn Stadium",
+    "venue": "Oregon Stadium",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Buttered Corn",
-     "abbreviation": "KERN",
-     "mascot": "Kernels",
-     "conference": "Gravy Ten",
-     "color": "#732183",
-     "altColor": "#4aee2b",
+     "school": "Oregon",
+     "abbreviation": "ORE",
+     "mascot": "Ducks",
+     "conference": "Big Ten",
+     "color": "#007030",
+     "altColor": "#fee11a",
      "logo": "/media/logo/438",
      "logoDark": "/media/logo/438?v=dark",
      "record": {
@@ -11140,12 +11140,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Magnolia Flats",
-     "abbreviation": "MAGF",
-     "mascot": "Petals",
-     "conference": "Biscuit Belt",
-     "color": "#7d1a81",
-     "altColor": "#f4c325",
+     "school": "Kentucky",
+     "abbreviation": "UK",
+     "mascot": "Wildcats",
+     "conference": "SEC",
+     "color": "#0033a0",
+     "altColor": "#ffffff",
      "logo": "/media/logo/1831",
      "logoDark": "/media/logo/1831?v=dark",
      "record": {
@@ -11166,7 +11166,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -16.5,
-     "formatted": "Buttered Corn -16.5",
+     "formatted": "Oregon -16.5",
      "overUnder": 46.5
     },
     "homeWinProbability": 0.883
@@ -11181,12 +11181,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Lake Effect",
-     "abbreviation": "FLUR",
-     "mascot": "Flurries",
-     "conference": "Lakeshore Lemonade",
-     "color": "#2b6a9e",
-     "altColor": "#ffffff",
+     "school": "Charlotte",
+     "abbreviation": "CLT",
+     "mascot": "49ers",
+     "conference": "American Athletic",
+     "color": "#005035",
+     "altColor": "#a49665",
      "logo": "/media/logo/1253",
      "logoDark": "/media/logo/1253?v=dark",
      "record": {
@@ -11205,12 +11205,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Crab Cake",
-     "abbreviation": "CRAB",
-     "mascot": "Pinchers",
-     "conference": "Atlantic Pickle",
-     "color": "#7b9126",
-     "altColor": "#ffffff",
+     "school": "SMU",
+     "abbreviation": "SMU",
+     "mascot": "Mustangs",
+     "conference": "ACC",
+     "color": "#d70000",
+     "altColor": "#0033a1",
      "logo": "/media/logo/1812",
      "logoDark": "/media/logo/1812?v=dark",
      "record": {
@@ -11231,7 +11231,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": 22.5,
-     "formatted": "Crab Cake -22.5",
+     "formatted": "SMU -22.5",
      "overUnder": 62.0
     },
     "homeWinProbability": 0.049
@@ -11242,16 +11242,16 @@ export const sample = {
     "kickoff": "2026-09-26T23:00:00.000Z",
     "startTimeTbd": false,
     "tv": "KCN",
-    "venue": "Front Porch State Stadium",
+    "venue": "Vanderbilt Stadium",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Front Porch State",
-     "abbreviation": "PORC",
-     "mascot": "Rockers",
-     "conference": "Biscuit Belt",
-     "color": "#8b1711",
-     "altColor": "#2be5ee",
+     "school": "Vanderbilt",
+     "abbreviation": "VAN",
+     "mascot": "Commodores",
+     "conference": "SEC",
+     "color": "#000000",
+     "altColor": "#cfae70",
      "logo": "/media/logo/1519",
      "logoDark": "/media/logo/1519?v=dark",
      "record": {
@@ -11270,11 +11270,11 @@ export const sample = {
      "coachesRank": 24
     },
     "away": {
-     "school": "Honky Tonk",
-     "abbreviation": "HONK",
-     "mascot": "Two-Steppers",
-     "conference": "Cornbread USA",
-     "color": "#598a27",
+     "school": "Missouri State",
+     "abbreviation": "MOST",
+     "mascot": "Bears",
+     "conference": "Conference USA",
+     "color": "#5e0009",
      "altColor": "#ffffff",
      "logo": "/media/logo/240",
      "logoDark": "/media/logo/240?v=dark",
@@ -11296,7 +11296,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -18.0,
-     "formatted": "Front Porch State -18",
+     "formatted": "Vanderbilt -18",
      "overUnder": 69.0
     },
     "homeWinProbability": 0.904
@@ -11307,16 +11307,16 @@ export const sample = {
     "kickoff": "2026-09-26T23:30:00.000Z",
     "startTimeTbd": false,
     "tv": "Snack Sports",
-    "venue": "Prairie Fire Stadium",
+    "venue": "Iowa State Stadium",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Prairie Fire",
-     "abbreviation": "EMBR",
-     "mascot": "Embers",
-     "conference": "Big Casserole",
-     "color": "#a2229d",
-     "altColor": "#2bee33",
+     "school": "Iowa State",
+     "abbreviation": "ISU",
+     "mascot": "Cyclones",
+     "conference": "Big 12",
+     "color": "#c8102e",
+     "altColor": "#f1be48",
      "logo": "/media/logo/475",
      "logoDark": "/media/logo/475?v=dark",
      "record": {
@@ -11335,12 +11335,12 @@ export const sample = {
      "coachesRank": 25
     },
     "away": {
-     "school": "Maple Syrup State",
-     "abbreviation": "SYRP",
-     "mascot": "Drips",
-     "conference": "Atlantic Pickle",
-     "color": "#198e23",
-     "altColor": "#ee2bdd",
+     "school": "NC State",
+     "abbreviation": "NCSU",
+     "mascot": "Wolfpack",
+     "conference": "ACC",
+     "color": "#cc0000",
+     "altColor": "#ffffff",
      "logo": "/media/logo/2916",
      "logoDark": "/media/logo/2916?v=dark",
      "record": {
@@ -11361,7 +11361,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -8.0,
-     "formatted": "Prairie Fire -8",
+     "formatted": "Iowa State -8",
      "overUnder": 64.5
     },
     "homeWinProbability": 0.725
@@ -11372,16 +11372,16 @@ export const sample = {
     "kickoff": "2026-09-27T00:00:00.000Z",
     "startTimeTbd": false,
     "tv": "Couch Network",
-    "venue": "Palmetto Bug Tech Stadium",
+    "venue": "Marshall Stadium",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Palmetto Bug Tech",
-     "abbreviation": "BUGT",
-     "mascot": "Skitters",
-     "conference": "Sun Pudding",
-     "color": "#222d9a",
-     "altColor": "#eedd2b",
+     "school": "Marshall",
+     "abbreviation": "MRSH",
+     "mascot": "Thundering Herd",
+     "conference": "Sun Belt",
+     "color": "#00b140",
+     "altColor": "#000000",
      "logo": "/media/logo/1186",
      "logoDark": "/media/logo/1186?v=dark",
      "record": {
@@ -11400,12 +11400,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Iron Ore Tech",
-     "abbreviation": "ORE",
-     "mascot": "Taconites",
-     "conference": "Lakeshore Lemonade",
-     "color": "#7e6b14",
-     "altColor": "#2b4dee",
+     "school": "Tulane",
+     "abbreviation": "TULN",
+     "mascot": "Green Wave",
+     "conference": "American Athletic",
+     "color": "#006747",
+     "altColor": "#418fde",
      "logo": "/media/logo/1657",
      "logoDark": "/media/logo/1657?v=dark",
      "record": {
@@ -11426,7 +11426,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -7.0,
-     "formatted": "Palmetto Bug Tech -7",
+     "formatted": "Marshall -7",
      "overUnder": 56.0
     },
     "homeWinProbability": 0.693
@@ -11441,12 +11441,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Brisket State",
-     "abbreviation": "BRSK",
-     "mascot": "Smokers",
-     "conference": "Big Casserole",
-     "color": "#206a71",
-     "altColor": "#f4b425",
+     "school": "Arizona",
+     "abbreviation": "ARIZ",
+     "mascot": "Wildcats",
+     "conference": "Big 12",
+     "color": "#cc0033",
+     "altColor": "#003366",
      "logo": "/media/logo/1330",
      "logoDark": "/media/logo/1330?v=dark",
      "record": {
@@ -11465,12 +11465,12 @@ export const sample = {
      "coachesRank": 17
     },
     "away": {
-     "school": "Jalopy Junction",
-     "abbreviation": "JALO",
-     "mascot": "Junkers",
-     "conference": "Cornbread USA",
-     "color": "#971f15",
-     "altColor": "#f4cc25",
+     "school": "Liberty",
+     "abbreviation": "LIB",
+     "mascot": "Flames",
+     "conference": "Conference USA",
+     "color": "#0a254e",
+     "altColor": "#b72025",
      "logo": "/media/logo/2740",
      "logoDark": "/media/logo/2740?v=dark",
      "record": {
@@ -11491,7 +11491,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -38.5,
-     "formatted": "Brisket State -38.5",
+     "formatted": "Arizona -38.5",
      "overUnder": 63.5
     },
     "homeWinProbability": 0.997
@@ -11506,12 +11506,12 @@ export const sample = {
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Gravy Boat State",
-     "abbreviation": "GBS",
-     "mascot": "Ladles",
-     "conference": "Biscuit Belt",
-     "color": "#148122",
-     "altColor": "#f4d725",
+     "school": "Alabama",
+     "abbreviation": "ALA",
+     "mascot": "Crimson Tide",
+     "conference": "SEC",
+     "color": "#9e1b32",
+     "altColor": "#ffffff",
      "logo": "/media/logo/1819",
      "logoDark": "/media/logo/1819?v=dark",
      "record": {
@@ -11530,12 +11530,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Brat Haven",
-     "abbreviation": "BRAT",
-     "mascot": "Mustards",
-     "conference": "Gravy Ten",
-     "color": "#a26e24",
-     "altColor": "#f4c925",
+     "school": "Michigan",
+     "abbreviation": "MICH",
+     "mascot": "Wolverines",
+     "conference": "Big Ten",
+     "color": "#00274c",
+     "altColor": "#ffcb05",
      "logo": "/media/logo/1178",
      "logoDark": "/media/logo/1178?v=dark",
      "record": {
@@ -11556,7 +11556,7 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": -2.5,
-     "formatted": "Gravy Boat State -2.5",
+     "formatted": "Alabama -2.5",
      "overUnder": 63.5
     },
     "homeWinProbability": 0.577
@@ -11567,16 +11567,16 @@ export const sample = {
     "kickoff": "2026-09-27T02:30:00.000Z",
     "startTimeTbd": false,
     "tv": "KCN",
-    "venue": "Trout Creek Coliseum",
+    "venue": "San José State Coliseum",
     "neutralSite": false,
     "conferenceGame": false,
     "home": {
-     "school": "Trout Creek",
-     "abbreviation": "TROT",
-     "mascot": "Tailwaters",
-     "conference": "Mountain Muffin",
-     "color": "#9a2323",
-     "altColor": "#ffffff",
+     "school": "San José State",
+     "abbreviation": "SJSU",
+     "mascot": "Spartans",
+     "conference": "Mountain West",
+     "color": "#0055a2",
+     "altColor": "#e5a823",
      "logo": "/media/logo/1151",
      "logoDark": "/media/logo/1151?v=dark",
      "record": {
@@ -11595,12 +11595,12 @@ export const sample = {
      "coachesRank": null
     },
     "away": {
-     "school": "Red Clay",
-     "abbreviation": "RCLY",
-     "mascot": "Rattlers",
-     "conference": "Biscuit Belt",
-     "color": "#24944a",
-     "altColor": "#f4dd25",
+     "school": "Texas A&M",
+     "abbreviation": "TA&M",
+     "mascot": "Aggies",
+     "conference": "SEC",
+     "color": "#500000",
+     "altColor": "#ffffff",
      "logo": "/media/logo/566",
      "logoDark": "/media/logo/566?v=dark",
      "record": {
@@ -11621,13 +11621,13 @@ export const sample = {
     "isUs": false,
     "line": {
      "spread": 26.0,
-     "formatted": "Red Clay -26",
+     "formatted": "Texas A&M -26",
      "overUnder": 53.5
     },
     "homeWinProbability": 0.033
    }
   ],
-  "slateNote": "Week 4: 16 games on 2026-09-26 with a Top 25 or Biscuit Belt team, out of 46 games that week. From the made-up league.",
+  "slateNote": "Week 4: 16 games on 2026-09-26 with a Top 25 or SEC team, out of 46 games that week. From the made-up league.",
   "news": [],
   "newsNote": "Headlines come from the team's own feed, two national feeds, and a news search for the team."
  },
@@ -11646,7 +11646,7 @@ export const sample = {
     "hometown": "Sunny Corner, TN",
     "height": "6-5",
     "weight": 300,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "174403",
@@ -11660,7 +11660,7 @@ export const sample = {
     "hometown": "Sandy Junction, AL",
     "height": "6-5",
     "weight": 306,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "179462",
@@ -11674,7 +11674,7 @@ export const sample = {
     "hometown": "Cedar Valley, LA",
     "height": "5-11",
     "weight": 201,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "167399",
@@ -11688,7 +11688,7 @@ export const sample = {
     "hometown": "Green Lake, AL",
     "height": "6-3",
     "weight": 273,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "199845",
@@ -11702,7 +11702,7 @@ export const sample = {
     "hometown": "Pine Heights, TX",
     "height": "5-11",
     "weight": 192,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "126001",
@@ -11716,7 +11716,7 @@ export const sample = {
     "hometown": "Cedar Creek, GA",
     "height": "6-6",
     "weight": 283,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "145143",
@@ -11730,7 +11730,7 @@ export const sample = {
     "hometown": "Clover Valley, OH",
     "height": "6-7",
     "weight": 317,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "120189",
@@ -11744,7 +11744,7 @@ export const sample = {
     "hometown": "Clear Bluff, GA",
     "height": "5-11",
     "weight": 200,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "105563",
@@ -11758,7 +11758,7 @@ export const sample = {
     "hometown": "Sunny Grove, AL",
     "height": "6-3",
     "weight": 197,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "178606",
@@ -11772,7 +11772,7 @@ export const sample = {
     "hometown": "Elm Junction, AL",
     "height": "6-0",
     "weight": 176,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "146703",
@@ -11786,7 +11786,7 @@ export const sample = {
     "hometown": "Rocky Valley, MS",
     "height": "6-0",
     "weight": 224,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "193328",
@@ -11800,7 +11800,7 @@ export const sample = {
     "hometown": "Oak Valley, NC",
     "height": "6-7",
     "weight": 323,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "196359",
@@ -11814,7 +11814,7 @@ export const sample = {
     "hometown": "Clear Falls, AL",
     "height": "6-4",
     "weight": 215,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "125243",
@@ -11828,7 +11828,7 @@ export const sample = {
     "hometown": "Clear Mills, AL",
     "height": "6-0",
     "weight": 230,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "126443",
@@ -11842,7 +11842,7 @@ export const sample = {
     "hometown": "Copper Mills, NC",
     "height": "5-10",
     "weight": 179,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "146918",
@@ -11856,7 +11856,7 @@ export const sample = {
     "hometown": "Rocky Grove, GA",
     "height": "6-4",
     "weight": 324,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "134070",
@@ -11870,7 +11870,7 @@ export const sample = {
     "hometown": "Turkeyville, AL",
     "height": "6-6",
     "weight": 297,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "174292",
@@ -11884,7 +11884,7 @@ export const sample = {
     "hometown": "Walnutton, CA",
     "height": "6-7",
     "weight": 302,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    },
    {
     "recruitId": "182233",
@@ -11898,7 +11898,7 @@ export const sample = {
     "hometown": "Ash Hollow, AL",
     "height": "6-7",
     "weight": 320,
-    "committedTo": "Swampwater Tech"
+    "committedTo": "Florida"
    }
   ],
   "starCounts": {
@@ -13623,14 +13623,14 @@ export const sample = {
   "4009113": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 41
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 41
@@ -13639,28 +13639,28 @@ export const sample = {
   "5244286": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 46
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 46
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 46
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 46
@@ -13669,28 +13669,28 @@ export const sample = {
   "4495324": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 33
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 33
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 33
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 33
@@ -13699,21 +13699,21 @@ export const sample = {
   "4253022": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 37
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 37
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 37
@@ -13722,7 +13722,7 @@ export const sample = {
   "4436097": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 17
@@ -13731,7 +13731,7 @@ export const sample = {
   "4379591": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 48
@@ -13740,14 +13740,14 @@ export const sample = {
   "5132265": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 7
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 7
@@ -13756,7 +13756,7 @@ export const sample = {
   "4546155": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 28
@@ -13765,7 +13765,7 @@ export const sample = {
   "4536279": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 15
@@ -13774,21 +13774,21 @@ export const sample = {
   "4265077": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 43
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 43
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 43
@@ -13797,7 +13797,7 @@ export const sample = {
   "4730714": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 24
@@ -13806,28 +13806,28 @@ export const sample = {
   "4185445": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 23
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 23
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 23
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 23
@@ -13836,14 +13836,14 @@ export const sample = {
   "4889028": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 49
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 49
@@ -13852,7 +13852,7 @@ export const sample = {
   "4004809": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DB",
     "number": 1
@@ -13861,14 +13861,14 @@ export const sample = {
   "5229796": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DB",
     "number": 25
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DB",
     "number": 25
@@ -13877,14 +13877,14 @@ export const sample = {
   "4141935": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 50
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 50
@@ -13893,14 +13893,14 @@ export const sample = {
   "4170847": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 96
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 96
@@ -13909,7 +13909,7 @@ export const sample = {
   "4541204": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 78
@@ -13918,7 +13918,7 @@ export const sample = {
   "4072669": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 92
@@ -13927,14 +13927,14 @@ export const sample = {
   "4353429": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 76
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 76
@@ -13943,21 +13943,21 @@ export const sample = {
   "4934865": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 62
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 62
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 62
@@ -13966,14 +13966,14 @@ export const sample = {
   "5186272": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 95
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 95
@@ -13982,14 +13982,14 @@ export const sample = {
   "4746649": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 94
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 94
@@ -13998,14 +13998,14 @@ export const sample = {
   "4427515": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 70
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 70
@@ -14014,14 +14014,14 @@ export const sample = {
   "5001689": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 53
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 53
@@ -14030,14 +14030,14 @@ export const sample = {
   "4103693": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 93
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 93
@@ -14046,7 +14046,7 @@ export const sample = {
   "4646123": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 99
@@ -14055,14 +14055,14 @@ export const sample = {
   "4172775": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 91
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 91
@@ -14071,7 +14071,7 @@ export const sample = {
   "4153517": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 97
@@ -14080,14 +14080,14 @@ export const sample = {
   "4719371": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 75
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 75
@@ -14096,14 +14096,14 @@ export const sample = {
   "4431333": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 98
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 98
@@ -14112,28 +14112,28 @@ export const sample = {
   "4083395": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 60
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 60
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 60
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 60
@@ -14142,14 +14142,14 @@ export const sample = {
   "4010069": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 90
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 90
@@ -14158,7 +14158,7 @@ export const sample = {
   "5128455": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 4
@@ -14167,7 +14167,7 @@ export const sample = {
   "4128124": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 20
@@ -14176,14 +14176,14 @@ export const sample = {
   "4895912": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 26
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 26
@@ -14192,21 +14192,21 @@ export const sample = {
   "4488741": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 44
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 44
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 44
@@ -14215,21 +14215,21 @@ export const sample = {
   "4520890": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 12
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 12
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 12
@@ -14238,21 +14238,21 @@ export const sample = {
   "5147167": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 10
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 10
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 10
@@ -14261,7 +14261,7 @@ export const sample = {
   "4718935": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 6
@@ -14270,21 +14270,21 @@ export const sample = {
   "5046527": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 22
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 22
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 22
@@ -14293,7 +14293,7 @@ export const sample = {
   "4599328": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 54
@@ -14302,7 +14302,7 @@ export const sample = {
   "4324153": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 30
@@ -14311,14 +14311,14 @@ export const sample = {
   "4930550": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 36
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 36
@@ -14327,14 +14327,14 @@ export const sample = {
   "4862035": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LS",
     "number": 41
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LS",
     "number": 41
@@ -14343,7 +14343,7 @@ export const sample = {
   "5052890": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LS",
     "number": 55
@@ -14352,14 +14352,14 @@ export const sample = {
   "4868820": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 68
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 68
@@ -14368,14 +14368,14 @@ export const sample = {
   "4626951": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 61
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 61
@@ -14384,7 +14384,7 @@ export const sample = {
   "5196906": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 64
@@ -14393,7 +14393,7 @@ export const sample = {
   "5174130": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 54
@@ -14402,14 +14402,14 @@ export const sample = {
   "5134506": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 77
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 77
@@ -14418,7 +14418,7 @@ export const sample = {
   "4498718": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 76
@@ -14427,7 +14427,7 @@ export const sample = {
   "4701792": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 59
@@ -14436,7 +14436,7 @@ export const sample = {
   "4206133": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 75
@@ -14445,7 +14445,7 @@ export const sample = {
   "5223938": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 53
@@ -14454,21 +14454,21 @@ export const sample = {
   "4222099": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 72
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 72
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 72
@@ -14477,7 +14477,7 @@ export const sample = {
   "5087723": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 69
@@ -14486,14 +14486,14 @@ export const sample = {
   "4225246": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 56
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 56
@@ -14502,7 +14502,7 @@ export const sample = {
   "4394055": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 70
@@ -14511,7 +14511,7 @@ export const sample = {
   "4467331": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 60
@@ -14520,7 +14520,7 @@ export const sample = {
   "4406130": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 58
@@ -14529,7 +14529,7 @@ export const sample = {
   "4486187": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 67
@@ -14538,7 +14538,7 @@ export const sample = {
   "5231324": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 63
@@ -14547,14 +14547,14 @@ export const sample = {
   "4059944": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 66
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 66
@@ -14563,7 +14563,7 @@ export const sample = {
   "4550260": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 51
@@ -14572,14 +14572,14 @@ export const sample = {
   "4332429": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 74
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 74
@@ -14588,28 +14588,28 @@ export const sample = {
   "5293960": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 50
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 50
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 50
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 50
@@ -14618,7 +14618,7 @@ export const sample = {
   "5071527": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 15
@@ -14627,28 +14627,28 @@ export const sample = {
   "4106857": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 28
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 28
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "P",
     "number": 28
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "P",
     "number": 28
@@ -14657,14 +14657,14 @@ export const sample = {
   "4398663": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "P",
     "number": 9
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 9
@@ -14673,21 +14673,21 @@ export const sample = {
   "5219586": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 37
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 37
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "P",
     "number": 37
@@ -14696,14 +14696,14 @@ export const sample = {
   "4805612": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "PK",
     "number": 24
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 24
@@ -14712,7 +14712,7 @@ export const sample = {
   "5264849": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 33
@@ -14721,7 +14721,7 @@ export const sample = {
   "4451149": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "PK",
     "number": 8
@@ -14730,7 +14730,7 @@ export const sample = {
   "4453332": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 31
@@ -14739,28 +14739,28 @@ export const sample = {
   "4140745": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "QB",
     "number": 2
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "QB",
     "number": 2
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 2
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 2
@@ -14769,14 +14769,14 @@ export const sample = {
   "4694801": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 19
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 19
@@ -14785,21 +14785,21 @@ export const sample = {
   "5259834": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 11
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 11
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 11
@@ -14808,21 +14808,21 @@ export const sample = {
   "5133421": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "QB",
     "number": 7
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "QB",
     "number": 7
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 7
@@ -14831,14 +14831,14 @@ export const sample = {
   "4744506": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 18
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 18
@@ -14847,14 +14847,14 @@ export const sample = {
   "4241203": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 34
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 34
@@ -14863,28 +14863,28 @@ export const sample = {
   "4914280": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 35
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 35
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 35
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 35
@@ -14893,14 +14893,14 @@ export const sample = {
   "4651119": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 40
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 40
@@ -14909,7 +14909,7 @@ export const sample = {
   "4679769": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 36
@@ -14918,35 +14918,35 @@ export const sample = {
   "4555160": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 29
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 29
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 29
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 29
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 29
@@ -14955,28 +14955,28 @@ export const sample = {
   "5298577": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 38
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 38
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 38
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 38
@@ -14985,7 +14985,7 @@ export const sample = {
   "4620005": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 23
@@ -14994,21 +14994,21 @@ export const sample = {
   "4190631": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 20
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 20
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 20
@@ -15017,21 +15017,21 @@ export const sample = {
   "4743828": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 3
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 3
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 3
@@ -15040,21 +15040,21 @@ export const sample = {
   "4700293": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 18
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 18
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 18
@@ -15063,7 +15063,7 @@ export const sample = {
   "5170059": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 47
@@ -15072,14 +15072,14 @@ export const sample = {
   "5094670": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 21
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 21
@@ -15088,7 +15088,7 @@ export const sample = {
   "4016579": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 27
@@ -15097,14 +15097,14 @@ export const sample = {
   "5072919": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 35
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 35
@@ -15113,7 +15113,7 @@ export const sample = {
   "4348370": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 32
@@ -15122,7 +15122,7 @@ export const sample = {
   "4675426": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 11
@@ -15131,7 +15131,7 @@ export const sample = {
   "4737252": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 46
@@ -15140,7 +15140,7 @@ export const sample = {
   "5075101": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 80
@@ -15149,7 +15149,7 @@ export const sample = {
   "4009504": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 82
@@ -15158,14 +15158,14 @@ export const sample = {
   "4902327": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 86
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 86
@@ -15174,7 +15174,7 @@ export const sample = {
   "4823303": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 84
@@ -15183,21 +15183,21 @@ export const sample = {
   "4965614": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 88
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 88
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 88
@@ -15206,7 +15206,7 @@ export const sample = {
   "4703683": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 87
@@ -15215,7 +15215,7 @@ export const sample = {
   "5118200": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 83
@@ -15224,21 +15224,21 @@ export const sample = {
   "4256227": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 21
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 21
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 21
@@ -15247,7 +15247,7 @@ export const sample = {
   "4113867": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 89
@@ -15256,28 +15256,28 @@ export const sample = {
   "4692865": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 1
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 1
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 1
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 1
@@ -15286,14 +15286,14 @@ export const sample = {
   "4409483": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 0
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 0
@@ -15302,7 +15302,7 @@ export const sample = {
   "4003372": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 6
@@ -15311,7 +15311,7 @@ export const sample = {
   "4899357": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 3
@@ -15320,7 +15320,7 @@ export const sample = {
   "4452765": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 5
@@ -15329,28 +15329,28 @@ export const sample = {
   "4988673": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 81
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 81
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 81
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 81
@@ -15359,14 +15359,14 @@ export const sample = {
   "5129888": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 10
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 10
@@ -15375,7 +15375,7 @@ export const sample = {
   "5210330": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 12
@@ -15384,21 +15384,21 @@ export const sample = {
   "4765174": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 14
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 14
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 14
@@ -15407,7 +15407,7 @@ export const sample = {
   "4757431": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 85
@@ -15416,7 +15416,7 @@ export const sample = {
   "5152462": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 16
@@ -15425,21 +15425,21 @@ export const sample = {
   "4458834": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 17
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 17
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 17
@@ -15448,21 +15448,21 @@ export const sample = {
   "4935209": [
    {
     "year": 2022,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 4
    },
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 4
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 4
@@ -15471,28 +15471,28 @@ export const sample = {
   "4839376": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 32
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 32
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 32
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 32
@@ -15501,14 +15501,14 @@ export const sample = {
   "4148280": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 30
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 30
@@ -15517,14 +15517,14 @@ export const sample = {
   "4498348": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 48
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 48
@@ -15533,7 +15533,7 @@ export const sample = {
   "5076620": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 47
@@ -15542,7 +15542,7 @@ export const sample = {
   "5063097": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 6
@@ -15551,28 +15551,28 @@ export const sample = {
   "4323574": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 15
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 15
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 15
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 15
@@ -15581,14 +15581,14 @@ export const sample = {
   "5205966": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 92
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 92
@@ -15597,28 +15597,28 @@ export const sample = {
   "4103175": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 97
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 97
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 97
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 97
@@ -15627,7 +15627,7 @@ export const sample = {
   "4445356": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 67
@@ -15636,7 +15636,7 @@ export const sample = {
   "4029865": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 99
@@ -15645,28 +15645,28 @@ export const sample = {
   "4084579": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 28
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 28
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 28
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 28
@@ -15675,28 +15675,28 @@ export const sample = {
   "4652683": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 39
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 39
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 39
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 39
@@ -15705,28 +15705,28 @@ export const sample = {
   "4699256": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 27
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 27
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 27
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 27
@@ -15735,14 +15735,14 @@ export const sample = {
   "4478790": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 9
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 9
@@ -15751,21 +15751,21 @@ export const sample = {
   "4709861": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 45
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 45
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 45
@@ -15774,7 +15774,7 @@ export const sample = {
   "5021444": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 2
@@ -15783,28 +15783,28 @@ export const sample = {
   "4578907": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LS",
     "number": 55
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LS",
     "number": 55
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LS",
     "number": 55
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LS",
     "number": 55
@@ -15813,14 +15813,14 @@ export const sample = {
   "4426076": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 58
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 58
@@ -15829,28 +15829,28 @@ export const sample = {
   "4611096": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 71
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 71
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 71
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 71
@@ -15859,21 +15859,21 @@ export const sample = {
   "4722031": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 57
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 57
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 57
@@ -15882,21 +15882,21 @@ export const sample = {
   "4624280": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 60
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 60
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 60
@@ -15905,21 +15905,21 @@ export const sample = {
   "5053587": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 75
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 75
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 75
@@ -15928,7 +15928,7 @@ export const sample = {
   "4699770": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 51
@@ -15937,21 +15937,21 @@ export const sample = {
   "4104631": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 73
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 73
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 73
@@ -15960,21 +15960,21 @@ export const sample = {
   "4120739": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 67
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 67
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 67
@@ -15983,28 +15983,28 @@ export const sample = {
   "4478880": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 70
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 70
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 70
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 70
@@ -16013,7 +16013,7 @@ export const sample = {
   "4606525": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 59
@@ -16022,21 +16022,21 @@ export const sample = {
   "5147175": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 62
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 62
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 62
@@ -16045,21 +16045,21 @@ export const sample = {
   "4810122": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "P",
     "number": 3
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 3
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 3
@@ -16068,7 +16068,7 @@ export const sample = {
   "4575862": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 39
@@ -16077,14 +16077,14 @@ export const sample = {
   "4231215": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "P",
     "number": 36
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "P",
     "number": 36
@@ -16093,21 +16093,21 @@ export const sample = {
   "4852163": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "QB",
     "number": 16
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "QB",
     "number": 16
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 16
@@ -16116,14 +16116,14 @@ export const sample = {
   "4330060": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 5
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 5
@@ -16132,21 +16132,21 @@ export const sample = {
   "4919419": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 47
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 47
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 47
@@ -16155,21 +16155,21 @@ export const sample = {
   "5249731": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 31
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 31
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 31
@@ -16178,28 +16178,28 @@ export const sample = {
   "4317541": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 42
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 42
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 42
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 42
@@ -16208,14 +16208,14 @@ export const sample = {
   "4541998": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 11
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 11
@@ -16224,28 +16224,28 @@ export const sample = {
   "4627257": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 38
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 38
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 38
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 38
@@ -16254,21 +16254,21 @@ export const sample = {
   "4332181": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 83
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 83
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 83
@@ -16277,21 +16277,21 @@ export const sample = {
   "4356082": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 85
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 85
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 85
@@ -16300,14 +16300,14 @@ export const sample = {
   "4460460": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 82
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 82
@@ -16316,28 +16316,28 @@ export const sample = {
   "4032221": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 87
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 87
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "TE",
     "number": 87
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 87
@@ -16346,28 +16346,28 @@ export const sample = {
   "4476242": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 8
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 8
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 8
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 8
@@ -16376,21 +16376,21 @@ export const sample = {
   "5205285": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 12
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 12
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 12
@@ -16399,28 +16399,28 @@ export const sample = {
   "4006287": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 15
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 15
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 15
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 15
@@ -16429,28 +16429,28 @@ export const sample = {
   "5000581": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 80
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 80
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 80
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 80
@@ -16459,7 +16459,7 @@ export const sample = {
   "4754040": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 13
@@ -16468,21 +16468,21 @@ export const sample = {
   "4689334": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 6
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 6
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 6
@@ -16491,14 +16491,14 @@ export const sample = {
   "4309068": [
    {
     "year": 2023,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 89
    },
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 89
@@ -16507,7 +16507,7 @@ export const sample = {
   "5257751": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "CB",
     "number": 29
@@ -16516,7 +16516,7 @@ export const sample = {
   "4017273": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 67
@@ -16525,21 +16525,21 @@ export const sample = {
   "4594713": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 94
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 94
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 94
@@ -16548,14 +16548,14 @@ export const sample = {
   "4302620": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 99
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 99
@@ -16564,21 +16564,21 @@ export const sample = {
   "4386117": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 95
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 95
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 95
@@ -16587,21 +16587,21 @@ export const sample = {
   "4724979": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 91
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 91
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 91
@@ -16610,21 +16610,21 @@ export const sample = {
   "4507306": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 76
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 76
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 76
@@ -16633,21 +16633,21 @@ export const sample = {
   "4813637": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 96
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 96
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 96
@@ -16656,21 +16656,21 @@ export const sample = {
   "4218314": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 90
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 90
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 90
@@ -16679,7 +16679,7 @@ export const sample = {
   "5167566": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 98
@@ -16688,21 +16688,21 @@ export const sample = {
   "4939534": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 93
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 93
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 93
@@ -16711,21 +16711,21 @@ export const sample = {
   "4782009": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 59
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 59
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 59
@@ -16734,21 +16734,21 @@ export const sample = {
   "4922681": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 7
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 7
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 7
@@ -16757,7 +16757,7 @@ export const sample = {
   "4654630": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 2
@@ -16766,14 +16766,14 @@ export const sample = {
   "4048818": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 5
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 5
@@ -16782,21 +16782,21 @@ export const sample = {
   "4417837": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 47
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 47
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 47
@@ -16805,21 +16805,21 @@ export const sample = {
   "4516350": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LS",
     "number": 61
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LS",
     "number": 61
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LS",
     "number": 61
@@ -16828,7 +16828,7 @@ export const sample = {
   "4341071": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 76
@@ -16837,14 +16837,14 @@ export const sample = {
   "4694051": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 79
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 79
@@ -16853,21 +16853,21 @@ export const sample = {
   "5075758": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 78
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 78
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 78
@@ -16876,21 +16876,21 @@ export const sample = {
   "4759983": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 77
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 77
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 77
@@ -16899,21 +16899,21 @@ export const sample = {
   "4687479": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 59
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 59
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 59
@@ -16922,14 +16922,14 @@ export const sample = {
   "4708383": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 63
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 63
@@ -16938,7 +16938,7 @@ export const sample = {
   "4635202": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 69
@@ -16947,21 +16947,21 @@ export const sample = {
   "4636938": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 68
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 68
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 68
@@ -16970,14 +16970,14 @@ export const sample = {
   "4579513": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 74
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "OL",
     "number": 74
@@ -16986,21 +16986,21 @@ export const sample = {
   "4590459": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "PK",
     "number": 13
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 13
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "PK",
     "number": 13
@@ -17009,14 +17009,14 @@ export const sample = {
   "4047099": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "PK",
     "number": 9
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 9
@@ -17025,7 +17025,7 @@ export const sample = {
   "4634717": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "PK",
     "number": 25
@@ -17034,21 +17034,21 @@ export const sample = {
   "4307528": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "QB",
     "number": 18
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "QB",
     "number": 18
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 18
@@ -17057,21 +17057,21 @@ export const sample = {
   "5187000": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 23
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 23
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 23
@@ -17080,7 +17080,7 @@ export const sample = {
   "4945757": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 40
@@ -17089,21 +17089,21 @@ export const sample = {
   "4962067": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 19
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 19
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 19
@@ -17112,7 +17112,7 @@ export const sample = {
   "4027551": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "S",
     "number": 14
@@ -17121,7 +17121,7 @@ export const sample = {
   "4614311": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 16
@@ -17130,14 +17130,14 @@ export const sample = {
   "5210652": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 24
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 24
@@ -17146,7 +17146,7 @@ export const sample = {
   "4840477": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 33
@@ -17155,7 +17155,7 @@ export const sample = {
   "4857360": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 49
@@ -17164,7 +17164,7 @@ export const sample = {
   "4541901": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "TE",
     "number": 41
@@ -17173,21 +17173,21 @@ export const sample = {
   "4991130": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 86
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 86
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 86
@@ -17196,7 +17196,7 @@ export const sample = {
   "4585331": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 19
@@ -17205,7 +17205,7 @@ export const sample = {
   "5026868": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 84
@@ -17214,7 +17214,7 @@ export const sample = {
   "4872215": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 0
@@ -17223,21 +17223,21 @@ export const sample = {
   "5068718": [
    {
     "year": 2024,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 10
    },
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 10
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "WR",
     "number": 10
@@ -17246,14 +17246,14 @@ export const sample = {
   "4770462": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 4
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 4
@@ -17262,7 +17262,7 @@ export const sample = {
   "4493126": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 2
@@ -17271,14 +17271,14 @@ export const sample = {
   "4301246": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 9
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 9
@@ -17287,7 +17287,7 @@ export const sample = {
   "4319670": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 36
@@ -17296,14 +17296,14 @@ export const sample = {
   "4726074": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 12
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 12
@@ -17312,14 +17312,14 @@ export const sample = {
   "4822447": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 40
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 40
@@ -17328,14 +17328,14 @@ export const sample = {
   "4844409": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 43
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 43
@@ -17344,14 +17344,14 @@ export const sample = {
   "4577697": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "CB",
     "number": 25
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "CB",
     "number": 25
@@ -17360,14 +17360,14 @@ export const sample = {
   "4422479": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DB",
     "number": 11
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DB",
     "number": 11
@@ -17376,14 +17376,14 @@ export const sample = {
   "4214253": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 58
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 58
@@ -17392,14 +17392,14 @@ export const sample = {
   "4926778": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 64
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 64
@@ -17408,14 +17408,14 @@ export const sample = {
   "4801716": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 92
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 92
@@ -17424,14 +17424,14 @@ export const sample = {
   "4962161": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 73
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 73
@@ -17440,7 +17440,7 @@ export const sample = {
   "4344000": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 77
@@ -17449,14 +17449,14 @@ export const sample = {
   "4535581": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 98
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "DL",
     "number": 98
@@ -17465,14 +17465,14 @@ export const sample = {
   "4220267": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 54
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 54
@@ -17481,7 +17481,7 @@ export const sample = {
   "4817141": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 29
@@ -17490,7 +17490,7 @@ export const sample = {
   "4397176": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 53
@@ -17499,14 +17499,14 @@ export const sample = {
   "4504503": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 37
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LB",
     "number": 37
@@ -17515,7 +17515,7 @@ export const sample = {
   "4672545": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 8
@@ -17524,14 +17524,14 @@ export const sample = {
   "4932861": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 35
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 35
@@ -17540,7 +17540,7 @@ export const sample = {
   "5021876": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "LS",
     "number": 51
@@ -17549,7 +17549,7 @@ export const sample = {
   "4319811": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 58
@@ -17558,7 +17558,7 @@ export const sample = {
   "4772150": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 52
@@ -17567,7 +17567,7 @@ export const sample = {
   "5159328": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 72
@@ -17576,14 +17576,14 @@ export const sample = {
   "4787534": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "P",
     "number": 36
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 36
@@ -17592,14 +17592,14 @@ export const sample = {
   "5224902": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "P",
     "number": 22
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "P",
     "number": 22
@@ -17608,14 +17608,14 @@ export const sample = {
   "4876852": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "PK",
     "number": 42
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "PK",
     "number": 42
@@ -17624,14 +17624,14 @@ export const sample = {
   "4354173": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "PK",
     "number": 26
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "PK",
     "number": 26
@@ -17640,14 +17640,14 @@ export const sample = {
   "4599360": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 19
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 19
@@ -17656,14 +17656,14 @@ export const sample = {
   "4047830": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 11
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "QB",
     "number": 11
@@ -17672,7 +17672,7 @@ export const sample = {
   "4837042": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 48
@@ -17681,14 +17681,14 @@ export const sample = {
   "5038189": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "RB",
     "number": 37
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 37
@@ -17697,7 +17697,7 @@ export const sample = {
   "4990852": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "RB",
     "number": 39
@@ -17706,14 +17706,14 @@ export const sample = {
   "4688507": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "RB",
     "number": 45
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 45
@@ -17722,7 +17722,7 @@ export const sample = {
   "4640130": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 49
@@ -17731,14 +17731,14 @@ export const sample = {
   "4527183": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 10
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 10
@@ -17747,14 +17747,14 @@ export const sample = {
   "5151467": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 88
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 88
@@ -17763,14 +17763,14 @@ export const sample = {
   "5120928": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 84
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 84
@@ -17779,14 +17779,14 @@ export const sample = {
   "4577121": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 82
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "TE",
     "number": 82
@@ -17795,7 +17795,7 @@ export const sample = {
   "5175621": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 89
@@ -17804,14 +17804,14 @@ export const sample = {
   "4454430": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 5
    },
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "WR",
     "number": 5
@@ -17820,7 +17820,7 @@ export const sample = {
   "5137423": [
    {
     "year": 2025,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "WR",
     "number": 4
@@ -17829,7 +17829,7 @@ export const sample = {
   "4082003": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "CB",
     "number": 3
@@ -17838,7 +17838,7 @@ export const sample = {
   "4131937": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "DL",
     "number": 51
@@ -17847,7 +17847,7 @@ export const sample = {
   "4797734": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 69
@@ -17856,7 +17856,7 @@ export const sample = {
   "4473833": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "DL",
     "number": 99
@@ -17865,7 +17865,7 @@ export const sample = {
   "4812934": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 74
@@ -17874,7 +17874,7 @@ export const sample = {
   "4118476": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 56
@@ -17883,7 +17883,7 @@ export const sample = {
   "4785683": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "DL",
     "number": 75
@@ -17892,7 +17892,7 @@ export const sample = {
   "5058271": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LB",
     "number": 22
@@ -17901,7 +17901,7 @@ export const sample = {
   "4901385": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "LB",
     "number": 20
@@ -17910,7 +17910,7 @@ export const sample = {
   "4500051": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "LB",
     "number": 34
@@ -17919,7 +17919,7 @@ export const sample = {
   "4826865": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "LS",
     "number": 58
@@ -17928,7 +17928,7 @@ export const sample = {
   "5176154": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 65
@@ -17937,7 +17937,7 @@ export const sample = {
   "5225735": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 57
@@ -17946,7 +17946,7 @@ export const sample = {
   "4513046": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 79
@@ -17955,7 +17955,7 @@ export const sample = {
   "5059807": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 60
@@ -17964,7 +17964,7 @@ export const sample = {
   "4178107": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "OL",
     "number": 66
@@ -17973,7 +17973,7 @@ export const sample = {
   "4448499": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 76
@@ -17982,7 +17982,7 @@ export const sample = {
   "4215349": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 52
@@ -17991,7 +17991,7 @@ export const sample = {
   "4802972": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 67
@@ -18000,7 +18000,7 @@ export const sample = {
   "5119272": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "OL",
     "number": 62
@@ -18009,7 +18009,7 @@ export const sample = {
   "4180997": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "OL",
     "number": 50
@@ -18018,7 +18018,7 @@ export const sample = {
   "4930515": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "P",
     "number": 20
@@ -18027,7 +18027,7 @@ export const sample = {
   "4542678": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "QB",
     "number": 7
@@ -18036,7 +18036,7 @@ export const sample = {
   "4470835": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "QB",
     "number": 12
@@ -18045,7 +18045,7 @@ export const sample = {
   "5286805": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "QB",
     "number": 16
@@ -18054,7 +18054,7 @@ export const sample = {
   "4121019": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "JR",
     "position": "RB",
     "number": 31
@@ -18063,7 +18063,7 @@ export const sample = {
   "4480961": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 21
@@ -18072,7 +18072,7 @@ export const sample = {
   "4356405": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "S",
     "number": 23
@@ -18081,7 +18081,7 @@ export const sample = {
   "5261941": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SO",
     "position": "S",
     "number": 17
@@ -18090,7 +18090,7 @@ export const sample = {
   "4829732": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "SR",
     "position": "S",
     "number": 36
@@ -18099,7 +18099,7 @@ export const sample = {
   "4652623": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "TE",
     "number": 85
@@ -18108,7 +18108,7 @@ export const sample = {
   "4651967": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 17
@@ -18117,7 +18117,7 @@ export const sample = {
   "4806155": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 3
@@ -18126,7 +18126,7 @@ export const sample = {
   "4825022": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 9
@@ -18135,7 +18135,7 @@ export const sample = {
   "4223458": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 2
@@ -18144,7 +18144,7 @@ export const sample = {
   "4468705": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 6
@@ -18153,7 +18153,7 @@ export const sample = {
   "5002701": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 14
@@ -18162,7 +18162,7 @@ export const sample = {
   "5234430": [
    {
     "year": 2026,
-    "team": "Swampwater Tech",
+    "team": "Florida",
     "classYear": "FR",
     "position": "WR",
     "number": 0
@@ -18172,8 +18172,8 @@ export const sample = {
  "ratings": {
   "sp": {
    "year": 2026,
-   "team": "Swampwater Tech",
-   "conference": "Biscuit Belt",
+   "team": "Florida",
+   "conference": "SEC",
    "rating": 20.6,
    "ranking": 5,
    "secondOrderWins": null,
@@ -18211,8 +18211,8 @@ export const sample = {
   },
   "fpi": {
    "year": 2026,
-   "team": "Swampwater Tech",
-   "conference": "Biscuit Belt",
+   "team": "Florida",
+   "conference": "SEC",
    "fpi": 24.138,
    "resumeRanks": {
     "strengthOfRecord": 5,
@@ -18231,8 +18231,8 @@ export const sample = {
   },
   "elo": {
    "year": 2026,
-   "team": "Swampwater Tech",
-   "conference": "Biscuit Belt",
+   "team": "Florida",
+   "conference": "SEC",
    "elo": 1690
   }
  },

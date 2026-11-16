@@ -148,6 +148,9 @@ class TeamMatcher:
 NATIONAL_FEEDS: tuple[FeedSpec, ...] = (
     FeedSpec("espn", "ESPN", "https://www.espn.com/espn/rss/ncf/news", team_only=True),
     FeedSpec("athletic", "The Athletic", "https://theathletic.com/rss/college-football/", team_only=True),
+    # FEAT-14 (2026-10-27): two national feeds whose links lead straight to stories the server can copy whole
+    FeedSpec("cbs", "CBS Sports", "https://www.cbssports.com/rss/headlines/college-football/", team_only=True),
+    FeedSpec("yahoo", "Yahoo Sports", "https://sports.yahoo.com/college-football/rss/", team_only=True),
 )
 
 
@@ -369,6 +372,15 @@ def merge_headlines(results: list[FeedResult], limit: int = 40) -> list[dict[str
 SEASON_ARCHIVE_LIMIT = 4000
 
 
+def team_site_echo(row: Any, matcher: TeamMatcher | None) -> bool:
+    """A Google News item from the team's own site ("Florida Gators" as its source). With the site's football feed
+    configured these are its other sports (soccer, golf) or copies of stories the team feed already carries (FEAT-14)."""
+    if not isinstance(row, dict) or row.get("feed") != "google" or matcher is None or len(matcher.names) < 2:
+        return False
+    site = re.sub(r"[^a-z0-9]+", " ", " ".join(matcher.names[:2]).lower()).strip()
+    return re.sub(r"[^a-z0-9]+", " ", str(row.get("source") or "").lower()).strip() == site
+
+
 def headline_key(title: str) -> str:
     """The dedupe key the merge uses: lower case, letters and digits, the first 80 characters."""
     return re.sub(r"[^a-z0-9]+", " ", title.lower()).strip()[:80]
@@ -421,13 +433,8 @@ class SeasonArchive:
                 atomic_write(self._path(season), json.dumps({"season": int(season), "headlines": rows}, ensure_ascii=False))  # never a half-written season file (freeze wave F1, B6)
             except OSError as exc:
                 log.warning("Could not store the season's headlines: %s", exc)
-            for old in self.dir.glob("season-*.json"):
-                if old.name != self._path(season).name:
-                    try:
-                        old.unlink()
-                        log.info("A new season: removed the old headline archive %s", old.name)
-                    except OSError as exc:
-                        log.warning("Could not remove the old headline archive %s: %s", old.name, exc)
+            # rollover R3 (2026-11-15): a past season's archive stays (it was removed here at the new season's first add):
+            # its papers and the Seasons list read it, and the nightly backup keeps it
         return rows
 
 

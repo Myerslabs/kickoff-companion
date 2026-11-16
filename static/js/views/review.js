@@ -6,7 +6,7 @@
 //   reviewGameRow(game, n)               one played game as a table row (exported for the tests)
 //   createReviewView({ onStatus })       the page (#review)
 //
-// Tables wave 3 (owner 2026-10-10; docs/03-DESIGN.md, Table sizes): every data point in its own column, each table sized
+// Tables wave 3 (owner 2026-10-10; the design rules, Table sizes): every data point in its own column, each table sized
 // by its own box. The season in a few lines is two tables: the games that stood out (Fact | Site | AP rank | Opponent |
 // Result | Date; the AP rank from medium, the date at large, the opponent's abbreviation at small, still its link; a row
 // opens its box score) and the splits (Fact | Value), the facts in their written order with their shorter words below
@@ -129,7 +129,8 @@ const openBox = (row) => {
   if (isNum(row.gameId)) window.location.hash = `box=${row.gameId}`;
 };
 
-export function reviewBody(overview) {
+export function reviewBody(overview, { games = true } = {}) {
+  // Wave 7 (2026-11-15): the season in review draws the schedule in its own band above, so it asks for the facts alone
   const data = obj(overview);
   const f = reviewFacts(data.schedule);
   const overall = obj(obj(data.record).overall);
@@ -167,8 +168,8 @@ export function reviewBody(overview) {
       statTable({ compact: true, sizes: true, columns: [{ key: "label", label: "Fact", kind: "text" }, ...gameColumns(polled), { key: "dateText", label: "Date", kind: "text", size: "large" }], rows: stoodOut, onRowTap: openBox, canTap: (row) => isNum(row.gameId), caption: "The games that stood out" }),
       statTable({ compact: true, sizes: true, columns: [{ key: "label", label: "Fact", kind: "text" }, { key: "value", label: "Value", kind: "text" }], rows: splits, caption: "The season's splits" }),
     ),
-    subhead("Every game"),
-    statTable({
+    games ? subhead("Every game") : null,
+    games ? statTable({
       compact: true,
       sizes: true,
       columns: [
@@ -183,15 +184,14 @@ export function reviewBody(overview) {
       onRowTap: openBox,
       canTap: (row) => isNum(row.gameId),
       caption: "Every game",
-    }),
-    el("p", { class: "note" }, `${fmtNum(f.pointsFor)} points scored and ${fmtNum(f.pointsAgainst)} allowed over ${f.games} game${f.games === 1 ? "" : "s"}. Tap a game for its box score.`),
+    }) : null,
+    el("p", { class: "note" }, `${fmtNum(f.pointsFor)} points scored and ${fmtNum(f.pointsAgainst)} allowed over ${f.games} game${f.games === 1 ? "" : "s"}.${games ? " Tap a game for its box score." : ""}`),
   );
 }
 
 export function createReviewView({ onStatus } = {}) {
   return poller({
     url: "/api/season/overview",
-    refreshMs: 15 * 60 * 1000,
     onStatus,
     render: (envelope, container) => {
       const data = obj(envelope?.data);

@@ -120,25 +120,27 @@ scenarios.unplayed = async () => {
 };
 
 scenarios.standings = async () => {
+  // wave 3 (2026-11-01): a team's page is My Team's page of that team; ?band=standings lands on its standings
   installWindow();
-  const { createTeamView } = await import(moduleUrl("views/team.js"));
+  const { createSeasonView } = await import(moduleUrl("views/season.js"));
   const data = {
     season: 2026,
-    team: { school: "Far Away U", abbreviation: "FAR" },
+    team: { school: "Far Away U", abbreviation: "FAR", conferenceShort: "Other" },
     profile: { rows: [] }, advanced: { rows: [] }, schedule: [], roster: [], coaches: [],
     standings: { conference: "Other", rows: [{ place: 1, team: "Far Away U", isUs: true, conference: { wins: 3, losses: 0 }, overall: { wins: 6, losses: 1 }, apRank: 12 }, { place: 2, team: "Next Door", isUs: false, conference: null, overall: { wins: "x" } }, null] },
     parts: { records: { status: "ok" } },
   };
   window.scrollY = 0;
-  const { main } = await mountView(createTeamView, "/api/team/Far%20Away%20U", data, { school: "Far Away U", params: { band: "standings" } });
+  data.standings = data.standings.rows;
+  const { main } = await mountView(createSeasonView, "/api/season/overview?team=Far%20Away%20U", data, { params: { team: "Far Away U", band: "standings" } });
   await advance(10);
-  const band = main.querySelector("#team-standings");
-  assert.ok(band, "the standings band is on the Summary tab");
+  const band = main.querySelector("#season-standings");
+  assert.ok(band, "the standings band on the team's page");
   const t = clean("standings", band);
-  assert.ok(t.includes("Other standings") && t.includes("3-0") && t.includes("Next Door"));
-  const independent = { ...data, standings: null };
-  const { main: main2 } = await mountView(createTeamView, "/api/team/Lone", independent, { school: "Lone" });
-  assert.equal(main2.querySelector("#team-standings"), null, "an independent has none");
+  assert.ok(t.includes("Other standings") && t.includes("3-0") && t.includes("Next Door"), t.slice(0, 200));
+  const independent = { ...data, standings: [] };
+  const { main: main2 } = await mountView(createSeasonView, "/api/season/overview?team=Lone", independent, { params: { team: "Lone" } });
+  assert.ok(text(main2.querySelector("#season-standings")).includes("Standings appear after the first conference game."), "an independent: the band says so");
 };
 """
 

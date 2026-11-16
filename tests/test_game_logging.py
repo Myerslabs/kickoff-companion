@@ -79,17 +79,17 @@ def test_the_engine_writes_game_snapshots(app, client: TestClient, caplog):
     engine: LiveEngine = app.state.live
     clock = {"now": KICKOFF + timedelta(minutes=40)}
     app.state.cfbd._clock = lambda: clock["now"]
-    window = GameWindow(NEXT_GAME, "Swampwater Tech", "Diner Tech", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
+    window = GameWindow(NEXT_GAME, "Florida", "Texas State", 4, KICKOFF, KICKOFF - WINDOW_BEFORE, KICKOFF + WINDOW_AFTER)
     engine.window = window
     engine._open_window(window)
-    client.portal.call(engine.publish, [LiveEvent("play:1", "play", NEXT_GAME, clock["now"], {"id": "1", "period": 2, "offense": "Swampwater Tech", "defense": "Diner Tech", "playType": "Rush", "yardsGained": 7, "text": "#1 A.B rush for 7 yards"}), LiveEvent("status", "status", NEXT_GAME, clock["now"], {"status": "in_progress", "period": 2, "clock": {"minutes": 4, "seconds": 5}, "homeScore": 17, "awayScore": 6, "down": 1, "distance": 10, "yardsToGoal": 40, "possession": "Swampwater Tech"})])
+    client.portal.call(engine.publish, [LiveEvent("play:1", "play", NEXT_GAME, clock["now"], {"id": "1", "period": 2, "offense": "Florida", "defense": "Texas State", "playType": "Rush", "yardsGained": 7, "text": "#1 A.B rush for 7 yards"}), LiveEvent("status", "status", NEXT_GAME, clock["now"], {"status": "in_progress", "period": 2, "clock": {"minutes": 4, "seconds": 5}, "homeScore": 17, "awayScore": 6, "down": 1, "distance": 10, "yardsToGoal": 40, "possession": "Florida"})])
     client.portal.call(engine._snapshot, window)
     lines = [r.getMessage() for r in caplog.records if r.name == "kickoff.live.snapshot"]
-    assert len(lines) == 1 and "Q2 4:05" in lines[0] and "Diner Tech 6-17" in lines[0] and "1 plays" in lines[0] and "feed" in lines[0]
+    assert len(lines) == 1 and "Q2 4:05" in lines[0] and "Texas State 6-17" in lines[0] and "1 plays" in lines[0] and "feed" in lines[0]
     states = sorted((app.state.settings.data_dir / "live" / str(NEXT_GAME)).glob("state-*.json"))
     assert len(states) == 1
     saved = json.loads(states[0].read_text(encoding="utf-8"))["payload"]
-    assert saved["homeScore"] == 17 and "plays" not in saved and "drives" not in saved and saved["box"]["Swampwater Tech"]["rushingYards"] == 7
+    assert saved["homeScore"] == 17 and "plays" not in saved and "drives" not in saved and saved["box"]["Florida"]["rushingYards"] == 7
     clock["now"] += timedelta(seconds=30)
     client.portal.call(engine._snapshot, window)
     assert len([r for r in caplog.records if r.name == "kickoff.live.snapshot"]) == 1  # once a minute

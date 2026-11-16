@@ -2,7 +2,7 @@
 // itself fits one landscape screen with nothing to scroll). The pieces the one-screen "stage" is built from; views/live.js
 // lays them out and keeps them fresh, on the tablet and on the board alike.
 //
-// The layout pass (owner 2026-10-22, https://claude.ai/artifact/Mrt8VH6khBN5GNZ1Mrzbdt): the score line sits at the bottom
+// The layout pass (owner 2026-10-22): the score line sits at the bottom
 // above the ticker on one line, dropping its least-needed parts by width; the panels have no title bars; the box score
 // keeps one passer, two rushers and three receivers a team and holds still; the shot chart follows the offense on the field.
 //
@@ -18,7 +18,8 @@
 //   stageBox({ us, them, usCats, themCats, onTap })    both teams' short box scores side by side
 //   shortBox(categories, { team, side, onTap })        one team's: the leaders by yards, one passer, two rushers, three receivers
 //   offenseHead({ abbr, side, counts })                the shot chart's end zone: whose offense, its passes and runs
-//   stageTools({ delayLabel, onDelay, onRadio, onNotes, onInvite })   the five tool buttons, pinned at the row's right end
+//   stageTools({ delayLabel, onDelay, onPick, onRadio, onNotes, onInvite })   the six tool buttons, pinned at the row's right end
+//                                                        (Pick a game, owner 2026-11-02: In Game for any team's game, from here)
 //   driveLines(summary, usTeam, themTeam)              [{ label, us, them }] (exported for the tests)
 
 import { DASH, el, fmtClock, fmtPct, fmtSigned, isNum, obj, period, records, situationText, text } from "./dom.js";
@@ -235,10 +236,10 @@ export function offenseHead({ abbr, side = "us", counts = "" } = {}) {
 }
 
 /** The five tools as buttons of the panel row's kind (owner 2026-10-20: "where the touch is"); the Big screen one is a link. */
-export function stageTools({ delayLabel = "Delay", onDelay, onRadio, onNotes, onInvite, boardHref = "#board" } = {}) {
+export function stageTools({ delayLabel = "Delay", onDelay, onPick, onRadio, onNotes, onInvite, boardHref = "#board" } = {}) {
   const button = (label, onclick, extra = {}) => el("button", { class: "remote__btn remote__btn--tool", type: "button", "aria-haspopup": "dialog", onclick, ...extra }, text(label));
   const delay = button(delayLabel, onDelay, { class: "remote__btn remote__btn--tool remote__delay" });
-  const nodes = [delay, button("Radio", onRadio), button("Notes", onNotes), button("Invite", onInvite), el("a", { class: "remote__btn remote__btn--tool", href: boardHref }, "Big screen")];
+  const nodes = [delay, button("Pick a game", onPick), button("Radio", onRadio), button("Notes", onNotes), button("Invite", onInvite), el("a", { class: "remote__btn remote__btn--tool", href: boardHref }, "Big screen")];
   nodes.setDelayLabel = (label) => {
     delay.textContent = text(label);
   };

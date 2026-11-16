@@ -54,6 +54,19 @@ DEGENERATE_SHARE = 0.9  # of the classed players in one class
 INFERRED_NOTE = "CFBD lists nearly every player in one class this season, so each class here comes from the player's recruiting class, or from last season's roster."
 
 
+_SAID: set[tuple[int, str]] = set()
+
+
+def say_inferred(log: Any, season: int, school: str) -> None:
+    """The bug round (2026-11-15): "lists nearly every player in one class" once per school and season in a process, not on
+    every roster read (360 lines in two weeks)."""
+    key = (int(season), str(school))
+    if key in _SAID:
+        return
+    _SAID.add(key)
+    log.warning("CFBD's %s roster for %s lists nearly every player in one class; inferring the classes", season, school)
+
+
 def degenerate(years: list[Any]) -> bool:
     """True when the roster's class field cannot be believed: nearly every player in one class."""
     values = [n for n in (_whole(y) for y in years) if n is not None and n >= 1]

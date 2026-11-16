@@ -49,20 +49,20 @@ scenarios.links = async () => {
     { label: "Points per game", format: "1f", metric: "profile:ppg", us: { value: 31.2, rank: 8, of: 134 }, them: { value: 24.1, rank: 40, of: 134 } },
     { label: "Turnovers", format: "0f", us: { value: 3 }, them: { value: null } },
   ];
-  const table = twoTeamTable({ rows, usAbbr: "SWT", themAbbr: "OPP", usTeam: "Swampwater Tech", themTeam: "Diner Tech", tug: true, caption: "links" });
+  const table = twoTeamTable({ rows, usAbbr: "FLA", themAbbr: "OPP", usTeam: "Florida", themTeam: "Texas State", tug: true, caption: "links" });
   document.body.append(table);
   const cells = table.querySelectorAll("td.tt__cell");
   const linked = cells.filter((td) => td.className.includes("tt__cell--link"));
   assert.equal(linked.length, 2, "a value with a list behind it links, on both sides");
   const a = linked[0].querySelector("a.tt__val-link");
-  assert.ok(a && a.getAttribute("href") === "#national=profile%3Appg?team=Swampwater%20Tech", "our number opens the list on our row");
+  assert.ok(a && a.getAttribute("href") === "#national=profile%3Appg?team=Florida", "our number opens the list on our row");
   assert.ok(a.querySelector(".tt__val") && text(a).includes("31.2"), "the number itself is the link's words");
   assert.ok(cells.slice(2).every((td) => !td.querySelector("a")), "a row with no list, or no value, stays plain");
   // the same offer the chip makes, so the page's sheet can take it
   let offered = null;
   document.addEventListener("kickoff:rank-link", (event) => { offered = event.detail; event.preventDefault(); }, { once: true });
   a.click();
-  assert.deepEqual([offered.href, offered.rank, offered.of], ["#national=profile%3Appg?team=Swampwater%20Tech", 8, 134]);
+  assert.deepEqual([offered.href, offered.rank, offered.of], ["#national=profile%3Appg?team=Florida", 8, 134]);
   // the stat table: a value cell with a linked chip links its number too
   const st = statTable({ compact: true, columns: [{ key: "team", label: "Team", kind: "text" }, { key: "ppg", label: "Points per game", format: "1f", rank: { key: "rank", of: 134, link: (row) => (row.rank ? `#national=profile%3Appg?team=${encodeURIComponent(row.team)}` : null) } }], rows: [{ team: "A", ppg: 30.5, rank: 3 }, { team: "B", ppg: 20.5, rank: null }], caption: "st" });
   document.body.append(st);
@@ -115,7 +115,7 @@ def test_our_team_name_leads_to_the_season_page_and_the_screens_are_set() -> Non
     app = (JS / "app.js").read_text(encoding="utf-8")
     assert 'event.detail === usSchool()) window.location.hash = "season"' in app, "ours to the Season page, others to the flyout"
     flow = (JS / "ui" / "flow.js").read_text(encoding="utf-8")
-    assert "const BREAKS = [[2500, 4], [1700, 3], [700, 2]];" in flow
+    assert "BREAKS" not in flow and "return 1;" in flow, "one column at every width (owner 2026-11-01)"
     from tools import page_check
 
     assert page_check.DEFAULT_SIZE == (820, 1180) and page_check.ANCHOR_SIZES[0] == (820, 1180), "the iPad held upright is the anchor"

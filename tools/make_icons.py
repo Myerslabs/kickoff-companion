@@ -1,5 +1,5 @@
 """Draw the neutral icons in static/icons/ (Phase 12; public release Phase 3; the program's icon, owner 2026-10-23, the board
-https://claude.ai/artifact/CAnmauKcs6mpTcndK3PBWQ): the Myers Labs sun, the app's own loading sun, on the app's charcoal.
+the Myers Labs sun, the app's own loading sun, on the app's charcoal.
 
     icon-180.png, icon-192.png, icon-512.png, icon-maskable-512.png   the home-screen icons before the team is known (and
                                                                         the fallback when the team's drawing fails), square

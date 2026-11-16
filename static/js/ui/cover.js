@@ -65,7 +65,7 @@ export function countdownParts(kickoffIso, now = new Date(Date.now())) {
 }
 
 /**
- * "Swampwater Tech -1.5" for an opening spread that differs from the current one, else null. CFBD's spread
+ * "Florida -1.5" for an opening spread that differs from the current one, else null. CFBD's spread
  * is from the home side: negative, the home team is favored. Exported for the tests (Phase 13).
  */
 export function openingLine(spreadOpen, spread, homeName, awayName) {
@@ -272,11 +272,40 @@ function recordParts(team, usTeam, { compact = false } = {}) {
   if (isNum(t.apRank) && !compact) parts.push(apBadge(t)); // a compact card gives the AP rank its own row (board 6)
   const sp = obj(t.sp);
   if (!compact && isNum(sp.rank)) parts.push(listLink(nationalHref(typeof sp.metric === "string" ? sp.metric : "rating:sp", { team: t.school }), `SP+ #${sp.rank}`, { rank: sp.rank, of: sp.of, name: "SP+", className: "cover-chip cover-chip--link" }));
+  // the cover on one team (owner 2026-11-07): Elo, FPI and talent as chips too, when the page hands them (`ratings`)
+  const ratings = obj(t.ratings);
+  if (!compact) {
+    for (const [key, label, metric] of [["elo", "Elo", "rating:elo"], ["fpi", "FPI", "rating:fpi"], ["talent", "Talent", "rating:talent"]]) {
+      const r = obj(ratings[key]);
+      if (isNum(r.rank)) parts.push(listLink(nationalHref(typeof r.metric === "string" ? r.metric : metric, { team: t.school }), `${label} #${r.rank}`, { rank: r.rank, of: r.of, name: label, className: "cover-chip cover-chip--link" }));
+    }
+  }
   return parts; // 2026-10-10: no Team page chip; the team's name is the way to its page
 }
 
 function apBadge(t) {
   return pollBadge(t.apRank, "AP", { href: pollHref("AP", { team: t.school }), label: text(t.school) });
+}
+
+/** One more chip for a side, drawn later from an answer of its own (the talent rank, the Magazine's facts; the owner's
+ *  "Keep All" on the cover board, 2026-11-07): `value` leads ("SP+ 24.1"), `rank` follows as "#34" when given, `href` makes
+ *  it a list link. Null for nothing to say. */
+export function ratingChip(label, { value = null, rank = null, of = null, href = null, title = null } = {}) {
+  const words = [typeof label === "string" && label.trim() ? label.trim() : null, isNum(value) ? fmtNum(value, Number.isInteger(value) ? 0 : 1) : typeof value === "string" && value.trim() ? value.trim() : null].filter(Boolean).join(" ");
+  if (!words || (words === label && !isNum(rank))) return null;
+  const body = isNum(rank) ? [words, el("span", { class: "cover-chip__label" }, ` #${rank}`)] : words;
+  if (isHash(href)) return listLink(href, el("span", {}, ...(Array.isArray(body) ? body : [body])), { rank, of, name: label, className: "cover-chip cover-chip--link" });
+  return el("span", { class: "cover-chip", title: typeof title === "string" ? title : null }, ...(Array.isArray(body) ? body : [body]));
+}
+
+/** Append chips to a side's record row ("us" or "them"); junk entries are skipped. */
+export function addSideChips(section, side, chips) {
+  const rec = section && typeof section.querySelector === "function" ? section.querySelector(`.cover__side--${side === "them" ? "them" : "us"} .cover__rec`) : null;
+  if (!rec) return 0;
+  const nodes = (Array.isArray(chips) ? chips : []).filter((c) => typeof Node !== "undefined" && c instanceof Node);
+  if (nodes.length && rec.textContent === "No record yet") rec.replaceChildren();
+  rec.append(...nodes);
+  return nodes.length;
 }
 
 /** A node prop, or null (a string or junk draws nothing). */
@@ -340,9 +369,44 @@ export function cover(props) {
       compact ? el("div", { class: "cover__ap" }, isNum(obj(team).apRank) ? apBadge(team) : null) : null,
       compact ? form || el("div", { class: "form-guide form-guide--none", "aria-hidden": "true" }) : form,
       factsOf(side),
+      compact ? null : schemeOf(side), // the season as one line (2026-10-30): the opponent card's schemes line moved to the cover
     );
   };
+  /** "Spread offense · 4-2-5 defense" from the notes' schemes (ours, or the opponent's block for their side). */
+  const schemeOf = (side) => {
+    const s = p.schemes && typeof p.schemes === "object" ? p.schemes : null;
+    if (!s) return null;
+    const block = side === "us" ? s : s.opponent && typeof s.opponent === "object" ? s.opponent : null;
+    if (!block) return null;
+    const words = [typeof block.offense === "string" && block.offense.trim() ? `${block.offense.trim()} offense` : null, typeof block.defense === "string" && block.defense.trim() ? `${block.defense.trim()} defense` : null].filter(Boolean);
+    return words.length ? el("div", { class: "cover__scheme" }, words.join(" · ")) : null;
+  };
   const trophy = typeof p.trophy === "string" && p.trophy.trim() && !compact ? el("div", { class: "cover__trophy" }, p.trophy.trim()) : null; // the rivalry's trophy, under the when line (the mock, owner 2026-10-20: "move this down")
+
+  // The cover on one team (owner 2026-11-07: "Lets try a my team cover, and for the match-up or pregame program, its our
+  // cover vs their cover"): our side exactly as the Program draws it, and where the opponent stood the page's own block
+  // (`middle`: My Team's next game, the Magazine's picks). `when` is a node or words for the when line, `actions` nodes for
+  // the foot, `extra` and `conditions` as before; `rail` across the top, else the kicker row's arrows. No countdown or
+  // line of its own; nothing ticks. The two-team cover is unchanged: it is two of these facing each other.
+  if (p.one === true) {
+    const middleOne = el("div", { class: "cover__center cover__center--one" }, nodeOrNull(p.middle));
+    const whenOne = nodeOrNull(p.when) || (typeof p.when === "string" && p.when.trim() ? p.when.trim() : null);
+    const staffOne = usStaff || el("div", { class: "cover__staff cover__staff--us" }); // empty until the page fills it
+    const actionsOne = el("div", { class: "cover__actions" }, ...(Array.isArray(p.actions) ? p.actions.map(nodeOrNull).filter(Boolean) : []));
+    const extraOne = nodeOrNull(p.extra);
+    const one = el(
+      "section",
+      { class: `cover cover--one${reveal ? " cover--reveal" : ""}${p.rail ? " cover--railed" : ""}`, "aria-label": typeof p.label === "string" && p.label.trim() ? p.label.trim() : `${text(us.school)} cover`, dataset: { state: "one" } },
+      nodeOrNull(p.rail),
+      el("div", { class: "cover__kicker-row" }, p.rail ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "My Team")), p.rail ? null : navArrow("next", p.next)),
+      el("h1", { class: "cover__matchup sr-only" }, text(us.school)),
+      el("div", { class: "cover__faceoff" }, teamBlock(us, "us"), middleOne, staffOne, whenOne ? el("div", { class: "cover__when" }, whenOne) : null),
+      el("div", { class: "cover__foot" }, el("div", { class: "cover__foot-start" }, actionsOne, extraOne), conditions ? el("div", { class: "cover__conditions" }, conditions) : null),
+    );
+    fillWiki(one);
+    one.tick = () => "one";
+    return one;
+  }
 
   const lineParts = [];
   const homeName = homeIsUs ? us.school : them.school;
@@ -363,8 +427,9 @@ export function cover(props) {
   // them, level, each team's coaches and the when line; then the foot's three cells (buttons, win probability, conditions).
   const section = el(
     "section",
-    { class: `cover${reveal ? " cover--reveal" : ""}${compact ? " cover--compact" : ""}`, "aria-label": compact && typeof p.label === "string" && p.label ? p.label : "Pre-Game Program cover", dataset: { state: kind } },
-    el("div", { class: "cover__kicker-row" }, compact ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Pre-Game Program")), compact ? null : navArrow("next", p.next)),
+    { class: `cover${reveal ? " cover--reveal" : ""}${compact ? " cover--compact" : ""}${p.rail ? " cover--railed" : ""}`, "aria-label": compact && typeof p.label === "string" && p.label ? p.label : "Pre-Game Program cover", dataset: { state: kind } },
+    compact ? null : nodeOrNull(p.rail), // the season as one line (2026-10-30): the rail across the cover's top; its arrows replace the kicker row's
+    el("div", { class: "cover__kicker-row" }, compact || p.rail ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "Pre-Game Program")), compact || p.rail ? null : navArrow("next", p.next)),
     el("h1", { class: "cover__matchup sr-only" }, `${text(away.school)} ${neutralSite ? "vs" : "at"} ${text(home.school)}`),
     el(
       "div",

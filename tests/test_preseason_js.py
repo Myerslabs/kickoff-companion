@@ -56,6 +56,8 @@ scenarios.page = async () => {
   assert.ok(t.includes("HC Coach A · OC Coach B") && !t.includes("DC "));
   assert.ok(t.includes("Not loaded yet. Copy the prompt"), "the team with no load says how");
   assert.equal(main.querySelectorAll(".preseason a").length >= 1, true);
+  const blocks = main.querySelector("#preseason-home-u .preseason__blocks");
+  assert.ok(blocks && blocks.querySelectorAll(".preseason__block").length >= 4, "ENH-20: the team's sections in the magazine's columns");
   view.unmount();
 };
 

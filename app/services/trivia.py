@@ -44,6 +44,7 @@ log = logging.getLogger("kickoff.trivia")
 FORMAT = 1
 OPEN_SECONDS = 40
 QUIET_AFTER = 3  # unanswered questions in a row that end the day: the room went home
+MIN_TEAMS = 2  # a question needs two teams joined today (owner 2026-11-01)
 DAY_HOURS = 18  # a day started this long ago is over
 QUARTER_SECONDS = 15 * 60
 BREAK_LATE = 3 * 60  # this far into the next quarter a break's question is too late: the game is going again
@@ -95,6 +96,22 @@ def clean_name(value: Any) -> str:
 
 
 class TriviaService:
+    def _written(self) -> list[dict[str, Any]]:
+        """ENH-29: the questions Claude Code wrote and checked this season (data/season/<year>/writing/trivia-*.json)."""
+        folder = self.path.parent / "season" / str(self.season) / "writing"  # the data folder trivia.json lives in
+        out: list[dict[str, Any]] = []
+        try:
+            files = sorted(folder.glob("trivia-*.json"))
+        except OSError:
+            return out
+        for path in files:
+            try:
+                raw = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            out += [q for q in (raw.get("questions") if isinstance(raw, dict) else None) or [] if isinstance(q, dict)]
+        return out
+
     def __init__(
         self,
         data_dir: Path,
@@ -498,7 +515,10 @@ class TriviaService:
             return
         key, day = found
         changed = self._tally_closed(day, now)
-        if day.get("endedAt") or self._open_question(day, now) is not None:
+        # owner 2026-11-01 ("The game shouldnt start unless there are at least 2 teams"): no question opens until two teams
+        # have joined today; the join popup keeps inviting the second
+        playing = sum(1 for t in self.data["teams"].values() if isinstance(t.get("days"), dict) and key in t["days"] and not t.get("hidden"))
+        if day.get("endedAt") or self._open_question(day, now) is not None or playing < MIN_TEAMS:
             if changed:
                 self._save()
             return
@@ -520,7 +540,7 @@ class TriviaService:
         n = len(day["questions"]) + 1
         qid = f"{key}-{n}"
         rng = random.Random(f"{self.season}:{qid}")
-        question = pick_question(self.facts() or {}, self._schools_for(context, now, games), day["questions"], rng, qid, self.today(now))
+        question = pick_question(self.facts() or {}, self._schools_for(context, now, games), day["questions"], rng, qid, self.today(now), extra=self._written())
         if question is None:
             if context == "game" and period is not None:
                 day.setdefault("periods", []).append(period)  # nothing to ask about these two schools this quarter

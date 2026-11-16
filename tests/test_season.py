@@ -18,7 +18,7 @@ def route_season(fake: FakeCfbd) -> None:
     """Every endpoint the overview needs, from the recorded fixtures."""
 
     def games(request: httpx.Request) -> httpx.Response:
-        if request.url.params.get("team") == "Swampwater Tech":
+        if request.url.params.get("team") == "Florida":
             return httpx.Response(200, json=fixture_payload("games_team"))
         return httpx.Response(200, json=fixture_payload("games_week"))  # the all-games call, week 4 only
 
@@ -54,18 +54,18 @@ def test_overview_is_assembled_from_fixtures(client: TestClient, fake_cfbd: Fake
     assert body["meta"]["stale"] is False and body["meta"]["source"] == "live"
     data = body["data"]
 
-    record = next(r for r in fixture_payload("records_conference") if r["team"] == "Swampwater Tech")
-    assert data["season"] == 2026 and data["team"]["school"] == "Swampwater Tech" and data["team"]["abbreviation"] == "SWT"
+    record = next(r for r in fixture_payload("records_conference") if r["team"] == "Florida")
+    assert data["season"] == 2026 and data["team"]["school"] == "Florida" and data["team"]["abbreviation"] == "FLA"
     assert data["record"]["overall"]["wins"] == record["total"]["wins"] and data["record"]["conference"]["games"] == record["conferenceGames"]["games"]
     assert len(data["schedule"]) == 12
-    assert data["nextGameId"] and data["opponent"]["school"] == "Diner Tech"
+    assert data["nextGameId"] and data["opponent"]["school"] == "Texas State"
     wk3 = next(g for g in data["schedule"] if g["week"] == role_int("LASTWEEK"))  # our last game
-    assert wk3["completed"] and wk3["result"] == "W" and wk3["opponent"]["school"] == "Silver Dollar" and wk3["opponent"]["logo"]
+    assert wk3["completed"] and wk3["result"] == "W" and wk3["opponent"]["school"] == "Fresno State" and wk3["opponent"]["logo"]
 
     assert len(data["standings"]) == 16
     assert [row["place"] for row in data["standings"]] == list(range(1, 17))
     swt = next(row for row in data["standings"] if row["isUs"])
-    assert swt["overall"]["wins"] == record["total"]["wins"] and swt["abbreviation"] == "SWT"
+    assert swt["overall"]["wins"] == record["total"]["wins"] and swt["abbreviation"] == "FLA"
 
     polls = {p["poll"]: p for p in data["polls"]}
     assert {"AP", "Coaches"} <= set(polls)
@@ -74,7 +74,7 @@ def test_overview_is_assembled_from_fixtures(client: TestClient, fake_cfbd: Fake
     rows = data["profile"]["rows"]
     assert [row["key"] for row in rows] == [key for _, _, key, _, _ in PROFILE_ROWS]
     assert data["profile"]["games"] == record["total"]["games"]
-    tried = {r["statName"]: r["statValue"] for r in fixture_payload("stats_season_fbs") if r["team"] == "Swampwater Tech"}
+    tried = {r["statName"]: r["statValue"] for r in fixture_payload("stats_season_fbs") if r["team"] == "Florida"}
     for row in rows:
         if row["key"] == "fourth" and not tried.get("fourthDowns"):
             assert row["value"] is None  # no fourth-down try yet: a dash, not a zero
@@ -82,7 +82,7 @@ def test_overview_is_assembled_from_fixtures(client: TestClient, fake_cfbd: Fake
         assert row["value"] is not None, row["key"]
         assert isinstance(row["nationalRank"], int) and isinstance(row["conferenceRank"], int), row["key"]
         if row["key"] in ("ppg", "opp_ppg"):
-            # the fake all-games list has no finished games, so points ranks span only Swampwater Tech's own opponents here
+            # the fake all-games list has no finished games, so points ranks span only Florida's own opponents here
             assert row["nationalOf"] >= 2, row["key"]
         else:
             assert row["nationalOf"] >= 100 and row["conferenceOf"] == 16, row["key"]
@@ -99,12 +99,12 @@ def test_overview_is_assembled_from_fixtures(client: TestClient, fake_cfbd: Fake
 
     assert {name: part["status"] for name, part in data["parts"].items()} == {name: "ok" for name in data["parts"]}
     assert data["parts"]["trends"]["missingWeeks"] == []
-    # Two schedule pulls: Swampwater Tech's and the league-wide one. The live engine's startup check asks for Swampwater Tech's
+    # Two schedule pulls: Florida's and the league-wide one. The live engine's startup check asks for Florida's
     # schedule too and can land before the routes exist (a 404) or share the cached answer, so it may add one.
     games = [r for r in fake_cfbd.requests if r.url.path == "/games"]
     league = [r for r in games if "team" not in r.url.params and r.url.params.get("year") == "2026"]
     last = [r for r in games if "team" not in r.url.params and r.url.params.get("year") == "2025"]  # Phase 15: last season
-    ours = [r for r in games if r.url.params.get("team") == "Swampwater Tech"]
+    ours = [r for r in games if r.url.params.get("team") == "Florida"]
     assert len(league) == 1 and len(last) == 1 and 1 <= len(ours) <= 2 and len(games) == len(league) + len(last) + len(ours)
     stats = [r.url.params.get("year") for r in fake_cfbd.requests if r.url.path == "/stats/season"]
     assert fake_cfbd.count("/games/teams") == 2 and sorted(stats) == ["2025", "2026"]  # one box per final game of ours
@@ -148,7 +148,7 @@ def test_malformed_records_are_skipped_and_counted(client: TestClient, fake_cfbd
     junk = [None, "text", 42, {"team": None, "statName": "x"}, {"statName": "totalYards", "statValue": 5}]
     fake_cfbd.route("/stats/season", json=junk + good)
     records = fixture_payload("records_conference")
-    fake_cfbd.route("/records", json=[{"team": "Ghost U", "conference": "Biscuit Belt"}] + records + ["junk"])
+    fake_cfbd.route("/records", json=[{"team": "Ghost U", "conference": "SEC"}] + records + ["junk"])
     body = client.get("/api/season/overview").json()
     data = body["data"]
     assert data["parts"]["stats"]["skipped"] == len(junk)
@@ -176,7 +176,7 @@ def test_stale_is_served_when_the_upstream_dies_later(app, client: TestClient, f
     ("now", "expected"),
     [
         (datetime(2026, 9, 21, 16, 0, tzinfo=timezone.utc), False),  # a Monday
-        (datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), True),  # Diner Tech game day, morning in Swamp County
+        (datetime(2026, 9, 26, 12, 0, tzinfo=timezone.utc), True),  # Texas State game day, morning in Swamp County
         (datetime(2026, 9, 27, 3, 0, tzinfo=timezone.utc), True),  # 11 pm Eastern on that Saturday
     ],
 )

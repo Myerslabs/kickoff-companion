@@ -90,7 +90,12 @@ scenarios.css = async () => {
   const wrapRule = css.split(".rgrid-wrap {")[1].split("}")[0];
   assert.ok(!wrapRule.includes("overflow"), wrapRule);
   const gridRule = css.split(".rgrid {")[1].split("}")[0];
-  assert.ok(!gridRule.includes("min-width") && !gridRule.includes("table-layout: fixed"), gridRule);
+  assert.ok(!gridRule.includes("min-width"), gridRule);
+  // ENH-20 (P5): equal class columns (a fixed layout) with the chips wrapping, so the fit asks every cell, not the table's width
+  assert.ok(gridRule.includes("table-layout: fixed") && css.includes(".rgrid__stack { display: flex; flex-wrap: wrap;"), gridRule);
+  const js = fs.readFileSync(path.join(process.argv[2], "ui", "roster-grid.js"), "utf-8");
+  assert.ok(js.includes("fitSize(fit, table, apply, undefined, cellsFit)") && js.includes("td.scrollWidth <= td.clientWidth + 1"), "a chip past its column steps the size down");
+  assert.ok(js.includes("r.left >= box.left - 1 && r.right <= box.right + 1"), "a chip spilling out to the left of its cell (a scroll width never counts it) steps the size down too (owner 2026-11-15)");
   assert.ok(css.includes('.rgrid-fit[data-size="small"] .rgrid__stack { display: none; }'));
   assert.ok(css.includes('.rgrid-fit[data-size="small"] .rgrid__count { display: inline; }'));
   assert.ok(css.includes('.rgrid-wrap[data-size="small"] .rgrid__note--chips, .rgrid-wrap:not([data-size="small"]) .rgrid__note--counts { display: none; }'));

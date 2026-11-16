@@ -1,7 +1,11 @@
-// Runtime opponent colors (docs/03-DESIGN.md): the opponent's color must hold 3:1 against
+// Runtime opponent colors (the design rules): the opponent's color must hold 3:1 against
 // the panel for fills, must not sit within 20 degrees of hue of our own two colors
 // (or the two sides read as one team), and text on it must be the more legible of chalk
 // and the ground. Anything that fails falls back to a neutral.
+//
+// readableColor(candidates, { light, avoidOurs })  a chart's mark (ENH-19, 2026-10-30): the first candidate, lightened (darkened
+//     on a light page) just enough to hold 3:1 on the panel; with avoidOurs, never within 20 degrees of our own hues (a two-team
+//     chart: the poll path); without it any school's own color (the margin strip, where every bar is an opponent); else the fog
 
 import { ours } from "../identity.js";
 
@@ -82,6 +86,27 @@ export function rejectReason(hex, own = [ours().color, ours().altColor]) {
 }
 
 /** Pick the first candidate that passes contrast and hue checks, else the neutral. */
+function mixTo(hex, toward, share) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(toward);
+  if (!a || !b) return null;
+  return `#${a.map((v, i) => Math.round(v + (b[i] - v) * share).toString(16).padStart(2, "0")).join("")}`;
+}
+
+export function readableColor(candidates, { light = false, avoidOurs = false } = {}) {
+  const panel = light ? "#FFFFFF" : DEFAULT_PANEL;
+  const own = [ours()?.color, ours()?.altColor].filter((c) => hexToRgb(c));
+  for (const candidate of Array.isArray(candidates) ? candidates : []) {
+    if (!hexToRgb(candidate)) continue;
+    if (avoidOurs && own.some((c) => hueGap(candidate, c) < MIN_HUE_GAP)) continue;
+    for (const share of [0, 0.15, 0.3, 0.45, 0.6]) {
+      const c = share ? mixTo(candidate, light ? "#000000" : "#FFFFFF", share) : candidate;
+      if (c && contrastRatio(c, panel) >= MIN_CONTRAST) return c;
+    }
+  }
+  return NEUTRAL_ALT;
+}
+
 export function pickOpponentColor(candidates) {
   const notes = [];
   for (const candidate of candidates) {

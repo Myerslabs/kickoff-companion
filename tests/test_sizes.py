@@ -118,7 +118,7 @@ def test_the_card_rows_are_profile_rows() -> None:
 
 
 def test_notes_prompt_asks_for_both_teams_schemes() -> None:
-    shape = notes_paste.shape_example("Swampwater Tech", "Diner Tech", "Big Pie")
+    shape = notes_paste.shape_example("Florida", "Texas State", "Big Pie")
     assert '"opponent": {' in shape and "Pro-style" in shape
     source = (ROOT / "app" / "services" / "notes_paste.py").read_text(encoding="utf-8")
     assert 'under "opponent" the same two labels for {opponent}' in source

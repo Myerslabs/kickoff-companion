@@ -111,6 +111,9 @@ DEFAULT_RULES: tuple[Rule, ...] = (
     Rule("player-card", "GET", "/api/players/", 60, 60, prefix=True),
     Rule("headshots", "GET", "/media/headshot/", 400, 60, prefix=True),
     Rule("logos", "GET", "/media/logo/", 400, 60, prefix=True),
+    Rule("paper-photos", "GET", "/media/paper/", 400, 60, prefix=True),  # FEAT-14: the copied stories' photos, from disk
+    Rule("paper-art", "GET", "/media/paper-art/", 200, 60, prefix=True),  # FEAT-14 wave 4: Claude's drawings, from disk
+    Rule("paper-story", "GET", "/api/paper/story/", 120, 60, prefix=True),  # FEAT-14: the reader, from disk
 )
 
 
