@@ -8,15 +8,15 @@ There are two ways to get it: **the download**, a packaged program with nothing 
 
 ## 1. Get the program
 
-**The download.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take `KickoffCompanion-<version>-windows-x64.zip`. The `.sha256` file beside it holds its checksum. Unzip it anywhere and double-click `KickoffCompanion.exe`. Until the program is signed, Windows says it protected your PC the first time: **More info**, then **Run anyway**.
+**The download.** On the [Releases page](https://github.com/Myerslabs/kickoff-companion/releases), take `KickoffCompanion-<version>-windows-x64.zip`. The `.sha256` file beside it holds its checksum. Unzip it anywhere, open the `KickoffCompanion` folder it holds, and double-click `KickoffCompanion.exe` (keep the `_internal` folder beside it). Until the program is signed, Windows says it protected your PC the first time: **More info**, then **Run anyway**.
 
 The program is the server. It runs behind a sun icon by the clock (double-click the sun to open the app; its menu has the status page, the log and Quit, and Quit stops the server; Tray mode in Settings brings the window back). The first start also brings a Windows Security dialog, "Do you want to allow public and private networks to access this app?", with the Kickoff Companion icon and Myers Labs as the publisher: **Allow**, so phones on your Wi-Fi can reach it. That is the whole firewall step for the download. The first start opens the **demo** (below). Your files, `.env` (the key and the team), `data/` (settings, the cache, notes, the archive) and `logs/`, live in your app-data folder, `%LOCALAPPDATA%\Kickoff Companion` (`C:\Users\<you>\AppData\Local\Kickoff Companion`), so a new version of the program replaces the old folder and loses nothing.
 
-Settings, About, shows the folder with an **Open the folder** button (on the server computer itself). To keep everything beside the program instead, on a USB stick say, put an empty file named `portable` next to it before the first start. `DATA_DIR` and `LOG_DIR` in `.env` still move those two folders wherever they say.
+Settings, About and help, shows the folder with an **Open the folder** button (on the server computer itself). To keep everything beside the program instead, on a USB stick say, put an empty file named `portable` next to it before the first start. `DATA_DIR` and `LOG_DIR` in `.env` still move those two folders wherever they say.
 
 **The code.** Clone the repository with git, or download it as a ZIP from the repository page and unzip it. Every command below runs in that folder.
 
-**The short way: double-click** `Kickoff Companion.cmd` in the folder. The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a sample season that follows one team, with invented games, players and scores and a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The window that opens is the server: closing it stops the server. Sections 2 and 4 are the same steps by hand.
+**The short way: double-click** `Kickoff Companion.cmd` in the folder. From a downloaded ZIP, Windows first asks "The publisher could not be verified. Are you sure you want to run this software?": click **Run**. The first start installs uv, Python and the app's packages for your user (no admin rights, a minute or two, once), then opens the **demo** in the browser: a sample season that follows one team, with invented games, players and scores and a game under way. Its welcome page explains the CFBD key; **Use my own team** there leads to the setup page (section 3). Nothing you do is sent to Myers Labs, and CFBD's paid plans are paid to CFBD. Later starts just start the server and open the app. The server then runs behind the sun icon by the clock, as the download does, and the start window closes by itself; Quit in the sun's menu stops it (section 8). Sections 2 and 4 are the same steps by hand.
 
 ## 2. Install uv (the code only)
 
@@ -32,7 +32,7 @@ Prefer plain pip? Make a virtual environment named `.venv` in the folder and ins
 
 ## 3. Configure (in the browser)
 
-Nothing to edit. A fresh install opens the demo first; **Use my own team** on its page (`/demo`) opens the setup page (`/welcome`). **Demo** on the menu's **Setup** page switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
+Nothing to edit. A fresh install opens the demo first; **Use my own team** on its page (`/demo`) opens the setup page (`/welcome`). **Demo**, in Settings under **Setup**, switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
 
 1. **Your CFBD key.** Get one free at [collegefootballdata.com/key](https://collegefootballdata.com/key): sign up with an email address and CFBD mails it. Paste it and the page checks it with CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
 2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and only its colors and mascot theme the app. The conference comes along.
@@ -46,15 +46,15 @@ Save, and the server restarts itself with the new setup and opens the app. The p
 
 You can still set everything in `.env` by hand; `.env.example` lists every setting with a comment.
 
-**Radio.** No station is built in. In Settings, Radio stations, add your team's official player page, stream or web page. For a team with no station the app offers a web search, a TuneIn search and a **Request your team's radio** button, which opens a short form in the project's GitHub issues; stations people ask for are added to the app's list for everyone.
+**Radio.** One team's stations ship with the app, and until you add a station of your own the radio offers the first of them as a sample. In Settings, Radio stations, add your team's official player page, stream or web page. For a team with no station the app offers a web search, a TuneIn search and a **Request your team's radio** button, which opens a short form in the project's GitHub issues; stations people ask for are added to the app's list for everyone.
 
-**Game notes.** The Pre-Game Program has a notes band: schemes, program notes, the injury report, recruits visiting and both depth charts. To fill it, tap **Copy the prompt**, paste it into any AI chat that can search the web, wait for its answer, copy the whole answer, paste it back, **Check it**, then **Save the notes**. It works from a phone or tablet. Settings, Notes prompt, lets you change what it asks for.
+**Game notes.** The Pre-Game Program has a notes band: schemes, program notes, the injury report, recruits visiting and both depth charts. To fill it, tap **Copy the prompt**, paste it into any AI chat that can search the web, wait for its answer, copy the whole answer, then tap **Paste the answer**: the app checks the answer and saves it in one step. It works from a phone or tablet; over `http://` a phone's browser will not let the page read the clipboard, so **Paste the answer** opens a box instead (press and hold in it, choose Paste). The season's other loads (the preseason, the coaches, the roster costs) work the same way on the **Load data** page: Settings, Claude and loading data, **Open Load data**.
 
 ## 4. Start
 
 The download: `KickoffCompanion.exe`. The code: `Kickoff Companion.cmd`, or `.\start.ps1` (right-click it, Run with PowerShell).
 
-From the code, the first start downloads Python and the packages, which takes a minute. Then the server checks `.env`, prints the address viewers use with a QR code for it, and opens the app in this computer's browser. Keep the window open; Ctrl+C stops it. The log is in `logs/app.log` (under your files, section 1). If the download stops with a message (another copy already running, say), the window waits for Enter so you can read it.
+From the code, the first start downloads Python and the packages, which takes a minute. Then the server checks `.env`, opens the app in this computer's browser, and goes behind the sun icon by the clock (Tray mode, on by default; section 8). The sun's menu has the status page, with the address viewers use and a QR code for it, the log, and Quit, which stops the server. With Tray mode off, the window stays open instead, shows the address and the QR code, and Ctrl+C or closing it stops the server. The log is in `logs/app.log` (under your files, section 1). If the download stops with a message (another copy already running, say), the window waits for Enter so you can read it.
 
 The browser opens when you start the server by hand. Settings, "Open the app on start", changes that (always, or never), and `--no-browser` skips it once.
 
@@ -85,7 +85,7 @@ The status page (`/status`) shows whether the name is announced.
 
 ## 7. Connect each phone or tablet
 
-Nothing to install. Scan the QR code in the server window, or the one on the status page (`/status`), with the device's camera, and tap the link. Or type the address. Then add it to the home screen: Safari's Share button, Add to Home Screen; Chrome's menu, Add to Home screen. `http://kickoff.local:8642/setup` has the same steps and the code.
+Nothing to install. Scan the QR code on the status page (the sun's menu, or `/status`) or the connect page (**Connect a device**, or `/setup`) with the device's camera, and tap the link. With Tray mode off, the server window shows the code too. Or type the address. Then add it to the home screen: Safari's Share button, Add to Home Screen; Chrome's menu, Add to Home screen. `http://kickoff.local:8642/setup` has the same steps and the code.
 
 The app keeps the screen awake during games once you tap anywhere on it.
 
@@ -107,6 +107,7 @@ In the app, open Settings:
 - **Start at login** starts the server when you log in: a shortcut in the Startup folder. It takes effect at the next login.
 - **Desktop icon** makes a double-click launcher.
 - **Tray mode** is on by default: the server runs behind a tray icon by the clock with no window (double-click it to open the app; its menu has the status page, the log and Quit). The download's double-click goes there too, and since 1.0.0 the start window closes by itself. Switch it off in Settings, Server Settings, to keep the window on the taskbar.
+- **Keep this computer awake**: while plugged in (the default), the server computer never goes to sleep by itself, so the overnight loads and Claude's schedule run on time; on battery it sleeps as usual. "During games only" holds it awake only while a game is on; "Never" leaves sleep to Windows. The screen can still turn off.
 
 With the download, the login item and the icon start the program itself; with the code, the start script.
 
@@ -122,7 +123,7 @@ With [Claude Code](https://claude.com/claude-code) installed and signed in on th
 
 **The download:** take the new archive from the Releases page, delete the old program folder, unpack the new one, start it. Your files are in the app-data folder (section 1) and stay. With a `portable` file beside the program, move `portable`, `.env`, `data` and `logs` into the new folder first.
 
-**The code:** Settings, About, shows new commits on GitHub and **Update now** brings them in and restarts the server. Or `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
+**The code:** Settings, About and help, shows new commits on GitHub (a clone asks GitHub by itself; Settings, Check for updates, turns that off) and **Update now** brings them in and restarts the server. Or `git pull` (or download the new ZIP), then start as usual. The start script brings the environment up to date from `uv.lock`.
 
 ## 12. If something is wrong
 
@@ -131,8 +132,8 @@ With [Claude Code](https://claude.com/claude-code) installed and signed in on th
 | `kickoff.local` does not open | Use the number address the server prints. Then check the UDP 5353 firewall rule (section 5) and the "network name" line on the status page. |
 | A viewer cannot reach the host at all | The TCP firewall rule (section 5), the same Wi-Fi, the host awake. |
 | Certificate warning | Open the `http://` address, not `https://`. With `HTTPS=on`, trust the certificate on that device (section 7). |
-| The server will not start | The window says why; behind the sun icon a window opens with what happened, **Copy the report** and **Show the log**. `logs/app.log` has the details. `uv run python -m app --check` (the code) or `KickoffCompanion --check` (the download) checks `.env` without starting. |
+| The server will not start | The window says why; behind the sun icon a window opens with what happened, **Copy the report** and **Show the log**. `logs/app.log` has the details. `uv run python -m app --check` (the code) or `.\KickoffCompanion.exe --check` in PowerShell in the program's folder (the download) checks `.env` without starting. |
 | "Port 8642 is taken" | A copy of Kickoff Companion already running is opened instead of a second one. Another program on the port is named, with the next free port offered: **Use port 8643** (behind the sun icon) or Enter (in a window) saves it in `.env`, and each device scans the new QR code on the status page once. `--use-port N` saves a port by hand. |
 | How long does a start take? | The sun icon's hover text counts the seconds while it starts, and a notification says when the data is ready. `logs/app.log` has "Ready for data after" and "First data after" lines. |
 | Windows says it protected your PC | The download is not signed. **More info**, then **Run anyway**; Windows asks once per download. |
-| Where are my files? | Settings, About, shows the folder and opens it; `--check` prints it too. Section 1 names the app-data folder. |
+| Where are my files? | Settings, About and help, shows the folder and opens it; `--check` prints it too. Section 1 names the app-data folder. |

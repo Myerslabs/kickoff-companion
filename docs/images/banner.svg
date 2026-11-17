@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 320" width="1280" height="320" role="img" aria-labelledby="title desc">
+  <title id="title">Kickoff Companion</title>
+  <desc id="desc">The Myers Labs sun over a football field: a free second screen for college football, on every phone and tablet in the house.</desc>
+  <defs>
+    <linearGradient id="field" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1C1F26"/>
+      <stop offset="1" stop-color="#11141A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFD166" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#FFD166" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="stripe" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#3B6FE0"/>
+      <stop offset="0.5" stop-color="#FFD166"/>
+      <stop offset="1" stop-color="#FF4F1A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1280" height="320" rx="22" fill="url(#field)"/>
+
+  <!-- yard lines and hash marks -->
+  <g stroke="#FFFFFF" stroke-opacity="0.06" stroke-width="3">
+    <path d="M330 0v320M460 0v320M590 0v320M720 0v320M850 0v320M980 0v320M1110 0v320M1240 0v320"/>
+  </g>
+  <g stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="2">
+    <path d="M356 110v12M382 110v12M408 110v12M434 110v12M486 110v12M512 110v12M538 110v12M564 110v12M616 110v12M642 110v12M668 110v12M694 110v12M746 110v12M772 110v12M798 110v12M824 110v12M876 110v12M902 110v12M928 110v12M954 110v12M1006 110v12M1032 110v12M1058 110v12M1084 110v12M1136 110v12M1162 110v12M1188 110v12M1214 110v12"/>
+    <path d="M356 198v12M382 198v12M408 198v12M434 198v12M486 198v12M512 198v12M538 198v12M564 198v12M616 198v12M642 198v12M668 198v12M694 198v12M746 198v12M772 198v12M798 198v12M824 198v12M876 198v12M902 198v12M928 198v12M954 198v12M1006 198v12M1032 198v12M1058 198v12M1084 198v12M1136 198v12M1162 198v12M1188 198v12M1214 198v12"/>
+  </g>
+
+  <!-- the Myers Labs sun -->
+  <circle cx="170" cy="160" r="128" fill="url(#glow)"/>
+  <g transform="translate(170 160)">
+    <path d="M0 -92v30M0 62v30M-92 0h30M62 0h30M-65 -65l21 21M44 44l21 21M-65 65l21 -21M44 -44l21 -21" stroke="#FFD166" stroke-width="15" stroke-linecap="round" fill="none"/>
+    <circle r="40" fill="#FFD166"/>
+  </g>
+
+  <!-- the name and the promise -->
+  <text x="330" y="146" fill="#FFFFFF" font-family="'Barlow Condensed', 'Arial Narrow', 'Roboto Condensed', 'Helvetica Neue', Arial, sans-serif" font-size="84" font-weight="800" letter-spacing="2" font-stretch="condensed" textLength="790" lengthAdjust="spacingAndGlyphs">KICKOFF COMPANION</text>
+  <text x="333" y="196" fill="#C9CED8" font-family="Barlow, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="27" textLength="880" lengthAdjust="spacingAndGlyphs">A free second screen for college football, on every phone and tablet in the house.</text>
+
+  <!-- what is on it -->
+  <g font-family="'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif" font-size="21" font-weight="700" letter-spacing="1">
+    <rect x="333" y="226" width="200" height="38" rx="19" fill="#FF4F1A"/>
+    <text x="433" y="252" fill="#FFFFFF" text-anchor="middle" textLength="168" lengthAdjust="spacingAndGlyphs">LIVE PLAY-BY-PLAY</text>
+    <rect x="545" y="226" width="212" height="38" rx="19" fill="none" stroke="#FFD166" stroke-width="2"/>
+    <text x="651" y="252" fill="#FFD166" text-anchor="middle" textLength="178" lengthAdjust="spacingAndGlyphs">PRE-GAME PROGRAM</text>
+    <rect x="769" y="226" width="150" height="38" rx="19" fill="none" stroke="#7FA6FF" stroke-width="2"/>
+    <text x="844" y="252" fill="#9DBBFF" text-anchor="middle" textLength="112" lengthAdjust="spacingAndGlyphs">NEWSPAPER</text>
+    <rect x="931" y="226" width="150" height="38" rx="19" fill="none" stroke="#3FCF8E" stroke-width="2"/>
+    <text x="1006" y="252" fill="#6FE0AC" text-anchor="middle" textLength="114" lengthAdjust="spacingAndGlyphs">BIG SCREEN</text>
+  </g>
+
+  <rect x="0" y="312" width="1280" height="8" rx="4" fill="url(#stripe)"/>
+</svg>

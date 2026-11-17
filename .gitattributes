@@ -12,3 +12,4 @@
 
 # Windows batch files need CRLF to run reliably (public release Phase 8: the double-click launcher)
 *.cmd text eol=crlf
+*.webp binary

@@ -1,6 +1,6 @@
-# Friends and the big screen (Phase 18.6)
+# Friends and the big screen
 
-What this adds, how to use it, and how to set up the venue sign-in page.
+Inviting friends, keeping guests view-only, the game on a TV or a second monitor, and watching away from home, with a sign-in page for a travel router. The short version is in the [README](../README.md#-friends-and-the-big-screen).
 
 ## Host and guests
 
@@ -8,8 +8,8 @@ What this adds, how to use it, and how to set up the venue sign-in page.
 - Set a PIN (Settings > Friends and the big screen, from the server computer; 4 to 8 digits). From then on:
   - the server computer is always the host;
   - your own tablet becomes the host once: open the app, tap "I'm the host" at the top, enter the PIN (a cookie keeps it for a year);
-  - every other device is a guest: it sees every page and the live game and can change nothing (the server answers 403 "view-only").
-- Five wrong PINs from one address lock that address out for a minute.
+  - every other device is a guest: it sees every page and the live game and can change nothing.
+- Five wrong PINs in a row from one address lock that address out for a minute; more wrong guesses within the hour lock it out longer.
 - Changing the PIN signs every device out. Removing it (host only) makes every device the host again.
 - The PIN is kept as a salted hash in `data/host.json`.
 
@@ -17,11 +17,11 @@ What this adds, how to use it, and how to set up the venue sign-in page.
 
 Menu > Invite friends (`#invite`): a full-screen QR code by IP number, the address, a warning when the computer looks to be on a public network or sharing a hotspot, and a guide for watching away from home. The Live sheet has a small "Invite" button that shows the same code.
 
-A new guest sees one welcome note at the top of the first page they open (never on the board, and never a sheet that opens by itself): they can look at anything, only the host changes settings. It goes with its × or when they move to another page. The "Get your own copy" button appears only after the project is public (`REPO_IS_PUBLIC` in `app/__init__.py`).
+A new guest sees one welcome note at the top of the first page they open (never on the board, and never a sheet that opens by itself): they can look at anything, only the host changes settings. It goes with its × or when they move to another page. A **Get your own copy** button links guests to this project.
 
 ## The game-day board (a monitor on the server computer)
 
-`#board` is the In Game sheet made for a wall (the Big screen button on the In Game sheet opens it), laid out in the owner's arrangement on one 1080p screen: Win probability and Leaders top left, the pass and run charts under them with a small QR code between them and the right half, Team stats and one In Game panel (the Box score until a button below picks another) on the right, and along the bottom the score strip with the radio, the scores ticker, the spoiler-delay line and the twelve panel buttons. The top bar and tabs are hidden; on a smaller screen the same pieces stack and the page scrolls. It is the same live view, so it never disagrees with In Game.
+`#board` is the In Game sheet made for a wall (the Big screen button on the In Game sheet opens it), laid out on one 1080p screen: Win probability and Leaders top left, the pass and run charts under them with a small QR code between them and the right half, Team stats and one In Game panel (the Box score until a button below picks another) on the right, and along the bottom the score strip with the radio, the scores ticker, the spoiler-delay line and the panel buttons. The top bar and tabs are hidden; on a smaller screen the same pieces stack and the page scrolls. It is the same live view, so it never disagrees with In Game.
 
 - The way out: on arrival, and whenever you move the mouse, press a key or tap the screen, a "Leave big screen" chip shows in the top-right corner for a few seconds (the mouse pointer comes back with it). It goes back to In Game. Escape, Backspace and a TV remote's Back key do the same, and so does the browser's Back, even when the board was the first page opened (a bookmark, the kiosk window, a cast tab). While the radio plays, its pause button sits beside the chip.
 - Nothing opens by itself over the board: the "Not loaded yet" note belongs to the Pre-Game Program and a guest's welcome note to the first other page.
