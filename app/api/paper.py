@@ -29,6 +29,15 @@ async def story(sid: str, request: Request, season: int | None = Query(None, ge=
     past = season if season is not None and season != request.app.state.settings.season else None  # rollover R3: a past season's paper
     store = ArticleStore(request.app.state.settings.data_dir, past) if past is not None else copier.store
     article = store.get(sid)
+    kept = True
+    if article is None and past is None and getattr(request.app.state, "their_paper", None) is not None:
+        # batch 3: a story of another team's paper, read now for a switched device and never kept
+        article, why = await request.app.state.their_paper.read(sid)
+        kept = False
+        if article is None:
+            # review 2026-11-19: a story id never served is not on this server; one served but not readable is headline-only
+            served = request.app.state.their_paper.served(sid)
+            return error_response(404, "headline_only" if served else "not_found", why or ("Only the headline of this story is on this server." if served else "That story is not on this server."))
     if article is None:
         return error_response(404, "not_found", "That story is not on this server.")
     if article.outcome != "copied" or not article.paragraphs:
@@ -50,8 +59,9 @@ async def story(sid: str, request: Request, season: int | None = Query(None, ge=
             "readMinutes": max(1, round(article.words / WORDS_A_MINUTE)),
             "copiedAt": article.copiedAt,
             # FEAT-14 wave 3: where it sits in its week's paper (Story n of N, the stories either side, the same section)
-            "paper": _place(request, article.id, past),
+            "paper": _place(request, article.id, past) if kept else None,
             "season": past,
+            "kept": kept,
         },
         source="cache",
     )

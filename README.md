@@ -44,9 +44,11 @@ The live play-by-play a little behind your TV so nothing is spoiled, the box sco
 - 📰 **The Newspaper.** A front page of your team's headlines with the stories copied in to read on the page, and a Sunday paper after each game. In the off-season a new paper comes out every Monday.
 - 📊 **My Team and every other team.** Schedule, results, standings, polls, ratings (SP+, Elo, FPI) and the stat profile behind every rank, each rank one tap from its national list; roster, leaders, recruiting, a card for every player, and the app's own stat grades for each position. Any FBS team's page opens the same way, and every conference has its own page.
 - 🗺️ **Talent Edge and the Imperialism Map.** How each roster's recruiting talent compares with its results, and a map of the country redrawn by every game's winner.
+- 🔄 **One team, and Change team.** The app follows your team. **Change team** in the top bar shows any other FBS school on one device, its pages and its paper, until **Back**; the other devices stay on yours.
+- 🆚 **Another game, and two players side by side.** With a Tier 2 key one device can watch another game while the room stays on yours, and **Compare** on a player's card puts two players side by side.
 - 📚 **Seasons kept.** At the end of a season the app keeps its book (the season in review and every game) and moves to the next season by itself.
 - 📝 **Notes.** Schemes, the injury report, depth charts, the TV crew and the coaches come from a prompt the app writes for any AI chat; paste the answer back and the app checks it and saves it.
-- ✨ **Claude Code, if you want it.** With [Claude Code](https://claude.com/claude-code) on the computer, the app can run the notes on a schedule, edit the newspaper, write a few pieces of its own, and answer **Ask about this page**. It is off until you turn it on, and each run uses your own Claude plan.
+- ✨ **Claude Code, if you want it.** With [Claude Code](https://claude.com/claude-code) on the computer, the app can run the notes on a schedule, edit the newspaper, write a few pieces of its own, answer **Ask about this page**, and refresh what it wrote on a page with **Run with Claude** in the menu. It is off until you turn it on, and each run uses your own Claude plan.
 - 📻 **Radio and trivia.** Your team's radio from the bar at the bottom of every page, and game-day trivia for the room.
 
 <table>
@@ -110,7 +112,7 @@ Every number in the app comes from CFBD, and the plan on your key decides how mu
 |---|---|---|
 | 🆓 **Free** | 1,000 | ✅ Every season page, and box scores and play-by-play after each game. The app runs lean so the calls last the month. |
 | 🥉 **Tier 1**, $1 a month | 5,000 | ✅ Everything above, plus CFBD's game weather and live scores across the country. |
-| 🥈 **Tier 2**, $5 a month (recommended) | 30,000 | ✅ Everything above, plus live play-by-play for your game, more primary teams, secondary teams and the My teams ticker. |
+| 🥈 **Tier 2**, $5 a month (recommended) | 30,000 | ✅ Everything above, plus live play-by-play for your game, and for any other game one device picks to watch. |
 
 Anything a plan does not include stays on its page with a note saying which plan shows it. Students with a `.edu` or `.ac.uk` address can get CFBD's free Academic key (3,000 calls). See [CFBD's plans](https://collegefootballdata.com/api-tiers).
 
@@ -176,19 +178,17 @@ When you are ready, choose **Use my own team** (on the demo's welcome page, or t
 
 ## 🔑 Your key and your team
 
-The setup page has four steps. It checks everything with CFBD as you go, and nothing needs editing by hand.
+The setup page has two steps. It checks everything with CFBD as you go, and nothing needs editing by hand.
 
 **Step 1. Your CFBD key.** Paste the key and tap **Check the key**. The page asks CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
 
 <p align="center"><img src="docs/images/setup-key.webp" alt="Step 1 of the setup page: Get a free key, See CFBD's plans, the key box and Check the key" width="80%"></p>
 
-**Step 2. Your primary teams.** Pick your **home team** first. The Season page, the Pre-Game Program and the In Game sheet follow it, and only its colors and mascot theme the app. With a Tier 2 key, add up to four more teams you follow closely; each one's team page loads as soon as a device connects, and the **My Teams** page steps through them in order.
+**Step 2. Your team.** Pick your school. My Team, the Pre-Game Program and the In Game sheet follow it, and its colors and mascot theme the app. The app follows this one team; to look at any other FBS school, tap **Change team** in the top bar (or on My Team) on one phone or tablet. That device shows the app as the other team, its pages and its paper, until you tap **Back**; nothing is saved and the other devices stay on yours.
 
 <p align="center"><img src="docs/images/setup-teams.webp" alt="Step 2 of the setup page: find a school, with Florida as the home team" width="80%"></p>
 
-**Step 3. Secondary teams** (Tier 2, optional): single schools, whole conferences, or every school in a state. Nothing loads for them until a page asks, so they cost almost nothing.
-
-**Step 4. The score ticker:** **National** (every FBS game, the default) or **My teams** (Tier 2).
+The score ticker always shows every FBS game.
 
 Tap **Save and open the app**. The server restarts with your team and opens the app.
 
@@ -272,7 +272,7 @@ Open **Settings** from the menu (**Profile**). The top of the page holds the gam
 | ⏱️ **Spoiler delay** | Holds every score and play back so the app never gets ahead of your TV. 30 seconds by default. |
 | 🔆 **Keep the screen on** | Game days, always, or never, so the tablet doesn't sleep mid-drive. |
 | 🎨 **Theme** and **Text size** | Dark or light, and bigger text, for this device only. |
-| 🏫 **Your teams** | Change the home team, primary and secondary teams, or the ticker. |
+| 🏫 **Your team** | Change the team the app follows (the setup page). To look at another team on one device for a while, use **Change team** in the app instead. |
 | 📻 **Radio stations** | Add your team's official station. One team's stations come with the app as a sample; for any other team the app offers a search and a **Request your team's radio** button. |
 
 **Server Settings**, for the computer running the app:

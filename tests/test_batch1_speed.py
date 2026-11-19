@@ -23,4 +23,4 @@ def test_the_headlines_come_without_the_paper(pclient: TestClient, fake_cfbd: Fa
     assert set(light) == {"news", "feeds"} and "edition" not in light and "weeks" not in light
     assert pclient.get("/api/newspaper/headlines?limit=0").status_code == 422
     program = (ROOT / "static" / "js" / "views" / "program.js").read_text(encoding="utf-8")
-    assert "fetchPatient(`/api/newspaper/headlines?limit=${HEADLINES_SHOWN}`)" in program and 'fetchPatient("/api/newspaper")' not in program
+    assert "fetchPatient(`/api/newspaper/headlines?limit=${HEADLINES_SHOWN}" in program and 'fetchPatient("/api/newspaper")' not in program  # batch 3: &team= for a switched device

@@ -16,6 +16,9 @@
 import { boxTables } from "../ui/box-columns.js"; // final pass: one copy of the box-score columns; wave 2: one builder, sized
 import { followingLine } from "../ui/follow.js"; // FEAT-1: In Game for any game
 import { pickGameSheet } from "../ui/pick-game.js"; // owner 2026-11-02: any team's game, picked from here
+import { deviceGame, watchHere, watchRoom } from "../watching.js"; // batch 3: another game on this device alone
+import { withTeam } from "../ui/other-team.js";
+import { viewing } from "../viewing.js"; // batch 3: a device switched to another team is offered that team's game
 import { screenLock } from "../awake.js";
 import { isUs, usLabel, usName, usSchool } from "../identity.js";
 import { cover } from "../ui/cover.js";
@@ -59,6 +62,7 @@ import { openPlayer } from "./player.js";
 const DEFAULT_DELAY = 30;
 const STATUS_POLL_MS = 60 * 1000;
 const FALLBACK_POLL_MS = 15 * 1000;
+const DEVICE_POLL_MS = 10 * 1000; // batch 3: another game on this device, asked for this often (the server polls CFBD every 30 s)
 const TICKER_POLL_MS = 60 * 1000;
 const ANALYTICS_RETRY_MS = 60 * 1000;
 const ANALYTICS_LATE_MS = 60 * 60 * 1000; // owner 2026-10-10: every minute for the first hour after the final, then hourly
@@ -228,7 +232,34 @@ function mergedBox(state, team) {
  *  line keeps one line there, so the play shows for a moment where the ticker runs). */
 const PLAY_FLASH_MS = 6000;
 
+/** Batch 3: on a device switched to another team whose game is on now (and is not the room's), the offer to watch it here. */
+function viewingOffer(game) {
+  const g = game && typeof game === "object" ? game : null;
+  if (!g || !isNum(g.gameId)) return null;
+  const match = g.away && g.home ? `${text(g.away)} at ${text(g.home)}` : "Their game";
+  return el(
+    "p",
+    { class: "following-line following-line--device", role: "note" },
+    el("span", {}, `${text(g.team)}'s game is on: ${match}. `),
+    el("button", { class: "btn btn--primary", type: "button", onclick: () => watchHere(g) }, "Watch it on this screen"),
+  );
+}
+
+/** Batch 3: the line over a game this device watches on its own: which game, why it has no plays yet, the way back. */
+function deviceLine(game, why) {
+  const match = game.away && game.home ? `${text(game.away)} at ${text(game.home)}` : "another game";
+  return el(
+    "p",
+    { class: "following-line following-line--device", role: "note" },
+    el("span", {}, `On this screen: ${match}, from ${text(game.team || game.home || "the home")}'s side. The other screens stay on the room's game.`),
+    " ",
+    el("button", { class: "btn btn--quiet", type: "button", onclick: () => watchRoom() }, "Back to the room's game"),
+    why ? el("span", { class: "note" }, ` ${text(why)}`) : null,
+  );
+}
+
 export function createLiveView({ onStatus, board = false, panel = null } = {}) {
+  const device = board ? null : deviceGame(); // batch 3: this device's own game (watching.js), or null: the room's
   const savedDelay = Number(getPrefs().delaySeconds ?? DEFAULT_DELAY); // the server's prefs always carry a delay; the device memory that was read here was never reached (freeze wave F1, F15)
   const state = {
     delay: isNum(savedDelay) && savedDelay >= 0 && savedDelay <= 120 ? clampDelay(savedDelay) : DEFAULT_DELAY,
@@ -361,9 +392,9 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
       newest request lands, so a slow answer for another game never overwrites the one the sheet is showing. */
   async function loadProgram(gameId = null) {
     const ticket = (state.programTicket = (state.programTicket || 0) + 1);
-    const id = gameId !== null && gameId !== undefined && /^\d+$/.test(String(gameId)) ? String(gameId) : null;
+    const id = gameId !== null && gameId !== undefined && /^\d+$/.test(String(gameId)) ? String(gameId) : device ? String(device.gameId) : null;
     try {
-      const envelope = await fetchJson(id ? `/api/program/${encodeURIComponent(id)}` : "/api/program/next");
+      const envelope = await fetchJson(id ? withTeam(`/api/program/${encodeURIComponent(id)}`, device && String(device.gameId) === id ? device.team : null) : "/api/program/next");
       if (ticket !== state.programTicket) return;
       state.program = envelope?.data && typeof envelope.data === "object" ? envelope.data : null;
       state.programError = null;
@@ -460,10 +491,10 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
   }
 
   function tickerGames(includeUs = false) {
-    const national = state.ticker?.mode !== "mine"; // Phase 16 wave 3 (6A): stars only when the line shows every game
+    // Phase 16 wave 3 (6A): a star on a followed team's game; the line always shows every game since batch 3 (one team)
     return records(state.ticker?.games)
       .filter((g) => includeUs || !g.isUs)
-      .map((g) => ({ ...g, star: national && g.isMine === true && !g.isUs, detail: g.status === "pre" ? (g.startTimeTbd ? "TBD" : fmtTime(g.kickoff)) : g.detail }));
+      .map((g) => ({ ...g, star: g.isMine === true && !g.isUs, detail: g.status === "pre" ? (g.startTimeTbd ? "TBD" : fmtTime(g.kickoff)) : g.detail }));
   }
 
   /** "6 live" when games are under way, else what the list holds (L-14). */
@@ -471,19 +502,11 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
     const games = records(state.ticker?.games);
     const live = games.filter((g) => g.status === "live").length;
     if (live) return `${live} live`;
-    return state.ticker?.mode === "mine" ? "your teams" : "every FBS game";
+    return "every FBS game";
   }
 
   function tickerEmpty() {
-    return state.ticker?.mode === "mine" ? "None of your other teams play right now." : "No other games right now.";
-  }
-
-  function tickerLabel() {
-    // Public release Phase 5b: the My teams ticker names itself; the schedule's cadence comes from the server (5 or 20 min).
-    // freeze wave F5 (owner 2026-10-20): no "FBS scores" label, everyone knows a ticker; the My teams one still names itself
-    const base = state.ticker?.mode === "mine" ? "My teams" : "";
-    const minutes = isNum(state.ticker?.refreshMinutes) ? state.ticker.refreshMinutes : 5;
-    return base && state.ticker?.source === "games" ? `${base}, every ${minutes} min` : base;
+    return "No other games right now.";
   }
 
   /**
@@ -493,7 +516,7 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
   function updateTicker() {
     if (!tickerHost) return;
     const games = tickerGames();
-    const label = tickerLabel();
+    const label = ""; // freeze wave F5 (owner 2026-10-20): no "FBS scores" label, everyone knows a ticker; batch 3: no My teams one
     const signature = JSON.stringify([label, games]);
     if (state.tickerNode && signature === state.tickerSig) return;
     if (state.tickerNode && typeof state.tickerNode.setGames === "function") {
@@ -501,7 +524,7 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
       state.tickerSig = signature;
       return;
     }
-    const next = ticker({ games, id: "live", label, emptyText: tickerEmpty() });
+    const next = ticker({ games, id: "live", label, emptyText: tickerEmpty(), onPick: board ? null : (game) => watchHere({ gameId: game.gameId, home: game.home?.school, away: game.away?.school }) }); // batch 3: a tap watches that game on this screen
     const old = state.tickerNode;
     tickerHost.replaceChildren(next);
     if (old && typeof old.destroy === "function") old.destroy();
@@ -515,7 +538,7 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
     if (state.scoresTable) state.scoresTable.update(games);
     else state.scoresTable = scoresTable({ games, emptyText: state.tickerError ? `${state.tickerError}.` : "No FBS games on this week's slate." });
     const table = state.scoresTable;
-    return band({ title: "Around the country", collapsible: false, summary: state.ticker?.source === "games" ? "scores from the schedule; live scores show with a Tier 1 or bigger key" : scoresSummary(games), body: () => el("div", {}, table, typeof state.ticker?.modeNote === "string" && state.ticker.modeNote ? el("p", { class: "note" }, state.ticker.modeNote) : null, el("p", { class: "note" }, state.ticker?.mode === "mine" ? "Your primary and secondary teams' games. Our line follows your spoiler delay. Switch to every game in Settings." : "Scores only. Our line follows your spoiler delay.")) });
+    return band({ title: "Around the country", collapsible: false, summary: state.ticker?.source === "games" ? "scores from the schedule; live scores show with a Tier 1 or bigger key" : scoresSummary(games), body: () => el("div", {}, table, typeof state.ticker?.modeNote === "string" && state.ticker.modeNote ? el("p", { class: "note" }, state.ticker.modeNote) : null, el("p", { class: "note" }, "Scores only. Our line follows your spoiler delay.")) });
   }
 
   // --- post-game analytics (L8, L9) --------------------------------------------------------------------
@@ -1350,7 +1373,10 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
     // FEAT-1: another game the host chose, and the way back to ours; before its kickoff too, from the program the pregame
     // frame reads (Pick a game, 2026-11-02: a game picked days ahead shows its pregame screen with the way back)
     const followedNow = pregame ? (state.program?.game && typeof state.program.game === "object" ? { ...emptyLive(state.program), team: followedTeam(null, state.program) } : null) : state.live;
-    const following = board ? null : followingLine(followedNow);
+    const offer = !board && !device && state.viewingGame && String(state.viewingGame.gameId) !== String(state.live?.gameId ?? state.program?.game?.gameId ?? "") ? viewingOffer(state.viewingGame) : null;
+    // batch 3: this device's own game says so (not when it is the room's game: the server answered the room's state, and the
+    // review of 2026-11-19 keeps "the other screens stay" off it), or a switched team's game is offered
+    const following = board ? null : device && !state.deviceIsRoom ? deviceLine(device, state.deviceWhy) : device ? followingLine(followedNow) : offer || followingLine(followedNow);
     if (following) view.top = el("div", {}, following, view.top);
     if (frame.parentNode !== container) container.replaceChildren(frame);
     const sheet = Array.isArray(view.items); // the game sheet, live or still empty before kickoff
@@ -1423,6 +1449,10 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
   function connect() {
     closeSource();
     if (!container) return;
+    if (device) {
+      startDevicePoll(); // batch 3: another game on this device is polled, never streamed (the stream is the room's game)
+      return;
+    }
     let source;
     try {
       source = new EventSource(`/api/live/stream?delay=${state.delay}`);
@@ -1517,6 +1547,65 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
   function disconnect() {
     closeSource();
     stopFallback();
+    if (state.deviceTimer) clearInterval(state.deviceTimer);
+    state.deviceTimer = null;
+  }
+
+  // --- batch 3: another game on this device ------------------------------------------------------------------------
+
+  /** A switched device's team: its game when it is on now (kickoff passed, under five hours ago, not final), for the offer. */
+  async function findViewingGame(school) {
+    try {
+      const envelope = await fetchJson(withTeam("/api/program/next", school));
+      const game = obj(envelope?.data?.game);
+      const kickoff = Date.parse(String(game.kickoff || ""));
+      const on = Number.isFinite(kickoff) && Date.now() >= kickoff && Date.now() <= kickoff + 5 * 3600 * 1000 && game.completed !== true;
+      if (!container || !on || !isNum(game.gameId)) return;
+      const us = obj(envelope.data.us);
+      const them = obj(envelope.data.them);
+      const home = game.homeIsUs === false ? them.school : us.school;
+      const away = game.homeIsUs === false ? us.school : them.school;
+      state.viewingGame = { gameId: game.gameId, home, away, team: school };
+      render();
+    } catch (error) {
+      console.warn(`In Game: the switched team's game was not found: ${error?.message || error}`);
+    }
+  }
+
+  function startDevicePoll() {
+    if (state.deviceTimer) return;
+    pollDevice();
+    state.deviceTimer = setInterval(pollDevice, DEVICE_POLL_MS);
+  }
+
+  async function pollDevice() {
+    if (!container || !device || state.deviceBusy) return; // the review (2026-11-19): one ask at a time, never overlapping
+    state.deviceBusy = true;
+    try {
+      const envelope = await fetchJson(`/api/live/state?delay=${state.delay}&game=${encodeURIComponent(device.gameId)}${device.team ? `&team=${encodeURIComponent(device.team)}` : ""}`);
+      if (!container) return;
+      const data = obj(envelope?.data);
+      if (data.engine && typeof data.engine === "object" && Object.prototype.hasOwnProperty.call(data.engine, "feed")) takeFeed(data.engine.feed);
+      state.errors = 0;
+      state.deviceIsRoom = data.side !== true && String(data.gameId ?? "") === String(device.gameId); // the room's own game: the room's state
+      if (Array.isArray(data.plays) || Array.isArray(data.drives) || data.score) {
+        state.deviceWhy = typeof data.sideError === "string" ? data.sideError : null;
+        state.live = data;
+        state.mode = data.status === "final" ? "postgame" : "live";
+        render();
+        holdAwake(data.status !== "final");
+      } else {
+        state.deviceWhy = typeof data.reason === "string" ? data.reason : "The first plays are on their way.";
+        state.mode = "pregame";
+        render();
+      }
+    } catch (error) {
+      if (!container) return;
+      state.deviceWhy = `The server did not answer (${text(error?.message || "no answer")}); trying again.`;
+      render();
+    } finally {
+      state.deviceBusy = false;
+    }
   }
 
   async function pollState() {
@@ -1558,6 +1647,16 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
 
   async function checkWindow({ retryProgram = true } = {}) {
     if (!container) return;
+    if (device) {
+      // batch 3: this device's own game: no window of the room's game to follow, the program is that game's
+      if (!state.deviceTimer) connect();
+      if (retryProgram && !state.program) {
+        await loadProgram();
+        if (container && state.mode === "pregame") render();
+      }
+      refreshPill();
+      return;
+    }
     try {
       const envelope = await fetchJson("/api/live/status");
       if (!container) return;
@@ -1664,6 +1763,7 @@ export function createLiveView({ onStatus, board = false, panel = null } = {}) {
       document.addEventListener("kickoff:live-panel", onLivePanel); // a panel chosen in the menu while In Game is up
       state.watchTimer = setInterval(watch, WATCH_TICK_MS);
       const next = loadProgram(); // the next game's, unless a held final asks for its own (the newer request wins)
+      if (!board && !device && viewing()) findViewingGame(viewing()); // batch 3: the switched team's game, if it is on
       await checkWindow({ retryProgram: false });
       await next;
       if (!container) return; // left before the program arrived

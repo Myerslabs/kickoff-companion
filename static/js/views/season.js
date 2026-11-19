@@ -26,25 +26,26 @@
 //   under its window while its next game can be followed. The polls left for the Newspaper (ui/polls-band.js).
 // Season with My Teams (the layout pass, board 9, owner 2026-10-22: "I want my teams, and season to combine. Have a selection
 //   window at the top, start with the primary and allow to switch between teams similar to the pre-game-program weeks"):
-//   params.team names the team picked (#season?team=Texas%20A%26M; none is the home team, every visit). The window on top steps
-//   through the followed teams with ‹ and › (the home team, the other primary teams, then the secondary ones), one chip a team
-//   under it, and carries what My Teams' table said: the record, AP, SP+, Elo, FPI, the last game and the next. The page under
-//   it is the picked team's season in the same order, the bands side by side ending flush (Schedule | Standings 2:1, Polls |
-//   Ratings over Résumé 1:2, the rest across the page); the College Football Playoff band only while the team is in the AP
-//   Top 25; the trends one column a game, headed by the opponent in its colors. A free key follows the home team alone: the
-//   window shows it without arrows, with the line on what a Tier 2 key adds.
+//   params.team names the team picked (#season?team=Texas%20A%26M; none is the home team, every visit). Since batch 3 (owner
+//   2026-11-19) the window on top shows one team with Change team (the switch on this device), no arrows or chips, and
+//   carries what My Teams' table said: the record, AP, SP+, Elo, FPI, the last game and the next. The page under it is the
+//   picked team's season in the same order, the bands side by side ending flush (Schedule | Standings 2:1, Polls | Ratings
+//   over Résumé 1:2, the rest across the page); the College Football Playoff band only while the team is in the AP Top 25;
+//   the trends one column a game, headed by the opponent in its colors.
 
 import { confLabel as ourConfLabel, usSchool } from "../identity.js";
 import { bookUrl, pastHref, pastMarks, pastNote } from "../ui/past.js"; // rollover R2: a past season read from what was kept
 import { railHost, stopMarks } from "../ui/rail.js"; // the season as one line (owner 2026-10-30): the Season is the stop that leads Monday to Wednesday; Wave 4: each game's three stops on its row
 import { landBand } from "../ui/land-band.js"; // the Season stop (Wave 4): our land on the Imperialism Map
 import { rememberedView, rememberView, viewSwitch } from "../ui/box-switch.js"; // the Season stop (Wave 4): The numbers box
-import { DASH, el, flashChanges, fmtDate, fmtNum, fmtStat, fmtTime, isNum, ordinal, records, remember, snapshotKeys, teamLogo, text } from "../ui/dom.js";
-import { addSideChips, countdownParts, cover, ratingChip } from "../ui/cover.js"; // the cover on one team (owner 2026-11-07): My Team opens with our cover
+import { DASH, el, flashChanges, fmtNum, fmtStat, isNum, ordinal, records, remember, snapshotKeys, teamLogo, text } from "../ui/dom.js";
+import { addSideChips, cover, ratingChip } from "../ui/cover.js"; // the cover on one team (owner 2026-11-07): My Team opens with our cover
 import { teamStaff } from "../ui/game-staff.js";
 import { teamChipColors } from "../ui/colors.js";
+import { viewing } from "../viewing.js"; // batch 3: whether the team picked is the one this device is switched to
+import { openTeamSwitch } from "../ui/team-switch.js"; // batch 3: My Team's Change team opens the same sheet as the top bar's
 import { nationalHref, pollName } from "../ui/national-link.js";
-import { gameHref, openGame, recordLine, scheduleList, scheduleSkeleton } from "../ui/schedule.js";
+import { openGame, recordLine, scheduleList, scheduleSkeleton } from "../ui/schedule.js";
 import { marginStrip } from "../ui/margin-strip.js"; // ENH-19 chart 3: the season's shape between the record and the games
 import { trendGrid } from "../ui/sparkline.js";
 import { band, note, sectionChips, subhead } from "../ui/states.js";
@@ -259,11 +260,6 @@ export function trendGames(data) {
   return weeks.map((week, i) => ({ week, opponent: { school: Array.isArray(trends.opponents) ? trends.opponents[i] : null } }));
 }
 
-function shortName(team) {
-  const short = typeof team?.abbreviation === "string" ? team.abbreviation.trim() : "";
-  return short || text(team?.school);
-}
-
 /**
  * createSeasonView({ onStatus, arg }) -> { mount(container), refresh(), unmount() }
  * onStatus receives { kind, label } for the top-bar pill.
@@ -284,7 +280,7 @@ export function createSeasonView({ onStatus, arg, params, review = false, past =
     return el(
       "div",
       { class: "page season season--flow season--loading" },
-      el("section", { class: "season-pick season-pick--loading", "aria-label": "Your teams" }, el("div", { class: "skel skel--bar" }), el("div", { class: "skel skel--block" })),
+      el("section", { class: "season-pick season-pick--loading", "aria-label": "Your team" }, el("div", { class: "skel skel--bar" }), el("div", { class: "skel skel--block" })),
       loading("season-schedule", "Schedule", scheduleSkeleton),
       loading("season-standings", `${picked ? "Conference" : confLabel()} standings`, () => statTableSkeleton(8, 5)),
       loading("season-ratings", "Ratings", () => statTableSkeleton(5, 2)),
@@ -294,65 +290,21 @@ export function createSeasonView({ onStatus, arg, params, review = false, past =
     );
   }
 
-  /** The selection window (board 9) as the cover on one team (owner 2026-11-07, "Lets try a my team cover"): the arrows and
-   *  one chip a followed team around our cover (ui/cover.js, one: true): the logo, the name, the record, AP, SP+, Elo, FPI and
-   *  talent as chips, the last five; where the opponent stood, the next game as a card with its countdown, the last game and
-   *  the race's line under it; the rail across the top on our own season. The school's facts, the staff, the line, the venue
+  /** The selection window (board 9) as the cover on one team (owner 2026-11-07, "Lets try a my team cover"), one team
+   *  since batch 3 with its Change team (ui/cover.js, one: true): the logo, the name, the record, AP, SP+, Elo, FPI and
+   *  talent as chips, the last five, alone and centered since 2026-11-20 (the next game's card and the Last line went to the
+   *  Pre-Game Program's side); the rail across the top on our own season. The school's facts, the staff, the line, the venue
    *  and the weather arrive from the program's answer a moment later (fillCover), the cover drawn at once from the season's. */
   function pickWindow(data, team) {
-    const picker = data.picker && typeof data.picker === "object" ? data.picker : null;
-    const home = school(picker?.home) || usSchool();
-    const { teams, at, prev, next } = pickOrder(picker, team);
-    const many = teams.length > 1;
     const info = data.team && typeof data.team === "object" ? data.team : {};
     const record = data.record && typeof data.record === "object" ? data.record : {};
     const r = data.ratings && typeof data.ratings === "object" ? data.ratings : {};
-    const me = at >= 0 ? teams[at] : null;
-    const roleWord = { home: "Home team", primary: "Primary team", secondary: "Secondary team", viewing: "Not one of your teams" }[me?.role] || null;
-    const arrow = (which, t) => {
-      if (!many) return null;
-      if (!t) return el("span", { class: `season-pick__arrow season-pick__arrow--${which} season-pick__arrow--off`, "aria-hidden": "true" }, which === "prev" ? "‹" : "›");
-      const word = which === "prev" ? "Previous" : "Next";
-      return el("a", { class: `season-pick__arrow season-pick__arrow--${which}`, href: seasonHref(t.school, home), "aria-label": `${word} team: ${t.school}`, title: `${word}: ${t.school}` }, which === "prev" ? "‹" : "›");
-    };
-    const games = records(data.schedule);
-    const played = games.filter((g) => g.completed === true);
-    const last = played.length ? played[played.length - 1] : null;
-    const coming = games.find((g) => String(g.gameId) === String(data.nextGameId ?? "")) || null;
-    const where = (g) => (g.homeAway === "away" ? "at" : "vs");
-    // the Season stop (the line, Wave 4): Last opens that game's Post-Game stop, Next its Pre-Game Program
-    const lastHref = last && isNum(last.gameId) ? (picked ? gameHref(last, team) : `#postgame=${last.gameId}`) : null;
-    const nextHref = coming ? gameHref(coming, picked ? team : null) : null;
+    // batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change team for the switch"): ours needs no word; the
+    // team this device is switched to says so; another team opened by name (a flyout's Full page) is only not ours
+    const roleWord = picked ? (viewing() === team ? "Changed on this device" : "Not your team") : null;
+    const played = records(data.schedule).filter((g) => g.completed === true);
     const form = played.slice(-5).map((g) => ({ gameId: g.gameId, week: g.week, result: g.result, points: g.usPoints, opponentPoints: g.themPoints, opponent: school(g.opponent), homeAway: g.homeAway }));
     const us = { ...info, school: team, record: record.overall, conferenceRecord: record.conference, apRank: record.apRank, sp: r.sp, ratings: { elo: r.elo, fpi: r.fpi, talent: r.talent }, form };
-    const raceLine = records(data.race?.lines).find((l) => l.key === "next" && typeof l.text === "string") || null;
-    const lastWords = last ? `${last.result ? `${last.result} ` : ""}${isNum(last.usPoints) && isNum(last.themPoints) ? `${last.usPoints}-${last.themPoints} ` : ""}${where(last)} ${shortName(last.opponent)}` : null;
-    const middle = el(
-      "div",
-      { class: "cover__one-middle" },
-      nextCard(coming, { href: nextHref, where }),
-      last || raceLine
-        ? el(
-            "div",
-            { class: "cover__lines" },
-            last ? el("div", {}, "Last · ", el("b", {}, lastWords), " ", lastHref ? el("a", { class: "season-pick__link", href: lastHref, "data-k": "pick:last" }, "Post-Game Program ›") : null) : null,
-            raceLine ? el("div", {}, el("b", {}, text(raceLine.lead)), " ", text(raceLine.text)) : null,
-          )
-        : null,
-    );
-    const chip = (t) => {
-      const on = t.school === team;
-      const { background, color } = teamChipColors(t);
-      return el(
-        "a",
-        { class: `season-pick__team${on ? " is-on" : ""}`, href: seasonHref(t.school, home), "aria-current": on ? "page" : null, title: t.school },
-        el("i", { style: { background, color } }, shortName(t)),
-        el("span", {}, t.school),
-        el("small", {}, t.role === "home" ? "home" : t.role === "primary" ? "primary" : t.role === "viewing" ? "viewing" : "secondary"),
-      );
-    };
-    const plans = typeof picker?.plansUrl === "string" && /^https:\/\//.test(picker.plansUrl) ? picker.plansUrl : null;
-    const noteLine = typeof picker?.note === "string" && picker.note ? el("p", { class: "season-pick__note" }, picker.note, " ", picker.allowed === false && plans ? el("a", { href: plans, target: "_blank", rel: "noopener" }, "CFBD's plans") : picker.allowed ? el("a", { href: "#profile=teams" }, "Change my teams") : null) : null;
     const { background } = teamChipColors(info);
     const kicker = [picked ? null : "My Team", typeof info.conference === "string" && info.conference ? info.conference : null, roleWord].filter(Boolean).join(" · ");
     const coverEl = cover({
@@ -361,36 +313,22 @@ export function createSeasonView({ onStatus, arg, params, review = false, past =
       kicker,
       label: `${team}: the season right now`,
       rail: picked ? null : railHost({ kind: "season" }), // the rail on our own season (another team's page keeps its own window)
-      middle,
-      extra: many ? el("div", { class: "season-pick__teams" }, teams.map(chip), el("span", { class: "season-pick__count" }, `${at + 1} of ${teams.length}`), el("a", { class: "season-pick__change", href: "#profile=teams" }, "Change my teams")) : null,
+      // owner 2026-11-20 (of the next game's card and the Last line beside our cover: "remove the vanderbuilt part and just
+      // show the gators logo at the top for my team"; his pick, Florida alone and centered): no middle, the Pre-Game Program
+      // has the next game
+      extra: el("div", { class: "season-pick__teams" }, el("button", { class: "btn btn--quiet season-pick__change", type: "button", onclick: () => openTeamSwitch() }, "Change team")), // the same sheet as the top bar's Change team
     });
     coverEl.classList.add("season-cover");
     fillCover(coverEl, data, team);
     return el(
       "section",
-      { class: `season-pick flow-full${many ? "" : " season-pick--alone"}`, "aria-label": "Your teams", style: { "--pick": background } },
-      el("div", { class: "season-pick__row" }, arrow("prev", prev), coverEl, arrow("next", next)),
-      noteLine,
+      { class: "season-pick flow-full", "aria-label": "Your team", style: { "--pick": background } },
+      el("div", { class: "season-pick__row" }, coverEl),
     );
   }
 
-  /** The next game as the cover's card: who and where, the countdown, the day, the time and the TV; the venue, the line and
-   *  the win probability join from the program's answer (fillCover). Season over when nothing is left. */
-  function nextCard(coming, { href, where }) {
-    if (!coming) return el("div", { class: "cover__next cover__next--none" }, el("span", { class: "cover__next-label" }, "Next"), el("div", { class: "cover__next-who" }, "Season over"), el("div", { class: "cover__next-meta" }, "No game left on the schedule."));
-    const opp = coming.opponent && typeof coming.opponent === "object" ? coming.opponent : {};
-    const words = `${where(coming)} ${isNum(opp.apRank) ? `#${opp.apRank} ` : ""}${text(opp.school)}`;
-    const who = el("div", { class: "cover__next-who" }, href ? el("a", { class: "season-pick__link", href, "data-k": "pick:next" }, words) : words, el("small", { class: "cover__next-opp", dataset: { k: "next-opp" } }, isNum(opp.apRank) ? `AP No. ${opp.apRank}` : "Unranked"));
-    const cd = coming.startTimeTbd ? null : countdownParts(coming.date);
-    const big = cd ? (cd.passed ? "Under way" : cd.days > 0 ? `${cd.days}d ${cd.hours}h` : `${cd.hours}h ${cd.minutes}m`) : fmtDate(coming.date);
-    const count = el("div", { class: "cover__next-count" }, el("b", {}, big), el("small", {}, cd ? (cd.passed ? "kicked off" : "to kickoff") : "time to be set"));
-    const meta = el("div", { class: "cover__next-meta", dataset: { k: "next-meta" } }, [coming.startTimeTbd ? `${fmtDate(coming.date, "long")}, time TBA` : `${fmtDate(coming.date, "long")} · ${fmtTime(coming.date)}`, typeof coming.tv === "string" && coming.tv ? `on ${coming.tv}` : null].filter(Boolean).join(" · "));
-    return el("div", { class: "cover__next" }, el("span", { class: "cover__next-label" }, `Next${isNum(coming.week) ? ` · Week ${coming.week}` : ""}`), who, count, meta);
-  }
-
   /** The cover's second coat, from the program's answer: the school's facts and scheme under our side, the staff, the
-   *  opponent's record, the venue, the line, the over/under and the win probability on the next-game card, the weather in
-   *  the foot. A program that does not load leaves the cover as the season drew it. */
+   *  weather in the foot (the next-game card it once filled left My Team on 2026-11-20). A program that does not load leaves the cover as the season drew it. */
   async function fillCover(coverEl, data, team) {
     const id = data.nextGameId;
     const url = !picked ? "/api/program/next" : isNum(id) || /^\d+$/.test(String(id ?? "")) ? `/api/program/${encodeURIComponent(String(id))}?team=${encodeURIComponent(team)}` : null;
@@ -429,19 +367,6 @@ export function createSeasonView({ onStatus, arg, params, review = false, past =
     const staff = teamStaff(program.notes, "us", { abbr: typeof program.us?.abbreviation === "string" ? program.us.abbreviation : null, school: team });
     const staffHost = coverEl.querySelector(".cover__staff--us");
     if (staff && staffHost) staffHost.replaceWith(staff);
-    const opp = coverEl.querySelector('[data-k="next-opp"]');
-    const them = program.them && typeof program.them === "object" ? program.them : null;
-    if (opp && them && recordText(them.record)) opp.textContent = [recordText(them.record), isNum(them.apRank) ? `AP No. ${them.apRank}` : "unranked", isNum(them.sp?.rank) ? `SP+ #${them.sp.rank}` : null].filter(Boolean).join(" · ");
-    const meta = coverEl.querySelector('[data-k="next-meta"]');
-    const g = program.game && typeof program.game === "object" ? program.game : {};
-    if (meta && String(g.gameId ?? "") === String(coverEl.dataset.nextGame ?? g.gameId ?? "")) {
-      const line = program.line && typeof program.line === "object" ? program.line : {};
-      const wp = program.pregame && typeof program.pregame === "object" && isNum(program.pregame.usWinProbability) ? Math.round(program.pregame.usWinProbability * 100) : null;
-      const more = [typeof g.venue === "string" && g.venue.trim() ? `${g.venue.trim()}${g.neutralSite ? " (neutral site)" : ""}` : null].filter(Boolean);
-      const bits = [typeof line.formatted === "string" && line.formatted ? el("span", {}, "Line ", el("b", {}, line.formatted)) : null, isNum(line.overUnder) ? el("span", {}, "O/U ", el("b", {}, fmtNum(line.overUnder, 1))) : null, isNum(wp) ? el("span", {}, el("b", {}, `${wp}%`), " to win") : null].filter(Boolean);
-      if (more.length) meta.append(` · ${more.join(" · ")}`);
-      if (bits.length) meta.append(el("div", { class: "cover__next-line" }, ...bits.flatMap((b, i) => (i ? [" · ", b] : [b]))));
-    }
     const conditions = coverConditions(program);
     const foot = coverEl.querySelector(".cover__foot");
     if (conditions && foot && !foot.querySelector(".cover__conditions")) foot.append(el("div", { class: "cover__conditions" }, conditions));
@@ -790,6 +715,7 @@ export function createSeasonView({ onStatus, arg, params, review = false, past =
     return el(
       "div",
       { class: "page season season--flow season--review" },
+      pastSeason || picked ? null : el("div", { class: "review-rail" }, railHost({ kind: "book" })), // batch 4: the book is the rail's last stop, so it wears the rail too (our own season only, as the Season cover)
       reviewCover(data, team),
       pastSeason ? pastNote(pastSeason) : null,
       pastSeason ? pastScheduleBand(data, team) : scheduleBand(data, team),

@@ -544,3 +544,17 @@ class FeedStore:
 
     async def all(self) -> list[FeedResult]:
         return list(await asyncio.gather(*(self.get(spec) for spec in self.feeds)))
+
+    async def fetch_body(self, url: str) -> tuple[bytes | None, str | None]:
+        """Batch 3: one feed's raw answer through this store's client, for another team's paper (app/services/their_paper.py),
+        which filters it for that team. Nothing is kept here: (body, None), or (None, the reason)."""
+        try:
+            response = await get_capped(self._http, url, MAX_BYTES)
+        except httpx.HTTPError as exc:
+            return None, exc.__class__.__name__
+        if response.status_code != 200:
+            return None, f"HTTP {response.status_code}"
+        body = response.content
+        if not body or len(body) > MAX_BYTES:
+            return None, "empty or oversized answer"
+        return body, None

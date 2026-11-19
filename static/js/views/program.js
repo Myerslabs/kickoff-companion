@@ -973,16 +973,19 @@ const HEADLINES_SHOWN = 10;
 /** Final pass (N4, owner 2026-10-09: the reader gets as much as possible): the team's headlines on the program too,
  *  from the Newspaper's feeds, loaded on their own so the program itself stays fast; under the notes since the one-column
  *  page (owner 2026-11-01), the ten newest. */
-export function headlinesBand(items, { id = "program-headlines" } = {}) {
+export function headlinesBand(items, { id = "program-headlines", school = null } = {}) {
+  // the review (owner 2026-11-19): a device switched to another team reads that team's headlines, named for it
+  const theirs = typeof school === "string" && school.trim() && school.trim() !== usSchool() ? school.trim() : null;
+  const name = theirs || usName();
   // F8 feature 1: a finished game's Pre-Game tab shows the headlines kept with the kickoff lock, not today's feeds
   const kept = Array.isArray(items) ? items.filter((h) => h && typeof h === "object" && typeof h.title === "string" && h.title.trim()) : null;
   const host = el("div", {}, kept ? (kept.length ? newsDigest({ items: kept }) : note("No headlines were kept at kickoff.", { kind: "empty" })) : newsSkeleton(4));
-  const section = band({ id, title: `${usName()} headlines`, collapsible: true, foldable: true, summary: kept ? "as they stood at kickoff" : "from the news feeds", body: () => host });
+  const section = band({ id, title: `${name} headlines`, collapsible: true, foldable: true, summary: kept ? "as they stood at kickoff" : "from the news feeds", body: () => host });
   if (kept) return section;
-  fetchPatient(`/api/newspaper/headlines?limit=${HEADLINES_SHOWN}`) // batch 1: the headlines alone, never the whole paper (260 KB)
+  fetchPatient(`/api/newspaper/headlines?limit=${HEADLINES_SHOWN}${theirs ? `&team=${encodeURIComponent(theirs)}` : ""}`) // batch 1: the headlines alone, never the whole paper (260 KB)
     .then((envelope) => {
       const items = Array.isArray(envelope?.data?.news) ? envelope.data.news.slice(0, HEADLINES_SHOWN) : []; // one column (2026-11-01): a stacked band shows a fixed count, no longer cut to the notes' depth
-      host.replaceChildren(items.length ? newsDigest({ items }) : note(`No ${usName()} headlines in the feeds yet. They appear as the feeds publish.`));
+      host.replaceChildren(items.length ? newsDigest({ items }) : note(`No ${name} headlines in the feeds yet. They appear as the feeds publish.`));
     })
     .catch((error) => host.replaceChildren(note(`${text(error?.message || error)}. The band tries again with the next refresh.`, { kind: "error" })));
   return section;
@@ -1215,7 +1218,7 @@ function sections(data, { headlines, state = null } = {}) {
   // boxes, his order; Advanced matchup and Play value's deep tables left for the Season stop's The numbers
   const listed = [
     notesBand(data), // 1 Program notes, then the team's headlines under them (a pair of the mock, stacked since 2026-11-01)
-    headlinesBand(headlines),
+    headlinesBand(headlines, { school: data.us?.school }),
     matchupBox(data, { view }), // 2 The matchup: Strengths and weaknesses' rows, then Stats or Last season on the switch (Tale of the tape, Strengths and weaknesses, Last season and the opponent card's table folded in)
     weekBox(data, { view }), // 3 Week by week: the poll path over both margin strips, the margins or Play value by game on the switch (Poll path, Margin by week and Play value's games folded in)
     ...reportBands(data), // 4 Recruits on hand, then the Availability report (one line while it is empty)
@@ -1537,7 +1540,7 @@ function render(envelope, container, state) {
   // arrows step from where the reader is (2026-11-15: the rail is the only way between the two now)
   const railKind = data.game?.completed && state.tab !== "pre" ? "post" : "pre";
   const past = isNum(data.past) ? data.past : null; // rollover R2: a past season's game, as kept
-  const coverEl = cover({ ...coverProps(data, { reveal: !state.revealed }), prev: null, next: null, rail: past ? null : railHost({ kind: railKind, gameId: data.game?.gameId }) });
+  const coverEl = cover({ ...coverProps(data, { reveal: !state.revealed }), prev: null, next: null, rail: past || state.team ? null : railHost({ kind: railKind, gameId: data.game?.gameId }) }); // batch 3: our line is ours; a game seen from another side draws none
   state.revealed = true; // the reveal plays once per visit, not on every refresh (P-10 item 2)
   state.cover = coverEl;
   useOpponentColors(data.them);
@@ -1836,7 +1839,7 @@ export function createProgramView({ onStatus, gameId = null, focus = null, team 
   };
   const make = () =>
     poller({
-      url: state.past ? `/api/seasons/${state.past}/game/${encodeURIComponent(state.gameId)}` : state.gameId ? withTeam(`/api/program/${encodeURIComponent(state.gameId)}`, state.team) : "/api/program/next",
+      url: state.past ? `/api/seasons/${state.past}/game/${encodeURIComponent(state.gameId)}` : state.gameId ? withTeam(`/api/program/${encodeURIComponent(state.gameId)}`, state.team) : withTeam("/api/program/next", state.team), // batch 3: a switched device asks for that team's own next game
       onStatus,
       render: (envelope, container) => {
         render(envelope, container, state);

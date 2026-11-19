@@ -364,6 +364,35 @@ class ProgramService:
         conference = (teams.get(side) or {}).get("conference")
         return self.scoped(side, conference) if isinstance(conference, str) and conference else None
 
+    async def team_side(self, team: str | None) -> ProgramService | None:
+        """Batch 3 (owner 2026-11-16, switch teams): the service from `team`'s side, for its own schedule and next game; this
+        one for ours or none given; None for a school not in the FBS list (or no list: CFBD down)."""
+        name = team.strip() if isinstance(team, str) else ""
+        if not name or name == self.team:
+            return self
+        parts = await self._core()
+        conference = (self._teams(parts["teams"]).get(name) or {}).get("conference")
+        return self.scoped(name, conference) if isinstance(conference, str) and conference else None
+
+    async def team_known(self, team: str) -> bool | None:
+        """Whether `team` is in CFBD's FBS list (the review of 2026-11-19: a refused switch says why); None when the list
+        is not available (CFBD down, the quota, the breaker), so the page can say "try again" rather than "no such team"."""
+        parts = await self._core()
+        if not parts["teams"].ok:
+            return None
+        return team.strip() in self._teams(parts["teams"])
+
+    async def team_next(self, team: str | None) -> Assembled | None:
+        """The program a switched device opens as "this week's" for another team: its own next game (or the last one until
+        its Post-Game closes out), from its side; its notes stay read only. None for a school not in FBS."""
+        service = await self.team_side(team)
+        if service is None:
+            return None
+        result = await service.program(None)
+        if result is not None and isinstance(result.data, dict):
+            result.data["ours"] = service is self
+        return result
+
     async def any_program(self, game_id: int, team: str | None = None) -> Assembled | None:
         """FEAT-5: the program of any FBS game this season, from `team`'s side (see side_of)."""
         service = await self.side_of(game_id, team)

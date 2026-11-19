@@ -10,7 +10,16 @@ from pathlib import Path
 
 import pytest
 
-from tests.fakedom import needs_node, run_scenario
+from tests.fakedom import PROJECT_ROOT, needs_node, run_scenario
+
+SETTINGS_JS = (PROJECT_ROOT / "static" / "js" / "views" / "settings.js").read_text(encoding="utf-8")
+
+
+def test_settings_have_no_ticker_row_and_one_team():
+    # batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change team for the switch")
+    for gone in ('row("Score ticker"', "tickerMode", "Secondary teams", "Primary teams", "Change my teams", "likedTeams", "primaryTeams"):
+        assert gone not in SETTINGS_JS, gone
+    assert '"Change team"' in SETTINGS_JS and 'href: "/welcome" }, "Change team")' in SETTINGS_JS
 
 SCENARIOS = r"""
 const RAW = /\b(undefined|null|NaN|Infinity)\b|\[object Object\]/;
@@ -66,11 +75,12 @@ scenarios.settings = async () => {
   assert.equal(calls.length, puts, "nothing asked of the server");
   // the ten tiles, in the board's order, each saying what is set now, and Feedback after them (owner 2026-10-23, new at the end)
   const tiles = main.querySelectorAll(".profile-tile");
-  assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["Game day", "Trivia", "Display", "Your teams", "Friends and the big screen", "Radio stations", "Claude and loading data", "Server Settings", "About and help", "Setup", "Feedback"]);
+  assert.deepEqual(tiles.map((x) => text(x.querySelector("b"))), ["Game day", "Trivia", "Display", "Your team", "Friends and the big screen", "Radio stations", "Claude and loading data", "Server Settings", "About and help", "Setup", "Feedback"]);
   const line = (id) => text(main.querySelector(`.profile-tile[data-section="${id}"] small`));
   assert.ok(line("gameday").includes("Station 101.5") && line("gameday").includes("every FBS game"), line("gameday"));
   assert.ok(line("about").includes("Tier 2 key") && line("about").includes("412 of 30,000"), "the key and the plan in About and help: " + line("about"));
-  assert.ok(!line("teams").includes("Tier"), "Your teams has the teams only");
+  assert.ok(!line("teams").includes("Tier"), "Your team has the team only");
+  assert.ok(line("teams").startsWith("Florida") && !/primary|secondary/i.test(line("teams")), "one team (batch 3): " + line("teams"));
   assert.ok(line("claude").includes("1 load missing") && main.querySelector('.profile-tile[data-section="claude"]').className.includes("profile-tile--warn"), "gold while something is not loaded");
   // a tile opens its section in the wide flyout, one row per setting with its help
   main.querySelector('.profile-tile[data-section="display"]').click();
@@ -85,7 +95,13 @@ scenarios.settings = async () => {
   // Game day takes the announcer; Server Settings is Start and the server without the setup and Claude Code
   main.querySelector('.profile-tile[data-section="gameday"]').click();
   await flush();
-  assert.deepEqual(document.querySelector(".profile-sheet").querySelectorAll(".setting__label").map((l) => text(l.childNodes[0])), ["Spoiler delay", "Keep the screen on", "Radio source", "Announcer", "Score ticker"]);
+  assert.deepEqual(document.querySelector(".profile-sheet").querySelectorAll(".setting__label").map((l) => text(l.childNodes[0])), ["Spoiler delay", "Keep the screen on", "Radio source", "Announcer"], "no Score ticker row: always every FBS game (batch 3)");
+  // Your team: the one team and Change team, which opens the setup page (batch 3, owner 2026-11-19)
+  main.querySelector('.profile-tile[data-section="teams"]').click();
+  await flush();
+  const team = document.querySelector(".profile-sheet");
+  assert.ok(text(team).includes("Florida") && !/Primary teams|Secondary teams|My Teams order/.test(text(team)), text(team));
+  assert.equal(team.querySelectorAll("a").find((a) => text(a) === "Change team")?.getAttribute("href"), "/welcome");
   main.querySelector('.profile-tile[data-section="server"]').click();
   await flush();
   const server = document.querySelector(".profile-sheet").querySelectorAll(".setting__label").map((l) => text(l.childNodes[0]));

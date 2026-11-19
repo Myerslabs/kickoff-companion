@@ -479,8 +479,8 @@ scenarios.programPage = async () => {
   assert.equal(root.querySelector("a.cover__nav--prev"), null);
   const rail = root.querySelector(".cover .rail");
   assert.ok(rail && !rail.classList.contains("rail--quiet"), "the rail drew from /api/stops");
-  assert.deepEqual(rail.querySelectorAll(".rail__chip").map((c) => c.getAttribute("href")), ["#preseason", "#postgame=526000153", "#season", "#program=526000600"], "Preseason, the last Post-Game, Now, this week's Pre-Game");
-  assert.equal(rail.querySelector("a.rail__step--prev").getAttribute("href"), "#season", "one step back is Now (1.40.4, owner 2026-11-15: the arrows step both ways through the walk)");
+  assert.deepEqual(rail.querySelectorAll(".rail__chip").filter((c) => c.getAttribute("aria-hidden") !== "true").map((c) => c.getAttribute("href")), ["#season", "#program=526000600", "#program=526001015"], "three in view, this week's Pre-Game in the middle (batch 4)");
+  assert.equal(rail.querySelector("a.rail__step--prev").getAttribute("href"), "#season", "one step back is My Team (1.40.4, owner 2026-11-15: the arrows step both ways through the walk)");
   assert.equal(rail.querySelector("a.rail__step--next").getAttribute("href"), "#program=526001015", "one step forward is next week's Pre-Game, open to look at");
   assert.equal(rail.querySelectorAll(".rail__chip--lit").length, 1);
   assert.ok(rail.querySelector(".rail__chip--lit").classList.contains("rail__chip--pre"));

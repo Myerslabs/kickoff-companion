@@ -1,7 +1,8 @@
-"""ENH-12 (owner 2026-10-23: "In the setup, step 2 is pick primary team, but step 3 is also pick primary team. Use the step 3
-as the only step and use the multi-select there", the pick order as the My Teams order): one picker on the welcome page, which
-Settings' "Change my teams" opens. The first team picked is the home team, up to four more follow, Move up reorders them (up
-to #1 makes a team the home team), and the setup saves the home team and the rest in that order."""
+"""The team picker on the welcome page, which Settings' "Change team" opens. ENH-12 (owner 2026-10-23) made it one picker;
+batch 3 (owner 2026-11-19: "I want to take out all the secondary teams. The initial idea was to have them so they warm
+loaded, but now we do that a different way. Let's just have one team listed, and a change team for the switch.") makes it
+pick exactly one school: no more primary teams, no order, no secondary teams and no ticker step. Picking another school
+replaces the first; the setup saves the one team and nothing else."""
 
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from tests.fakedom import PROJECT_ROOT, needs_node, run_scenario
 
 STATIC = PROJECT_ROOT / "static"
 WELCOME = (STATIC / "welcome.html").read_text(encoding="utf-8")
+WELCOME_JS = (STATIC / "js" / "welcome.js").read_text(encoding="utf-8")
 
 SCENARIOS = r"""
 const text = (node) => (node ? node.textContent : "");
@@ -22,7 +24,7 @@ async function welcome(info) {
   document.body.replaceChildren();
   document.getElementById = (id) => document.querySelector(`#${id}`);
   for (const id of FIXTURE.welcomeIds) {
-    const tag = id.endsWith("-input") || id.endsWith("-search") || id.startsWith("ticker-") ? "input" : ["finish", "key-show", "key-check", "import-go"].includes(id) ? "button" : id === "team-order" ? "ol" : "div";
+    const tag = id.endsWith("-input") || id.endsWith("-search") ? "input" : ["finish", "key-show", "key-check", "import-go"].includes(id) ? "button" : "div";
     const node = document.createElement(tag);
     node.setAttribute("id", id);
     document.body.append(node);
@@ -33,8 +35,8 @@ async function welcome(info) {
     if (init && typeof init.body === "string") posted.push([String(url), JSON.parse(init.body)]);
     return plain(url, init);
   };
-  route("/api/welcome", () => envelope({ plan: { likedAllowed: true }, ...info })); // a Tier 2 key: the picker takes five (2.0: one below Tier 2)
-  route("/api/welcome/teams", () => envelope({ teams: TEAMS, conferences: ["SEC"], states: ["FL"] }));
+  route("/api/welcome", () => envelope(info));
+  route("/api/welcome/teams", () => envelope({ teams: TEAMS }));
   route("/api/welcome/finish", () => envelope({ restarting: false }));
   route("/api/health", () => envelope({ server: { started_at: "2026-10-27T12:00:00Z" } }));
   await import(moduleUrl("welcome.js") + `?${Math.random()}`);
@@ -42,7 +44,7 @@ async function welcome(info) {
   return posted;
 }
 
-const order = () => document.querySelectorAll("#team-order li").map((li) => text(li.querySelector(".welcome__pick-name")).split(" M")[0]);
+const picked = () => document.querySelectorAll("#team-picked .welcome__pick").map((row) => text(row.querySelector(".welcome__pick-name")).split(" M")[0]);
 const search = (value) => {
   const box = document.querySelector("#team-search");
   box.value = value;
@@ -54,47 +56,39 @@ const pick = (school) => {
   assert.ok(item, `${school} is offered`);
   item.click();
 };
-const button = (label) => document.querySelectorAll("#team-order button").find((b) => b.getAttribute("aria-label") === label);
 
 scenarios.firstSetup = async () => {
-  const posted = await welcome({ setupNeeded: true, keyConfigured: true, primaryTeams: [] });
-  assert.deepEqual(order(), [], "nothing picked yet");
+  const posted = await welcome({ setupNeeded: true, keyConfigured: true });
+  assert.deepEqual(picked(), [], "nothing picked yet");
   assert.ok(document.querySelectorAll("#team-list .welcome__item").length > 0, "with no team yet the whole list shows");
-  assert.equal(document.querySelector("#finish").disabled, true, "a home team first");
-  pick("Florida");
-  assert.deepEqual(order(), ["Florida"]);
-  assert.ok(text(document.querySelector("#team-order li")).includes("Home team"), "#1 is the home team, said so");
-  assert.equal(document.querySelectorAll("#team-list .welcome__item").length, 0, "after the first, only what is typed shows");
+  assert.equal(document.querySelector("#finish").disabled, true, "a team first");
+  pick("Georgia");
+  assert.deepEqual(picked(), ["Georgia"]);
+  assert.ok(text(document.querySelector("#team-picked")).includes("Your team"), "the one team, said so");
+  assert.equal(document.querySelectorAll("#team-list .welcome__item").length, 0, "once picked, only what is typed shows");
   assert.equal(document.querySelector("#finish").disabled, false);
-  for (const school of ["Georgia", "Miami", "Florida State", "Texas"]) pick(school);
-  assert.deepEqual(order(), ["Florida", "Georgia", "Miami", "Florida State", "Texas"], "the pick order");
-  assert.equal(document.querySelector("#team-search").disabled, true, "five is the most");
-  search("Ala");
-  assert.equal(document.querySelectorAll("#team-list .welcome__item").length, 0);
-  // Move up reorders; up to #1 makes the home team
-  button("Move Miami up to #2").click();
-  assert.deepEqual(order(), ["Florida", "Miami", "Georgia", "Florida State", "Texas"]);
-  button("Move Miami up to #1").click();
-  assert.deepEqual(order(), ["Miami", "Florida", "Georgia", "Florida State", "Texas"]);
-  assert.ok(text(document.querySelector("#team-order li")).includes("Home team") && !button("Move Miami up to #0"), "no Move up on #1");
-  button("Remove Miami").click();
-  assert.deepEqual(order(), ["Florida", "Georgia", "Florida State", "Texas"], "removing #1 makes #2 the home team");
-  assert.equal(document.querySelector("#team-search").disabled, false);
+  pick("Florida");
+  assert.deepEqual(picked(), ["Florida"], "a second pick replaces the first: one team");
+  assert.equal(document.querySelector("#team-search").disabled, false, "another school can always be picked instead");
+  document.querySelectorAll("#team-picked button").find((b) => b.getAttribute("aria-label") === "Remove Florida").click();
+  assert.deepEqual(picked(), [], "removed");
+  assert.equal(document.querySelector("#finish").disabled, true);
+  pick("Florida");
   document.querySelector("#finish").click();
   await advance(50);
   const saved = posted.find(([url]) => url === "/api/welcome/finish");
   assert.ok(saved, "the setup was saved");
-  assert.equal(saved[1].team, "Florida");
-  assert.deepEqual(saved[1].primaryTeams, ["Georgia", "Florida State", "Texas"], "the rest in the picked order");
+  assert.deepEqual(saved[1], { team: "Florida" }, "the one team and nothing else");
 };
 
 scenarios.setUp = async () => {
-  await welcome({ setupNeeded: false, keyConfigured: true, team: "Florida", primaryTeams: ["Georgia", "Miami"], liked: { teams: ["Miami", "Texas"] } });
-  assert.deepEqual(order(), ["Florida", "Georgia", "Miami"], "the saved teams in the My Teams order");
-  assert.ok(!/undefined|null|NaN/.test(text(document.querySelector("#team-order"))));
+  // a server from before batch 3 may still answer with the old picks: the page ignores them
+  await welcome({ setupNeeded: false, keyConfigured: true, team: "Florida", primaryTeams: ["Georgia", "Miami"], liked: { teams: ["Texas"] }, tickerMode: "mine" });
+  assert.deepEqual(picked(), ["Florida"], "the saved team alone");
+  assert.ok(!/undefined|null|NaN/.test(text(document.body)));
+  assert.ok(text(document.querySelector("#intro")).startsWith("Change your team or the key"));
   pick("Texas");
-  assert.deepEqual(order(), ["Florida", "Georgia", "Miami", "Texas"]);
-  assert.ok(!text(document.querySelector("#liked-chips")).includes("Texas"), "a team is primary or secondary, not both");
+  assert.deepEqual(picked(), ["Texas"]);
 };
 """
 
@@ -107,16 +101,27 @@ def _fixture(tmp_path: Path) -> str:
 
 
 @needs_node
-def test_one_picker_first_setup(tmp_path):
+def test_one_team_first_setup(tmp_path):
     run_scenario(tmp_path, SCENARIOS, "firstSetup", _fixture(tmp_path))
 
 
 @needs_node
-def test_one_picker_once_set_up(tmp_path):
+def test_one_team_once_set_up(tmp_path):
     run_scenario(tmp_path, SCENARIOS, "setUp", _fixture(tmp_path))
 
 
-def test_the_welcome_page_has_one_primary_step():
-    assert WELCOME.count("Step 2. Your primary teams") == 1 and 'id="team-order"' in WELCOME
-    assert "primary-search" not in WELCOME and "More primary teams" not in WELCOME, "the old step 3 is gone"
-    assert "Step 3. Secondary teams" in WELCOME and "Step 4. The score ticker" in WELCOME and "Step 5" not in WELCOME
+def test_the_welcome_page_has_two_steps_and_one_team():
+    assert WELCOME.count("Step 1. Your CFBD key") == 1 and WELCOME.count("Step 2. Your team") == 1
+    assert "Step 3" not in WELCOME and "Step 4" not in WELCOME, "the secondary teams and the ticker steps are gone"
+    ids = set(re.findall(r'id="([\w-]+)"', WELCOME))
+    assert "team-picked" in ids and "team-search" in ids and "team-list" in ids
+    gone = sorted(i for i in ids if i.startswith(("liked-", "ticker-")) or i in ("team-order", "liked-panel", "ticker-panel", "h-liked", "h-ticker"))
+    assert gone == [], gone
+    for words in ("primary teams", "Primary teams", "Secondary teams", "My Teams order", "up to 5", "My teams"):
+        assert words not in WELCOME, words
+
+
+def test_the_welcome_script_sends_one_team():
+    for name in ("primaryTeams", "tickerMode", "likedSearch", "MAX_PRIMARIES", "ticker-mine", "liked-"):
+        assert name not in WELCOME_JS, name
+    assert "payload = { team: state.team }" in WELCOME_JS

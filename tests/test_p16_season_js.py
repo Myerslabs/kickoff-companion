@@ -368,9 +368,9 @@ scenarios.seasonStop = async () => {
   assert.ok(land && text(land).includes("380") && text(land).includes("7th of the 110 schools holding land") && text(land).includes("Took from Florida Atlantic") && land.querySelector('a[href="#imperialism"]'), text(land));
   const lines = land.querySelectorAll(".land__line").map((l) => text(l));
   assert.ok(lines[0].startsWith("Wk 2") && lines[0].includes("-40") && lines[1].startsWith("Wk 1") && lines[1].includes("+120"), `latest first: ${lines.join(" | ")}`);
-  // the window's Last and Next lead to their stops
-  assert.equal(main.querySelector('.season-pick__link[data-k="pick:last"]').getAttribute("href"), "#postgame=1002");
-  assert.equal(main.querySelector('.season-pick__link[data-k="pick:next"]').getAttribute("href"), "#program=1003");
+  // My Team's cover is our team alone since 2026-11-20: no Last or Next on it (the schedule's rows and the rail lead to the stops)
+  assert.equal(main.querySelector('[data-k="pick:last"]'), null);
+  assert.equal(main.querySelector('[data-k="pick:next"]'), null);
   // the schedule rows' three stops follow the line
   const { _setStops } = await import(moduleUrl("stops.js"));
   _setStops({ now: "2026-09-21T12:00-04:00", current: { kind: "season", href: "#season", label: "Season", detail: "the season right now" }, items: [

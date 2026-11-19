@@ -48,20 +48,29 @@ def test_detail_is_kept_only_for_primary_teams(tmp_path):
 
 
 def test_routes_and_where_the_figures_show(client, fake_cfbd, app):
-    from tests.conftest import follow_conference
+    """Batch 3 (owner 2026-11-19, "Let's just have one team listed"): the loads cover our team and the next opponent,
+    so our conference's batch keeps our team alone and the opponent's figure comes from its own conference's batch."""
     from tests.test_program import route_program
+    from tests.test_season_notes import load_set
 
     route_program(fake_cfbd)
-    follow_conference(app)
+    app.state.cfbd.capabilities.tier_level = 2
+    opponent = next(s for s in load_set(client) if s != TEAM)
+    their_conference = next(t["conference"] for t in fixture_payload("teams_fbs") if t["school"] == opponent)
     prompt = client.get("/api/season-notes/prompt", params={"kind": "costs", "key": CONFERENCE}).json()["data"]["prompt"]
     assert "rumored" in prompt and f"- {TEAM}" in prompt.split("For these schools only")[1], "our team is asked in detail"
     saved = client.post("/api/season-notes/save", json={"kind": "costs", "key": CONFERENCE, "text": costs_answer()}).json()
     assert saved["data"]["saved"] is True
-    assert client.get("/api/season-notes").json()["data"]["costsSaved"] == 3
+    assert client.get("/api/season-notes").json()["data"]["costsSaved"] == 1, "schools outside the loads are left out"
     assert client.get("/api/roster").json()["data"]["costs"]["totalUsd"] == 20500000
-    assert client.get(f"/api/team/{OTHER}").json()["data"]["costs"]["totalUsd"] == 15000000
+    assert client.get(f"/api/team/{OTHER}").json()["data"]["costs"] is None
+    theirs = costs_answer(teams=[{"school": opponent, "totalUsd": 15000000}])
+    assert client.post("/api/season-notes/save", json={"kind": "costs", "key": their_conference, "text": theirs}).json()["data"]["saved"] is True
+    assert client.get("/api/season-notes").json()["data"]["costsSaved"] == 2
+    assert client.get(f"/api/team/{opponent}").json()["data"]["costs"]["totalUsd"] == 15000000
     program = client.get("/api/program/next").json()["data"]
     assert program["recruiting"]["us"]["costs"]["totalUsd"] == 20500000
+    assert program["recruiting"]["them"]["costs"]["totalUsd"] == 15000000, "the two-team table has the opponent's figure"
     assert client.get("/api/preseason").json()["data"]["teams"][0]["costs"]["totalUsd"] == 20500000
     template = client.get("/api/season-notes/template", params={"kind": "costs"}).json()["data"]
     assert "{detailed}" in template["template"]

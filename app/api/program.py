@@ -17,9 +17,24 @@ from app.services.postgame_lock import PostgameLock
 from app.services.program import ProgramService
 from app.services.program_lock import ProgramLock
 from app.services.rankedweek import RankedWeekService
+from app.services.their_paper import TeamsUnavailable
 
 router = APIRouter(tags=["program"])
 log = logging.getLogger("kickoff.program")
+
+
+def _other_team(team: str | None, ours: Any) -> str | None:
+    """The team a switched device asked for, or None for ours or none (review 2026-11-19: "florida" is ours too, on both
+    the paper and its headlines band)."""
+    name = team.strip() if isinstance(team, str) else ""
+    if not name or name.casefold() == str(ours or "").strip().casefold():
+        return None
+    return name
+
+
+def _no_fbs_list() -> Any:
+    """Review 2026-11-19: CFBD's FBS list could not be read, so the school cannot be checked; that is CFBD, not the name."""
+    return error_response(503, "upstream_unavailable", "CFBD's list of FBS teams could not be read, so that team's paper cannot be put together. Try again in a minute.")
 
 
 def facts_with_venue(facts: dict[str, Any] | None, location: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -109,11 +124,20 @@ async def _mark_program(result: Assembled, request: Request) -> None:
 
 
 @router.get("/api/program/next")
-async def program_next(request: Request) -> Any:
+async def program_next(request: Request, team: str | None = Query(None, max_length=80)) -> Any:
+    """Our next game's program; `team` (batch 3, a device switched to another team) that team's own next game, from its side."""
     service: ProgramService = request.app.state.program
-    result = await service.program(None)
+    other = team.strip() if isinstance(team, str) and team.strip() and team.strip() != service.team else None
+    result = await (service.team_next(other) if other else service.program(None))
     if result is None:
-        return error_response(404, "not_found", "No games on the schedule.")
+        if not other:
+            return error_response(404, "not_found", "No games on the schedule.")
+        known = await service.team_known(other)  # review 2026-11-19: a refused switch says why
+        if known is None:
+            return error_response(503, "teams_unavailable", "The list of FBS teams is not available right now. Try again in a moment.")
+        if known:
+            return error_response(404, "no_game", f"No game ahead for {other}.")
+        return error_response(404, "unknown_team", f"No FBS team named {other}.")
     await _mark_program(result, request)
     return respond(result)
 
@@ -188,10 +212,20 @@ async def box_score(game_id: str, request: Request) -> Any:
 
 
 @router.get("/api/newspaper")
-async def newspaper(request: Request, delay: float = Query(0, ge=0, le=120), edition: str | None = Query(None, max_length=20)) -> Any:
+async def newspaper(request: Request, delay: float = Query(0, ge=0, le=120), edition: str | None = Query(None, max_length=20), team: str | None = Query(None, max_length=80)) -> Any:
     """The paper (N1 to N4) with this week's edition (items 10-12): the AP-ranked matchups with their headlines, our
-    game following the delay; ?edition=week-6 opens an earlier week's saved edition (the masthead's arrows)."""
+    game following the delay; ?edition=week-6 opens an earlier week's saved edition (the masthead's arrows); ?team= another
+    team's paper for a device switched to it (batch 3, app/services/their_paper.py: its feeds, nothing kept)."""
     service: ProgramService = request.app.state.program
+    other = _other_team(team, service.team)
+    if other:
+        try:
+            theirs = await request.app.state.their_paper.paper(other)
+        except TeamsUnavailable:
+            return _no_fbs_list()
+        if theirs is None:
+            return error_response(404, "not_found", f"No FBS team named {other}.")
+        return envelope(theirs, source="live")
     data, parts = await service.newspaper_parts()
     ranked: RankedWeekService = request.app.state.rankedweek
     key = edition.strip() if isinstance(edition, str) and edition.strip() else None
@@ -207,13 +241,22 @@ async def newspaper(request: Request, delay: float = Query(0, ge=0, le=120), edi
 
 
 @router.get("/api/newspaper/headlines")
-async def newspaper_headlines(request: Request, limit: int = Query(10, ge=1, le=50)) -> Any:
+async def newspaper_headlines(request: Request, limit: int = Query(10, ge=1, le=50), team: str | None = Query(None, max_length=80)) -> Any:
     """Batch 1 (owner 2026-11-15, "Every page in ~1.5 s"): the team's newest headlines alone, for the bands that show them
     beside a program (the Pre-Game, the Post-Game, the Magazine). They asked for the whole paper (260 KB, 0.6 to 2 s) to read
     its first ten headlines; this answers from the feeds as kept, no edition built, no CFBD call."""
     from app.feeds import merge_headlines
 
     service: ProgramService = request.app.state.program
+    other = _other_team(team, service.team)
+    if other:  # batch 3 review: a switched device's program, that team's stories
+        try:
+            theirs = await request.app.state.their_paper.headlines(other, limit)
+        except TeamsUnavailable:
+            return _no_fbs_list()
+        if theirs is None:
+            return error_response(404, "not_found", f"No FBS team named {other}.")
+        return envelope({"news": theirs, "feeds": {}, "team": other}, source="live")
     results = await service.feeds.all()
     now = service.client._clock()
     news = merge_headlines(results)[:limit]

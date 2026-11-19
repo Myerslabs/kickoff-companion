@@ -26,7 +26,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app import APP_NAME, BUILD_PHASE, __version__, boot, restart
 from app import shutdown as shutdown_signal
-from app.api import analytics, archive, client_log, grades, health, identity, live, media, myteams, national, notes, numbers, players, program, radio, ratings, season, setup, ticker, welcome
+from app.api import analytics, archive, client_log, grades, health, identity, live, media, national, notes, numbers, players, program, radio, ratings, season, setup, ticker, welcome
 from app.api import blame as blame_api  # FEAT-18
 from app.api import conference as conference_api  # the conference page (owner 2026-11-02)
 from app.api import datastatus as datastatus_api  # ENH-4: the status pill's Data status
@@ -40,6 +40,7 @@ from app.api import matchup as matchup_api  # Phase 16 BX
 from app.api import paper as paper_api  # FEAT-14: the Newspaper's whole stories
 from app.api import picks as picks_api  # FEAT-2: Picks of the week
 from app.api import prompts as prompts_api
+from app.api import refresh as refresh_api  # batch 4: Run with Claude
 from app.api import rules as rules_api  # Phase 17 #21
 from app.api import search as search_api
 from app.api import season_notes as season_notes_api  # Phase 17 Part 3a
@@ -68,6 +69,7 @@ from app.maintenance import Maintenance
 from app.netinfo import http_url, lan_ip, other_urls, preferred_host, tablet_url
 from app.origin_guard import HostGuard, OriginGuard
 from app.paths import ROOTS
+from app.refresh_setup import RefreshRuns
 from app.rollover_setup import build_rollover
 from app.schedule_setup import build_postgame_lock, build_program_lock, build_prompt_runs, build_schedule
 from app.services import rollover as rollover_notice
@@ -89,7 +91,6 @@ from app.services.logos import LogoStore
 from app.services.matchup import MatchupService  # Phase 16 BX
 from app.services.mdns import Announcer
 from app.services.media import HeadshotStore
-from app.services.myteams import MyTeamsService
 from app.services.national import NationalService
 from app.services.notes_task import NotesRunner, scratch_dir
 from app.services.players import PlayerService
@@ -437,14 +438,15 @@ async def lifespan(app: FastAPI):
             await warm
         await app.state.claude_schedule.stop()
         await app.state.maintenance.stop()
+        await app.state.side_games.close()  # batch 3: another game's polls end before the engine's
         await app.state.live.stop_background()
         await app.state.notes.stop()
         await app.state.writing.stop()
         await app.state.ask.stop()
         await app.state.season_runner.stop()
         await app.state.prompt_runs.stop()
+        await app.state.page_refresh.stop()
         await app.state.mdns.stop()
-        await app.state.myteams.close()
         for task in (checks, recheck, quota_watch, prewarm):
             if task is None:
                 continue
@@ -532,7 +534,13 @@ def create_app(
     # FEAT-14: the paper's whole stories and photos, copied once each onto this computer (app/services/articles.py)
     app.state.articles = ArticleCopier(ArticleStore(settings.data_dir, settings.season), transport=feeds_transport, user_agent=f"GatorsGameDay/{__version__} (personal reader; one copy per story)", clock=lambda: cfbd._clock())
     app.state.program.copier = app.state.articles
+    from app.services.their_paper import TheirPaper
+
+    app.state.their_paper = TheirPaper(app.state.program, app.state.feeds, app.state.articles, clock=lambda: cfbd._clock())  # batch 3: a switched device's paper, never kept
     app.state.live = LiveEngine(cfbd, settings, db)
+    from app.live.side import SideGames
+
+    app.state.side_games = SideGames(app.state.live, app.state.program, clock=lambda: cfbd._clock())  # batch 3: another game on one device
     shutdown_signal.reset()
     restart.reset()
     shutdown_signal.on_begin(app.state.live.wake_streams)
@@ -545,7 +553,6 @@ def create_app(
     app.state.fullstats = FullStatsService(app.state.national)  # ENH-10: the Stats menu's full lists, teams and players
     app.state.search = SearchService(cfbd, settings)  # Phase 15
     app.state.grades = GradeService(cfbd, settings, app.state.players.fetcher)  # public release Phase 7: stat grades on the Leaders keys
-    app.state.myteams = MyTeamsService(cfbd, settings, app.state.prefs, app.state.program, app.state.ratings.fetcher)  # public release Phase 5b
     app.state.matchup = MatchupService(cfbd, settings)  # Phase 16 BX: UX-12
     app.state.archive = ArchiveService(settings.data_dir, app.state.analytics, app.state.program, settings.team)
     app.state.launcher = Launcher(PROJECT_ROOT, program=ROOTS.program, static_dir=STATIC_DIR, install_root=ROOTS.install, installed=ROOTS.installed)  # the packaged program starts itself at login; the package install has no login start
@@ -586,6 +593,7 @@ def create_app(
     app.state.host_access = HostAccess(settings.data_dir)  # Phase 18.6: guests are view-only once a PIN is set
     app.state.board = BoardLauncher(settings.data_dir)  # Phase 18.6: the game-day board on a chosen monitor
     app.state.prompt_runs = build_prompt_runs(app)  # the Prompts phase: every prompt in one run (the page, the command line, the schedule's catch-up)
+    app.state.page_refresh = RefreshRuns(app)  # batch 4: Run with Claude, the page on screen refreshed
     app.state.claude_schedule = build_schedule(app)  # Phase 18.7: a few well-timed runs a week; off until Settings turns it on, and only with Claude Code found
     app.state.rollover = build_rollover(app)  # rollover R2 (owner 2026-11-15): the switch to the next season, on its own
     rollover_notice.load_notice(settings.data_dir, settings.season)  # the envelope's meta.seasonSwitch: just switched, or a switch failing
@@ -630,7 +638,6 @@ def create_app(
     app.include_router(notes.router)
     app.include_router(ratings.router)
     app.include_router(national.router)
-    app.include_router(myteams.router)  # public release Phase 5b
     app.include_router(grades.router)  # public release Phase 7
     app.include_router(search_api.router)
     app.include_router(matchup_api.router)  # Phase 16 BX
@@ -638,6 +645,7 @@ def create_app(
     app.include_router(wiki_api.router)  # Phase 17 #4: Wikipedia links for the big headers
     app.include_router(season_notes_api.router)  # Phase 17 Part 3a: the preseason and coaches prompts
     app.include_router(prompts_api.router)  # the Prompts phase (2026-10-13): the Prompts page and the one run
+    app.include_router(refresh_api.router)  # batch 4: Run with Claude
     app.include_router(trivia_api.router)  # the trivia (2026-10-21): the popups, the Trivia page, the joins and answers
     app.include_router(feedback_api.router)  # feedback with the logs (2026-10-23): any device sends, the host reads
     app.include_router(server_api.router)  # Phase 16 wave 3: restart the server from the app

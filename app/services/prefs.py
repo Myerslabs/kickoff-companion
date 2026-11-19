@@ -22,8 +22,15 @@ log = logging.getLogger("kickoff.prefs")
 
 SETTINGS_FILE = "settings.json"
 TrayMode = Literal["auto", "on", "off"]
-MAX_EXTRA_PRIMARIES = 4  # primary teams #2 to #5
+MAX_EXTRA_PRIMARIES = 4  # the old primary teams #2 to #5: the most an older settings file may hold
 MAX_STATIONS = 12
+RETIRED_TEAM_FIELDS = ("primaryTeams", "likedTeams", "likedConferences", "likedStates", "tickerMode")
+
+
+def one_team() -> dict[str, Any]:
+    """Batch 3 (owner 2026-11-19): one team everywhere. What a save writes over the retired team fields (see Prefs):
+    no more teams, the national ticker. A fresh dict each call."""
+    return {"primaryTeams": [], "likedTeams": [], "likedConferences": [], "likedStates": [], "tickerMode": "national"}
 
 
 class SavedStation(RadioSource):
@@ -77,15 +84,16 @@ class Prefs(BaseModel):
     # battery, even on game day; "games" during a game window only (the behavior before); "off" never (app/maintenance.py)
     keepAwake: Literal["plugged", "games", "off"] = "plugged"
     openBrowser: Literal["manual", "always", "never"] = "manual"  # open the app on the host when the server starts (Phase 4b)
-    # Public release Phase 5b (a Tier 2 key for all of these). Primary teams #2 to #5: their team pages load
-    # as soon as a device connects and sit one tap away in the menu; the home team (TEAM in .env) stays
-    # primary #1 and alone themes the app. Secondary teams: schools, whole conferences and states as CFBD
-    # spells them, loaded only when a page asks; with the primaries they fill the My teams ticker and page.
+    # No longer read (batch 3, owner 2026-11-19: "I want to take out all the secondary teams ... Let's just have one team
+    # listed, and a change team for the switch"). Public release Phase 5b kept primary teams #2 to #5, secondary teams
+    # (schools, conferences, states) and a My teams ticker here; the app now knows the home team alone (TEAM in .env)
+    # and the ticker is always every FBS game. The fields stay so an older settings file still loads; the welcome
+    # page's save and the Settings PUT write one_team() over them (app/api/welcome.py, app/api/settings.py).
     primaryTeams: list[str] = Field(default_factory=list, max_length=MAX_EXTRA_PRIMARIES)
     likedTeams: list[str] = Field(default_factory=list, max_length=40)
     likedConferences: list[str] = Field(default_factory=list, max_length=12)
     likedStates: list[str] = Field(default_factory=list, max_length=12)
-    tickerMode: Literal["national", "mine"] = "national"  # every FBS game, or only my teams' games (Tier 2)
+    tickerMode: Literal["national", "mine"] = "national"  # "mine" is never written now (see above)
     trivia: bool = True  # the trivia (owner 2026-10-21): the question popups for the tablets that joined, all game day
     triviaBoard: bool = True  # the room's leaderboard by team name; off hides the standings everywhere
     triviaPace: Literal["15", "30", "game"] = "15"  # before and after our game: a question every 15 or 30 minutes, or only during the game

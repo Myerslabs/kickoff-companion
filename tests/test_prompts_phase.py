@@ -86,24 +86,25 @@ def test_the_facts_file_merges_by_batch_and_survives_damage(tmp_path: Path):
 
 
 def test_the_facts_routes_and_the_team_page(client, league, app):  # noqa: F811
+    """Batch 3 (owner 2026-11-19), one team: the season loads cover our team and the next opponent, not a liked
+    conference; a school outside them says it is not loaded."""
     prompt = client.get("/api/season-notes/prompt", params={"kind": "facts", "key": CONFERENCE}).json()["data"]["prompt"]
-    assert "school history" in prompt and SCHOOLS[0] in prompt and '"dates"' in prompt and "{shape}" not in prompt
+    assert "school history" in prompt and TEAM in prompt and '"dates"' in prompt and "{shape}" not in prompt
+    outside = next(s for s in SCHOOLS if s != TEAM and s not in prompt)
     assert client.get("/api/season-notes/prompt", params={"kind": "facts", "key": "No Such Conference"}).status_code == 404
     assert client.post("/api/season-notes/save", json={"kind": "facts", "key": CONFERENCE, "text": "nothing"}).status_code == 422
-    saved = client.post("/api/season-notes/save", json={"kind": "facts", "key": CONFERENCE, "text": facts_answer()}).json()["data"]
+    saved = client.post("/api/season-notes/save", json={"kind": "facts", "key": CONFERENCE, "text": facts_answer(schools=[TEAM])}).json()["data"]
     assert saved["saved"] is True
-    team = client.get(f"/api/team/{SCHOOLS[0]}").json()["data"]
+    team = client.get(f"/api/team/{TEAM}").json()["data"]
     assert team["facts"]["founded"] == 1853 and team["facts"]["fightSong"] == "Fight!" and team["facts"]["dates"][0]["date"] == "1930-11-08"
-    assert client.get(f"/api/team/{SCHOOLS[-1]}").json()["data"]["facts"] is None, "not loaded: null, and the page says so"
+    assert client.get(f"/api/team/{outside}").json()["data"]["facts"] is None, "not loaded: null, and the page says so"
     ready = client.get("/api/readiness").json()["data"]
-    facts_item = next(i for i in ready["items"] if i["id"] == "facts")
-    assert facts_item["href"] == "#prompts" and "3 of" in facts_item["detail"]
     assert all(i["href"] == "#prompts" for i in ready["items"]), "every dead end leads to the Prompts page"
     template = client.get("/api/season-notes/template", params={"kind": "facts"}).json()["data"]
     assert template["custom"] is False and "dates" in template["template"]
     page = client.get("/api/prompts").json()["data"]
     assert set(page) >= {"commandFound", "season", "seasonRun", "notesRun", "notes", "run", "schedule"}
-    assert page["season"]["factsSaved"] == 3 and page["run"]["running"] is False and [s["kind"] for s in page["run"]["steps"]] == ["preseason", "coaches", "costs", "facts", "notes"]
+    assert page["season"]["factsSaved"] >= 1 and page["run"]["running"] is False and [s["kind"] for s in page["run"]["steps"]] == ["preseason", "coaches", "costs", "facts", "notes"]
     assert page["notes"]["gameId"] and isinstance(page["notes"]["missing"], list)
     assert client.get("/api/prompts/run").json()["data"]["of"] == 5
 

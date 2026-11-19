@@ -33,6 +33,8 @@
 //                   leans the bar all the way. Two such values near zero have no meaningful share of their sum
 //                   (+0.05 against -0.02 would lean all the way), so the bar leans by the gap over the scale instead.
 //         team      the row is a team (Common opponents, wave 2): its label links to that team's page.
+//         lean      "value": the bar leans by the two values alone, never by the ranks (Compare players, 2026-11-19:
+//                   two players' ranks in two different lists are not one list).
 //         labelMid, labelShort  the row's own shorter words (a team's abbreviation at small) instead of the stat name's
 //                   forms from ui/sizes.js; the long form is the label.
 //       groups: [{ title, note, rows, us, them, missing }] draws group header rows inside the one table (rows is then
@@ -310,6 +312,7 @@ export const PPA_SCALE = 0.5;
 /** The national ranks between the two sides: the row's own edge, else the two ranks' gap; null without both. */
 function rankGap(row) {
   const r = obj(row);
+  if (r.lean === "value") return null; // the two ranks are in different lists: the values alone
   if (isNum(r.edge)) return Math.abs(r.edge);
   const a = obj(r.us).rank;
   const b = obj(r.them).rank;

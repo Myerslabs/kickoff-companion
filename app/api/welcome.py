@@ -7,20 +7,25 @@ here. The steps:
    it in memory; the page shows the plan it brings. While no key is configured any device on the home
    network may enter one; replacing a configured key is allowed only from the server computer itself.
    The key is never sent back to a browser.
-2. The teams. GET /api/welcome/teams lists every FBS school (one /teams/fbs call, cached as reference
-   data), with the conferences and states for the secondary pickers. The home team (primary #1) is the
-   one the Season page, the Game program and the Live sheet follow, and the only one whose colors and
-   mascot theme the app. Up to four more primary teams, the secondary teams (schools, conferences,
-   states) and the My teams ticker need a Tier 2 key (public release Phase 5b; app/services/teamset.py).
-3. POST /api/welcome/finish writes CFBD_API_KEY, TEAM and CONFERENCE (the home team's, from CFBD) into
-   .env (app/services/envfile.py), saves the other picks with the settings, and restarts the server in
-   place (app/restart.py) when the key or the home team changed; the page waits for it and opens the app.
+2. The team. GET /api/welcome/teams lists every FBS school (one /teams/fbs call, cached as reference
+   data). The one team picked is the one the Season page, the Game program and the Live sheet follow,
+   and its colors and mascot theme the app. Batch 3 (owner 2026-11-19: "I want to take out all the
+   secondary teams. The initial idea was to have them so they warm loaded, but now we do that a
+   different way. Let's just have one team listed, and a change team for the switch."): no more primary
+   teams after it, no secondary teams (schools, conferences, states) and no My teams ticker. Another
+   team is seen through Change team in the app, on one device.
+3. POST /api/welcome/finish writes CFBD_API_KEY, TEAM and CONFERENCE (the team's, from CFBD) into .env
+   (app/services/envfile.py), clears any team picks an older build saved with the settings and sets the
+   ticker to every game (prefs.one_team), and restarts the server in place (app/restart.py) when the
+   key or the team changed; the page waits for it and opens the app. Old fields in the body
+   (primaryTeams, liked, tickerMode) are ignored.
 
 Settings uses the same routes after setup: the team can change from any device, the key only from the
 server computer. Every refusal is a readable error envelope.
 
 FEAT-13 (owner 2026-10-26): on a computer that runs the packaged program, a fresh clone first offers to bring over that install's
-key, team and data (app/services/public_import.py); POST /api/welcome/import copies them and restarts."""
+key, team and data (app/services/public_import.py); POST /api/welcome/import copies them and restarts. Team picks in the
+copied settings beyond the one team are dropped (batch 3)."""
 
 from __future__ import annotations
 
@@ -41,7 +46,7 @@ from app.config import STATIC_DIR, Settings
 from app.netinfo import lan_ip
 from app.services import plan, public_import
 from app.services.envfile import EnvFileError, set_values
-from app.services.prefs import MAX_EXTRA_PRIMARIES, PrefsError, PrefsStore
+from app.services.prefs import PrefsError, PrefsStore, one_team
 from app.services.teamset import state_of
 
 router = APIRouter(tags=["welcome"])
@@ -66,7 +71,6 @@ def _has_key(request: Request) -> bool:
 
 def _state(request: Request) -> dict[str, Any]:
     settings: Settings = request.app.state.settings
-    prefs: PrefsStore = request.app.state.prefs
     client = request.app.state.cfbd
     configured = settings.api_key_configured
     return {
@@ -77,10 +81,6 @@ def _state(request: Request) -> dict[str, Any]:
         "team": settings.team or None,
         "conference": settings.conference or None,
         "season": settings.season,
-        "primaryTeams": prefs.prefs.primaryTeams,
-        "maxPrimaryTeams": MAX_EXTRA_PRIMARIES,
-        "liked": {"teams": prefs.prefs.likedTeams, "conferences": prefs.prefs.likedConferences, "states": prefs.prefs.likedStates},
-        "tickerMode": prefs.prefs.tickerMode,
         "plan": plan.summary(client) if (configured or _pending(request)) else None,
         "envWritable": settings.env_path is not None,
         "publicInstall": public_import.summary(_other_install(settings)) if settings.setup_needed and settings.env_path is not None else None,
@@ -179,9 +179,7 @@ async def team_list(request: Request) -> Any:
         ),
         key=lambda r: r["school"].lower(),
     )
-    conferences = sorted({r["conference"] for r in rows if isinstance(r["conference"], str) and r["conference"]})
-    states = sorted({r["state"] for r in rows if r["state"]})
-    return envelope({"teams": rows, "conferences": conferences, "states": states}, source="live")
+    return envelope({"teams": rows}, source="live")  # the conference and state lists went with the secondary pickers (batch 3)
 
 
 @router.post("/api/welcome/finish")
@@ -203,38 +201,12 @@ async def finish(request: Request) -> Any:
     chosen = by_name.get(str(body.get("team") or "").strip().lower())
     if chosen is None or not chosen.conference:
         return error_response(422, "bad_team", "Pick your team from the list.")
-    liked = body.get("liked") if isinstance(body.get("liked"), dict) else {}
-    strings = lambda values: [v for v in (values if isinstance(values, list) else []) if isinstance(v, str)]  # noqa: E731
-    patch: dict[str, Any] = {
-        "primaryTeams": strings(body.get("primaryTeams")),
-        "likedTeams": strings(liked.get("teams")),
-        "likedConferences": strings(liked.get("conferences")),
-        "likedStates": strings(liked.get("states")),
-    }
-    ticker_mode = body.get("tickerMode", "national")
-    if ticker_mode not in ("national", "mine"):
-        return error_response(422, "bad_ticker", "The ticker is either every game (national) or my teams (mine).")
-    tier2 = plan.allows_liked(request.app.state.cfbd.capabilities)
-    if (any(patch.values()) or ticker_mode == "mine") and not tier2:
-        return error_response(422, "tier2_needed", "More primary teams, secondary teams and the My teams ticker need a Tier 2 key. Pick just your home team for now.")
-    if tier2:
-        unknown = [t for t in patch["primaryTeams"] + patch["likedTeams"] if t.strip().lower() not in by_name]
-        if unknown:
-            return error_response(422, "bad_liked", f"Not FBS schools in CFBD's list: {', '.join(unknown[:5])}.")
-        primaries: list[str] = []
-        for name in patch["primaryTeams"]:
-            school = by_name[name.strip().lower()].school
-            if school != chosen.school and school not in primaries:
-                primaries.append(school)
-        if len(primaries) > MAX_EXTRA_PRIMARIES:
-            return error_response(422, "too_many_primaries", f"Up to {MAX_EXTRA_PRIMARIES} more primary teams besides your home team. Make the rest secondary teams.")
-        patch["primaryTeams"] = primaries
-        patch["likedTeams"] = [s for s in (by_name[t.strip().lower()].school for t in patch["likedTeams"]) if s != chosen.school and s not in primaries]
-        patch["tickerMode"] = ticker_mode
-    else:
-        # below Tier 2 only the home team is saved: picks kept from a Tier 2 key stay for when the key has it again
-        # (the 2.0 review; Settings says "saved; shows with a Tier 2 key")
-        patch = {}
+    # Batch 3 (owner 2026-11-19): one team. A page opened before the change may still send primaryTeams, liked and
+    # tickerMode; they are ignored, and the save clears whatever an older build kept.
+    ignored = sorted(k for k in ("primaryTeams", "liked", "tickerMode") if k in body)
+    if ignored:
+        log.info("Setup: ignored the retired field(s) %s; the app follows one team", ", ".join(ignored))
+    patch = one_team()
     if settings.env_path is None:
         return error_response(409, "env_read_only", "This server reads its settings from environment variables; set TEAM and CONFERENCE there.")
     values = {"TEAM": chosen.school, "CONFERENCE": chosen.conference}
@@ -248,14 +220,13 @@ async def finish(request: Request) -> Any:
         if changed:
             set_values(settings.env_path, values)
     except PrefsError as exc:
-        return error_response(422, "bad_liked", str(exc))
+        return error_response(500, "settings_write_failed", f"Could not save the setup: {exc}.")
     except EnvFileError as exc:
         return error_response(500, "env_write_failed", f"Could not save the setup: {exc}.")
     if changed:
         request.app.state.pending_key = None
         restart.request(f"setup saved for {chosen.school}")
-    log.info("Setup saved: %s (%s), %d more primary teams, %d secondary schools, %d conferences, %d states, %s ticker", chosen.school, chosen.conference,
-             len(patch.get("primaryTeams", [])), len(patch.get("likedTeams", [])), len(patch.get("likedConferences", [])), len(patch.get("likedStates", [])), patch.get("tickerMode", "kept"))
+    log.info("Setup saved: %s (%s), one team, the national ticker", chosen.school, chosen.conference)
     return envelope({**_state(request), "restarting": changed, "team": chosen.school, "conference": chosen.conference}, source="live")
 
 

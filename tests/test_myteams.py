@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 from urllib.parse import quote
@@ -20,7 +20,7 @@ from pydantic import ValidationError
 
 from app import restart
 from app.cfbd.models import Game, Team, parse_records
-from app.services import myteams, stations, teamset
+from app.services import stations, teamset
 from app.services.prefs import Prefs
 from tests.conftest import TEST_KEY, FakeCfbd, fixture_payload
 from tests.test_national import load_pages, route_all
@@ -96,41 +96,8 @@ def test_the_new_settings_are_validated():
 # --- settings and setup ---------------------------------------------------------------------------------
 
 
-def test_settings_keep_tier2_picks_for_a_tier2_key(app, client: TestClient):
-    tier(app, 0)
-    refused = client.put("/api/settings", json={"tickerMode": "mine"})
-    assert refused.status_code == 422 and refused.json()["errors"][0]["code"] == "tier2_needed"
-    assert client.put("/api/settings", json={"primaryTeams": [OPPONENT]}).status_code == 422
-    assert client.put("/api/settings", json={"primaryTeams": [], "tickerMode": "national"}).status_code == 200  # clearing is always fine
-    tier(app, 2)
-    saved = client.put("/api/settings", json={"primaryTeams": [OPPONENT], "tickerMode": "mine"})
-    assert saved.status_code == 200
-    data = saved.json()["data"]
-    assert data["prefs"]["tickerMode"] == "mine" and data["teamSet"]["extraPrimaries"] == [OPPONENT] and data["teamSet"]["primaries"][0] == HOME
-    tier(app, 0)
-    after = client.get("/api/settings").json()["data"]
-    assert after["teamSet"]["extraPrimaries"] == [] and after["teamSet"]["locked"] == {"primaries": 1}  # kept, but quiet on a free key
-
-
-def test_setup_saves_primaries_secondaries_and_the_ticker_with_a_tier2_key(setup_app):  # noqa: F811
-    app, client, fake, env = setup_app
-    fake.route("/info", json=info(2))
-    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200
-    body = {"team": HOME, "primaryTeams": [OPPONENT, HOME, "texas state", SLATE_SCHOOL], "liked": {"teams": [SLATE_SCHOOL, "Fresno State"], "conferences": [OTHER_CONF], "states": [STATE]}, "tickerMode": "mine"}
-    done = client.post("/api/welcome/finish", json=body)
-    assert done.status_code == 200, done.text
-    prefs = app.state.prefs.prefs
-    assert prefs.primaryTeams == [OPPONENT, SLATE_SCHOOL] and prefs.likedTeams == ["Fresno State"] and prefs.tickerMode == "mine"
-    state = client.get("/api/welcome").json()["data"]
-    assert state["primaryTeams"] == [OPPONENT, SLATE_SCHOOL] and state["maxPrimaryTeams"] == 4 and state["tickerMode"] == "mine"
-    restart.reset()
-    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200  # no restart in a test: check the key again
-    five = client.post("/api/welcome/finish", json={**body, "primaryTeams": [t["school"] for t in fixture_payload("teams_fbs")[:6] if t["school"] != HOME][:5]})
-    assert five.status_code == 422 and five.json()["errors"][0]["code"] == "too_many_primaries"
-    junk = client.post("/api/welcome/finish", json={**body, "primaryTeams": ["Not A School"]})
-    assert junk.status_code == 422 and junk.json()["errors"][0]["code"] == "bad_liked"
-    odd = client.post("/api/welcome/finish", json={**body, "tickerMode": "loud"})
-    assert odd.status_code == 422 and odd.json()["errors"][0]["code"] == "bad_ticker"
+# Batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change team for the switch"): the welcome page and
+# Settings no longer save more teams or the My teams ticker; tests/test_welcome.py checks they clear them.
 
 
 def test_setup_with_a_free_key_takes_the_home_team_alone(setup_app):  # noqa: F811
@@ -138,50 +105,18 @@ def test_setup_with_a_free_key_takes_the_home_team_alone(setup_app):  # noqa: F8
     fake.route("/info", json=info(0))
     assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200
     for extra in ({"primaryTeams": [OPPONENT]}, {"tickerMode": "mine"}, {"liked": {"states": [STATE]}}):
-        refused = client.post("/api/welcome/finish", json={"team": HOME, **extra})
-        assert refused.status_code == 422 and refused.json()["errors"][0]["code"] == "tier2_needed", extra
-    assert client.post("/api/welcome/finish", json={"team": HOME, "tickerMode": "national"}).status_code == 200
-    assert "only this team's colors and mascot theme the app" in client.get("/welcome").text  # said plainly in the setup
+        done = client.post("/api/welcome/finish", json={"team": HOME, **extra})
+        assert done.status_code == 200, extra  # 2.1, one team on every plan: an old page's extra fields are ignored, never refused
+        restart.reset()
+        assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200  # no restart in a test: check the key again
+    prefs = app.state.prefs.prefs
+    assert prefs.primaryTeams == [] and prefs.likedStates == [] and prefs.tickerMode == "national"
+    assert "Pick one school." in client.get("/welcome").text  # one team, said plainly in the setup
 
 
 # --- the ticker -----------------------------------------------------------------------------------------
 
 
-def test_the_my_teams_ticker_keeps_my_games_on_the_same_calls(app, client: TestClient, fake_cfbd: FakeCfbd):
-    route_week(fake_cfbd)
-    quiet_engine(app, client)
-    set_clock(app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
-    tier(app, 2)
-    national = client.get("/api/ticker").json()["data"]
-    calls = len(fake_cfbd.requests)
-    assert national["mode"] == "national" and national["refreshMinutes"] == 5
-    assert all(g["isMine"] == g["isUs"] for g in national["games"])  # only the home team so far
-    app.state.prefs.update({"tickerMode": "mine", "likedTeams": [SLATE_SCHOOL]})
-    mine = client.get("/api/ticker").json()["data"]
-    assert len(fake_cfbd.requests) == calls  # the same slate, no new call
-    assert mine["mode"] == "mine" and mine["modeNote"] is None and all(g["isMine"] for g in mine["games"])
-    schools = {s for g in mine["games"] for s in (g["home"]["school"], g["away"]["school"])}
-    assert {HOME, SLATE_SCHOOL} <= schools and len(mine["games"]) == 2 < len(national["games"])
-    lean = next(g for g in national["games"] if g["home"]["school"] == SLATE_SCHOOL or g["away"]["school"] == SLATE_SCHOOL)
-    assert lean["isMine"] is False
-    tier(app, 0)
-    free = client.get("/api/ticker").json()["data"]
-    assert free["mode"] == "national" and free["modeAsked"] == "mine" and "Tier 2" in free["modeNote"] and free["refreshMinutes"] == 20
-    assert len(free["games"]) == len(national["games"])
-
-
-def test_a_slate_without_my_teams_shows_every_game_with_a_note(app, client: TestClient, fake_cfbd: FakeCfbd):
-    route_week(fake_cfbd)
-    quiet_engine(app, client)
-    set_clock(app, datetime(2026, 9, 23, 16, 0, tzinfo=timezone.utc))
-    tier(app, 2)
-    app.state.prefs.update({"tickerMode": "mine"})
-    app.state.settings.team = "Nobody Plays Here"  # a home team with no game on the slate
-    data = client.get("/api/ticker").json()["data"]
-    assert data["mode"] == "national" and data["modeAsked"] == "mine" and "None of your teams" in data["modeNote"] and data["games"]
-
-
-# --- ranked lists ---------------------------------------------------------------------------------------
 
 
 def listing(client: TestClient, metric: str, status: int = 200, **params: Any) -> dict[str, Any]:
@@ -191,12 +126,12 @@ def listing(client: TestClient, metric: str, status: int = 200, **params: Any) -
     return response.json()["data"] if status == 200 else response.json()
 
 
-def test_the_opponents_and_my_teams_lists_are_the_national_list_cut_down(app, client: TestClient, fake_cfbd: FakeCfbd):
+def test_the_opponents_list_is_the_national_list_cut_down(app, client: TestClient, fake_cfbd: FakeCfbd):
     route_all(fake_cfbd)
     load_pages(client)
     tier(app, 0)
     national = listing(client, "rating:sp")
-    assert "opponents" in national["scopes"] and "mine" not in national["scopes"]
+    assert "opponents" in national["scopes"] and "mine" not in national["scopes"], "batch 3 (2026-11-19), one team: no My teams scope"
     calls = len(fake_cfbd.requests)
     opponents = listing(client, "rating:sp", scope="opponents")
     keep = {HOME, *teamset.opponents(GAMES, HOME)}
@@ -205,73 +140,10 @@ def test_the_opponents_and_my_teams_lists_are_the_national_list_cut_down(app, cl
     assert all(r["rank"] == nat[r["team"]] for r in opponents["rows"])  # ranks stay national
     assert opponents["of"] == national["of"] and opponents["us"] == national["us"] and opponents["scopeTeams"] == len(keep)
     assert "opponents" in opponents["population"]
-    assert listing(client, "rating:sp", 404, scope="mine")["errors"][0]["message"].endswith("Tier 2 key.")
-    tier(app, 2)
     app.state.prefs.update({"likedConferences": [OTHER_CONF]})
-    mine = listing(client, "rating:sp", scope="mine")
-    teams = {r["team"] for r in mine["rows"]}
-    assert HOME in teams and teams - {HOME} <= in_conference(OTHER_CONF) and len(teams) > 8 and "mine" in mine["scopes"]
+    old = listing(client, "rating:sp", scope="mine")
+    assert [r["team"] for r in old["rows"]] == [r["team"] for r in national["rows"]], "an old My teams link reads the national list"
     assert len(fake_cfbd.requests) == calls  # no call for any scope
-    passers = listing(client, "board:passing:YDS")
-    mine_passers = listing(client, "board:passing:YDS", scope="mine")  # a player board cuts by the player's team
-    allowed = {HOME} | in_conference(OTHER_CONF)
-    assert mine_passers["rows"] and all(r["team"] in allowed for r in mine_passers["rows"])
-    national_ranks = {r["playerId"]: r["rank"] for r in passers["rows"] + passers["beyond"]}
-    assert all(national_ranks.get(r["playerId"], r["rank"]) == r["rank"] for r in mine_passers["rows"])
-
-
-# --- the My teams page and the warm-up ------------------------------------------------------------------
-
-
-def test_my_teams_lists_records_ranks_and_games_from_cached_answers(app, client: TestClient, fake_cfbd: FakeCfbd):
-    route_all(fake_cfbd)
-    load_pages(client)
-    tier(app, 2)
-    app.state.prefs.update({"primaryTeams": [OPPONENT], "likedTeams": [SLATE_SCHOOL, "No Such School"]})
-    calls = len(fake_cfbd.requests)
-    body = client.get("/api/myteams").json()
-    assert len(fake_cfbd.requests) == calls  # every part was already cached by the pages
-    rows = body["data"]["rows"]
-    assert [r["school"] for r in rows[:2]] == [HOME, OPPONENT] and [r["role"] for r in rows[:2]] == ["home", "primary"]
-    by = {r["school"]: r for r in rows}
-    assert by[SLATE_SCHOOL]["role"] == "secondary" and by[SLATE_SCHOOL]["why"] == ["Liked school"]
-    assert by["No Such School"]["known"] is False and by["No Such School"]["record"] is None  # a saved name CFBD no longer lists
-    sp_rank = next(r["ranking"] for r in fixture_payload("ratings_sp") if r["team"] == HOME)
-    assert by[HOME]["sp"]["rank"] == sp_rank and isinstance(by[HOME]["record"]["wins"], int)
-    assert by[HOME]["last"]["opponent"] == "Fresno State" and by[HOME]["next"]["opponent"] == OPPONENT
-    abbr = {t.school: t.abbreviation for t in TEAMS}  # tables wave 3: the small table reads "at FRES", "vs TXST"
-    assert by[HOME]["last"]["opponentAbbr"] == abbr["Fresno State"] and by[HOME]["next"]["opponentAbbr"] == abbr[OPPONENT]
-    assert by[HOME]["abbreviation"] == abbr[HOME]
-    assert body["data"]["note"] is None and body["data"]["teamSet"]["extraPrimaries"] == [OPPONENT]
-    tier(app, 0)
-    free = client.get("/api/myteams").json()["data"]
-    assert [r["school"] for r in free["rows"]] == [HOME] and "Tier 2" in free["note"]
-
-
-def test_last_and_next_carry_the_opponents_abbreviation_when_known():
-    """Tables wave 3: My Teams' small table names each opponent by its abbreviation; an FCS opponent, a blank one or no team
-    map leaves it None (the page then shows the school)."""
-    teams = {"Fresno State": {"abbreviation": " FRES "}, OPPONENT: {"abbreviation": "  "}, "Junk": "x"}
-    last, upcoming = myteams.last_and_next(GAMES, HOME, teams)
-    assert last["opponent"] == "Fresno State" and last["opponentAbbr"] == "FRES"
-    assert upcoming["opponent"] == OPPONENT and upcoming["opponentAbbr"] is None
-    plain_last, plain_next = myteams.last_and_next(GAMES, HOME)
-    assert plain_last["opponentAbbr"] is None and plain_next["opponentAbbr"] is None
-    assert myteams.last_and_next([], HOME, teams) == (None, None)
-
-
-def test_my_teams_survives_junk_parts(app, client: TestClient, fake_cfbd: FakeCfbd):
-    route_all(fake_cfbd)
-    fake_cfbd.route("/records", json=[{"team": None}, "junk", {"team": HOME, "total": "nine"}])
-    fake_cfbd.route("/ratings/elo", json={"not": "a list"})
-    fake_cfbd.route("/ratings/fpi", status=500, text="down")
-    tier(app, 2)
-    app.state.prefs.update({"likedTeams": [SLATE_SCHOOL]})
-    response = client.get("/api/myteams")
-    assert response.status_code == 200
-    rows = response.json()["data"]["rows"]
-    assert [r["school"] for r in rows] == [HOME, SLATE_SCHOOL] and rows[0]["elo"]["rank"] is None and rows[0]["fpi"]["rank"] is None
-    assert "NaN" not in response.text
 
 
 def wait_for_warm(app, timeout: float = 20.0) -> None:
@@ -283,28 +155,6 @@ def wait_for_warm(app, timeout: float = 20.0) -> None:
         time.sleep(0.05)
     raise AssertionError("the warm-up did not finish")
 
-
-def test_primary_team_pages_warm_when_a_device_connects(app, client: TestClient, fake_cfbd: FakeCfbd):
-    route_all(fake_cfbd)
-    tier(app, 0)
-    app.state.prefs.prefs = Prefs(primaryTeams=[OPPONENT])  # saved under a Tier 2 key earlier
-    assert client.post("/api/myteams/warm").json()["data"] == {"warming": [], "reason": "free_key"}
-    tier(app, 2)
-    started = client.post("/api/myteams/warm").json()["data"]
-    assert started == {"warming": [OPPONENT], "reason": None}
-    wait_for_warm(app)
-    calls = len(fake_cfbd.requests)
-    assert client.get(f"/api/team/{quote(OPPONENT)}").status_code == 200
-    assert len(fake_cfbd.requests) == calls  # the page was ready before anyone opened it
-    assert client.post("/api/myteams/warm").json()["data"]["reason"] == "recent"
-    app.state.cfbd._clock = lambda: datetime.now(timezone.utc) + timedelta(minutes=11)
-    assert client.post("/api/myteams/warm").json()["data"]["reason"] is None
-    wait_for_warm(app)
-    app.state.prefs.prefs = Prefs()
-    assert client.post("/api/myteams/warm").json()["data"]["reason"] == "no_primaries"
-
-
-# --- radio for any team ---------------------------------------------------------------------------------
 
 
 ENV_STATION = {"name": "Home network", "kind": "stream", "url": "https://radio.example.invalid/home.mp3"}
@@ -332,9 +182,10 @@ def test_stations_come_from_env_then_settings_then_the_list(tmp_path: Path, monk
         body = client.get("/api/radio/sources").json()["data"]
         settings_data = client.get("/api/settings").json()["data"]
     sources = body["sources"]
-    assert [(s["name"], s["origin"]) for s in sources] == [("Home network", "env"), ("Gulch Radio", "settings"), ("Diner Radio", "list")]
-    assert [s["id"] for s in sources] == ["1-home-network", "2-gulch-radio", "3-diner-radio"]  # .env ids never move
-    assert body["help"] == []  # every primary team has a station
+    # batch 3 (owner 2026-11-19), one team: the list's stations are offered for our team alone, an older file's primaries left out
+    assert [(s["name"], s["origin"]) for s in sources] == [("Home network", "env"), ("Gulch Radio", "settings")]
+    assert [s["id"] for s in sources] == ["1-home-network", "2-gulch-radio"]  # .env ids never move
+    assert body["help"] == []  # our team has a station
     assert [s["id"] for s in settings_data["radioSources"]] == [s["id"] for s in sources] and settings_data["radioHelp"] == []
     assert TEST_KEY not in json.dumps(body)
 
@@ -346,10 +197,9 @@ def test_a_team_without_a_station_gets_search_links_and_the_request_form(app, cl
     body = client.get("/api/radio/sources").json()["data"]
     assert body["sources"] == []
     help_rows = {h["school"]: h for h in body["help"]}
-    assert set(help_rows) == {HOME, OPPONENT}
-    request = help_rows[OPPONENT]["requestUrl"]
+    assert set(help_rows) == {HOME}, "one team: the help is ours alone"
+    request = help_rows[HOME]["requestUrl"]
     assert request.startswith("https://github.com/Myerslabs/kickoff-companion/issues/new?template=radio-station.yml")
-    assert "school=Texas%20State" in request and "title=Radio%20station%3A%20Texas%20State" in request
     assert [link["label"] for link in help_rows[HOME]["search"]] == ["Search the web", "Search TuneIn"]
     assert all(link["url"].startswith("https://") for h in body["help"] for link in h["search"])
 

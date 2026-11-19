@@ -16,6 +16,7 @@
 // (ui/sizes.js). Decision 3: the server sends the earlier seasons too, so each Stats table's Career row sums real seasons
 // (shown from two seasons up); a season that could not be loaded is named in the card's note.
 
+import { openComparePick } from "../ui/compare-pick.js"; // batch 3: Compare from the card
 import { DASH, el, fmtDate, fmtStat, isNum, teamLink, text } from "../ui/dom.js";
 import { cardHeading, openPlayerCard, playerCard } from "../ui/player-card.js";
 import { categoryColumns, categoryTitle, normalizeStat, statLabel, trendKey } from "../ui/stat-labels.js";
@@ -338,7 +339,8 @@ export async function openPlayer(playerId, fallback = null) {
         },
       });
       if (!current()) return;
-      card.update(cardPropsFrom(envelope?.data));
+      const who = envelope?.data && typeof envelope.data === "object" && envelope.data.player && typeof envelope.data.player === "object" ? envelope.data.player : {};
+      card.update({ ...cardPropsFrom(envelope?.data), onCompare: () => openComparePick({ first: { playerId: String(playerId), name: who.name || player.name, team: who.team || player.team } }) }); // batch 3: two players side by side
     } catch (error) {
       if (!current()) return; // closed while it waited, or a newer try took over: nothing to say
       if (error?.status === 404) {

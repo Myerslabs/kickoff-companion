@@ -39,19 +39,33 @@ def test_the_loads_cover_my_teams_and_the_next_opponent_only(client, fake_cfbd):
     assert client.get("/api/season-notes/prompt", params={"kind": "facts", "key": next(c for c in set(FBS.values()) if c not in {FBS[s] for s in mine})}).status_code == 404
 
 
-def test_following_a_conference_adds_its_schools(client, league, app):  # noqa: F811
+def test_a_followed_conference_no_longer_widens_the_loads(client, league, app):  # noqa: F811
+    """Replaces "following a conference adds its schools": that behavior is gone. Batch 3 (owner 2026-11-19): "I want
+    to take out all the secondary teams ... Let's just have one team listed, and a change team for the switch." A
+    likedConferences saved before (the league fixture saves one) leaves the loads at our team and the next opponent."""
+    follow_conference(app)
     status = client.get("/api/season-notes").json()["data"]
-    schools = sorted(s for s, c in FBS.items() if c == CONFERENCE)
-    assert next(b for b in status["coaches"] if b["conference"] == CONFERENCE)["schools"] == len(schools)
+    opponent = next_opponent(client)
+    assert opponent and status["coachesOf"] == 2 == covered(status) == covered(status, "facts") == covered(status, "costs")
+    assert next(b for b in status["coaches"] if b["conference"] == CONFERENCE)["schools"] == 1, "of our conference, our team alone"
+    assert {b["conference"] for b in status["coaches"]} == {FBS[TEAM], FBS[opponent]}
 
 
-def test_a_conference_saved_before_is_run_again_for_a_new_school(client, league, app):  # noqa: F811
-    """The set moves with the next opponent, so 'missing' looks school by school, not at the conference's saved stamp."""
+def test_a_conference_saved_before_is_run_again_for_a_new_opponent(client, league, app):  # noqa: F811
+    """The set moves with the next opponent, so 'missing' looks school by school, not at the conference's saved stamp.
+    Since batch 3 (owner 2026-11-19, one team) no school joins by following a conference; the opponent changing is
+    what brings a new school into a conference saved before."""
     from app.api.season_notes import start_season_run
+    from app.services import season_prompts
     from tests.test_season_notes import coaches_answer
 
-    schools = sorted(s for s, c in FBS.items() if c == CONFERENCE)
-    assert client.post("/api/season-notes/save", json={"kind": "coaches", "key": CONFERENCE, "text": coaches_answer(schools=schools[:-1])}).json()["data"]["saved"]
+    opponent = next_opponent(client)
+    conference = FBS[opponent]
+    last_week = next(s for s, c in sorted(FBS.items()) if c == conference and s != opponent)
+    notes = app.state.season_notes
+    notes.save_coaches(season_prompts.read_coaches(coaches_answer(schools=[last_week]), conference, [last_week]).value, conference, [last_week])
+    assert notes.coaches_for(last_week), "last week's opponent of the same conference was saved"
+    assert client.post("/api/season-notes/save", json={"kind": "coaches", "key": CONFERENCE, "text": coaches_answer(schools=[TEAM])}).json()["data"]["saved"]
     asked: list[str] = []
 
     async def fake_start(kind, batches, command):
@@ -60,27 +74,26 @@ def test_a_conference_saved_before_is_run_again_for_a_new_school(client, league,
 
     app.state.season_runner.start = fake_start
     client.portal.call(lambda: start_season_run(SimpleNamespace(app=app), "coaches", None, True))
-    assert CONFERENCE in asked, "one school of the conference is still missing"
+    assert conference in asked and CONFERENCE not in asked, "the new opponent is still missing; our team is loaded"
     asked.clear()
-    assert client.post("/api/season-notes/save", json={"kind": "coaches", "key": CONFERENCE, "text": coaches_answer(schools=schools)}).json()["data"]["saved"]
+    assert client.post("/api/season-notes/save", json={"kind": "coaches", "key": conference, "text": coaches_answer(schools=[opponent])}).json()["data"]["saved"]
     client.portal.call(lambda: start_season_run(SimpleNamespace(app=app), "coaches", None, True))
-    assert CONFERENCE not in asked
+    assert conference not in asked
 
 
 def test_a_team_page_says_whether_the_loads_cover_it(client, fake_cfbd, app):
+    """Our team and the next opponent are covered; a stranger is not, and since batch 3 (owner 2026-11-19, one team)
+    following its conference no longer brings it in."""
     from tests.test_program import route_program
 
     route_program(fake_cfbd)
     opponent = next_opponent(client)
     assert client.get(f"/api/team/{TEAM}").json()["data"]["inLoadSet"] is True
+    assert client.get(f"/api/team/{opponent}").json()["data"]["inLoadSet"] is True
     stranger = next(s for s, c in FBS.items() if s not in (TEAM, opponent) and c != FBS[TEAM])
-    body = client.get(f"/api/team/{stranger}").json()
-    if body.get("data"):
-        assert body["data"]["inLoadSet"] is False
+    assert client.get(f"/api/team/{stranger}").json()["data"]["inLoadSet"] is False
     follow_conference(app, FBS[stranger])
-    again = client.get(f"/api/team/{stranger}").json()
-    if again.get("data"):
-        assert again["data"]["inLoadSet"] is True, "a liked conference brings its schools in"
+    assert client.get(f"/api/team/{stranger}").json()["data"]["inLoadSet"] is False, "a liked conference no longer brings its schools in"
 
 
 def test_the_notes_file_location_comes_with_this_weeks_notes(client, league, app):  # noqa: F811

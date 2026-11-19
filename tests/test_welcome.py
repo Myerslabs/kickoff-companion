@@ -1,11 +1,14 @@
 """Public release Phase 5a: first-run setup in the browser. A server with no key or team runs in setup
 mode: every page leads to /welcome and the data API answers setup_needed. The welcome flow checks a key
 with one /info call, lists the FBS schools, then writes CFBD_API_KEY, TEAM and CONFERENCE into .env and
-restarts in place. Liked teams, conferences and states need a Tier 2 key. The key is never sent back.
+restarts in place. The key is never sent back. Batch 3 (owner 2026-11-19: "Let's just have one team listed, and a
+change team for the switch"): the setup saves one team; old primary and secondary picks are cleared and the ticker is
+always national, from the welcome page, from Settings and from the public install's copied settings.
 Also: the .env writer, the restart signal, the plan summary and its forecast."""
 
 from __future__ import annotations
 
+import json
 import threading
 import time
 from datetime import datetime, timezone
@@ -20,7 +23,7 @@ from app.cfbd.capabilities import Capabilities
 from app.config import PROJECT_ROOT, load_settings
 from app.logging_setup import configure_logging, shutdown_logging
 from app.main import create_app
-from app.services import plan
+from app.services import plan, public_import
 from app.services.envfile import quote, set_values
 from app.services.prefs import PrefsStore
 from tests.conftest import TEST_KEY, FakeCfbd, fixture_payload
@@ -78,10 +81,8 @@ def test_a_key_is_checked_then_the_team_saved_and_the_server_restarts(setup_app)
     assert fake.requests[-1].headers["Authorization"] == f"Bearer {NEW_KEY}"
     teams = client.get("/api/welcome/teams").json()["data"]
     assert any(t["school"] == "Florida" and t["conference"] == "SEC" for t in teams["teams"])
-    assert "SEC" in teams["conferences"] and len(teams["states"]) > 5
+    assert set(teams) == {"teams"}  # no conference or state lists: the secondary pickers are gone (batch 3)
     assert fake.requests[-1].headers["Authorization"] == f"Bearer {NEW_KEY}"  # the checked key, before any restart
-    refused = client.post("/api/welcome/finish", json={"team": "Florida", "liked": {"teams": ["USC"]}})
-    assert refused.status_code == 422 and refused.json()["errors"][0]["code"] == "tier2_needed"
     assert client.post("/api/welcome/finish", json={"team": "Nowhere U"}).status_code == 422
     done = client.post("/api/welcome/finish", json={"team": "florida"})
     assert done.status_code == 200 and done.json()["data"]["restarting"] is True and NEW_KEY not in done.text
@@ -93,17 +94,65 @@ def test_a_key_is_checked_then_the_team_saved_and_the_server_restarts(setup_app)
     assert not after.setup_needed and after.team == "Florida" and after.api_key_configured
 
 
-def test_liked_teams_need_tier_2_and_are_saved_with_the_settings(setup_app):
+OLD_PICKS = {"primaryTeams": ["Georgia"], "likedTeams": ["USC"], "likedConferences": ["Big Ten"], "likedStates": ["Ohio"], "tickerMode": "mine"}
+ONE_TEAM = {"primaryTeams": [], "likedTeams": [], "likedConferences": [], "likedStates": [], "tickerMode": "national"}
+
+
+def test_the_setup_saves_one_team_and_clears_the_old_picks(setup_app):
     app, client, fake, _ = setup_app
     fake.route("/info", json=info(2))
-    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is True
-    bad = client.post("/api/welcome/finish", json={"team": "Florida", "liked": {"teams": ["Not A School"]}})
-    assert bad.status_code == 422 and bad.json()["errors"][0]["code"] == "bad_liked"
-    liked = {"teams": ["usc", "Florida"], "conferences": ["Big Ten"], "states": ["Ohio"]}
-    done = client.post("/api/welcome/finish", json={"team": "Florida", "liked": liked})
-    assert done.status_code == 200
-    prefs = PrefsStore(app.state.settings.data_dir).prefs
-    assert prefs.likedTeams == ["USC"] and prefs.likedConferences == ["Big Ten"] and prefs.likedStates == ["Ohio"]  # the main team is not also liked
+    app.state.prefs.update(OLD_PICKS)  # what an older build saved
+    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).status_code == 200
+    # a page opened before batch 3 still sends the old fields, even junk ones: they are ignored, never refused
+    body = {"team": "Florida", "primaryTeams": ["Not A School", "Georgia"], "liked": {"teams": ["usc"], "conferences": ["Big Ten"], "states": ["Ohio"]}, "tickerMode": "loud"}
+    done = client.post("/api/welcome/finish", json=body)
+    assert done.status_code == 200, done.text
+    saved = PrefsStore(app.state.settings.data_dir).prefs
+    assert {k: getattr(saved, k) for k in ONE_TEAM} == ONE_TEAM
+    state = done.json()["data"]
+    assert state["team"] == "Florida"
+    assert not {"primaryTeams", "maxPrimaryTeams", "liked", "tickerMode"} & set(state), "the page is told of one team only"
+    assert not {"primaryTeams", "liked", "tickerMode"} & set(client.get("/api/welcome").json()["data"])
+
+
+def test_settings_set_no_more_teams_and_keep_the_national_ticker(app, client: TestClient):
+    app.state.prefs.update(OLD_PICKS)
+    saved = client.put("/api/settings", json={"primaryTeams": ["Georgia"], "likedTeams": ["USC"], "tickerMode": "mine", "hints": False})
+    assert saved.status_code == 200, saved.text
+    prefs = saved.json()["data"]["prefs"]
+    assert prefs["hints"] is False, "the rest of the change applies"
+    assert prefs["tickerMode"] == "national" and prefs["primaryTeams"] == [] and prefs["likedTeams"] == []
+    team_set = saved.json()["data"]["teamSet"]
+    assert team_set["primaries"] == [app.state.settings.team] and team_set["extraPrimaries"] == []
+    assert client.put("/api/settings", json={"tickerMode": "loud"}).json()["data"]["prefs"]["tickerMode"] == "national"
+    assert client.put("/api/settings", json=["not", "an", "object"]).status_code == 422
+
+
+def test_the_public_install_s_settings_lose_their_extra_teams(tmp_path: Path):
+    path = tmp_path / "settings.json"
+    assert public_import.one_team_only(path) is False  # no file: nothing to do
+    path.write_text(json.dumps({**OLD_PICKS, "hints": False, "delaySeconds": 45}), encoding="utf-8")
+    assert public_import.one_team_only(path) is True
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert {k: data[k] for k in ONE_TEAM} == ONE_TEAM and data["hints"] is False and data["delaySeconds"] == 45
+    assert public_import.one_team_only(path) is False  # already one team: left as it is
+    path.write_text("not json", encoding="utf-8")
+    assert public_import.one_team_only(path) is False and path.read_text(encoding="utf-8") == "not json"
+    path.write_text("[1, 2]", encoding="utf-8")
+    assert public_import.one_team_only(path) is False
+
+
+def test_bringing_over_the_public_install_drops_its_extra_teams(tmp_path: Path):
+    source = tmp_path / "public"
+    (source / "data").mkdir(parents=True)
+    (source / ".env").write_text(f"CFBD_API_KEY={NEW_KEY}\nTEAM=Florida\nCONFERENCE=SEC\n", encoding="utf-8")
+    (source / "data" / "settings.json").write_text(json.dumps({**OLD_PICKS, "hints": False}), encoding="utf-8")
+    here = tmp_path / "here"
+    result = public_import.copy_into(source, here / ".env", here / "data")
+    assert result["copied"] == 1 and "TEAM" in result["envKeys"]
+    prefs = PrefsStore(here / "data").prefs
+    assert {k: getattr(prefs, k) for k in ONE_TEAM} == ONE_TEAM and prefs.hints is False
+    assert json.loads((source / "data" / "settings.json").read_text(encoding="utf-8"))["tickerMode"] == "mine", "the public install keeps its own file"
 
 
 @pytest.mark.parametrize(
@@ -279,17 +328,3 @@ def test_the_demo_page_takes_the_key_where_it_says_one_is_needed() -> None:
     assert "/api/welcome/key" not in demo, "the demo server never sees the key; the setup page checks it"
     welcome = (static / "js" / "welcome.js").read_text(encoding="utf-8")
     assert 'window.sessionStorage.getItem("kickoff.setup.key")' in welcome and 'window.sessionStorage.removeItem("kickoff.setup.key")' in welcome and "await checkKey();" in welcome
-
-
-def test_a_key_below_tier_2_keeps_the_saved_picks(setup_app):
-    """The 2.0 review: Finish on a Free key saves the home team and leaves the picks a Tier 2 key made for later."""
-    app, client, fake, _ = setup_app
-    fake.route("/info", json=info(2))
-    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is True
-    liked = {"teams": ["usc"], "conferences": ["Big Ten"], "states": ["Ohio"]}
-    assert client.post("/api/welcome/finish", json={"team": "Florida", "primaryTeams": ["Georgia"], "liked": liked, "tickerMode": "mine"}).status_code == 200
-    fake.route("/info", json=info(0))  # the key is now a Free one
-    assert client.post("/api/welcome/key", json={"key": NEW_KEY}).json()["data"]["plan"]["likedAllowed"] is False
-    assert client.post("/api/welcome/finish", json={"team": "Florida", "primaryTeams": [], "liked": {}, "tickerMode": "national"}).status_code == 200
-    prefs = PrefsStore(app.state.settings.data_dir).prefs
-    assert prefs.primaryTeams == ["Georgia"] and prefs.likedTeams == ["USC"] and prefs.likedConferences == ["Big Ten"] and prefs.tickerMode == "mine"

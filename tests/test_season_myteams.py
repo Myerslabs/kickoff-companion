@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import quote
 
 import httpx
@@ -45,11 +46,10 @@ def test_the_home_teams_season_carries_the_window(app, client: TestClient, fake_
     app.state.prefs.update({"primaryTeams": [OPPONENT], "likedTeams": [SLATE_SCHOOL]})
     data = client.get("/api/season/overview").json()["data"]
     picker = data["picker"]
-    assert [t["school"] for t in picker["teams"]] == [HOME, OPPONENT, SLATE_SCHOOL], "the home team, the other primaries, then the secondary ones"
-    assert [t["role"] for t in picker["teams"]] == ["home", "primary", "secondary"]
+    assert [(t["school"], t["role"]) for t in picker["teams"]] == [(HOME, "home")], "batch 3 (2026-11-19): one team; an older file's picks are read by nothing"
     assert picker["picked"] == HOME and picker["home"] == HOME and picker["allowed"] is True and picker["note"] is None
     meta = {t.school: t for t in TEAMS}
-    assert picker["teams"][1]["abbreviation"] == meta[OPPONENT].abbreviation and picker["teams"][1]["color"] == meta[OPPONENT].color
+    assert picker["teams"][0]["abbreviation"] == meta[HOME].abbreviation and picker["teams"][0]["color"] == meta[HOME].color
     assert data["team"]["conferenceShort"], "the page names the team's conference in short"
     assert len(data["trends"]["gameIds"]) == len(data["trends"]["weeks"]), "the trends' columns are matched to the schedule by game id"
 
@@ -95,18 +95,24 @@ def test_any_fbs_team_opens_and_a_made_up_name_does_not(app, client: TestClient,
     free = client.get(f"/api/season/overview?team={quote(OPPONENT)}")
     assert free.status_code == 200, "FEAT-5: any team's page still opens when someone asks for it, on any key"
     picker = client.get("/api/season/overview").json()["data"]["picker"]
-    assert [t["school"] for t in picker["teams"]] == [HOME] and picker["allowed"] is False and "Tier 2" in picker["note"]
+    assert [t["school"] for t in picker["teams"]] == [HOME] and picker["note"] is None, "2.1, one team on every plan: nothing to add, no Tier 2 note"
 
 
-def test_the_picker_and_the_note_survive_junk():
-    chosen = teamset.resolve(HOME, Prefs(primaryTeams=[OPPONENT, "Nowhere U"]), True, TEAMS)
-    picker = myteams.season_picker(chosen, [*TEAMS, "junk", None], OPPONENT)  # type: ignore[list-item]
-    assert picker["picked"] == OPPONENT and [t["school"] for t in picker["teams"]][:2] == [HOME, OPPONENT]
+def test_the_picker_is_our_team_and_the_one_changed_to():
+    """Batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change team for the switch"): our team, then the
+    team this device changed to; no note, whatever an older settings file still holds."""
+    picker = myteams.season_picker(teamset.resolve(HOME, Prefs(), True, TEAMS), [*TEAMS, "junk", None], OPPONENT)  # type: ignore[list-item]
+    assert [(t["school"], t["role"]) for t in picker["teams"]] == [(HOME, "home"), (OPPONENT, "viewing")]
+    assert picker["picked"] == OPPONENT and picker["note"] is None
     alone = myteams.season_picker(teamset.resolve(HOME, Prefs(), True, TEAMS), [], HOME)
-    assert alone["teams"][0]["abbreviation"] is None and alone["teams"][0]["known"] is True, "no team list: nothing known, nothing refused"
-    assert myteams.set_note(teamset.resolve(HOME, Prefs(), True, TEAMS), 1).startswith("Only your home team")
-    assert myteams.set_note(teamset.resolve(HOME, Prefs(primaryTeams=[OPPONENT]), False, TEAMS), 1).startswith("More primary teams"), "saved picks a free key leaves out"
-    assert myteams.set_note(teamset.resolve(HOME, Prefs(primaryTeams=[OPPONENT]), True, TEAMS), 2) is None
+    assert len(alone["teams"]) == 1 and alone["teams"][0]["abbreviation"] is None and alone["teams"][0]["known"] is True, "no team list: nothing known, nothing refused"
+
+
+def test_the_team_set_is_the_home_team_alone(settings):
+    """An older settings file's extra primaries and secondary teams are read by nothing."""
+    old = SimpleNamespace(prefs=Prefs(primaryTeams=[OPPONENT], likedTeams=["Houston"], likedConferences=["SEC"], likedStates=["TX"]))
+    chosen = teamset.current(settings, old, None, TEAMS)
+    assert chosen.primaries == (settings.team,) and chosen.secondary == () and chosen.mine() == frozenset({settings.team})
 
 
 SCENARIOS = r"""
@@ -146,27 +152,25 @@ scenarios.window = async () => {
   assert.ok(!RAW.test(text(pick)), text(pick));
   assert.ok(pick.querySelector("section.cover.cover--one"), "the cover on one team (2026-11-07) is the window");
   assert.equal(text(pick.querySelector(".cover__name")), "Florida");
-  assert.ok(text(pick).includes("Home team"));
-  assert.ok(pick.querySelector(".season-pick__arrow--prev.season-pick__arrow--off"), "the home team has no team before it");
-  const next = pick.querySelector("a.season-pick__arrow--next");
-  assert.equal(next.getAttribute("href"), "#season?team=Texas%20State");
-  assert.equal(next.getAttribute("aria-label"), "Next team: Texas State", "the arrow names the team it goes to");
-  const chips = pick.querySelectorAll("a.season-pick__team");
-  assert.deepEqual(chips.map((a) => a.getAttribute("href")), ["#season", "#season?team=Texas%20State", "#season?team=Houston"], "one chip a team; junk rows dropped");
-  assert.equal(chips[0].getAttribute("aria-current"), "page");
-  assert.ok(chips[0].className.includes("is-on") && !chips[1].className.includes("is-on"));
-  assert.equal(text(chips[2].querySelector("i")), "Houston", "no abbreviation: the school");
-  assert.equal(text(pick.querySelector(".season-pick__count")), "1 of 3");
-  assert.equal(pick.querySelector(".season-pick__change").getAttribute("href"), "#profile=teams");
+  // batch 3 (owner 2026-11-19): one team listed, and Change team for the switch; no arrows, chips, count or role word
+  assert.equal(pick.getAttribute("aria-label"), "Your team");
+  assert.equal(pick.querySelectorAll(".season-pick__arrow").length, 0, "no team arrows");
+  assert.equal(pick.querySelectorAll(".season-pick__team").length, 0, "no team chips, even from an older answer that lists more");
+  assert.equal(pick.querySelector(".season-pick__count"), null);
+  assert.ok(!text(pick).includes("Home team") && !text(pick).includes("Primary") && !text(pick).includes("Secondary"));
+  const change = pick.querySelector("button.season-pick__change");
+  assert.ok(change && text(change) === "Change team", "Change team opens the switch sheet");
   // the cover on one team (2026-11-07): the facts are the cover's chips, the last and the next game its middle
   const chipWords = pick.querySelectorAll(".cover-chip").map(text);
   assert.ok(chipWords.some((w) => w.startsWith("SP+ #")) && chipWords.some((w) => w.startsWith("Elo #")) && chipWords.some((w) => w.startsWith("FPI #")), chipWords.join(" | "));
   assert.equal(pick.querySelector(".poll-badge"), null, "unranked: no AP badge");
-  const lastLine = pick.querySelector('[data-k="pick:last"]').parentNode;
-  assert.ok(text(lastLine).includes("L") && text(lastLine).includes("FRES"), "the last game: its result and the opponent's abbreviation");
-  const nextLink = pick.querySelector('[data-k="pick:next"]');
-  assert.ok(nextLink && /^(vs|at) /.test(text(nextLink)), "the next game's card names the opponent");
-  assert.ok(pick.querySelector(".cover__next-count b"), "the countdown");
+  // owner 2026-11-20: "remove the vanderbuilt part and just show the gators logo at the top for my team": our team alone,
+  // centered, no next-game card, countdown or Last line (the Pre-Game Program has the next game)
+  assert.ok(pick.querySelector(".cover.cover--alone"), "the cover on our team alone");
+  assert.equal(pick.querySelector(".cover__center--one"), null);
+  assert.equal(pick.querySelector('[data-k="pick:last"]'), null);
+  assert.equal(pick.querySelector('[data-k="pick:next"]'), null);
+  assert.ok(!text(pick).includes("to kickoff"), "no countdown");
   assert.equal(main.querySelector("#season-playoff"), null, "unranked: no playoff band");
   // one column (owner 2026-11-01): no flush rows, every band a child of the page in the order of board 9
   assert.equal(main.querySelector(".flush-row"), null);
@@ -184,42 +188,42 @@ scenarios.other = async () => {
   installWindow();
   const data = clone(FIXTURE.season);
   data.team = { school: "Texas State", abbreviation: "TXST", conference: "Big Ten", conferenceShort: "B1G", color: "#1c957a" };
-  data.picker = { ...clone(PICKER), picked: "Texas State" };
+  data.picker = { ...clone(PICKER), teams: [clone(PICKER.teams[0]), { school: "Texas State", abbreviation: "TXST", color: "#1c957a", role: "viewing" }], picked: "Texas State" };
   data.record.apRank = 3;
+  // opened by name with no switch (a flyout's Full page): not ours, but not changed on this device either
+  const { setViewing, _resetViewing } = await import(moduleUrl("viewing.js"));
+  _resetViewing();
+  const named = await draw(clone(data), { team: "Texas State" });
+  const namedText = text(named.main.querySelector(".season-pick"));
+  assert.ok(namedText.includes("Not your team") && !namedText.includes("Changed on this device"), namedText);
+  named.view.unmount();
+  // the device switched to that team: it says so
+  setViewing({ school: "Texas State" });
   const { main, view } = await draw(data, { team: "Texas State" });
   assert.ok(calls.some((u) => u === "/api/season/overview?team=Texas%20State"), calls.join(" "));
   const pick = main.querySelector(".season-pick");
   assert.equal(text(pick.querySelector(".cover__name")), "Texas State");
-  assert.ok(text(pick).includes("Primary team") && text(pick).includes("Big Ten"));
-  assert.equal(pick.querySelector("a.season-pick__arrow--prev").getAttribute("href"), "#season", "back to the home team's plain address");
-  assert.equal(pick.querySelector("a.season-pick__arrow--next").getAttribute("href"), "#season?team=Houston");
-  assert.equal(text(pick.querySelector(".season-pick__count")), "2 of 3");
+  assert.ok(text(pick).includes("Changed on this device") && text(pick).includes("Big Ten"), text(pick));
+  assert.equal(pick.querySelectorAll(".season-pick__arrow").length, 0, "no arrows: Back to our team is the top bar's");
   assert.ok(text(pick.querySelector(".poll-badge")).includes("3"), "the AP badge on the cover");
   assert.equal(pick.querySelector(".rail"), null, "another team's page carries no rail");
   assert.ok(main.querySelector("#season-playoff"), "in the AP Top 25: the playoff band shows");
   assert.ok(text(main.querySelector("#season-standings")).includes("B1G standings"), "its own conference's name");
   view.unmount();
+  _resetViewing();
 };
 
 scenarios.free = async () => {
   installWindow();
   const data = clone(FIXTURE.season);
-  data.picker = { teams: [clone(PICKER.teams[0])], picked: "Florida", home: "Florida", allowed: false, note: "Add more primary teams and secondary teams with a Tier 2 key.", plansUrl: "https://collegefootballdata.com/api-tiers" };
+  data.picker = { teams: [clone(PICKER.teams[0])], picked: "Florida", home: "Florida", allowed: false, note: "Add more primary teams and secondary teams with a Tier 2 key.", plansUrl: "javascript:alert(1)" };
   const { main, view } = await draw(data, {});
   const pick = main.querySelector(".season-pick");
-  assert.ok(pick.className.includes("season-pick--alone"));
   assert.equal(pick.querySelectorAll(".season-pick__arrow").length, 0, "no arrows: nowhere to step");
   assert.equal(pick.querySelectorAll(".season-pick__team").length, 0, "no chips");
-  const note = pick.querySelector(".season-pick__note");
-  assert.ok(text(note).includes("Tier 2 key"));
-  const link = note.querySelector("a");
-  assert.equal(link.getAttribute("href"), "https://collegefootballdata.com/api-tiers");
-  assert.equal(link.getAttribute("target"), "_blank");
+  assert.equal(pick.querySelector(".season-pick__note"), null, "an older answer's note about more teams is never drawn");
+  assert.equal(pick.querySelectorAll("a").filter((a) => /^javascript:/i.test(a.getAttribute("href") || "")).length, 0, "no script link from an older answer");
   view.unmount();
-  data.picker.plansUrl = "javascript:alert(1)";
-  const again = await draw(data, {});
-  assert.equal(again.main.querySelectorAll(".season-pick__note a").length, 0, "a bad plans link is never drawn");
-  again.view.unmount();
   // no picker at all (an older server): the team alone, no crash
   const bare = clone(FIXTURE.season);
   const third = await draw(bare, {});

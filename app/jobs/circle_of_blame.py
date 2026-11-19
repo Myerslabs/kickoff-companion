@@ -168,7 +168,10 @@ class BlameJob:
 
     # --- the run ---------------------------------------------------------------------------------------------------
 
-    async def run(self, force: bool = False) -> dict[str, Any]:
+    async def run(self, force: bool = False, refresh: bool = False) -> dict[str, Any]:
+        """`refresh` (batch 4, Run with Claude): written again like `force`, with the report as it stands after the evidence
+        pack, never in it: the name check reads the evidence, and an old report must not vouch for its own names."""
+        force = force or refresh
         command = self.settings.claude_command or "claude"
         if self.cli is None:
             found, searched = find_command(command)
@@ -191,10 +194,16 @@ class BlameJob:
         if not force and self.store.load(key) is not None:
             return {"week": game.week, "key": key, "message": f"The report for {label} is already written; Regenerate writes a new one"}
         pack, headlines = await self.pack(overview, game, finals)
+        held = self.store.load(key) if refresh else None
+        page_now = ""
+        if isinstance(held, dict) and isinstance(held.get("report"), dict):
+            from app.services.writing import refresh_text
+
+            page_now = refresh_text(held["report"])  # the report as the page shows it, not its stamps
         evidence = json.dumps(pack, ensure_ascii=False, separators=(",", ":"))
         digest = hashlib.sha256(evidence.encode("utf-8")).hexdigest()
         self.store.save_pack(key, pack)
-        return await self.write(game, key, label, pack, evidence, digest, headlines)
+        return await self.write(game, key, label, pack, evidence, digest, headlines, page_now=page_now)
 
     def _schedule_off(self) -> bool:
         try:
@@ -203,7 +212,7 @@ class BlameJob:
             log.warning("Circle of Blame: the settings could not be read; the schedule counts as off", exc_info=True)
             return True
 
-    async def write(self, game: Game, key: str, label: str, pack: dict[str, Any], evidence: str, digest: str, headlines: list[dict[str, Any]]) -> dict[str, Any]:
+    async def write(self, game: Game, key: str, label: str, pack: dict[str, Any], evidence: str, digest: str, headlines: list[dict[str, Any]], page_now: str = "") -> dict[str, Any]:
         _home, opponent, us, them = ours(game, self.team)
         outcome = result_of(us, them) or "result"
         words = f"a {us}-{them} {outcome} {'to' if outcome == 'loss' else 'against'} {opponent}" if outcome != "tie" else f"a {us}-{them} tie with {opponent}"
@@ -220,7 +229,7 @@ class BlameJob:
             prompt, user_version = render_user(self.team, self.season, label, words, evidence)
             started = self.clock()
             try:
-                result = await self.cli.ask(system_text, system_path, prompt + retry_note)
+                result = await self.cli.ask(system_text, system_path, prompt + page_now + retry_note)
             except ClaudeMissing as exc:
                 raise JobSkipped("Claude Code isn't on this computer any more") from exc
             except TimeoutError:

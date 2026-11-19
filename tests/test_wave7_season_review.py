@@ -165,7 +165,8 @@ scenarios.book = async () => {
   const closedOnly = { items: line.items.filter((i) => i.kind !== "now") };
   assert.deepEqual(walk(closedOnly).map((s) => s.kind).slice(-2), ["season", "book"], "Now before the book");
   const toCome = { items: [...line.items.slice(0, 3), { kind: "book", href: null, state: "to_come" }] };
-  assert.ok(!walk(toCome).some((s) => s.kind === "book"), "no book stop until the season is closed out");
+  const last = walk(toCome).at(-1);
+  assert.deepEqual([last.kind, last.href, last.state], ["book", "#review", "to_come"], "the book is the walk's last stop all season (batch 4: the bookends)");
 };
 """
 

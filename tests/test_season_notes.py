@@ -115,14 +115,23 @@ def league(fake_cfbd, app):
     from tests.test_program import route_program
 
     route_program(fake_cfbd)
-    follow_conference(app)  # every school of the conference is one of my teams
+    follow_conference(app)  # a Tier 2 key; since batch 3 (owner 2026-11-19) the saved conference no longer widens the loads
     return fake_cfbd
+
+
+def load_set(client) -> set[str]:
+    """The schools the season loads cover since batch 3 (owner 2026-11-19, "Let's just have one team listed"): our
+    team and the next opponent, read from the Game program as the app finds it."""
+    them = (client.get("/api/program/next").json()["data"].get("them") or {}).get("school")
+    return {TEAM} | ({them} if them else set())
 
 
 def test_the_routes(client, league, app):
     status = client.get("/api/season-notes").json()["data"]
     assert [r["school"] for r in status["preseason"]] == [TEAM]
-    assert any(b["conference"] == CONFERENCE and b["schools"] == len(SCHOOLS) for b in status["coaches"])
+    loads = load_set(client)
+    assert len(loads) == 2 and status["coachesOf"] == len(loads) == sum(b["schools"] for b in status["coaches"]), "our team and the next opponent (batch 3)"
+    assert any(b["conference"] == CONFERENCE and b["schools"] == 1 for b in status["coaches"]), "of our conference, our team alone"
     prompt = client.get("/api/season-notes/prompt", params={"kind": "preseason", "key": TEAM}).json()["data"]["prompt"]
     assert TEAM in prompt and "birthdates" in prompt
     assert client.get("/api/season-notes/prompt", params={"kind": "preseason", "key": "Not Mine"}).status_code == 404
@@ -161,7 +170,7 @@ def test_coaches_ages_and_staff_show_where_they_belong(client, league, app):
 
 
 def test_claude_code_runs_a_batch_queue(client, league, app, tmp_path: Path):
-    answer = coaches_answer(schools=SCHOOLS[:2]).replace("\n", " ")
+    answer = coaches_answer(schools=[TEAM]).replace("\n", " ")  # batch 3: of our conference, the loads cover our team alone
     if sys.platform.startswith("win"):
         tool = tmp_path / "fake-claude.cmd"
         tool.write_text(f"@echo off\r\necho {answer.replace('`', '')}\r\n", encoding="utf-8")
@@ -179,7 +188,7 @@ def test_claude_code_runs_a_batch_queue(client, league, app, tmp_path: Path):
         time.sleep(0.1)
     batch = status["batches"][0]
     assert batch["state"] == "saved", batch
-    assert app.state.season_notes.coaches_for(SCHOOLS[0])["headCoach"] == "Head 0"
+    assert app.state.season_notes.coaches_for(TEAM)["headCoach"] == "Head 0"
     app.state.settings.claude_command = str(tmp_path / "missing-tool")
     refused = client.post("/api/season-notes/run", json={"kind": "coaches"}).json()
     assert refused["errors"] and "not found" in refused["errors"][0]["message"]

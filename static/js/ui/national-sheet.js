@@ -57,7 +57,7 @@ export function nationalApiUrl({ metric, team, year, scope } = {}) {
   if (typeof team === "string" && team.trim()) query.push(`team=${encodeURIComponent(team.trim())}`);
   const y = cleanYear(year);
   if (y) query.push(`year=${y}`);
-  if (["conference", "opponents", "mine"].includes(scope)) query.push(`scope=${scope}`);
+  if (["conference", "opponents"].includes(scope)) query.push(`scope=${scope}`); // no My teams since batch 3 (one team)
   return `/api/national/${encodeURIComponent(metric)}${query.length ? `?${query.join("&")}` : ""}`;
 }
 
@@ -67,7 +67,7 @@ function wantOf(input) {
     return route && route.id === "national" ? nationalRoute(route) : null;
   }
   const w = obj(input);
-  return { metric: isMetric(w.metric) ? w.metric : null, team: typeof w.team === "string" && w.team.trim() ? w.team.trim() : null, year: cleanYear(w.year) ? Number(cleanYear(w.year)) : null, scope: ["conference", "opponents", "mine"].includes(w.scope) ? w.scope : "national" };
+  return { metric: isMetric(w.metric) ? w.metric : null, team: typeof w.team === "string" && w.team.trim() ? w.team.trim() : null, year: cleanYear(w.year) ? Number(cleanYear(w.year)) : null, scope: ["conference", "opponents"].includes(w.scope) ? w.scope : "national" }; // "mine" went with batch 3's one team: an old link reads national
 }
 
 function rowsOf(data) {
@@ -112,7 +112,6 @@ export function listTitle(data) {
   else if (isNum(d.year) && isNum(d.season) && d.year !== d.season) bits.push(String(d.year));
   if (d.scope === "conference" && typeof d.conference === "string" && d.conference) bits.push(d.conference);
   if (d.scope === "opponents") bits.push(`${text(obj(d.us).team || usSchool())} and its opponents`);
-  if (d.scope === "mine") bits.push("my teams");
   return bits.length ? `${label}, ${bits.join(", ")}` : label === DASH ? "National list" : label;
 }
 
@@ -140,7 +139,6 @@ function controls(d, { onScope, onYear }) {
   const options = [["national", "All FBS"]];
   if (scopes.includes("conference")) options.push(["conference", conferenceName(d)]);
   if (scopes.includes("opponents")) options.push(["opponents", "Opponents"]);
-  if (scopes.includes("mine")) options.push(["mine", "My teams"]);
   if (typeof onScope === "function" && options.length > 1) {
     out.push(seg("Which teams", options, options.some(([value]) => value === d.scope) ? d.scope : "national", onScope));
   }

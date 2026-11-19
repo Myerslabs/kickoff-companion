@@ -16,7 +16,7 @@
 import { icon } from "./icons.js";
 import { claudeSignedOutSince, signedOutWords } from "../build.js";
 import { ours } from "../identity.js";
-import { el, reducedMotion, replaceWith, swipeToClose, syncPageLock, text } from "./dom.js";
+import { el, reducedMotion, replaceWith, swipeToClose, syncPageLock, teamLogo, text } from "./dom.js";
 import { closeLayers, goTo, holdLayer, placeLayers, toTop } from "./layers.js";
 import { findPath, labelOf, levelAt, MENU } from "./menu-tree.js";
 import { pill } from "./pills.js";
@@ -45,8 +45,10 @@ function countEntries(items) {
 }
 
 /**
- * shell({ current, status: {kind, label}, onNavigate, onSearch, onOpen, onTodo, subOf, menu, inlineDrawer })
- * returns { root, main, notes, setStatus, setNotice, setCurrent, setLive, openDrawer, closeDrawer, setRadio }
+ * shell({ current, status: {kind, label}, onNavigate, onSearch, onOpen, onTodo, onSwitchTeam, onBackHome, subOf, menu, inlineDrawer })
+ * returns { root, main, notes, setStatus, setNotice, setCurrent, setLive, setViewing, openDrawer, closeDrawer, setRadio }
+ * onSwitchTeam(): the top bar's team switch was tapped (batch 3, ui/team-switch.js opens its sheet); onBackHome(): its
+ * "Back to <our team>"; setViewing(info|null) draws the team this device is switched to (viewing.js), null ours.
  * onOpen(entry, { path, menu }): a table in the menu was chosen (views/panels.js opens it wide). subOf(key) -> text or a
  * promise of it: a list's line under its title ("game": the game the matchup is about). onTodo(): the To do row was
  * chosen (ui/todo.js opens the flyout); the row and the Menu's count show while "kickoff:notes" counts any item.
@@ -54,7 +56,7 @@ function countEntries(items) {
  * setNotice({ dot, title, body(), onOpen }) or null: a dot on the status pill while `dot`, and the card lists body()
  * under its title; opening the card calls onOpen (it clears the dot).
  */
-export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, onFeedback, onAsk, subOf, menu = MENU, inlineDrawer = false } = {}) {
+export function shell({ current = "program", status = { kind: "quiet", label: "Connecting" }, onNavigate, onSearch, onOpen, onTodo, onFeedback, onAsk, claudeRow, onSwitchTeam, onBackHome, subOf, menu = MENU, inlineDrawer = false } = {}) {
   let currentView = current;
   let todoCount = 0; // the To do's items listed for this page (ui/page-notes.js counts them)
   let live = false;
@@ -177,10 +179,46 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
     el("span", { class: "search-button__label" }, "Search"),
   );
 
+  // Switch teams (batch 3, owner 2026-11-16: "Top bar + team names"): a small switch beside the wordmark; while this device is
+  // switched, that team's logo and name take the wordmark's place, ringed in the accent, with × (Back to <ours>) beside it
+  const switchSlot = el("div", { class: "team-switch-bar" });
+  function setViewing(info) {
+    const team = info && typeof info === "object" && typeof info.school === "string" && info.school ? info : null;
+    const home = ours();
+    const open = el(
+      "button",
+      {
+        type: "button",
+        class: `btn team-switch-bar__open${team ? " is-away" : ""}`,
+        "aria-haspopup": "dialog",
+        "aria-label": team ? `Showing ${team.school}. Change team` : "Change team", // batch 3 review (owner 2026-11-19): "a change team for the switch"
+        title: team ? `This device shows ${team.school}` : "See the app as another team",
+        onclick: () => {
+          if (typeof onSwitchTeam === "function") onSwitchTeam();
+        },
+      },
+      team ? teamLogo(team, { size: 22, lazy: false, className: "team-switch-bar__logo" }) : el("span", { class: "team-switch-bar__swap", "aria-hidden": "true" }, "⇄"),
+      el("span", { class: "team-switch-bar__name" }, team ? text(team.school) : "Change team"),
+    );
+    const back = team
+      ? el(
+          "button",
+          { type: "button", class: "btn btn--quiet team-switch-bar__back", "aria-label": `Back to ${home.school || "our team"}`, onclick: () => { if (typeof onBackHome === "function") onBackHome(); } },
+          el("span", { "aria-hidden": "true" }, "×"),
+          el("span", { class: "team-switch-bar__back-words" }, ` Back to ${home.school || "ours"}`),
+        )
+      : null;
+    switchSlot.replaceChildren(open, back || "");
+    switchSlot.classList.toggle("is-away", Boolean(team));
+    if (typeof document !== "undefined") document.body?.classList.toggle("viewing-other", Boolean(team));
+  }
+  if (typeof onSwitchTeam === "function") setViewing(null);
+
   const topbar = el(
     "header",
     { class: "topbar" },
     el("a", { class: "wordmark", href: "#program", onclick: (e) => { e.preventDefault(); navigate("program"); } }, `${ours().name || "Kickoff"} `, el("em", {}, ours().name ? "Kickoff" : "Companion", ours().name ? el("span", { class: "wordmark__long" }, " Companion") : null)),
+    typeof onSwitchTeam === "function" ? switchSlot : null, // switched, it takes the wordmark's place (components.css)
     tabs,
     el("div", { class: "topbar__spacer" }),
     liveFlag,
@@ -369,12 +407,26 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
             el("span", {}, "Search teams, players and screens"),
           )
         : null,
+      runRow(),
       el("div", { class: "drawer__label" }, "Game day"),
       el("div", { class: "drawer__tiles" }, (Array.isArray(menu.tiles) ? menu.tiles : []).map(tileView)),
       el("div", { class: "drawer__groups" }, groups.map(groupRow)),
       askRow(),
       feedbackRow(),
     ];
+  }
+
+  /** Run with Claude (batch 4, owner 2026-11-19: "add it in the top layer of the menu"): under Search, drawn by
+   *  claudeRow() (ui/claude-refresh.js), which stays hidden until the server says this page has Claude's writing to refresh. */
+  function runRow() {
+    if (typeof claudeRow !== "function") return null;
+    try {
+      const row = claudeRow({ close: () => closeDrawer() });
+      return row && typeof row.nodeType === "number" ? row : null;
+    } catch (error) {
+      console.error("The Run with Claude row could not be drawn.", error);
+      return null;
+    }
   }
 
   /** Ask about this page (FEAT-12): beside Send feedback at the foot of the opening level. */
@@ -962,7 +1014,7 @@ export function shell({ current = "program", status = { kind: "quiet", label: "C
 
   renderDrawer();
   const root = el("div", { class: "shell" }, topbar, notes, main, radioSlot, drawer);
-  return { root, main, notes, setStatus, setNotice, setCurrent, setPage, setLive, setStop, setNewspaperWeek, openDrawer, closeDrawer, setRadio };
+  return { root, main, notes, setStatus, setNotice, setCurrent, setPage, setLive, setStop, setNewspaperWeek, setViewing, openDrawer, closeDrawer, setRadio };
 }
 
 /** The pinned mini-bar shown while the radio plays: station, state, play or pause, close. */

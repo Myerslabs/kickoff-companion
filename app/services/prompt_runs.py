@@ -141,7 +141,10 @@ class PromptRuns:
             status = await step.start(self.all)
             if not isinstance(status, dict):
                 status = {}
-            if status.get("error") and not status.get("running"):
+            if status.get("skipped") and not status.get("running"):  # batch 4: a piece with nothing to write from yet
+                step.state, step.detail, step.finished_at = "skipped", str(status["skipped"]), self.clock()
+                return
+            if status.get("error"):  # a runner busy with another job refuses with running: True; that is no start (batch 4's reviewer)
                 step.state, step.error, step.finished_at = "failed", str(status["error"]), self.clock()
                 return
             waited = 0.0
@@ -154,6 +157,9 @@ class PromptRuns:
                 if waited > MAX_STEP_SECONDS:
                     step.state, step.error, step.finished_at = "failed", "the run did not finish in time", self.clock()
                     return
+            if isinstance(result, dict) and result.get("skipped"):  # the job itself found nothing to do (batch 4)
+                step.state, step.detail, step.finished_at = "skipped", str(result["skipped"]), self.clock()
+                return
             ok = bool(isinstance(result, dict) and result.get("ok"))
             step.state = "done" if ok else "failed"
             step.error = None if ok else str((result or {}).get("error") or "the run did not finish") if isinstance(result, dict) else "the run did not answer"

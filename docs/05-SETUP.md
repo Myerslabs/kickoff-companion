@@ -35,14 +35,11 @@ Prefer plain pip? Make a virtual environment named `.venv` in the folder and ins
 Nothing to edit. A fresh install opens the demo first; **Use my own team** on its page (`/demo`) opens the setup page (`/welcome`). **Demo**, in Settings under **Setup**, switches back to the demo later (the choice is kept in `data/startup.json`). The setup page:
 
 1. **Your CFBD key.** Get one free at [collegefootballdata.com/key](https://collegefootballdata.com/key): sign up with an email address and CFBD mails it. Paste it and the page checks it with CFBD and shows your plan: calls a month, used so far, the reset date and a forecast for the month.
-2. **Your home team**, from CFBD's list of FBS schools: primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and only its colors and mascot theme the app. The conference comes along.
-3. **More primary teams** (a Tier 2 key, up to four): teams you follow closely. Their team pages load as soon as a device connects and sit one tap away on the **My Teams** page.
-4. **Secondary teams** (a Tier 2 key): more schools, whole conferences, or every school in a state. Nothing is loaded for them until a page asks. They fill the My teams page, the My teams view of every ranked list, and the ticker when it is set to My teams.
-5. **The score ticker**: National (every FBS game, the default) or My teams (a Tier 2 key).
+2. **Your team**, from CFBD's list of FBS schools. My Team, the Pre-Game Program and the In Game sheet follow it, and its colors and mascot theme the app. The conference comes along. The app follows this one team; any other FBS school is one tap away with **Change team** (the top bar, and My Team), on one device for that visit: its pages and its paper show on that device until **Back**, nothing is saved, and the other devices stay on yours. The score ticker always shows every FBS game.
 
 Save, and the server restarts itself with the new setup and opens the app. The page works from a phone too (`http://kickoff.local:8642/welcome`) while no key is set; once one is, it can only be replaced from the server computer itself.
 
-**Plans.** The free plan (1,000 calls a month) runs the app lean: data refreshes less often, the ticker every 20 minutes, and nothing is fetched that a page did not ask for. A Tier 2 key adds live play-by-play, more primary teams, secondary teams and the My teams ticker. Whatever a plan does not include stays on its page with a note saying which plan shows it. Settings, "Your CFBD plan", lists every feature.
+**Plans.** The free plan (1,000 calls a month) runs the app lean: data refreshes less often, the ticker every 20 minutes, and nothing is fetched that a page did not ask for. A Tier 2 key adds live play-by-play, for your game and for another game one device picks to watch. Whatever a plan does not include stays on its page with a note saying which plan shows it. Settings, "Your CFBD plan", lists every feature.
 
 You can still set everything in `.env` by hand; `.env.example` lists every setting with a comment.
 

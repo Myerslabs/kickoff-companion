@@ -554,6 +554,46 @@ class ArticleCopier:
         self.store.put(article)
         return article
 
+    async def read_once(self, row: dict[str, Any]) -> tuple[Article | None, str]:
+        """Batch 3 (owner 2026-11-16, "Headlines + reader"): a story from another team's paper, read when the reader opens it
+        and never kept (no store, no photo), with a copy's manners (robots.txt, a refusal or a pause remembered). A story
+        already copied for our paper is that copy. (article, "") or (None, why only the headline can be shown)."""
+        article = self._article(row)
+        if article.outcome == "copied" and article.paragraphs:
+            return article, ""
+        url = article.url or ""
+        if not copyable(url):
+            return None, "only the headline is on this server"
+        host = host_of(url)
+        if time.time() < self._refused_until.get(host, 0.0):
+            return None, "the site refused automated readers this week"
+        if time.time() < self._paused_until.get(host, 0.0):
+            return None, "the site is paused after repeated failures"
+        allowed = await self.allowed(url)
+        if allowed is None:
+            self._site_failed(host)
+            return None, "the site's robots.txt could not be read"
+        if not allowed:
+            return None, "the site asks robots not to read it"
+        try:
+            response = await get_capped(self._http, url, PAGE_BYTES)
+        except httpx.HTTPError as exc:
+            self._site_failed(host)
+            return None, f"the site did not answer ({exc.__class__.__name__})"
+        status = response.status_code
+        if status in REFUSAL or (status == 202 and len(response.content) < 2048):
+            self._refused_until[host] = time.time() + REFUSED_SECONDS
+            return None, f"{REFUSAL.get(status, 'the site refuses automated readers')} (HTTP {status})"
+        if status != 200:
+            if status not in (404, 410):
+                self._site_failed(host)
+            return None, f"the site answered HTTP {status}"
+        self._failures[host] = 0
+        found = await asyncio.to_thread(self._extract, response.text, str(response.url), article.title)
+        if not found.paragraphs:
+            return None, found.reason or "no article text on the page"
+        return article.model_copy(update={"paragraphs": found.paragraphs, "words": found.words, "author": found.author, "cutline": None, "credit": None, "photo": None, "outcome": "copied", "reason": None, "nextTry": None, "copiedAt": _iso(self._clock())}), ""
+
     async def save_photo(self, url: str, sid: str) -> str | None:
         """The lead photo saved under the story's id: an image of a known kind, 5 MB at most; else no photo."""
         if not url.startswith(("http://", "https://")) or not await self.allowed(url):

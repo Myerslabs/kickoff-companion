@@ -11,10 +11,9 @@ about to start or in progress (the owner approved about 40 calls a Saturday, 202
 follows the spoiler delay: while the app is watching the game its line comes from the engine's
 released events, and when it is not, the entry shows no score at all until the final.
 
-Public release Phase 5b: two modes, set on the setup page and in Settings. National (the default) shows
-every FBS game; My teams (a Tier 2 key) keeps only the games of the primary and secondary teams
-(app/services/teamset.py). Both read the same slate, so the mode costs no call; a slate with none of my
-teams falls back to every game with a note. Every entry says whether it is one of my teams."""
+Since batch 3 (owner 2026-11-19, one team) the ticker is every FBS game: the My teams mode of public release
+Phase 5b is gone, and an old setting or query asking for it gets the national ticker. Every entry still says
+whether it is our team's game."""
 
 from __future__ import annotations
 
@@ -64,7 +63,7 @@ class TickerService:
         self.client = client
         self.settings = settings
         self.engine = engine
-        self.prefs = prefs  # the settings store (tickerMode and the team picks); None in older tests
+        self.prefs = prefs  # the settings store (an older file's tickerMode, read as national); None in older tests
         self.fetcher = PartFetcher(client, 3)
 
     @property
@@ -84,12 +83,6 @@ class TickerService:
         mode, asked, mode_note, mine = self._mode(parts["teams"].records, mode)
         for g in kept:
             g["isMine"] = g["isUs"] or g["home"]["school"] in mine or g["away"]["school"] in mine
-        if mode == "mine":
-            ours = [g for g in kept if g["isMine"]]
-            if ours or not kept:
-                kept = ours
-            else:
-                mode, mode_note = "national", "None of your teams play on this slate, so the ticker shows every game."
         data = {
             "season": self.year,
             "week": week,
@@ -161,16 +154,10 @@ class TickerService:
     # --- which week, which games -------------------------------------------------------------------
 
     def _mode(self, teams: list[Team], override: str | None = None) -> tuple[str, str, str | None, frozenset[str]]:
-        """(mode shown, mode asked for, a note, my teams). My teams needs a Tier 2 key; asked for without one, the
-        ticker shows every game and says why. `override` is one answer's own mode (the query); anything but national or
-        mine falls back to the setting."""
-        prefs = getattr(self.prefs, "prefs", None)
-        asked = override if override in ("national", "mine") else getattr(prefs, "tickerMode", "national")
-        asked = asked if asked in ("national", "mine") else "national"
+        """(mode shown, mode asked for, a note, my teams). Batch 3 (owner 2026-11-19, one team): the ticker is every FBS
+        game; the My teams mode is gone, and an old setting or query asking for it gets the national ticker."""
         mine = teamset.current(self.settings, self.prefs, self.client, teams).mine()
-        if asked == "mine" and not plan.allows_liked(getattr(self.client, "capabilities", None)):
-            return "national", asked, "The My teams ticker needs a Tier 2 key, so it shows every game.", mine
-        return asked, asked, None, mine
+        return "national", "national", None, mine
 
     def week_of(self, games: list[Game], now: datetime) -> tuple[int, str] | None:
         """(week, seasonType) of our game today, else the next one, else the last one played (the Top 25 page's week

@@ -396,11 +396,11 @@ export function cover(props) {
     const extraOne = nodeOrNull(p.extra);
     const one = el(
       "section",
-      { class: `cover cover--one${reveal ? " cover--reveal" : ""}${p.rail ? " cover--railed" : ""}`, "aria-label": typeof p.label === "string" && p.label.trim() ? p.label.trim() : `${text(us.school)} cover`, dataset: { state: "one" } },
+      { class: `cover cover--one${reveal ? " cover--reveal" : ""}${p.rail ? " cover--railed" : ""}${nodeOrNull(p.middle) ? "" : " cover--alone"}`, "aria-label": typeof p.label === "string" && p.label.trim() ? p.label.trim() : `${text(us.school)} cover`, dataset: { state: "one" } },
       nodeOrNull(p.rail),
       el("div", { class: "cover__kicker-row" }, p.rail ? null : navArrow("prev", p.prev), el("div", { class: "cover__kicker" }, text(p.kicker || "My Team")), p.rail ? null : navArrow("next", p.next)),
       el("h1", { class: "cover__matchup sr-only" }, text(us.school)),
-      el("div", { class: "cover__faceoff" }, teamBlock(us, "us"), middleOne, staffOne, whenOne ? el("div", { class: "cover__when" }, whenOne) : null),
+      el("div", { class: "cover__faceoff" }, teamBlock(us, "us"), nodeOrNull(p.middle) ? middleOne : null, staffOne, whenOne ? el("div", { class: "cover__when" }, whenOne) : null), // no middle (My Team since 2026-11-20): our team alone, centered
       el("div", { class: "cover__foot" }, el("div", { class: "cover__foot-start" }, actionsOne, extraOne), conditions ? el("div", { class: "cover__conditions" }, conditions) : null),
     );
     fillWiki(one);

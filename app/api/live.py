@@ -35,8 +35,14 @@ def _sse(event: str, data: Any, event_id: int | None = None) -> str:
 
 
 @router.get("/api/live/state")
-async def live_state(request: Request, delay: float = Query(0, ge=0, le=MAX_DELAY)) -> Any:
+async def live_state(request: Request, delay: float = Query(0, ge=0, le=MAX_DELAY), game: int | None = Query(None, gt=0, lt=10**12), team: str | None = Query(None, max_length=80)) -> Any:
+    """In Game's state at a device's delay. `game` (batch 3, owner 2026-11-16: "each client can view another game"): a game
+    other than the one every screen follows, watched on this device alone (app/live/side.py); asking is the heartbeat."""
     engine: LiveEngine = request.app.state.live
+    if game is not None and game != engine.current_game_id:
+        side = await request.app.state.side_games.state(game, _delay(delay), team.strip() if isinstance(team, str) else None)
+        side["engine"] = engine.status()
+        return envelope(side, source="live")
     engine.note_state_poll()
     state = await asyncio.to_thread(engine.state, _delay(delay))
     if state is None:

@@ -1,5 +1,6 @@
 """GET and PUT /api/settings (X6): the owner's options, the quota readout, and the start-at-login
-switch. Secrets never appear here."""
+switch. Secrets never appear here. Since batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change
+team for the switch") a PUT sets no team lists and no My teams ticker (_one_team)."""
 
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from app.services import plan, stations, teamset
 from app.services.envfile import set_values
 from app.services.launcher import Launcher, open_folder
 from app.services.notes_task import NotesRunner
-from app.services.prefs import PrefsError, PrefsStore, tray_wanted
+from app.services.prefs import RETIRED_TEAM_FIELDS, PrefsError, PrefsStore, one_team, tray_wanted
 
 log = logging.getLogger("kickoff.settings")
 
@@ -57,7 +58,7 @@ def _payload(request: Request) -> dict[str, Any]:
         "radioSources": [{"id": s["id"], "name": s["name"], "kind": s["kind"], "team": s["team"], "origin": s["origin"]} for s in sources],  # the same ids the player saves
         "radioHelp": radio_help(request, sources),  # public release Phase 5b: find or request a team's station
         "radioRequestUrl": stations.request_url(None),
-        "teamSet": teamset.current(settings, prefs, request.app.state.cfbd).as_dict(),  # primaries for the menu (Phase 5b)
+        "teamSet": teamset.current(settings, prefs, request.app.state.cfbd).as_dict(),  # the home team alone since batch 3 (the radio form's team list)
         "quota": {
             "used": quota.get("used"),
             "remaining": quota.get("remaining"),
@@ -82,19 +83,19 @@ def _payload(request: Request) -> dict[str, Any]:
     }
 
 
-TIER2_LISTS = ("primaryTeams", "likedTeams", "likedConferences", "likedStates")
-
-
-def _tier2_refusal(request: Request, patch: Any) -> str | None:
-    """Primary teams beyond the home team, secondary teams and the My teams ticker need a Tier 2 key
-    (public release Phase 5b). Clearing them is always allowed."""
-    if not isinstance(patch, dict) or plan.allows_liked(request.app.state.cfbd.capabilities):
-        return None
-    if patch.get("tickerMode") == "mine":
-        return "The My teams ticker needs a Tier 2 key. The national ticker shows every game."
-    if any(isinstance(patch.get(k), list) and patch.get(k) for k in TIER2_LISTS):
-        return "More primary teams and secondary teams need a Tier 2 key."
-    return None
+def _one_team(patch: Any) -> Any:
+    """Batch 3 (owner 2026-11-19: "I want to take out all the secondary teams ... Let's just have one team listed, and a
+    change team for the switch"): a PUT no longer sets more teams or the My teams ticker. A page opened before the change
+    may still send primaryTeams, likedTeams, likedConferences, likedStates or tickerMode; each is written as one_team()
+    has it (no teams, the national ticker) and the rest of the change applies."""
+    if not isinstance(patch, dict):
+        return patch  # prefs.update refuses it with a readable message
+    retired = [key for key in RETIRED_TEAM_FIELDS if key in patch]
+    if not retired:
+        return patch
+    log.info("Settings: %s set as one team has them (batch 3)", ", ".join(retired))
+    cleared = one_team()
+    return {**patch, **{key: cleared[key] for key in retired}}
 
 
 @router.get("/api/settings")
@@ -110,9 +111,7 @@ async def put_settings(request: Request) -> Any:
         patch = await request.json()
     except ValueError:
         return error_response(400, "bad_json", "The settings body must be JSON.")
-    refused = _tier2_refusal(request, patch)
-    if refused:
-        return error_response(422, "tier2_needed", refused)
+    patch = _one_team(patch)
     try:
         before = prefs.as_dict()
         prefs.update(patch)

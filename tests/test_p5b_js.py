@@ -71,16 +71,17 @@ scenarios.scopes = async () => {
   const { nationalApiUrl, listTitle, nationalListBody } = await import(moduleUrl("ui/national-sheet.js"));
   const { nationalHref, nationalRoute, parseRoute } = await import(moduleUrl("ui/national-link.js"));
   assert.equal(nationalApiUrl({ metric: "rating:sp", scope: "opponents" }), "/api/national/rating%3Asp?scope=opponents");
-  assert.equal(nationalApiUrl({ metric: "rating:sp", scope: "mine" }), "/api/national/rating%3Asp?scope=mine");
+  assert.equal(nationalApiUrl({ metric: "rating:sp", scope: "mine" }), "/api/national/rating%3Asp", "batch 3, one team: no My teams scope");
   assert.equal(nationalApiUrl({ metric: "rating:sp", scope: "everything" }), "/api/national/rating%3Asp");
-  assert.equal(nationalHref("rating:sp", { scope: "mine", team: "Texas State" }), "#national=rating%3Asp?team=Texas%20State&scope=mine");
+  assert.equal(nationalHref("rating:sp", { scope: "mine", team: "Texas State" }), "#national=rating%3Asp?team=Texas%20State", "an old My teams link reads national");
+  assert.equal(nationalRoute(parseRoute("#national=rating%3Asp?scope=mine")).scope, "national");
   assert.equal(nationalRoute(parseRoute("#national=rating%3Asp?scope=opponents")).scope, "opponents");
   assert.equal(nationalRoute(parseRoute("#national=rating%3Asp?scope=bogus")).scope, "national");
   assert.equal(listTitle({ label: "SP+ overall", scope: "opponents", us: { team: "Florida" } }), "SP+ overall, Florida and its opponents");
-  assert.equal(listTitle({ label: "SP+ overall", scope: "mine" }), "SP+ overall, my teams");
+  assert.equal(listTitle({ label: "SP+ overall", scope: "mine" }), "SP+ overall");
   const data = {
     metric: "rating:sp", family: "rating", key: "sp", label: "SP+ overall", format: "1f", higherIsBetter: true, season: 2026, year: 2026, years: [2026],
-    scope: "mine", scopes: ["national", "conference", "opponents", "mine"], unit: "team", population: "My teams, ranked nationally (FBS teams)", rankSource: "cfbd", of: 136,
+    scope: "opponents", scopes: ["national", "conference", "opponents"], unit: "team", population: "Florida and its opponents, ranked nationally", rankSource: "cfbd", of: 136,
     rows: [{ rank: 3, team: "Florida", conference: "SEC", value: 20.1, isUs: true }, { rank: 40, team: "Houston", conference: null, value: null }, null],
     beyond: [], us: { team: "Florida", rank: 3, value: 20.1, of: 136 }, focus: null, parts: {},
   };
@@ -88,14 +89,14 @@ scenarios.scopes = async () => {
   const body = nationalListBody({ data, errors: [], meta: { source: "live", stale: false } }, { onScope: (s) => picked.push(s) });
   document.body.append(body);
   const seg = body.querySelector(".nat-seg");
-  assert.equal(text(seg), "All FBSSECOpponentsMy teams");
+  assert.equal(text(seg), "All FBSSECOpponents", "batch 3, one team: no My teams switch");
   const pressed = seg.querySelectorAll("button").filter((b) => b.getAttribute("aria-pressed") === "true");
-  assert.equal(text(pressed[0]), "My teams");
-  seg.querySelectorAll("button")[2].click();
-  assert.deepEqual(picked, ["opponents"]);
-  clean("mine list", body);
+  assert.equal(text(pressed[0]), "Opponents");
+  seg.querySelectorAll("button")[1].click();
+  assert.deepEqual(picked, ["conference"]);
+  clean("opponents list", body);
   const free = nationalListBody({ data: { ...data, scope: "national", scopes: ["national", "opponents"] }, errors: [], meta: {} }, { onScope: () => {} });
-  assert.equal(text(free.querySelector(".nat-seg")), "All FBSOpponents", "a free key: no My teams switch");
+  assert.equal(text(free.querySelector(".nat-seg")), "All FBSOpponents");
 };
 
 scenarios.radioHelp = async () => {
@@ -129,8 +130,8 @@ def test_phase5b_in_a_fake_browser(tmp_path: Path, scenario: str) -> None:
     run_scenario(tmp_path, SCENARIOS, scenario)
 
 
-def test_the_old_my_teams_address_opens_the_season_and_warms_the_primaries() -> None:
+def test_the_old_my_teams_address_opens_the_season() -> None:
     app = (STATIC_JS / "app.js").read_text(encoding="utf-8")
     assert "myteams: (opts, arg, focus, params) => createSeasonView({ ...opts, params })" in app, "board 9: the old My Teams address opens the Season page"
     assert "menu: MENU," in app, "owner 2026-10-10: the other primary teams are reached from the My Teams page, not the menu"
-    assert '"/api/myteams/warm", { method: "POST" }' in app
+    assert "/api/myteams" not in app, "batch 3 (owner 2026-11-19), one team: no My teams page and no warm-up of other teams"

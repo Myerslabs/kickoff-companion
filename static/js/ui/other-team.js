@@ -8,6 +8,7 @@
 //   teamLinks(school, schedule)             the team's own pages: Season, Roster, Recruiting, its next game's program
 
 import { usSchool } from "../identity.js";
+import { clearViewing, viewing } from "../viewing.js";
 import { el, isNum, teamLogo, text } from "./dom.js";
 
 export function otherTeam(params) {
@@ -34,9 +35,19 @@ export function otherTeamHead(info, what, ourHref) {
       { class: "team-head__top" },
       teamLogo(block, { size: 56, lazy: false, className: "team-head__logo" }),
       el("div", {}, el("div", { class: "team-head__name" }, `${school} ${what}`), block.conference ? el("div", { class: "team-head__conf" }, text(block.conference)) : null),
-      ours && ourHref ? el("a", { class: "btn btn--quiet other-team__back", href: ourHref }, `${ours}'s ${what}`) : null,
+      backHome(school, ours, ourHref, what),
     ),
   );
+}
+
+/** The way back to ours: "Florida's roster"; on a device switched to this team (batch 3) "Back to Florida", which ends the
+ *  switch; switched to another, our page by name (the bare address would follow the switch). */
+function backHome(school, ours, ourHref, what) {
+  if (!ours) return null;
+  const shown = viewing();
+  if (shown && shown === school) return el("button", { type: "button", class: "btn btn--quiet other-team__back", onclick: () => clearViewing() }, `Back to ${ours}`);
+  if (!ourHref) return null;
+  return el("a", { class: "btn btn--quiet other-team__back", href: shown ? withTeam(ourHref, ours) : ourHref }, `${ours}'s ${what}`);
 }
 
 export function teamLinks(school, schedule) {

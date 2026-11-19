@@ -23,9 +23,9 @@ They cost calls the first time (no page loads those answers), through the same f
 Every list also marks the next opponent (isNext, and `next`), from our schedule the Season
 page already caches (stream NV).
 
-Public release Phase 5b adds two scopes to every list: `opponents` (the home team and every team on its
-schedule) and `mine` (the primary and secondary teams, a Tier 2 key; app/services/teamset.py). Both are
-the national list cut down, so every rank stays the national rank and neither costs a call."""
+Public release Phase 5b adds the `opponents` scope to every list (the home team and every team on its
+schedule): the national list cut down, so every rank stays the national rank and it costs no call. The
+`mine` scope went with batch 3's one team (owner 2026-11-19); an old link asking for it reads national."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ from app.cfbd.models import (
     TeamTalent,
 )
 from app.config import Settings
-from app.services import gamekeys, national_extra, plan, teamset
+from app.services import gamekeys, national_extra, teamset
 from app.services.depth2 import ADJUSTED_BOARDS, ADJUSTED_KEYS, adjusted_board_rows, adjusted_rows, adjusted_source_rows, core_tables, shared_ranks, sos_table, srs_table
 from app.services.depth2 import num as finite
 from app.services.identity import conference_short
@@ -75,7 +75,7 @@ MAX_TEAM = 80
 MAX_CONFERENCE = 60
 PLAYER_CUT = 100  # owner answer 2 (2026-09-28): the top 100, then every one of ours below the cut
 SCOPES = ("national", "conference")
-TEAM_SET_SCOPES = ("opponents", "mine")  # public release Phase 5b: the national list cut to a set of teams
+TEAM_SET_SCOPES = ("opponents",)  # public release Phase 5b: the national list cut to a set of teams; "mine" went with batch 3's one team (2026-11-19)
 POLLS = {"AP": "AP Top 25", "Coaches": "Coaches Poll", "CFP": "Playoff Committee Rankings"}
 POLL_LABELS = {"AP": "AP Top 25", "Coaches": "Coaches Poll", "CFP": "College Football Playoff rankings"}
 
@@ -194,6 +194,8 @@ def validate(metric: Any, *, team: Any, year: Any, scope: Any, conf: Any, season
     if asked not in allowed:
         return f"This list covers {' and '.join(str(y) for y in sorted(allowed, reverse=True))} only."
     chosen = (scope.strip() if isinstance(scope, str) and scope.strip() else "national")
+    if chosen == "mine":
+        chosen = "national"  # batch 3: an old My teams link reads the national list
     if chosen not in found.scopes and chosen not in TEAM_SET_SCOPES:
         return f"This list has no {chosen} scope."
     if conf is not None and (not isinstance(conf, str) or len(conf.strip()) > MAX_CONFERENCE):
@@ -287,8 +289,6 @@ class NationalService:
     async def listing(self, req: Request) -> Assembled | str:
         """The list, or a 404 reason when the conference asked for is not in a list that loaded."""
         builder = FAMILIES[req.metric.family]
-        if req.scope == "mine" and not plan.allows_liked(self.client.capabilities):
-            return "The My teams list needs a Tier 2 key."
         teams_part, schedule_part = await asyncio.gather(self._teams(), self._schedule())
         parts: dict[str, Part] = {"teams": teams_part, "schedule": schedule_part}
         meta = self._team_meta(teams_part)
@@ -361,13 +361,11 @@ class NationalService:
         noun = "players" if m.unit == "player" else "teams"
         if req.scope == "opponents":
             population = f"{us_team} and its opponents, ranked nationally"
-        elif req.scope == "mine":
-            population = f"My teams, ranked nationally ({m.population})"
         elif req.scope == "national":
             population = m.population
         else:
             population = f"{ranked.conference} {noun}"
-        scopes = [*m.scopes, "opponents", *(["mine"] if plan.allows_liked(self.client.capabilities) else [])]
+        scopes = [*m.scopes, "opponents"]  # one team since batch 3: no My teams scope
         return {
             "metric": m.key,
             "family": m.family,

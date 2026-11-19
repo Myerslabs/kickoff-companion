@@ -726,7 +726,13 @@
 .editorial__byline { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-3); color: var(--fog); font-size: var(--text-caption); margin-bottom: var(--sp-2); }
 .editorial p { margin: var(--sp-2) 0; }
 .editorial h3 { margin-top: var(--sp-3); }
-.editorial__sources { list-style: none; margin: var(--sp-3) 0 0; padding: 0; color: var(--fog); font-size: var(--text-caption); }
+/* batch 4 part 1 (owner 2026-11-19): the sources fold, closed */
+.editorial__fold { margin: var(--sp-3) 0 0; border-top: 1px solid var(--rule); }
+.editorial__fold summary { min-height: var(--tap); display: flex; align-items: center; gap: var(--sp-2); cursor: pointer; list-style: none; color: var(--fog); font-size: var(--text-label); font-weight: 600; }
+.editorial__fold summary::-webkit-details-marker { display: none; }
+.editorial__fold summary::before { content: "+"; width: 16px; color: var(--team-accent); font-weight: 700; }
+.editorial__fold[open] summary::before { content: "\2013"; }
+.editorial__sources { list-style: none; margin: 0 0 var(--sp-2); padding: 0; color: var(--fog); font-size: var(--text-caption); }
 .editorial__sources li::before { content: "\2014 "; color: var(--mist); }
 /* tables wave 3: at small the note gives up some of its least room, so a phone keeps the player, the team and the status beside it */
 .avail-report .stat-table-wrap[data-size="small"] td.st__wrap { min-width: 88px; }
@@ -2949,6 +2955,10 @@ body.board-mode .run-bar { display: none !important; }
 
 /* Feedback with the logs (owner 2026-10-23): Send feedback at the foot of the menu, the host's list in Profile, the logs */
 .drawer__feedback { margin-top: var(--sp-3); border-top: 1px solid var(--rule); }
+/* Run with Claude (batch 4, owner 2026-11-19: "hard to find unless it tells you"): under Search, in the team's accent */
+.drawer__claude { margin: var(--sp-2) 0; border: 1.5px solid var(--team-accent, var(--team-us)); border-radius: var(--radius); }
+.drawer__claude .drawer__icon { color: var(--team-accent, var(--team-us)); }
+.drawer__claude[disabled] { opacity: 0.7; cursor: default; }
 .feedback-form { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3); }
 .feedback-form__kinds { align-self: flex-start; }
 .feedback-form__ask { font-family: var(--font-cond); font-size: var(--text-title); font-weight: 600; }
@@ -3415,17 +3425,12 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .stat-table tr.is-pad td::after { content: "\00a0"; }
 
 /* --- Season with My Teams (the layout pass, board 9, owner 2026-10-22) -----------------------------------------------------
-   The selection window on top: the team picked, its facts, ‹ and › through the followed teams, one chip a team. The page
+   The selection window on top: the team picked, its facts and Change team (batch 3: one team, no arrows or chips). The page
    under it: bands side by side ending flush ("The bands need to be flush if side by side. they can be in a 2:1 formation
    or similar"), Schedule | Standings 2:1, Polls | Ratings over Résumé 1:2; a phone stacks them. */
 .season-pick { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; padding: var(--sp-3) var(--sp-4); background: var(--panel); border: 1px solid var(--rule); border-top: 3px solid var(--pick, var(--team-us)); border-radius: var(--radius); }
 .season-pick--loading { min-height: 180px; }
-.season-pick__row { display: grid; grid-template-columns: var(--tap) minmax(0, 1fr) var(--tap); gap: var(--sp-3); align-items: center; }
-.season-pick--alone .season-pick__row { grid-template-columns: minmax(0, 1fr); }
-.season-pick__arrow { display: inline-grid; place-items: center; width: var(--tap); height: var(--tap); border: 1px solid var(--rule-strong); border-radius: 50%; color: var(--chalk); font-family: var(--font-cond); font-size: calc(28px * var(--ui-scale)); font-weight: 600; line-height: 1; text-decoration: none; }
-.season-pick__arrow--off { visibility: hidden; }
-@media (hover: hover) { .season-pick__arrow:not(.season-pick__arrow--off):hover { background: var(--panel-raised); } }
-.season-pick__arrow:active { background-color: var(--press); transform: translateY(1px); }
+.season-pick__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-3); align-items: center; }
 .season-pick__who { display: grid; grid-template-columns: 56px minmax(0, 1fr); column-gap: var(--sp-3); row-gap: 2px; align-items: center; min-width: 0; }
 .season-pick__logo { grid-row: span 2; width: 56px; height: 56px; }
 .season-pick__name { margin: 0; font-family: var(--font-cond); font-size: var(--text-h1); font-weight: 700; line-height: 1.05; text-wrap: balance; }
@@ -3440,11 +3445,6 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
 .season-pick__fact b { font-family: var(--font-cond); font-size: var(--text-title); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .season-pick__fact span { color: var(--fog); font-size: var(--text-caption); }
 .season-pick__teams { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; padding-top: var(--sp-3); border-top: 1px solid var(--row-rule); }
-.season-pick__team { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); padding: 0 var(--sp-3) 0 6px; border: 1px solid var(--rule-strong); border-radius: 22px; color: var(--chalk); font-family: var(--font-cond); font-size: var(--text-body); font-weight: 600; text-decoration: none; }
-.season-pick__team i { display: inline-grid; place-items: center; min-width: 32px; height: 32px; padding: 0 4px; border-radius: 16px; font-size: var(--text-caption); font-style: normal; font-weight: 700; }
-.season-pick__team small { color: var(--fog); font-size: var(--text-caption); font-weight: 500; }
-.season-pick__team.is-on { border-color: var(--stale); background: var(--panel-raised); box-shadow: inset 0 -3px 0 var(--stale); }
-@media (hover: hover) { .season-pick__team:not(.is-on):hover { background: var(--panel-raised); } }
 .season-pick__count { margin-left: var(--sp-2); color: var(--fog); font-size: var(--text-caption); } /* beside the chips, never pushed to the far edge (page check: a stretched row) */
 .season-pick__change { display: inline-flex; align-items: center; min-height: var(--tap); color: var(--stale); font-family: var(--font-cond); font-size: var(--text-body); font-weight: 600; text-underline-offset: 3px; }
 .season-pick__note { margin: 0; color: var(--fog); font-size: var(--text-label); }
@@ -3488,7 +3488,7 @@ tr.is-us .rankpath__line { stroke: var(--team-us); }
   .tgrid__row--head > .tgrid__label { display: none; }
   .tgrid__label { flex-direction: row; gap: var(--sp-2); align-items: baseline; }
 }
-body.spoiler-on:not(.spoiler-all) :is(.tgrid__score, [data-k="pick:last"]):not(.spoiler-shown) { filter: blur(0.45em); cursor: pointer; user-select: none; }
+body.spoiler-on:not(.spoiler-all) .tgrid__score:not(.spoiler-shown) { filter: blur(0.45em); cursor: pointer; user-select: none; }
 
 /* === The Pre-Game Program from the mock (owner 2026-10-20) ======================================================= */
 /* one column (owner 2026-11-01): the pairs of the mock (notes beside headlines, recruits beside the report, radio beside
@@ -4681,12 +4681,12 @@ body.board-mode .trivia-pop__q { font-size: 1.3em; }
 /* === DS: shell, pill, icons, band-head fold, hints, sort headers === */
 
 /* ---- The rail: one short row across the cover's top (owner 2026-11-14: "smaller", "very busy"; it was the season as one
-   line of 2026-10-30): Preseason, the last Post-Game, Now, the next Pre-Game; since 2026-11-15 a ‹ and a › at the row's ends
-   step stop by stop both ways, outside the chips' sideways scroll so a phone keeps both in reach ---- */
+   line of 2026-10-30); since 2026-11-15 a ‹ and a › at the row's ends step stop by stop both ways; since batch 4
+   (2026-11-19) three stops in view on a sliding track ---- */
 .cover--railed { padding-top: 0; }
 .rail-host { min-width: 0; max-width: 100%; } /* never wider than its column: the row inside scrolls sideways (2026-11-07) */
 .rail { display: flex; align-items: center; gap: var(--sp-1); background: var(--panel-raised); border-bottom: 1px solid var(--row-rule); margin: 0 calc(var(--sp-3) * -1) var(--sp-3); padding: var(--sp-1) var(--sp-2); }
-.rail__row { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: var(--sp-2); overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+.rail__row { flex: 1 1 auto; min-width: 0; overflow: hidden; padding: 3px 0; } /* batch 4: the track inside slides; the row never scrolls; room for the focus ring */
 .rail__chip { flex: none; display: inline-flex; align-items: center; gap: var(--sp-2); min-height: var(--tap); box-sizing: border-box; padding: 2px var(--sp-3); border: 1px solid var(--row-rule); border-radius: 999px; color: var(--ink); text-decoration: none; white-space: nowrap; }
 @media (hover: hover) { a.rail__chip:hover { background: var(--row-hover); } }
 .rail__chip--lit { border: 1.5px solid var(--team-accent, var(--team-us)); }
@@ -4700,6 +4700,18 @@ body.board-mode .trivia-pop__q { font-size: 1.3em; }
 @media (hover: hover) { a.rail__step:hover { background: var(--row-hover); } }
 .rail__step--off { color: var(--fog); opacity: 0.35; }
 .rail__quiet { display: flex; align-items: center; min-height: var(--tap); color: var(--fog); font-size: calc(13px * var(--ui-scale)); }
+/* batch 4 (owner 2026-11-19): three stops in view, the one on screen centered; every stop sits on one track a third of the
+   row wide each, and the track slides (--at, the leftmost slot in view) so the arrows glide one stop at a time */
+.rail__track { display: flex; align-items: flex-start; width: calc(var(--n, 3) * 100% / 3); transform: translateX(calc(var(--at, 0) * -100% / var(--n, 3))); transition: transform 320ms cubic-bezier(0.25, 0.8, 0.3, 1); }
+.rail__track--still { transition: none; }
+@media (prefers-reduced-motion: reduce) { .rail__track { transition: none; } }
+.rail__slot { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 var(--sp-1); box-sizing: border-box; }
+.rail__slot .rail__chip { max-width: 100%; overflow: hidden; }
+.rail__slot .rail__words { min-width: 0; }
+.rail__slot .rail__name, .rail__slot .rail__detail { overflow: hidden; text-overflow: ellipsis; }
+.rail__now { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--team-accent, var(--team-us)); line-height: 1; }
+.rail__now-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.review-rail .rail { margin: 0 0 var(--sp-3); border-radius: var(--radius); }
 .rail__mark { flex: none; width: 12px; height: 12px; display: block; box-sizing: border-box; background: var(--panel-raised); }
 .rail__mark--square { border-radius: 2px; }
 .rail__mark--circle { border-radius: 50%; }
@@ -4833,23 +4845,11 @@ body.board-mode .to-top { display: none; }
    staff under our side; one column on a phone. */
 .cover--one .cover__faceoff { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "us center" "us-staff center" "when when"; }
 @media (max-width: 699px) { .cover--one .cover__faceoff { grid-template-columns: minmax(0, 1fr); grid-template-areas: "us" "center" "us-staff" "when"; } }
+/* our team alone (owner 2026-11-20: "just show the gators logo at the top for my team"): one centered column */
+.cover--one.cover--alone .cover__faceoff { grid-template-columns: minmax(0, 1fr); grid-template-areas: "us" "us-staff" "when"; justify-items: center; text-align: center; }
+.cover--one.cover--alone .cover__staff--us { justify-content: center; text-align: center; }
+.cover__one-middle { display: grid; gap: var(--sp-2); width: 100%; } /* the Magazine's picks beside its cover */
 .cover__center--one { justify-items: stretch; align-content: start; align-self: start; width: 100%; text-align: left; }
-.cover__one-middle { display: grid; gap: var(--sp-2); width: 100%; }
-.cover__next { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-2) var(--sp-3); align-items: center; width: 100%; box-sizing: border-box; padding: var(--sp-3); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel-raised); }
-.cover__next-label { grid-column: 1 / -1; color: var(--fog); font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); letter-spacing: .08em; text-transform: uppercase; }
-.cover__next-who { font-family: var(--font-cond); font-size: calc(24px * var(--ui-scale)); font-weight: 700; line-height: 1.1; }
-.cover__next-who .season-pick__link { color: inherit; }
-.cover__next-opp { display: block; margin-top: 3px; color: var(--fog); font-size: calc(14px * var(--ui-scale)); font-weight: 600; }
-.cover__next-count { text-align: right; }
-.cover__next-count b { display: block; font-family: var(--font-cond); font-size: calc(34px * var(--ui-scale)); font-weight: 800; line-height: 1; white-space: nowrap; }
-.cover__next-count small { color: var(--fog); font-size: calc(13px * var(--ui-scale)); }
-.cover__next-meta { grid-column: 1 / -1; color: var(--fog); font-size: var(--text-label); line-height: 1.5; }
-.cover__next-meta b { color: var(--chalk); font-family: var(--font-cond); font-weight: 600; }
-.cover__next--none .cover__next-who { color: var(--fog); }
-.cover__lines { display: grid; gap: 4px; font-size: var(--text-label); color: var(--fog); line-height: 1.45; }
-.cover__lines b { color: var(--chalk); font-family: var(--font-cond); font-weight: 600; }
-.cover__lines .season-pick__link { color: var(--stale); }
-.cover__lines .season-pick__link::after { inset: -12px 0; } /* 44 px to press at the label size */
 .cover--one .cover__foot-start .season-pick__teams { padding-top: 0; }
 .cover--one .pre-part { margin: 0; }
 .cover--one .pre-part__head { padding-top: 0; }
@@ -4972,5 +4972,93 @@ body.board-mode .to-top { display: none; }
 .claude-get__lead { margin: 0; }
 .claude-get__steps { margin: 0; padding-left: 1.3em; display: grid; gap: var(--sp-1); }
 .claude-get--compact { margin-top: var(--sp-2); }
+/* Batch 3 (owner 2026-11-16): switch teams on this device. The top bar's switch beside the wordmark, the sheet's rows,
+   a team sheet's Switch button. Switched, the switch shows that team's logo and name ringed in the accent with Back beside it */
+.team-switch-bar { display: inline-flex; align-items: center; gap: var(--sp-1); flex: none; min-width: 0; }
+.team-switch-bar__open { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 var(--sp-2); max-width: 220px; }
+.team-switch-bar__open.is-away { border-color: var(--team-accent); box-shadow: inset 0 0 0 1px var(--team-accent); color: var(--chalk); }
+.team-switch-bar__swap { font-size: 1.1em; line-height: 1; color: var(--team-accent); }
+.team-switch-bar__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.team-switch-bar__logo { flex: none; }
+.team-switch-bar__back { min-height: 36px; padding: 0 var(--sp-2); white-space: nowrap; }
+body.viewing-other .topbar .wordmark { display: none; } /* switched: the team shown is the top left's name */
+.team-switch-bar__open.is-away .team-switch-bar__name { max-width: 14ch; }
+@media (max-width: 1099px) {
+  .team-switch-bar__back-words { display: none; } /* the × alone; its spoken name says Back to ours */
+  .team-switch-bar__open:not(.is-away) { padding: 0 var(--sp-1); min-width: 36px; justify-content: center; }
+  .team-switch-bar__open:not(.is-away) .team-switch-bar__name { display: none; }
+}
+@media (max-width: 559px) { .team-switch-bar__open.is-away .team-switch-bar__name { max-width: 9ch; } }
+.team-switch { display: grid; gap: var(--sp-3); padding: var(--sp-3); min-width: min(420px, 100%); }
+.team-switch__lede { margin: 0; color: var(--fog); }
+.team-switch__back { justify-self: start; }
+.team-switch__group { display: grid; gap: var(--sp-1); }
+.team-switch__head { margin: 0; font-family: var(--font-cond); font-size: calc(13px * var(--ui-scale)); letter-spacing: 0.06em; text-transform: uppercase; color: var(--fog); }
+.team-switch__row { display: flex; align-items: center; gap: var(--sp-2); width: 100%; min-height: 48px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); color: var(--chalk); text-align: left; font: inherit; cursor: pointer; }
+.team-switch__row:focus-visible { border-color: var(--team-accent); }
+@media (hover: hover) { .team-switch__row:hover { border-color: var(--team-accent); } }
+.team-switch__row.is-current { box-shadow: inset 4px 0 0 var(--team-accent); }
+.team-switch__words { display: grid; flex: 1; min-width: 0; }
+.team-switch__words small { color: var(--fog); }
+.team-switch__mark { font-size: 0.85em; color: var(--team-accent); white-space: nowrap; }
+.team-switch__input { width: 100%; min-height: 44px; padding: 0 var(--sp-2); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); color: var(--chalk); } /* its text: the 16 px every field gets (app.css) */
+.team-switch__results { display: grid; gap: var(--sp-1); }
+.team-switch__note { margin: 0; color: var(--fog); }
+.team-switch__note--error { color: var(--bad); }
+.team-sheet__tools { display: inline-flex; gap: var(--sp-1); flex-wrap: wrap; }
+/* Batch 3: another game on this device. A ticker game is a button (a viewer's ask), Pick a game's Every screen beside each row,
+   the game this screen watches marked, and the line over In Game that says so */
+.ticker__game--pick { appearance: none; border: 0; background: none; color: inherit; font: inherit; padding: 0; cursor: pointer; border-radius: var(--radius); }
+.ticker__game--pick:focus-visible { outline: 2px solid var(--team-accent); outline-offset: 2px; }
+@media (hover: hover) { .ticker__game--pick:hover { text-decoration: underline; text-underline-offset: 3px; } }
+.pick-game__row { display: flex; align-items: stretch; gap: var(--sp-1); }
+.pick-game__row > .pick-game__btn { flex: 1; min-width: 0; }
+.pick-game__all { flex: none; white-space: nowrap; min-height: 44px; }
+.pick-game__row.is-here > .pick-game__btn { box-shadow: inset 4px 0 0 var(--team-accent); }
+.following-line--device { border-left: 3px solid var(--team-accent); padding-left: var(--sp-2); }
+/* Batch 3 (owner 2026-11-16): two players side by side (views/compare.js), from the card's Compare (ui/compare-pick.js) */
+.player-card__compare { margin-left: auto; min-height: 36px; }
+.compare__head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--sp-3); align-items: start; padding: var(--sp-3); background: var(--panel); border: 1px solid var(--rule); border-radius: var(--radius); }
+.compare__who { display: flex; gap: var(--sp-3); align-items: flex-start; min-width: 0; }
+.compare__who--b { flex-direction: row-reverse; text-align: right; }
+.compare__who--b .compare__team { justify-content: flex-end; }
+.compare__words { display: grid; gap: 4px; min-width: 0; }
+.compare__name { font-family: var(--font-cond); font-size: calc(22px * var(--ui-scale)); font-weight: 700; overflow-wrap: anywhere; }
+.compare__line { color: var(--fog); }
+.compare__team { display: flex; align-items: center; gap: 6px; }
+.compare__change { justify-self: start; min-height: 36px; }
+.compare__who--b .compare__change { justify-self: end; }
+.compare__vs { display: grid; gap: var(--sp-1); justify-items: center; align-self: center; font-family: var(--font-cond); color: var(--fog); text-transform: uppercase; }
+.compare__swap { min-height: 36px; min-width: 44px; }
+.compare__who--failed .compare__words { gap: var(--sp-1); }
+.compare__actions { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.compare__who--b .compare__actions { justify-content: flex-end; }
+.compare-bio { width: 100%; border-collapse: collapse; }
+.compare-bio th, .compare-bio td { padding: var(--sp-1) var(--sp-2); border-bottom: 1px solid var(--row-rule); text-align: left; vertical-align: top; }
+.compare-bio thead th { color: var(--fog); font-weight: 600; }
+.compare-bio tbody th { color: var(--fog); font-weight: 500; white-space: nowrap; width: 1%; }
+.compare__stats { display: grid; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); }
+.compare__cat { margin: 0 0 var(--sp-1); font-family: var(--font-cond); font-size: calc(15px * var(--ui-scale)); text-transform: uppercase; letter-spacing: 0.04em; color: var(--fog); }
+.compare__alone { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: var(--sp-1) var(--sp-3); margin: 0; }
+.compare__alone dt { color: var(--fog); }
+.compare__alone dd { margin: 0; font-variant-numeric: tabular-nums; }
+.compare-pick { display: grid; gap: var(--sp-2); padding: var(--sp-3); min-width: min(420px, 100%); }
+.compare-pick__input { width: 100%; min-height: 44px; padding: 0 var(--sp-2); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); color: var(--chalk); }
+.compare-pick__results { display: grid; gap: var(--sp-1); }
+.compare-pick__row { display: grid; gap: 2px; width: 100%; min-height: 48px; padding: var(--sp-1) var(--sp-2); border: 1px solid var(--rule); border-radius: var(--radius); background: var(--panel); color: var(--chalk); text-align: left; font: inherit; cursor: pointer; }
+.compare-pick__row small { color: var(--fog); }
+.compare-pick__row:focus-visible { border-color: var(--team-accent); }
+@media (hover: hover) { .compare-pick__row:hover { border-color: var(--team-accent); } }
+.compare-pick__wide { justify-self: start; }
+@media (max-width: 699px) {
+  .compare__head { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  /* the review (2026-11-19): the swap stays on a phone, on its own row under the two heads; only the word "vs" goes */
+  .compare__vs { order: 3; grid-column: 1 / -1; grid-auto-flow: column; justify-content: center; }
+  .compare__vs-word { display: none; }
+  .compare__who, .compare__who--b { flex-direction: column; align-items: flex-start; text-align: left; }
+  .compare__who--b .compare__team { justify-content: flex-start; }
+  .compare__who--b .compare__change { justify-self: start; }
+  .compare__who--b .compare__actions { justify-content: flex-start; }
+}
 
 /* ==== The season as one line (2026-10-30): the rail and the boxes are styled above; the stylesheet keeps ending on a section anchor ==== */

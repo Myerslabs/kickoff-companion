@@ -2,8 +2,10 @@
 // setup information"; #profile, and #settings and #setup still open it): every option lives here and is stored on the server (owner direction
 // 2026-09-23). Spoiler delay, radio source, theme, page refresh, start at login, tray mode, the
 // notes command, a Desktop icon, and the quota readout. Each change saves on its own and says so.
-// Public release Phase 5b: the score ticker (every game, or my teams with a Tier 2 key), radio stations
-// for any team (add, remove, find the broadcast, request it), and the primary and secondary teams.
+// Public release Phase 5b: radio stations for any team (add, remove, find the broadcast, request it). Batch 3 (owner
+// 2026-11-19: "I want to take out all the secondary teams ... Let's just have one team listed, and a change team for the
+// switch"): the Score ticker row and the primary and secondary team lists are gone; Your team shows the one team and
+// "Change team" opens the setup page.
 // Public release Phase 6: the notes prompt the Game program copies for an AI chat, editable here.
 // Phase 17 #31 (owner pick: Steam's settings): one row per setting, its name and grey help on the left and the switch or
 // picker on the right; switches instead of checkboxes; a green "saved" line.
@@ -12,7 +14,7 @@
 // the top (the team, host or guest, the server, and four facts that open their sections: the CFBD plan with the month's
 // calls, the version, the address, the friends); the four settings changed on game day on the page itself (the spoiler
 // delay, the theme, keeping the screen on, the text size); then every section a tile saying what is set now, opening its
-// settings in the wide flyout (about 83%): Game day, Trivia, Display, Your teams, Friends and the big screen, Radio
+// settings in the wide flyout (about 83%): Game day, Trivia, Display, Your team, Friends and the big screen, Radio
 // stations, Claude and loading data (gold while something is not loaded), Server Settings, About and help (the CFBD key
 // and plan with the version and the files), Setup. #profile=radio (and the old #settings=radio) opens a section's flyout.
 
@@ -130,7 +132,6 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     const p = getPrefs();
     const meta = prefsMeta() || {};
     const sources = Array.isArray(meta.radioSources) ? meta.radioSources.filter((s) => s && typeof s.id === "string") : [];
-    const tier2 = meta.plan?.likedAllowed === true;
     const delayValue = el("b", {}, `${p.delaySeconds} s`);
     const slider = el("input", { type: "range", min: "0", max: "120", step: "5", value: String(p.delaySeconds), "aria-label": "Spoiler delay in seconds", oninput: (event) => { delayValue.textContent = `${event.target.value} s`; }, onchange: (event) => change({ delaySeconds: Number(event.target.value) }, "Spoiler delay") });
     const shortcutButton = el("button", { class: "btn", type: "button", onclick: (event) => makeShortcut(event.currentTarget) }, "Create a Desktop icon");
@@ -146,7 +147,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
         row("Keep the screen on", select([{ value: "gameday", label: "On our game days (default)" }, { value: "always", label: "Always" }, { value: "off", label: "Never" }], p.keepScreenOn || "gameday", (value) => change({ keepScreenOn: value }, "Keep the screen on"), "Keep the screen on"), "Stops the tablet from sleeping on any page. Game day means a day we play; the In Game sheet also keeps the screen on while plays come in."),
         row("Radio source", select([{ value: "", label: "First station in the list" }, ...sources.map((s) => ({ value: s.id, label: `${text(s.name)}${str(s.team) ? `, ${s.team}` : ""} (${text(s.kind)})` }))], p.radioSourceId || "", (value) => change({ radioSourceId: value || null }, "Radio source"), "Radio source"), "The station the Play button on the Pre-Game Program uses first. Add stations for any team under Radio stations."),
         row("Announcer", toggle(p.announcer !== false, (value) => change({ announcer: value }, "Announcer"), "Announcer"), "A little announcer in a headset calls out each section's stat line the first time it scrolls into view. Nothing moves when the device asks for reduced motion."),
-        row("Score ticker", select([{ value: "national", label: "National: every FBS game (default)" }, { value: "mine", label: tier2 ? "My teams: primary and secondary teams only" : "My teams (shows with a Tier 2 key)", disabled: !tier2 }], p.tickerMode === "mine" && tier2 ? "mine" : "national", (value) => change({ tickerMode: value }, "Score ticker"), "Score ticker"), tier2 ? "My teams shows only your primary and secondary teams' games; when none of them play, every game shows. Pick the teams with Change my teams on the Season page." : "Every plan shows every FBS game. A Tier 2 key adds a ticker of just your teams."),
+        // batch 3 (owner 2026-11-19): no Score ticker row; the ticker is always every FBS game
       ],
       trivia: [
         row("Trivia during the game", toggle(p.trivia !== false, (value) => change({ trivia: value }, "Trivia"), "Trivia during the game"), "Three-choice questions from the schools' facts in a small popup in the corner of any page, for the tablets that joined with a team name; each tablet is asked when it connects on a game day. Off is off for every tablet."),
@@ -271,31 +272,19 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     });
   }
 
-  /** The teams the install follows (which only Settings knows): the home team, more primary teams, the secondary ones. */
-  function teamsOf() {
-    const meta = prefsMeta() || {};
-    const prefs = getPrefs();
-    const set = meta.teamSet && typeof meta.teamSet === "object" ? meta.teamSet : {};
-    const names = (list) => (Array.isArray(list) ? list.filter((v) => typeof v === "string" && v) : []);
-    const extra = names(set.extraPrimaries);
-    const saved = names(prefs.primaryTeams);
-    const secondary = [...names(prefs.likedTeams), ...names(prefs.likedConferences), ...names(prefs.likedStates)];
-    const locked = set.allowed === false && (saved.length || secondary.length);
-    return { home: text(meta.server?.team), primary: extra.length ? extra : saved, secondary, locked };
+  /** The install's one team (batch 3, owner 2026-11-19: "Let's just have one team listed, and a change team for the switch"). */
+  function homeTeam() {
+    const team = str(prefsMeta()?.server?.team);
+    return team || null;
   }
 
   function teamsBand() {
     // freeze wave F3 (one fact, one source): the season, conference, time zone, port and live poll are the status page's
-    // Configuration panel; this keeps the teams. Board 7: the CFBD key and plan moved to About and help.
-    // ENH-12 (owner 2026-10-23): the primary teams as the one picker orders them, #1 the home team, the My Teams order
-    const t = teamsOf();
-    const primaries = [t.home, ...t.primary].filter((school) => typeof school === "string" && school && school !== DASH);
-    const lock = t.locked ? " (saved; shows with a Tier 2 key)" : "";
-    const rows = [
-      { label: "Primary teams", value: primaries.length ? `${primaries.map((school, i) => `#${i + 1} ${school}${i === 0 ? " (home)" : ""}`).join(", ")}${primaries.length > 1 ? lock : ""}` : DASH },
-      { label: "Secondary teams", value: t.secondary.length ? `${t.secondary.join(", ")}${lock}` : DASH },
-    ];
-    return band({ id: "settings-teams", title: "Your teams", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Your teams"), el("p", { class: "note" }, `In the My Teams order. Only the home team's colors and mascot theme the app; a new home team restarts the server.${t.locked ? " More primary and secondary teams need a Tier 2 key." : ""}`), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change my teams"), " ", el("a", { class: "btn btn--quiet", href: "#season" }, "Their seasons"))) });
+    // Configuration panel; this keeps the team. Board 7: the CFBD key and plan moved to About and help.
+    // Batch 3 (owner 2026-11-19): one team, no primary or secondary lists. "Change team" opens the setup page, which
+    // changes the install's team; another team for one device is the app's own Change team switch.
+    const rows = [{ label: "Team", value: homeTeam() || DASH }];
+    return band({ id: "settings-teams", title: "Your team", collapsible: false, state: { status: "ready" }, body: () => el("div", {}, factList(rows, "Your team"), el("p", { class: "note" }, "Its colors and mascot theme the app; a new team restarts the server. To look at another team on one device for a while, use Change team in the app instead."), el("p", { class: "settings__actions" }, el("a", { class: "btn", href: "/welcome" }, "Change team"), " ", el("a", { class: "btn btn--quiet", href: "#season" }, "Its season"))) });
   }
 
   /** The folders this install keeps (About and help): where the data and the logs are. */
@@ -311,7 +300,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
 
   function radioBand() {
     // Public release Phase 5b: radio for any team. Stations added here follow RADIO_SOURCES from .env; for a
-    // primary team with none, search links and the GitHub request form (radioHelpBlock). 2026-10-16 (owner: "when looking
+    // team with none, search links and the GitHub request form (radioHelpBlock). 2026-10-16 (owner: "when looking
     // to load a station, it needs much better instructions"): the steps first, a help line under each field that follows
     // the kind picked, a Try it that plays or opens the address before it is saved, and a warning for a stream address
     // that does not look like audio.
@@ -716,7 +705,7 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     { id: "gameday", title: "Game day", icon: "live" },
     { id: "trivia", title: "Trivia", icon: "trivia" },
     { id: "display", title: "Display", icon: "sun" },
-    { id: "teams", title: "Your teams", icon: "shield" },
+    { id: "teams", title: "Your team", icon: "shield" },
     { id: "friends", title: "Friends and the big screen", icon: "person" },
     { id: "radio", title: "Radio stations", icon: "radio" },
     { id: "claude", title: "Claude and loading data", icon: "sparkle" },
@@ -793,13 +782,10 @@ export function createSettingsView({ onStatus, arg = null } = {}) {
     const plan = meta.plan && typeof meta.plan === "object" ? meta.plan : {};
     const auto = meta.autoStart || {};
     switch (id) {
-      case "gameday": return `Radio ${radio ? (radio.origin === "sample" ? "a sample station" : text(radio.name)) : "none yet"} · ticker ${p.tickerMode === "mine" && plan.likedAllowed === true ? "my teams" : "every FBS game"} · announcer ${onOff(p.announcer !== false)}`;
+      case "gameday": return `Radio ${radio ? (radio.origin === "sample" ? "a sample station" : text(radio.name)) : "none yet"} · ticker every FBS game · announcer ${onOff(p.announcer !== false)}`;
       case "trivia": return `${p.trivia !== false ? "On" : "Off"} · leaderboard ${onOff(p.triviaBoard !== false)} · ${p.triviaPace === "30" ? "every 30 min" : p.triviaPace === "game" ? "only during our game" : "every 15 min"} before and after our game`;
       case "display": return `Stat hints ${onOff(p.hints !== false)} · color-blind colors ${onOff(cvdOn())} · spoiler mode ${onOff(spoilerOn())}`;
-      case "teams": {
-        const t = teamsOf();
-        return `${t.home || "No home team"} · ${t.primary.length} more primary · ${t.secondary.length} secondary`;
-      }
+      case "teams": return `${homeTeam() || "No team yet"} · change team`;
       case "friends": return extras.host ? `Host PIN ${extras.host.pinSet === true ? "set" : "not set"} · invite with the QR code · the big screen` : "The host PIN, inviting friends, the big screen";
       case "radio": {
         const n = sources.filter((x) => x.origin !== "sample").length;

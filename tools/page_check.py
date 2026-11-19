@@ -1231,17 +1231,6 @@ def league_names() -> set[str]:
     return {name.lower() for t in league.teams for name in (t.school, t.abbr, t.conference, t.conf_short, conference_short(t.conference)) if name}
 
 
-def follow_teams(base: str, schools: list[str]) -> None:
-    """Follow made-up teams on the simulator (board 9, owner 2026-10-22), so the Season page's window has teams to step
-    through and #season?team= opens one. A refusal leaves the home team alone, and that route then says why on the page."""
-    body = json.dumps({"primaryTeams": schools}).encode("utf-8")
-    request = urllib.request.Request(f"{base}/api/settings", data=body, method="PUT", headers={"Content-Type": "application/json"})
-    try:
-        urllib.request.urlopen(request, timeout=10).close()
-    except (OSError, ValueError) as exc:
-        print(f"Could not follow {', '.join(schools)} ({exc}); the Season window shows the home team alone.", file=sys.stderr)
-
-
 def fill(route: str, values: dict[str, str]) -> str:
     for key, value in values.items():
         route = route.replace("{" + key + "}", value)
@@ -1330,10 +1319,6 @@ def main(argv: list[str] | None = None, *, names: bool | None = None) -> int:
         if not wait_for(base):
             print(f"No server answered at {base}.", file=sys.stderr)
             return 2
-        if sim is not None and any("season?team=" in route for route in args.routes):
-            from urllib.parse import unquote
-
-            follow_teams(base, [unquote((values or league_values())["OPP"])])
         if any("{ARCHIVED}" in route for route in args.routes):  # item 6: a game the server's archive holds, once it answers
             archived = archive_route_value(base, values.get("LAST", ""))
             args.routes = [fill(route, {"ARCHIVED": archived}) for route in args.routes]

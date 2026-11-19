@@ -126,7 +126,7 @@ scenarios.blocks = async () => {
   const { nameIndex } = await import(moduleUrl("ui/prose.js"));
   const root = editorial({
     byline: { author: "Claude", writtenAt: "2026-10-27T14:08:00Z" },
-    sources: [{ label: "ESPN", url: "https://www.espn.com/x" }, { label: "no link" }, "junk"],
+    sources: [{ label: "ESPN", url: "https://www.espn.com/x" }, { label: "no link" }, "junk", {}, { label: 5 }, { url: "https://example.com/bare" }],
     sections: [
       { heading: "Coaching matchup", paragraphs: [long, "DJ Lagway starts; Aaron Philo waits; Kirby Smart plans."] },
       { heading: "Key matchups", paragraphs: ["- The line against Georgia's front\n- Lagway against the secondary"] },
@@ -151,8 +151,14 @@ scenarios.blocks = async () => {
   assert.equal(blocks[2].querySelector(".editorial__head"), null, "no head when the section has none");
   assert.ok(text(blocks[3]).includes("–"), "an empty section says nothing, never a raw value");
   assert.ok(t.includes("Written by Claude") && root.querySelector(".editorial__sources a").getAttribute("href") === "https://www.espn.com/x");
+  const fold = root.querySelector("details.editorial__fold");
+  assert.ok(fold && !fold.hasAttribute("open"), "the sources fold, closed (batch 4)");
+  assert.equal(text(fold.querySelector("summary")), "Sources (3)", "the count leaves the junk and the empty rows out");
+  assert.equal(fold.querySelectorAll("li").length, 3);
+  assert.ok(text(fold).includes("https://example.com/bare"), "a bare address is its own label");
+  assert.ok(fold.contains(root.querySelector(".editorial__sources")), "the list inside the fold");
   const bare = editorial({});
-  assert.ok(!RAW.test(text(bare)) && !bare.querySelector(".editorial__grid"));
+  assert.ok(!RAW.test(text(bare)) && !bare.querySelector(".editorial__grid") && !bare.querySelector(".editorial__fold"));
 };
 """
 

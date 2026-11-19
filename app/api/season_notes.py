@@ -35,6 +35,7 @@ from app.services.players import lines_from
 from app.services.preseason_cards import now_block, stars_block, starters_block
 from app.services.season_notes import SeasonNotes
 from app.services.season_task import Batch, SeasonRunner
+from app.services.writing import refresh_text
 
 router = APIRouter(tags=["season-notes"])
 log = logging.getLogger("kickoff.season")
@@ -277,8 +278,27 @@ async def season_run_status(request: Request) -> Any:
     return envelope(runner.status(request.app.state.settings.claude_command), source="live")
 
 
-async def start_season_run(request: Any, kind: str, keys: list[str] | None = None, missing_only: bool = True) -> dict[str, Any]:
-    """Queue a season run for Claude Code. `request` is anything with `.app.state` (the schedule passes a stand-in)."""
+def _so_far(notes: Any, kind: str, key: str, conferences: dict[str, list[str]]) -> Any:
+    """Batch 4 (Run with Claude): what the app holds now for one batch, for the refresh block; None when nothing is saved."""
+    try:
+        if kind == "preseason":
+            team = notes.preseason_for(key)
+            return team.model_dump(exclude_none=True) if team is not None else None
+        getter = {"coaches": notes.coaches_for, "costs": notes.costs_for, "facts": notes.facts_for}.get(kind)
+        conference = next((c for c in conferences if c.lower() == key.strip().lower()), None)
+        if getter is None or conference is None:
+            return None
+        rows = {school: getter(school) for school in conferences[conference]}
+        rows = {school: row for school, row in rows.items() if row}
+        return rows or None
+    except Exception:  # noqa: BLE001 - the refresh block is a courtesy; the run goes on without it (logged)
+        log.exception("What the app holds for %s %s could not be read for the refresh", kind, key)
+        return None
+
+
+async def start_season_run(request: Any, kind: str, keys: list[str] | None = None, missing_only: bool = True, refresh: bool = False) -> dict[str, Any]:
+    """Queue a season run for Claude Code. `request` is anything with `.app.state` (the schedule passes a stand-in).
+    `refresh` (batch 4, Run with Claude): each batch's prompt carries what the app holds for it and the refresh rules."""
     primaries, conferences, meta = await _context(request)
     runner: SeasonRunner = request.app.state.season_runner
     notes = _notes(request)
@@ -300,6 +320,10 @@ async def start_season_run(request: Any, kind: str, keys: list[str] | None = Non
     batches = []
     for key in keys:
         prompt, error = _prompt(request, kind, key, primaries, conferences, meta)
+        if prompt is not None and refresh:
+            held = _so_far(notes, kind, key, conferences)
+            if held:
+                prompt += refresh_text(held)
         if prompt is not None:
             batches.append(Batch(key, prompt, _saver(request, kind, key, primaries, conferences)))
     return await runner.start(kind, batches, request.app.state.settings.claude_command)

@@ -28,7 +28,7 @@
 
 import { confLabel, loadIdentity, ours, usLabel, usSchool } from "./identity.js";
 import { installClientLog } from "./client-log.js";
-import { applyTextScale, applyTheme, getPrefs, loadPrefs, prefsMeta } from "./prefs.js";
+import { applyTextScale, applyTheme, getPrefs, loadPrefs } from "./prefs.js";
 import { loadRadioSources, mountRadio } from "./radio.js";
 import { el, isNum } from "./ui/dom.js";
 import { keepScreenOn } from "./wake.js";
@@ -71,6 +71,7 @@ import { startTrivia } from "./ui/trivia.js"; // the trivia (owner 2026-10-21): 
 import { openTodo } from "./ui/todo.js"; // the To do flyout (the layout pass, 2026-10-22): the notes off the page
 import { openFeedback } from "./ui/feedback.js"; // Send feedback with the logs (owner 2026-10-23)
 import { openAsk } from "./ui/ask.js"; // FEAT-12: Ask about this page
+import { refreshRow } from "./ui/claude-refresh.js"; // batch 4: Run with Claude at the top of the menu
 import { startTrail } from "./ui/trail.js"; // what this tablet did lately, sent with a report
 import { closeLayers, goTo, installLayerHistory, stepOverLeftovers, toTop } from "./ui/layers.js";
 import { createBoardView, seedBoardHistory } from "./views/board.js";
@@ -86,6 +87,10 @@ import { claudeSignedOutSince, seasonSwitchNow, signedOutWords } from "./build.j
 import { installRunBar } from "./ui/run-bar.js";
 import { reloadWhenServerAnswers, restartFlow, updateFlow } from "./ui/restart.js";
 import { openSearch } from "./views/search.js";
+import { clearViewing, onViewing, viewing, viewingInfo, viewRoute } from "./viewing.js"; // batch 3: switch teams on this device
+import { openTeamSwitch } from "./ui/team-switch.js";
+import { onDeviceGame } from "./watching.js"; // batch 3: another game on this device
+import { createCompareView } from "./views/compare.js"; // batch 3: two players side by side
 
 const BUILT = {
   season: (opts, arg, focus, params) => createSeasonView({ ...opts, arg, params }),
@@ -121,6 +126,7 @@ const BUILT = {
   prompts: (opts) => createPromptsView(opts), // the Prompts phase (2026-10-13): every prompt, its Copy, Paste and Run, the one run, the schedule
   trivia: (opts) => createTriviaView(opts), // the trivia (2026-10-21): the room's board by team name, today's answers, the rules
   band: (opts, arg, focus, params) => createBandView({ ...opts, arg, params }), // owner 2026-10-28: #band=<page>:<band>, one band alone across the page
+  compare: (opts, arg, focus, params) => createCompareView({ ...opts, arg, params }), // batch 3 (owner 2026-11-16): #compare=<id>,<id>, two players side by side
   setup: (opts) => createSettingsView(opts), // the Setup page joined the Profile (owner 2026-10-22): the old address lands on the Profile; the menu's Setup opens its flyout (#profile=setup)
 };
 
@@ -131,7 +137,7 @@ const LATER = {
 };
 
 const VALID = new Set([...Object.keys(BUILT), ...Object.keys(LATER), "radio"]);
-const NO_TAB = new Set(["team", "box", "invite", "board"]); // a team page and a box score belong to no tab (DS-03)
+const NO_TAB = new Set(["team", "box", "invite", "board", "compare"]); // a team page and a box score belong to no tab (DS-03)
 const KEEP_TAB = new Set(["national"]); // a list keeps the tab it was opened from
 
 /** "#program=401856699" -> { id: "program", arg: "401856699" }; "#team=Kansas%20State" -> { id: "team", arg: "Kansas State" } */
@@ -522,11 +528,14 @@ function showDemoBanner(page) {
     .catch((error) => console.warn("Could not tell whether this is the demo.", error?.message || error));
 }
 
-/** Public release Phase 5b: ask the server to load the primary teams' pages now, so they open at once.
- *  The server decides (a Tier 2 key, at most every ten minutes); a failure only means they load on demand. */
-function warmPrimaries() {
-  if ((prefsMeta()?.teamSet?.extraPrimaries || []).length === 0) return;
-  fetch("/api/myteams/warm", { method: "POST" }).catch((error) => console.warn("The primary teams' pages were not warmed; they load when opened.", error?.message || error));
+/** The page Ask about this page names (FEAT-12): the address on screen, with the team on a device switched to another one
+ *  (batch 3, review 2026-11-19), so Claude reads the page as the one shown and not as ours. */
+function askRoute() {
+  const hash = window.location.hash || "#program";
+  const route = parseRoute(hash, VALID);
+  const team = route ? viewRoute(route)?.params?.team : null;
+  if (!team || route.params?.team) return hash;
+  return `${hash}${hash.includes("?") ? "&" : "?"}team=${encodeURIComponent(team)}`;
 }
 
 function isTyping(target) {
@@ -574,9 +583,13 @@ async function start() {
     onOpen: (entry, ctx) => openFromMenu(entry, ctx), // a table in the menu opens wide by itself (views/panels.js)
     onTodo: () => openTodo(), // the To do row at the top of the menu (owner 2026-10-22: "its own flyout")
     onFeedback: () => openFeedback(), // Send feedback at the foot of the menu (owner 2026-10-23)
-    onAsk: () => openAsk({ route: window.location.hash || "#program" }), // FEAT-12: Ask about this page
+    onAsk: () => openAsk({ route: askRoute() }), // FEAT-12: Ask about this page (batch 3: with the team switched to)
+    claudeRow: ({ close }) => (viewing() ? null : refreshRow({ route: window.location.hash || "#program", onStart: (result) => { if (result.ok) close(); } })), // batch 4; batch 3: a device switched to another team shows their pages, so Claude's refresh of ours stays out of its menu
     subOf: (key) => (key === "game" ? loadProgram().then(() => gameLine()).catch(() => "") : ""), // the game the matchup's tables are about
+    onSwitchTeam: () => openTeamSwitch(), // batch 3 (owner 2026-11-16): see the app as another team on this device
+    onBackHome: () => clearViewing(),
   });
+  page.setViewing(viewingInfo());
   root.replaceChildren(page.root); // the loading bar (and its Reload, item 6) gives way to the real one with its Menu
   forgetBootRetry();
   try {
@@ -587,7 +600,6 @@ async function start() {
   showDemoBanner(page);
   mountRadio(page.root.querySelector(".shell__radio"));
   loadRadioSources();
-  warmPrimaries();
   watchForUpdates();
   watchLiveGame(page);
   installRunBar(page.notes); // owner 2026-10-16: Claude Code loads in the background, one bar above the page, one refresh at the end
@@ -644,6 +656,12 @@ async function start() {
   const STOP_TAB = new Set(["program", "postgame", "season", "myteams", "preseason", "review"]); // rollover R3: the season in review leads once the season is over
   function applyStops(line) {
     const current = line && line.current ? line.current : currentStop();
+    if (viewing()) {
+      // batch 3: a switched device's middle tab is that team's own next program (viewing.js adds its ?team=); our line stays ours
+      page.setStop({ label: "Pre-Game Program", detail: viewing(), href: "#program" });
+      followWeek(lastRoute);
+      return;
+    }
     page.setStop(current);
     // rollover R3 (owner 2026-11-15): opened with no page asked, the app lands on the season in review once the season is over
     // and on the Preseason Magazine before it starts; any other time, and once the reader has moved, home stays the program
@@ -658,7 +676,7 @@ async function start() {
   function followWeek(route) {
     lastRoute = route;
     let key = null;
-    if (route && (route.id === "program" || route.id === "postgame") && route.arg) {
+    if (route && !viewing() && (route.id === "program" || route.id === "postgame") && route.arg) {
       const item = weekOf(route.arg);
       const current = currentStop();
       if (item && Number.isFinite(item.week) && !(current && current.week === item.week)) {
@@ -677,6 +695,7 @@ async function start() {
 
   function show(route) {
     if (route.id === "radio") route = { id: "program", arg: null, focus: "program-radio" }; // the radio control lives on the Game program
+    route = viewRoute(route); // batch 3: a page that follows the switch opens on the team this device is switched to
     const key = routeKey(route);
     if (currentKey === key) {
       if (restore?.pending) restore = null;
@@ -743,6 +762,23 @@ async function start() {
     if (route) show(route);
     else if (restore?.pending) restore = null;
   });
+  // batch 3: a game watched on this device alone (or back to the room's): In Game on screen redraws for it
+  onDeviceGame(() => {
+    const route = parseHash();
+    if (route && route.id === "live") {
+      currentKey = null;
+      show(route);
+    }
+  });
+  // batch 3: switching (or Back to ours) redraws the page on screen for the team now shown, and the middle tab follows
+  onViewing((info) => {
+    page.setViewing(info);
+    applyStops(stopsNow());
+    closeLayers();
+    currentKey = null;
+    show(parseHash() || { id: "program", arg: null });
+    window.scrollTo(0, 0);
+  });
   document.addEventListener("kickoff:rendered", putBack);
   document.addEventListener("kickoff:retry", () => refreshCurrent()); // Phase 16 wave 3 (DS-12): the status card's Retry now
   // Phase 16 NV: a linked rank chip or poll badge opens its list in a side sheet over this page (never a route
@@ -751,7 +787,8 @@ async function start() {
   // Every team name on any page is a link: ours to the full team page, others to a flyout.
   document.addEventListener("kickoff:team", (event) => {
     // Design rules (owner 2026-10-21): "Every team name links out: ours to the Season page, others to a flyout"
-    if (typeof event.detail === "string" && event.detail === usSchool()) window.location.hash = "season";
+    if (typeof event.detail === "string" && event.detail === usSchool() && viewing()) window.location.hash = `team=${encodeURIComponent(usSchool())}`; // batch 3, switched: our page by name (#season follows the switch)
+    else if (typeof event.detail === "string" && event.detail === usSchool()) window.location.hash = "season";
     else openTeam(event.detail);
   });
   const pull = installPullToRefresh({ root: page.main, host: page.root, onRefresh: refreshCurrent });

@@ -13,7 +13,10 @@ function side(team, winner) {
   return el("span", { class: winner ? "win" : null }, `${rank}${text(team?.abbr)} ${isNum(team?.points) ? team.points : "–"}`);
 }
 
-function gameEl(game) {
+/** One game on the line; with `onPick` (batch 3, a viewer's ask of 2026-10-31: "make the national top 25 scoreboard clickable
+ *  ... so I can toggle between them") a game with an id is a button that watches it on this screen; the crawl's copy is
+ *  left out of the Tab order. */
+function gameEl(game, onPick = null, copy = false) {
   const awayWins = isNum(game.away?.points) && isNum(game.home?.points) && game.away.points > game.home.points;
   const homeWins = isNum(game.away?.points) && isNum(game.home?.points) && game.home.points > game.away.points;
   const status = game.status === "final" ? "F" : game.status === "live" ? text(game.detail) : text(game.detail || "");
@@ -21,7 +24,13 @@ function gameEl(game) {
   const star = game.star === true && !game.isUs ? el("span", { class: "ticker__star" }, icon("star", { label: "One of your teams" })) : null;
   // What we need (F8 feature 1, owner 2026-10-21): a dot and two words on a game that changes our path to the title game
   const helps = game.helps && typeof game.helps === "object" && game.helps.ours !== true && !game.isUs ? el("span", { class: "ticker__helps", title: text(game.helps.why) }, el("i", { class: "ticker__helps-dot", "aria-hidden": "true" }), "helps us") : null;
-  return el("span", { class: `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}${star ? " ticker__game--fav" : ""}` }, star, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status), helps);
+  const cls = `ticker__game${game.isUs ? " ticker__game--us" : game.isMine ? " ticker__game--mine" : ""}${star ? " ticker__game--fav" : ""}`;
+  const kids = [star, side(game.away, game.status === "final" && awayWins), el("span", { class: "at" }, "at"), side(game.home, game.status === "final" && homeWins), el("span", { class: "st" }, status), helps];
+  if (typeof onPick === "function" && isNum(game.gameId)) {
+    const who = `${text(game.away?.school || game.away?.abbr)} at ${text(game.home?.school || game.home?.abbr)}`;
+    return el("button", { type: "button", class: `${cls} ticker__game--pick`, tabindex: copy ? "-1" : null, "aria-label": `Watch ${who} on this screen`, title: "Watch this game on this screen", onclick: () => onPick(game) }, ...kids);
+  }
+  return el("span", { class: cls }, ...kids);
 }
 
 /**
@@ -66,7 +75,7 @@ function drawable(games) {
  * crawl carries on, and destroy(), which a view calls when it replaces or drops the ticker so the
  * size observer does not outlive it.
  */
-export function ticker({ games = [], id = "ticker", label = "Scores", emptyText = "No other games right now." }) {
+export function ticker({ games = [], id = "ticker", label = "Scores", emptyText = "No other games right now.", onPick = null }) {
   let currentEmpty = emptyText;
   const key = `ticker:${id}`;
   const collapsed = recall(key, false);
@@ -78,8 +87,8 @@ export function ticker({ games = [], id = "ticker", label = "Scores", emptyText 
   function fill(next) {
     const shown = drawable(next);
     if (shown.length && halves) {
-      replaceWith(halves.half, shown.map(gameEl));
-      replaceWith(halves.clone, shown.map(gameEl));
+      replaceWith(halves.half, shown.map((g) => gameEl(g, onPick)));
+      replaceWith(halves.clone, shown.map((g) => gameEl(g, onPick, true)));
       return; // same track: the observer re-judges the width, the animation is not restarted
     }
     stop();
@@ -89,8 +98,8 @@ export function ticker({ games = [], id = "ticker", label = "Scores", emptyText 
       list.replaceChildren(el("span", { class: "ticker__game st" }, currentEmpty));
       return;
     }
-    const half = el("div", { class: "ticker__half" }, shown.map(gameEl));
-    const clone = el("div", { class: "ticker__half ticker__half--clone", "aria-hidden": "true" }, shown.map(gameEl));
+    const half = el("div", { class: "ticker__half" }, shown.map((g) => gameEl(g, onPick)));
+    const clone = el("div", { class: "ticker__half ticker__half--clone", "aria-hidden": "true" }, shown.map((g) => gameEl(g, onPick, true)));
     const track = el("div", { class: "ticker__track" }, half, clone);
     list.replaceChildren(track);
     halves = { half, clone };

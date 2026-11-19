@@ -208,7 +208,7 @@ scenarios.tabs = async () => {
 # Pages reached from inside another page rather than from the menu: a team (any team name), a box score (any game), a
 # national list (any rank chip), the radio (the Pre-Game Program's radio band; the menu's Radio tile opens the stations),
 # and the Profile's two older addresses (#settings and #setup open the Profile, which the menu holds).
-CONTEXT_ROUTES = {"team", "box", "national", "radio", "settings", "setup", "myteams", "story", "band", "blame", "picks"}  # blame: the old Circle of Blame address, My Team's wheel now (wave 3, 2026-11-01);  # myteams: the old address, the Season page now (board 9); story: the Newspaper's reader (FEAT-14); band: a band's own page, the flyout's Own page (owner 2026-10-28)
+CONTEXT_ROUTES = {"team", "box", "national", "radio", "settings", "setup", "myteams", "story", "band", "blame", "picks", "compare"}  # compare: two players side by side, from the player card only (batch 3, owner 2026-11-16, "Card only, two"); blame: the old Circle of Blame address, My Team's wheel now (wave 3, 2026-11-01);  # myteams: the old address, the Season page now (board 9); story: the Newspaper's reader (FEAT-14); band: a band's own page, the flyout's Own page (owner 2026-10-28)
 
 
 @pytest.fixture(scope="module")

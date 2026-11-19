@@ -150,6 +150,14 @@ def test_a_report_is_written_from_the_pack_once_a_game_week(lclient: TestClient)
     assert again["status"] == "ok" and "already written" in again["message"] and len(fake.prompts) == 1, "one report a game week"
     forced = run(lclient, force=True)
     assert forced["status"] == "ok" and len(fake.prompts) == 2, "a forced run writes it again"
+    assert "pageNow" not in pack_of(fake.prompts[1]), "a forced run starts fresh"
+    fake.answers.append(report_for)
+    refreshed = run(lclient, refresh=True)
+    assert refreshed["status"] == "ok" and len(fake.prompts) == 3, "Run with Claude (batch 4) writes it again"
+    third = fake.prompts[2]
+    assert "pageNow" not in pack_of(third), "the old report never joins the evidence: the name check reads it"
+    tail = third[third.index("What the page shows now:"):]
+    assert "remove what is out of date" in third and "Offensive line" in tail, "with the report as it stands, after the pack"
     page = lclient.get("/api/blame/now").json()["data"]
     assert page["available"] is True and page["latest"]["key"] == key and "raw" not in page["latest"]
     assert page["history"][0]["top"]["share"] == 40 and page["weeks"][0]["key"] == key and page["canRegenerate"] is True

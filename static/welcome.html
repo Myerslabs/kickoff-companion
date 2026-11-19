@@ -25,7 +25,7 @@
   <main class="sheet sheet--status sheet-narrow welcome">
     <section class="panel panel-wide" aria-labelledby="h-intro">
       <h2 id="h-intro">Welcome</h2>
-      <p class="lead" id="intro">Two steps and the app is ready: a free key from College Football Data, then your team. The rest is optional.</p>
+      <p class="lead" id="intro">Two steps and the app is ready: a free key from College Football Data, then your team.</p>
       <p class="note">Kickoff Companion is free, from Myers Labs. It runs on your computer and talks to CollegeFootballData.com directly: your key, your team and everything you look at stay here, and nothing is sent to Myers Labs. CFBD's paid plans are paid to CFBD, not to us, and they only unlock more data.</p>
       <p class="note" id="demo-line"><a href="/demo" id="back-to-demo">Not ready yet? Go back to the demo</a></p>
     </section>
@@ -60,53 +60,15 @@
     </section>
 
     <section class="panel panel-wide" aria-labelledby="h-team" id="team-panel">
-      <h2 id="h-team">Step 2. Your primary teams <span class="welcome__optional">up to 5, in the My Teams order</span></h2>
+      <h2 id="h-team">Step 2. Your team</h2>
       <div class="step-body">
-        <p>Pick your home team first: primary team #1. The Season page, the Pre-Game Program and the In Game sheet follow it, and <strong>only this team's colors and mascot theme the app</strong>. Its conference comes from CFBD.</p>
-        <p>Then, if you like, up to four more teams you follow closely, like a second school in the family. Each one's team page (schedule, results, stats, ranks, roster) loads as soon as a device connects, and the My Teams page steps through them in the order picked here. They do not change the app's colors.</p>
+        <p>Pick one school. The Season page, the Pre-Game Program and the In Game sheet follow it, and its colors and mascot theme the app. Its conference comes from CFBD.</p>
+        <p>To look at another team for a while, use Change team in the app: it switches one device for one visit and leaves this setup alone.</p>
         <label for="team-search" class="welcome__label">Find a school</label>
         <input id="team-search" class="input" type="search" autocomplete="off" placeholder="Type a school, mascot or conference" disabled>
         <div id="team-list" class="welcome__list" role="listbox" aria-label="FBS schools"></div>
-        <ol id="team-order" class="welcome__order" aria-label="Your primary teams, in order"></ol>
-        <p id="primary-locked" class="note plan-note" hidden></p>
+        <div id="team-picked" class="welcome__order" aria-live="polite"></div>
         <p id="team-note" class="note">The list loads once the key is checked.</p>
-      </div>
-    </section>
-
-    <section class="panel panel-wide" aria-labelledby="h-liked" id="liked-panel">
-      <h2 id="h-liked">Step 3. Secondary teams <span class="welcome__optional">optional</span></h2>
-      <div class="step-body">
-        <p>Teams you like to keep an eye on: single schools, a whole conference, or every school in a state. Nothing is loaded for them until a page asks, so they cost almost nothing. They show on the My teams page, in the My teams view of every ranked list, and on the ticker when it is set to My teams.</p>
-        <p id="liked-locked" class="note plan-note" hidden></p>
-        <div id="liked-pickers" class="welcome__liked">
-          <div>
-            <label for="liked-search" class="welcome__label">Schools</label>
-            <input id="liked-search" class="input" type="search" autocomplete="off" placeholder="Add a school" disabled>
-            <div id="liked-list" class="welcome__list" role="listbox" aria-label="Schools to add"></div>
-            <div id="liked-chips" class="welcome__chips"></div>
-          </div>
-          <div>
-            <label for="liked-conferences" class="welcome__label">Conferences</label>
-            <div id="liked-conferences" class="welcome__checks"></div>
-          </div>
-          <div>
-            <label for="liked-states" class="welcome__label">States</label>
-            <div id="liked-states" class="welcome__checks"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel panel-wide" aria-labelledby="h-ticker" id="ticker-panel">
-      <h2 id="h-ticker">Step 4. The score ticker</h2>
-      <div class="step-body">
-        <p>The scrolling scores at the top of the In Game sheet, the Pre-Game Program and the Newspaper.</p>
-        <div class="welcome__choices" role="radiogroup" aria-label="Ticker">
-          <label><input type="radio" name="ticker" value="national" id="ticker-national" checked> <strong>National</strong> <span class="note">Every FBS game. The default.</span></label>
-          <label><input type="radio" name="ticker" value="mine" id="ticker-mine"> <strong>My teams</strong> <span class="note">Only the games of your primary and secondary teams. When none of them play, every game shows.</span></label>
-        </div>
-        <p id="ticker-locked" class="note plan-note" hidden></p>
-        <p class="note">Change it any time in Settings.</p>
       </div>
     </section>
 
@@ -114,7 +76,7 @@
       <h2 id="h-finish">Done</h2>
       <div class="step-body">
         <p><button id="finish" class="btn btn--primary" type="button" disabled>Save and open the app</button></p>
-        <p id="finish-note" class="note">Check a key and pick a team first.</p>
+        <p id="finish-note" class="note">Check a key and pick your team first.</p>
         <p id="finish-error" class="note note-bad" role="alert" hidden></p>
       </div>
     </section>

@@ -9,10 +9,13 @@ into this project, once. Nothing is moved: the other install keeps its own files
 
 Left behind: the cache database (kickoff.db and its -wal and -shm, which this server already has open; the calls come
 back from CFBD), the test league's pickles (data/demo), Claude Code's scratch folder, and DATA_DIR and LOG_DIR, which
-name the other install's own places. A setting already in this .env stays as it is."""
+name the other install's own places. A setting already in this .env stays as it is. Batch 3 (owner 2026-11-19): the app
+follows one team, so the copied settings lose their extra primary teams, secondary teams and My teams ticker
+(one_team_only)."""
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -22,6 +25,7 @@ from pathlib import Path
 from typing import Any
 
 from app.services.envfile import set_values
+from app.services.prefs import RETIRED_TEAM_FIELDS, SETTINGS_FILE, one_team
 
 log = logging.getLogger("kickoff.import")
 
@@ -103,6 +107,33 @@ def summary(source: Path | None) -> dict[str, Any] | None:
     }
 
 
+def one_team_only(path: Path) -> bool:
+    """Batch 3 (owner 2026-11-19: "Let's just have one team listed, and a change team for the switch"): the public
+    install's settings may hold more primary teams, secondary teams and the My teams ticker; the copy drops them (the
+    team lists emptied, the ticker every game) and keeps every other setting. True when the file was rewritten. A file
+    that cannot be read or is not an object is left alone: the settings store reports it and applies the defaults."""
+    if not path.is_file():
+        return False
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, ValueError) as exc:
+        log.warning("Import: could not read %s to drop the old team picks: %s", path, exc)
+        return False
+    if not isinstance(raw, dict):
+        return False
+    cleared = one_team()
+    if all(raw.get(key, cleared[key]) == cleared[key] for key in RETIRED_TEAM_FIELDS):
+        return False
+    raw.update(cleared)
+    try:
+        path.write_text(json.dumps(raw, indent=2), encoding="utf-8")
+    except OSError as exc:
+        log.warning("Import: could not drop the old team picks from %s: %s", path, exc)
+        return False
+    log.info("Import: dropped the public install's extra teams and My teams ticker (one team since batch 3)")
+    return True
+
+
 def copy_into(source: Path, env_path: Path, data_dir: Path) -> dict[str, Any]:
     """Copy the other install's settings and data here. A setting this .env already has stays; data files are copied
     over this fresh install's (it has nothing yet but defaults). Returns what was done."""
@@ -123,6 +154,7 @@ def copy_into(source: Path, env_path: Path, data_dir: Path) -> dict[str, Any]:
         except OSError as exc:
             skipped += 1
             log.warning("Import: could not copy %s: %s", path, exc)
+    one_team_only(data_dir / SETTINGS_FILE)
     if carried:
         set_values(env_path, carried)  # last: a copy that stops half way leaves setup mode on, so it can run again
     log.warning("Brought over the install in %s: %d settings, %d files (%d skipped), %.1f MB", source, len(carried), copied, skipped, size / 1e6)

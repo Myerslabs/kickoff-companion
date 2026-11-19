@@ -10,6 +10,7 @@
 //   pickRow(entry, { onPick, guest })     one row (exported for the tests)
 
 import { isUs, usSchool } from "../identity.js";
+import { deviceGame, watchHere, watchRoom } from "../watching.js"; // batch 3: a game on this screen alone
 import { DASH, el, isNum, records, text } from "./dom.js";
 import { openSheet } from "./remote.js";
 import { note } from "./states.js";
@@ -71,7 +72,7 @@ function sideWords(side) {
 
 /** One game's row: its status words, the away side at the home side with the scores, ours marked. A button for the host, a
  *  plain row for a guest. */
-export function pickRow(entry, { onPick, guest = false } = {}) {
+export function pickRow(entry, { onPick, onEveryone = null, guest = false } = {}) {
   const e = entry && typeof entry === "object" ? entry : {};
   const status = typeof e.status === "string" ? e.status : "pre";
   const words = typeof e.detail === "string" && e.detail.trim() ? e.detail.trim() : status === "final" ? "Final" : status === "live" ? "In progress" : "Time to be set";
@@ -80,8 +81,12 @@ export function pickRow(entry, { onPick, guest = false } = {}) {
     el("span", { class: "pick-game__game" }, sideWords(e.away), el("span", { class: "pick-game__at" }, " at "), sideWords(e.home)),
     e.isUs === true ? el("span", { class: "pick-game__us" }, usSchool() || "Ours") : null,
   ];
-  if (guest || !isNum(e.gameId)) return el("li", { class: `pick-game__row${e.isUs === true ? " is-us" : ""}` }, ...inner);
-  return el("li", { class: `pick-game__row${e.isUs === true ? " is-us" : ""}` }, el("button", { type: "button", class: "pick-game__btn", onclick: () => onPick?.(e) }, ...inner));
+  const mine = deviceGame();
+  const here = mine && isNum(e.gameId) && mine.gameId === e.gameId;
+  if (!isNum(e.gameId)) return el("li", { class: `pick-game__row${e.isUs === true ? " is-us" : ""}` }, ...inner);
+  // batch 3 (owner 2026-11-16): a tap watches the game on this screen, a guest's too; the host can still move every screen
+  const everyone = !guest && typeof onEveryone === "function" ? el("button", { type: "button", class: "btn btn--quiet pick-game__all", title: "Every screen follows this game", onclick: () => onEveryone(e) }, "Every screen") : null;
+  return el("li", { class: `pick-game__row${e.isUs === true ? " is-us" : ""}${here ? " is-here" : ""}` }, el("button", { type: "button", class: "pick-game__btn", "aria-current": here ? "true" : null, onclick: () => onPick?.(e) }, ...inner), everyone);
 }
 
 /** The sheet: the search box, the list, the words under it. */
@@ -94,12 +99,20 @@ export function pickGameSheet({ guest = document.body?.dataset?.role === "guest"
   const body = el(
     "div",
     { class: "pick-game" },
-    el("p", { class: "note" }, guest ? "The host picks the game every screen watches; this is the week's slate." : "A tap follows that game here, on this screen, from the home team's side (ours when we play). Back to our game is on the Watching line."),
+    el("p", { class: "note" }, guest ? "A tap watches that game on this screen only; the other screens stay on the room's game." : "A tap watches that game on this screen only, from the home team's side (ours when we play); the other screens stay on the room's game. Every screen moves them all."),
     search,
     list,
     said,
   );
   const handle = openSheet({ title: "Pick a game", body });
+
+  /** Batch 3: this screen alone, our game too (the review, 2026-11-19: once the host moved every screen elsewhere, our row
+   *  is not the room's). When the game is the room's own, the server answers the room's state for it (app/api/live.py). */
+  function pickHere(entry) {
+    watchHere({ gameId: entry.gameId, home: school(entry.home), away: school(entry.away), team: sideOf(entry) });
+    handle.close?.();
+    if (typeof window !== "undefined" && window.location.hash !== "#live") window.location.hash = "live";
+  }
 
   async function pick(entry) {
     said.textContent = "Switching In Game…";
@@ -107,6 +120,7 @@ export function pickGameSheet({ guest = document.body?.dataset?.role === "guest"
     try {
       const data = await follow(entry);
       const kept = data && typeof data === "object" && data.followed && typeof data.followed === "object";
+      if (entry.isUs === true || kept) watchRoom(); // every screen follows it, this one too, once the room has moved
       if (entry.isUs === true) said.textContent = "Back to our game.";
       else if (!kept) said.textContent = `${text(school(entry.away))} at ${text(school(entry.home))} is over or gone; In Game stays on our game.`; // the engine drops a finished game (ui/follow.js's window)
       else said.textContent = `Watching ${text(school(entry.away))} at ${text(school(entry.home))}.`;
@@ -121,7 +135,7 @@ export function pickGameSheet({ guest = document.body?.dataset?.role === "guest"
   function draw() {
     if (!Array.isArray(entries)) return;
     const rows = pickRows(entries, { query });
-    list.replaceChildren(...(rows.length ? rows.map((e) => pickRow(e, { onPick: pick, guest })) : [el("li", { class: "pick-game__row pick-game__row--none" }, query ? `No game with "${query.trim()}" this week.` : "No games on the slate this week.")]));
+    list.replaceChildren(...(rows.length ? rows.map((e) => pickRow(e, { onPick: pickHere, onEveryone: pick, guest })) : [el("li", { class: "pick-game__row pick-game__row--none" }, query ? `No game with "${query.trim()}" this week.` : "No games on the slate this week.")]));
   }
 
   (async () => {

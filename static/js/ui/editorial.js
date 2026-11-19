@@ -18,7 +18,34 @@ function list(value) {
   return Array.isArray(value) ? value.filter((row) => row && typeof row === "object" && !Array.isArray(row)) : [];
 }
 
+/** A source row worth a line: a label or a web address (a hand-written row of nothing is left out of the fold and its count). */
+const readable = (row) => (typeof row.label === "string" && row.label.trim() !== "") || (typeof row.url === "string" && /^https?:\/\//.test(row.url));
+
+// Printing opens the folds (the reviewer, batch 4: the Print sheet promises "every folded section opened", and a closed
+// <details> prints as its summary alone). The browser's own Ctrl+P and printNow (ui/print.js) both send beforeprint, so one
+// listener covers both; afterprint closes again what printing opened.
+let printWired = false;
+function wirePrint() {
+  if (printWired || typeof window === "undefined" || typeof window.addEventListener !== "function" || typeof document === "undefined") return;
+  printWired = true;
+  window.addEventListener("beforeprint", () => {
+    for (const fold of document.querySelectorAll("details.editorial__fold:not([open])")) {
+      fold.setAttribute("open", "");
+      fold.dataset.printOpened = "1";
+    }
+  });
+  window.addEventListener("afterprint", () => {
+    for (const fold of document.querySelectorAll("details.editorial__fold")) {
+      if (fold.dataset.printOpened !== "1") continue;
+      fold.removeAttribute("open");
+      delete fold.dataset.printOpened;
+    }
+  });
+}
+
 export function editorial({ byline = {}, sources = [], sections = [], names = null, onName = null, top = null } = {}) {
+  wirePrint();
+  const rows = list(sources).filter(readable);
   const blocks = list(sections).map((section) =>
     el(
       "section",
@@ -38,11 +65,18 @@ export function editorial({ byline = {}, sources = [], sections = [], names = nu
     ),
     top && typeof top === "object" && typeof top.nodeType === "number" ? top : null,
     blocks.length ? el("div", { class: "editorial__grid" }, blocks) : null,
-    list(sources).length
+    // Batch 4 part 1 (owner 2026-11-19: "remove the reference articles, or if not possible, we can make it a dropdown";
+    // "yes fold"): the sources sit in a fold, closed, its count on the line; open, the list as before.
+    rows.length
       ? el(
-          "ul",
-          { class: "editorial__sources" },
-          list(sources).map((source) => el("li", {}, typeof source.url === "string" && /^https?:\/\//.test(source.url) ? el("a", { href: source.url, target: "_blank", rel: "noopener" }, text(source.label)) : text(source.label))),
+          "details",
+          { class: "editorial__fold" },
+          el("summary", {}, `Sources (${rows.length})`),
+          el(
+            "ul",
+            { class: "editorial__sources" },
+            rows.map((source) => el("li", {}, typeof source.url === "string" && /^https?:\/\//.test(source.url) ? el("a", { href: source.url, target: "_blank", rel: "noopener" }, typeof source.label === "string" && source.label.trim() ? source.label.trim() : source.url) : text(source.label))),
+          ),
         )
       : null,
   );

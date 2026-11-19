@@ -434,7 +434,7 @@ def build_schedule(app: FastAPI) -> ClaudeSchedule:
         enabled=enabled,
         command_found=command_found,
         catch_up=lambda: runs.start(all=False),
-        busy=lambda: runs.running,
+        busy=lambda: runs.running or bool(getattr(getattr(state, "page_refresh", None), "running", False)),  # batch 4: Run with Claude's queue too
         current_game=current_game,
         last_game=last_game,
         writing=True,  # P4: the game week's other runs, the morning after and the weekly data check

@@ -93,28 +93,16 @@
 .welcome__swatch { width: 14px; height: 14px; border-radius: 3px; flex: none; border: 1px solid var(--rule-strong); }
 .welcome__meta { color: var(--fog); margin-left: auto; font-size: 14px; }
 .welcome__more { margin: 0; padding: 8px 10px; color: var(--fog); font-size: 14px; }
-/* ENH-12 (owner 2026-10-23): the one primary-teams picker; #1 is the home team, the order is the My Teams order */
+/* The team picked on the welcome page: one school since batch 3 (owner 2026-11-19, "Let's just have one team listed") */
 .welcome__order { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
 .welcome__order:empty { display: none; }
-.welcome__pick { display: grid; grid-template-columns: 2.2em auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: var(--tap); padding: 4px 4px 4px 10px; background: var(--panel-raised); border-radius: 4px; }
+.welcome__pick { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; min-height: var(--tap); padding: 4px 4px 4px 10px; background: var(--panel-raised); border-radius: 4px; }
 .welcome__pick:first-child { box-shadow: inset 3px 0 0 var(--team-accent); }
-.welcome__pick-num { font-weight: 700; color: var(--fog); }
 .welcome__pick-name { font-weight: 700; min-width: 0; }
 .welcome__pick-name .welcome__meta { margin-left: 6px; font-weight: 400; }
 .welcome__pick-home { display: block; color: var(--team-accent); font-size: 14px; font-weight: 600; }
 .welcome__pick-moves { display: flex; gap: 4px; }
 .welcome__pick-moves .btn { min-height: var(--tap); min-width: var(--tap); }
-.welcome__optional { font-weight: 400; color: var(--fog); font-size: 14px; }
-.welcome__liked { display: grid; gap: 16px; }
-.welcome__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.welcome__chips .chip { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; border: 0; cursor: pointer; font: inherit; }
-.welcome__checks { display: flex; flex-wrap: wrap; gap: 6px 14px; }
-.welcome__checks label { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; }
-.welcome__checks input { width: 20px; height: 20px; }
-.welcome__choices { display: grid; gap: 8px; }
-.welcome__choices label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-height: var(--tap); }
-.welcome__choices input { width: 20px; height: 20px; }
-.welcome__choices .note { flex-basis: 100%; margin: 0 0 0 28px; }
 .plan-note { border-left: 3px solid var(--team-accent); padding-left: 10px; }
 /* Public release Phase 9b: the demo page and the demo banner */
 .demo-page__actions { display: flex; flex-wrap: wrap; gap: 8px; }

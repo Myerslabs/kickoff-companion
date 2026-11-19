@@ -4,7 +4,8 @@ what the key includes, how this month's calls are going, and a note for everythi
 Two profiles:
 - Free (a free key, and Tier 1 for now): lean. Cache lifetimes stretch (app/cfbd/client.py ttl_scale),
   the ticker refreshes every 20 minutes instead of 5, the server never refreshes published data on its
-  own (prewarm), and more primary teams, secondary teams and the My teams ticker wait for a Tier 2 key. Everything a free key can get is still shown.
+  own (prewarm), and live play-by-play (our game, and another game on one device) waits for a Tier 2 key. Everything a
+  free key can get is still shown. Since 2.1 the app follows one team on every plan (Change team for any other).
 - Tier 2 and up: full.
 
 Nothing is hidden for the plan: a feature the key does not include stays on its page with a note saying
@@ -28,8 +29,7 @@ FEATURES: list[tuple[str, str, int, str]] = [
     ("postgame", "Box scores, play-by-play and win probability after each game", 0, "The Archive and the Pre-Game Program after the final."),
     ("weather", "CFBD game weather", 1, "Forecast and conditions from CFBD. Without it the app uses the National Weather Service, free."),
     ("scoreboard", "Live scores across the country", 1, "The ticker and the In Game sheet's scores while games are on. Without it scores refresh from the schedule."),
-    ("live_plays", "Live play-by-play for your game", 2, "The In Game sheet follows every snap: drives, plays, box score and win probability as they happen."),
-    ("liked", "More primary teams, secondary teams and the My teams ticker", 2, "Up to four more primary teams, their pages ready the moment a device connects; secondary schools, conferences and states on the My teams page and in the My teams view of every ranked list; a ticker of just your teams."),
+    ("live_plays", "Live play-by-play for your game", 2, "The In Game sheet follows every snap: drives, plays, box score and win probability as they happen. One device can also watch another game this way while the room stays on yours."),
 ]
 
 

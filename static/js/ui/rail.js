@@ -1,25 +1,25 @@
 // The rail: one short row across the cover's top (owner 2026-11-14, of the season-long line of 2026-10-30: "I want this part
 // of the screen to be smaller. It is very busy, and I only want it to show where we are now, the preseason, the pregame, the
-// postgame", then "only the pregame of the next game, allow it to move forward still so I can preview each game"). Four
-// chips: the Preseason Magazine; the Post-Game of the last game played; Now, the season right now (My Team); the Pre-Game of
-// the next game. The chip on screen wears the team's ring. A past week's Pre-Game or Post-Game on screen takes its chip's
-// place. No week-by-week marks, byes, dates or season book (the menu has the book; the schedule's rows open any week's
-// stops). On a narrow screen the row scrolls sideways, the lit chip in view (sideways, never up and down).
+// postgame", then "only the pregame of the next game, allow it to move forward still so I can preview each game").
 //
-// The arrows at the row's ends (owner 2026-11-15, of the finished game's Pre-Game and Post-Game tabs above the rail:
-// "Always start on the 'now' and be able to move forward and backwards by clicking or tapping the arrows"; his pick, arrows
-// at the row's ends): ‹ and › step one stop at a time from the page on screen, both ways, through the season in its order:
-// the Preseason, each game's Pre-Game (a played game's as it stood at kickoff) then its Post-Game, Now where the line puts
-// it, then the Pre-Games still to come. From any page not on that walk they start at Now. They sit outside the row that
-// scrolls, so a phone keeps both in reach; an end with nowhere to go is drawn dim, so the row never jumps. They replace the
-// ‹ › that the next game's Pre-Game chip carried (2026-11-14), which only walked ahead.
+// Batch 4 (owner 2026-11-19): three stops in view, the one on screen in the middle ("when i go left, another one is added
+// and left is now center"; "only show 3, not 4"), and the row slides when it moves ("Animated would be great"). Every stop
+// of the walk sits on one track; the rail remembers where the last one stood, so the page drawn after an arrow slides from
+// there. The Season stop reads My Team alone, and a "Now" tag sits under the stop that leads now (the line's `current`: "Now
+// just says my team, and now lives under the currently scheduled item"). The Preseason Magazine and the season book are the
+// walk's two ends all season ("The preseason and postseason book are the bookends"); nothing points back to Now when it is
+// out of view ("just hitting the menu takes you to the right place").
+//
+// The arrows at the row's ends (owner 2026-11-15: "Always start on the 'now' and be able to move forward and backwards by
+// clicking or tapping the arrows"): ‹ and › step one stop at a time from the page on screen, both ways, through the walk:
+// the Preseason, each game's Pre-Game (a played game's as it stood at kickoff) then its Post-Game, My Team where the line
+// puts it, the Pre-Games still to come, the season book. From any page not on that walk they start at My Team. An end with
+// nowhere to go is drawn dim, so the row never jumps.
 //
 //   rail({ line, viewing })  -> <div class="rail">
 //     line     the /api/stops answer (or null: a quiet strip until it comes)
-//     viewing  { kind: "pre" | "post" | "season" | "preseason", gameId } the stop on screen
-//   chips(line, viewing)     -> { preseason, post, now, pre } what the row draws, each null when it has nothing to open:
-//     preseason { href, lit }, now { href, lit }, post { item, href, lit }, pre { item, href, lit }. Exported for the tests.
-//   walk(line)               -> the stops in the season's order, each { kind, href, item? }. Exported for the tests.
+//     viewing  { kind: "pre" | "post" | "season" | "preseason" | "book", gameId } the stop on screen
+//   walk(line)               -> the stops in the season's order, each { kind, href, item?, state? }. Exported for the tests.
 //   steps(line, viewing)     -> { prev, next }, the stops either side of the one on screen (Now when it is not on the walk),
 //     each a walk entry or null. Exported for the tests.
 //   railHost(viewing)        -> <div class="rail-host"> that follows the line as it changes
@@ -62,28 +62,6 @@ function kickoffWord(iso) {
   return `${weekday} ${h12}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""}`;
 }
 
-export function chips(line, viewing) {
-  const v = viewing && typeof viewing === "object" ? viewing : {};
-  const all = items(line);
-  const same = (item) => v.gameId !== null && v.gameId !== undefined && String(item.gameId) === String(v.gameId);
-  const magazine = all.find((i) => i.kind === "preseason" && typeof i.href === "string" && i.href);
-  const preseason = magazine ? { href: magazine.href, lit: v.kind === "preseason" } : null;
-  const marker = all.find((i) => i.kind === "now");
-  const now = { href: (marker && typeof marker.href === "string" && marker.href) || "#season", lit: v.kind === "season" };
-  const games = weeks(line);
-  // the Post-Game: the one on screen, else the last game played whose Post-Game opens
-  const shownPost = v.kind === "post" ? games.find((g) => same(g) && hrefOf(g.stops.post)) : null;
-  const lastPost = [...games].reverse().find((g) => played(g) && hrefOf(g.stops.post));
-  const postItem = shownPost || lastPost || null;
-  const post = postItem ? { item: postItem, href: hrefOf(postItem.stops.post), lit: Boolean(shownPost) } : null;
-  // the Pre-Game: the one on screen (a game ahead previewed, or a played game's as it stood), else the next game
-  const ahead = games.filter((g) => !played(g) && hrefOf(g.stops.pre));
-  const shownPre = v.kind === "pre" ? games.find((g) => same(g) && hrefOf(g.stops.pre)) : null;
-  const preItem = shownPre || ahead[0] || null;
-  const pre = preItem ? { item: preItem, href: hrefOf(preItem.stops.pre), lit: Boolean(shownPre) } : null;
-  return { preseason, post, now, pre };
-}
-
 /** The stops in the season's order: the Preseason, each game's Pre-Game then its Post-Game (only those that open), and Now
  *  where the line's marker stands (after the last game played when the line has no marker). Byes and the book are not stops. */
 export function walk(line) {
@@ -99,8 +77,10 @@ export function walk(line) {
       const post = hrefOf(item.stops.post);
       if (pre) out.push({ kind: "pre", gameId: item.gameId, href: pre, item });
       if (post) out.push({ kind: "post", gameId: item.gameId, href: post, item });
-    } else if (item.kind === "book" && typeof item.href === "string" && item.href) {
-      out.push({ kind: "book", href: item.href }); // Wave 7: the season in review, once the season's last game is closed out
+    } else if (item.kind === "book") {
+      // batch 4 (owner 2026-11-19: "The preseason and postseason book are the bookends"; "It should always exist"): the
+      // season in review is the walk's last stop all season, "the season so far" until every game is closed out
+      out.push({ kind: "book", href: typeof item.href === "string" && item.href ? item.href : "#review", state: text(item.state) || "to_come" });
     }
   }
   if (nowAt < 0) {
@@ -114,12 +94,10 @@ export function walk(line) {
 }
 
 export function steps(line, viewing) {
-  const v = viewing && typeof viewing === "object" ? viewing : {};
   const all = walk(line);
-  const id = v.gameId !== null && v.gameId !== undefined ? String(v.gameId) : null;
-  let at = all.findIndex((s) => s.kind === v.kind && (s.kind === "season" || s.kind === "preseason" || (id !== null && String(s.gameId) === id)));
-  if (at < 0) at = all.findIndex((s) => s.kind === "season"); // a page not on the walk starts at Now
-  return { prev: at > 0 ? all[at - 1] : null, next: at >= 0 && at < all.length - 1 ? all[at + 1] : null };
+  if (!all.length) return { prev: null, next: null };
+  const at = centerOf(all, viewing); // a page not on the walk starts at Now
+  return { prev: at > 0 ? all[at - 1] : null, next: at < all.length - 1 ? all[at + 1] : null };
 }
 
 function mark(shape, state) {
@@ -135,10 +113,11 @@ function chip({ kind, href, lit, shape, state, name, detail, label }) {
   );
 }
 
-/** A stop's words for an arrow's label: "Post-Game Program · Wk 11 · at Kentucky", "My Team, now", "Preseason Magazine". */
+/** A stop's words for an arrow's label: "Post-Game Program · Wk 11 · at Kentucky", "My Team", "Preseason Magazine". */
 function stopWords(stop) {
   if (stop.kind === "preseason") return "Preseason Magazine";
-  if (stop.kind === "season") return "My Team, now";
+  if (stop.kind === "season") return "My Team";
+  if (stop.kind === "book") return stop.state === "open" ? "Season book, the season final" : "Season book, the season so far";
   const name = stop.kind === "post" ? "Post-Game Program" : "Pre-Game Program";
   const item = stop.item && typeof stop.item === "object" ? stop.item : {};
   return [name, weekWord(item), opponentWord(item)].filter(Boolean).join(" · ");
@@ -185,48 +164,135 @@ function preChip(pre) {
   });
 }
 
+/** The index on the walk of the stop on screen (Now's place when the page is not on the walk). */
+function centerOf(all, viewing) {
+  const v = viewing && typeof viewing === "object" ? viewing : {};
+  const id = v.gameId !== null && v.gameId !== undefined ? String(v.gameId) : null;
+  let at = all.findIndex((s) => s.kind === v.kind && (s.kind === "season" || s.kind === "preseason" || s.kind === "book" || (id !== null && String(s.gameId) === id)));
+  if (at < 0) at = all.findIndex((s) => s.kind === "season");
+  return Math.max(0, at);
+}
+
+/** The walk entry the line's `current` names (the stop that leads now), or -1. */
+function currentOf(all, line) {
+  const cur = line && typeof line.current === "object" && line.current ? line.current : null;
+  if (!cur) return -1;
+  const id = cur.gameId !== null && cur.gameId !== undefined ? String(cur.gameId) : null;
+  return all.findIndex((s) => s.kind === cur.kind && (id === null ? s.gameId === undefined || s.gameId === null : String(s.gameId) === id));
+}
+
+/** A key for a walk entry, so the next rail knows where the last one stood (the slide). */
+const keyOf = (stop) => (stop ? `${stop.kind}:${stop.gameId ?? ""}` : "");
+
+function stopChip(stop, lit) {
+  if (stop.kind === "preseason") return chip({ kind: "preseason", href: stop.href, lit, shape: "square", state: "saved", name: "Preseason", detail: ["Magazine"], label: "Preseason Magazine" });
+  if (stop.kind === "season") return chip({ kind: "season", href: stop.href, lit, shape: "diamond", state: "now", name: "My Team", detail: null, label: "My Team, the season right now" });
+  if (stop.kind === "book") {
+    const final = stop.state === "open";
+    return chip({ kind: "book", href: stop.href, lit, shape: "square", state: final ? "saved" : "open", name: "Season book", detail: [final ? "The season, final" : "The season so far"], label: final ? "Season book, the season final" : "Season book, the season so far" });
+  }
+  const item = stop.item && typeof stop.item === "object" ? stop.item : {};
+  if (!item.stops || typeof item.stops !== "object") return chip({ kind: stop.kind, href: stop.href, lit, shape: "square", state: "open", name: stop.kind === "post" ? "Post-Game" : "Pre-Game", detail: null, label: stopWords(stop) });
+  return stop.kind === "post" ? postChip({ item, href: stop.href, lit }) : preChip({ item, href: stop.href, lit });
+}
+
+// Where the last rail on the page stood, so the next one (the page redrawn after an arrow, or any stop opened) slides from
+// there instead of jumping. It is the rail that reached the page that counts: a copy drawn and thrown away (the finished
+// game's Pre-Game builds its cover twice) never moves it (the reviewer, batch 4).
+let shown = null;
+const SLIDE_MS = 320;
+const ATTACH_FRAMES = 30; // about half a second for a page to put its rail on screen before it is drawn in place
+
+/** fn() once `node` is on the page, checked each frame for a while; never when it is thrown away. */
+function whenAttached(node, fn) {
+  if (node.isConnected) return fn();
+  if (typeof requestAnimationFrame !== "function") return undefined;
+  let frames = 0;
+  const look = () => {
+    if (node.isConnected) fn();
+    else if ((frames += 1) < ATTACH_FRAMES) requestAnimationFrame(look);
+  };
+  requestAnimationFrame(look);
+  return undefined;
+}
+
+/** Everything a rail draws from, so a new answer of the same line leaves the rail on screen (and its slide) alone. */
+function signature(line, viewing) {
+  try {
+    return JSON.stringify([line, viewing && typeof viewing === "object" ? viewing : null]);
+  } catch {
+    return String(Math.random()); // an unreadable line: always drawn again
+  }
+}
+
+/**
+ * rail({ line, viewing }): batch 4 (owner 2026-11-19: "We want the items to be in the middle ... when i go left, another one is
+ * added and left is now center"; "only show 3, not 4"; "Animated would be great"). Every stop of the walk on one track; the
+ * row shows three, the stop on screen in the middle, and the track slides to it. "Now" is a tag under the stop that leads
+ * now (the line's `current`), and the Season stop says My Team alone ("Now just says my team, and now lives under the
+ * currently scheduled item"). No pointer back to Now when it is out of view: the menu opens the right place.
+ */
 export function rail({ line = null, viewing = null } = {}) {
-  const root = el("div", { class: "rail", role: "navigation", "aria-label": "The season: preseason, post-game, now and pre-game" });
+  const root = el("div", { class: "rail", role: "navigation", "aria-label": "The season, one stop at a time: the preseason, each game's programs, My Team and the season book" });
   if (!line) {
     root.classList.add("rail--quiet");
     root.append(el("div", { class: "rail__row" }, el("span", { class: "rail__quiet" }, "The season's line is loading.")));
     return root;
   }
-  const c = chips(line, viewing);
-  const around = steps(line, viewing);
-  root.append(
-    step("prev", around.prev),
-    el(
+  const all = walk(line);
+  const center = centerOf(all, viewing);
+  const current = currentOf(all, line);
+  const around = { prev: center > 0 ? all[center - 1] : null, next: center < all.length - 1 ? all[center + 1] : null };
+  const v = viewing && typeof viewing === "object" ? viewing : {};
+  const onWalk = all.some((s, i) => i === center && s.kind === v.kind);
+  const slots = all.map((stop, i) => {
+    const near = Math.abs(i - center) <= 1;
+    const node = stopChip(stop, onWalk && i === center);
+    if (!near) {
+      node.setAttribute("tabindex", "-1");
+      node.setAttribute("aria-hidden", "true");
+    }
+    return el(
       "div",
-      { class: "rail__row" },
-      c.preseason ? chip({ kind: "preseason", href: c.preseason.href, lit: c.preseason.lit, shape: "square", state: "saved", name: "Preseason", detail: ["Magazine"], label: "Preseason Magazine" }) : null,
-      c.post ? postChip(c.post) : null,
-      chip({ kind: "now", href: c.now.href, lit: c.now.lit, shape: "diamond", state: "now", name: "Now", detail: ["My Team"], label: "My Team, the season right now" }),
-      c.pre ? preChip(c.pre) : null,
-    ),
-    step("next", around.next),
-  );
-  // the lit chip in view on a narrow screen: the row alone scrolls sideways, never the page (a redraw while reading further
-  // down must not pull the page back up)
-  root.scrollLit = () => {
-    const row = root.querySelector(".rail__row");
-    const lit = root.querySelector(".rail__chip--lit");
-    if (!row || !lit || !(row.scrollWidth > row.clientWidth)) return;
-    const left = lit.offsetLeft - row.offsetLeft - (row.clientWidth - lit.offsetWidth) / 2;
-    if (Number.isFinite(left)) row.scrollLeft = Math.max(0, left);
-  };
-  // once, the first time the row is laid out narrower than its chips: the pages put the rail on screen when their data comes,
-  // not when it is drawn, and its column can settle narrower after the first layout
-  if (typeof ResizeObserver === "function") {
-    const row = root.querySelector(".rail__row");
-    const watch = new ResizeObserver(() => {
-      if (!(row.clientWidth > 0) || !(row.scrollWidth > row.clientWidth)) return; // not laid out yet, or it all fits
-      watch.disconnect();
-      root.scrollLit();
+      { class: `rail__slot${i === current ? " rail__slot--now" : ""}`, "data-key": keyOf(stop), "aria-hidden": near ? null : "true" }, // out of view: not read, its Now tag with it
+      node,
+      i === current ? el("span", { class: "rail__now" }, el("span", { class: "rail__now-dot", "aria-hidden": "true" }), "Now") : null,
+    );
+  });
+  const track = el("div", { class: "rail__track" }, slots);
+  track.style.setProperty("--n", String(Math.max(1, all.length)));
+  const place = (at) => track.style.setProperty("--at", String(at - 1)); // the leftmost slot in view: one before the center
+  const key = keyOf(all[center]);
+  const from = shown ? all.findIndex((s) => keyOf(s) === shown) : -1;
+  const reduce = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (from >= 0 && from !== center && !reduce) {
+    place(from); // drawn where the last rail stood, then slid to the stop on screen once it is on the page and laid out
+    track.classList.add("rail__track--still");
+    whenAttached(root, () => {
+      shown = key;
+      const go = () => {
+        track.classList.remove("rail__track--still");
+        void track.offsetWidth; // the start position is laid out before the transition begins
+        place(center);
+      };
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(go);
+      else go();
     });
-    watch.observe(row);
+  } else {
+    place(center);
+    whenAttached(root, () => {
+      shown = key;
+    });
   }
+  root.append(step("prev", around.prev), el("div", { class: "rail__row" }, track), step("next", around.next));
+  root.slideMs = SLIDE_MS;
+  root.dataset.sig = signature(line, viewing);
   return root;
+}
+
+/** For the tests: forget where the last rail stood. */
+export function _resetSlide() {
+  shown = null;
 }
 
 // A page's rail, or a row's marks: drawn from the line the app holds, redrawn when a new answer comes, and dropped once the
@@ -258,7 +324,12 @@ function follow(host, draw) {
 /** railHost(viewing) -> <div class="rail-host"> holding the rail for the stop on screen; it follows the line as it changes. */
 export function railHost(viewing) {
   const host = el("div", { class: "rail-host" });
-  return follow(host, () => host.replaceChildren(rail({ line: stopsNow(), viewing }))); // each rail scrolls to its lit chip itself
+  return follow(host, () => {
+    const line = stopsNow();
+    const now = host.firstElementChild || (host.children && host.children[0]) || null;
+    if (line && now && now.dataset && now.dataset.sig === signature(line, viewing)) return; // the same answer: the rail on screen (and a slide under way) stays
+    host.replaceChildren(rail({ line, viewing }));
+  });
 }
 
 /** The three stops of one game as small marks for a schedule row (the Season stop, Wave 4): the Pre-Game, the game and the

@@ -57,12 +57,12 @@ export function recruitHref(player) {
   return key ? nationalHref(key) : null;
 }
 
-function face(player, them) {
+export function face(player, them) {
   return el("div", { class: `player-card__face${them ? " player-card__face--them" : ""}` }, playerFace(player, { them, abbr: str(player.teamAbbr) || undefined, size: 96 }));
 }
 
 /** Four stars of five, then "Recruit rating 94 · #123 nationally", or null when the player has no stars on record. */
-function starLine(player) {
+export function starLine(player) {
   const count = starCount(player.stars);
   if (count === null) return null;
   const score = rating100(player.rating);
@@ -175,7 +175,7 @@ export function transferText(transfer) {
 }
 
 /** The transfer fact with the old school as a link (LRP-11) and the portal rating on the 0-100 scale (LRP-13). */
-function transferFact(transfer) {
+export function transferFact(transfer) {
   const from = str(transfer?.from);
   if (!transfer || typeof transfer !== "object" || !from) return null;
   const score = rating100(transfer.rating);
@@ -189,7 +189,7 @@ function transferFact(transfer) {
 }
 
 /** The Recruit fact, cut to the class and the position he was recruited at (the star line has the rest). */
-function recruitText(recruit, position) {
+export function recruitText(recruit, position) {
   if (!recruit || typeof recruit !== "object") return null;
   const parts = [
     isNum(recruit.year) || (typeof recruit.year === "string" && recruit.year) ? `${text(recruit.year)} class` : null,
@@ -223,7 +223,7 @@ function skeletonPanel() {
  *              extras: [{ label, body }], them, onClose, inline, note, loading, tab,
  *              failed: { lead, detail, action: { label, onClick } }   (the card could not load: the block in place of the tabs) })
  */
-export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [], history = [], extras = [], them = false, onClose, inline = false, note = null, loading = false, tab = null, failed = null } = {}) {
+export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [], history = [], extras = [], them = false, onClose, onCompare = null, inline = false, note = null, loading = false, tab = null, failed = null } = {}) {
   const p = player && typeof player === "object" ? player : {};
   const failure = !loading && failed && typeof failed === "object" ? failed : null;
   const stats = Array.isArray(seasonStats) ? seasonStats.filter((r) => r && typeof r === "object") : [];
@@ -298,6 +298,8 @@ export function playerCard({ player = {}, seasons, seasonStats = [], gameLog = [
           // item 8: the › at the left slides the card away, the way it came in
           el("button", { class: "btn btn--quiet icon-btn player-card__close", type: "button", "aria-label": "Close", title: "Slide away", onclick: onClose }, icon("chevron-right")),
           el("span", { class: "player-card__barname" }, name),
+          // batch 3 (owner 2026-11-16, a viewer's "Compare players side by side please"): this player beside any other
+          typeof onCompare === "function" && !loading && !failure ? el("button", { class: "btn btn--quiet player-card__compare", type: "button", onclick: onCompare }, "Compare") : null,
         ),
     el(
       "div",

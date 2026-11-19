@@ -29,7 +29,7 @@ export const METRIC_RE = /^[a-z]+:[A-Za-z0-9_:]+$/;
 const MAX_METRIC = 60;
 const MAX_TEAM = 80;
 const MAX_PARAM = 120;
-const SCOPES = new Set(["national", "conference", "opponents", "mine"]); // opponents and mine: public release Phase 5b
+const SCOPES = new Set(["national", "conference", "opponents"]); // opponents: public release Phase 5b; "mine" went with batch 3's one team, an old link reads national
 
 function clean(value, max) {
   if (typeof value !== "string" && typeof value !== "number") return null;

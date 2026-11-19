@@ -10,7 +10,7 @@ import pytest
 from app.services import readiness, season_prompts
 from app.services.notes import NotesFile
 from tests.conftest import CONFERENCE, TEAM, fixture_payload
-from tests.test_season_notes import SCHOOLS, league, preseason_answer  # noqa: F401 - the league fixture routes the fake CFBD
+from tests.test_season_notes import SCHOOLS, league, load_set, preseason_answer  # noqa: F401 - the league fixture routes the fake CFBD
 
 EVERY_SCHOOL = sorted(t["school"] for t in fixture_payload("teams_fbs"))
 
@@ -49,11 +49,12 @@ def test_a_season_answer_with_nothing_usable_is_refused(junk):
 
 def test_the_season_routes_save_everything_at_once(client, league):  # noqa: F811
     prompt = client.get("/api/season-notes/prompt", params={"kind": "season", "key": "all"}).json()["data"]["prompt"]
-    assert TEAM in prompt and SCHOOLS[-1] in prompt
+    loads = load_set(client)  # batch 3 (owner 2026-11-19): our team and the next opponent
+    assert len(loads) == 2 and all(s in prompt for s in loads)
     saved = client.post("/api/season-notes/save", json={"kind": "season", "key": "all", "text": season_answer(schools=EVERY_SCHOOL)}).json()
     assert saved["data"]["saved"] is True
     status = client.get("/api/season-notes").json()["data"]
-    assert status["preseason"][0]["savedAt"] and status["coachesSaved"] == status["coachesOf"] < len(EVERY_SCHOOL)  # my teams only (2026-10-16)
+    assert status["preseason"][0]["savedAt"] and status["coachesSaved"] == status["coachesOf"] == len(loads)  # the load set only, strangers left out
     page = client.get("/api/preseason").json()["data"]["teams"][0]
     assert page["preseason"]["outlook"]["summary"] == "A good year ahead." and page["coaches"]["headCoach"].startswith("Head ")
     assert client.post("/api/season-notes/save", json={"kind": "season", "key": "all", "text": "nope"}).status_code == 422

@@ -486,7 +486,7 @@ export function createPreseasonView({ onStatus } = {}) {
           mine ? magazineCover(mine, data.season) : el("h1", { class: "page-title flow-full" }, `${text(data.season)} Preseason Magazine`),
           lastSeasonBrief(data.season), // rollover R3: the Magazine opens with last season's last pages
           ui.loads,
-          teams.length ? teams.map(teamBand) : note("No primary teams yet. Pick them with Change my teams on My Team."),
+          teams.length ? teams.map(teamBand) : note("No team yet. Pick it on the setup page (Settings, Change team)."),
           ...magazineLate(ui),
       );
       mountFlow(ui, container, page, { wide: ["preseason-loads", ...teams.map(teamBandId)] }); // final pass: the flowing page with its section chips; ENH-20 (P5): every band across the page, so a short Season loads never sits beside a long team

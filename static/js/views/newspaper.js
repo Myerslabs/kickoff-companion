@@ -26,6 +26,8 @@ import { icon } from "../ui/icons.js";
 import { errorPanel, fetchJson, poller } from "./common.js";
 import { pastYear } from "../ui/past.js"; // rollover R3: a past season's paper, as kept
 import { pollsBand } from "../ui/polls-band.js"; // wave 3 of the one-column page (2026-11-01): the polls left My Team for the paper
+import { otherTeam } from "../ui/other-team.js"; // batch 3: a switched device's paper is that team's
+import { clearViewing } from "../viewing.js";
 
 const EDITION = /^(?:week-\d{1,2}|postseason)(?:-sunday)?$/; // Wave 6 (2026-11-15): a game's Sunday paper is "<week>-sunday"
 const STORY = /^[0-9a-f]{16}$/;
@@ -48,7 +50,7 @@ function seedOf(value) {
 }
 
 /** This week's paper's name, steady all week (Phase 17 #26: "randomize a little bit, depending on the week"). */
-export function mastheadName(season, week, who = ours()) {
+export function mastheadName(season, week, who = paperTeam || ours()) {
   const id = who && typeof who === "object" ? who : {};
   const word = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
   const school = word(id.school) || word(id.name) || "Kickoff";
@@ -58,6 +60,11 @@ export function mastheadName(season, week, who = ours()) {
 }
 
 const orn = () => el("span", { class: "np-orn", "aria-hidden": "true" }, "✦");
+
+// Batch 3 (owner 2026-11-16, "Headlines + reader"): on a device switched to another team the paper is that team's (its
+// masthead, its "More <mascot>"), and a story with a direct link opens in the reader, read once when opened (`readable`)
+let paperTeam = null;
+const inReader = (s) => Boolean(s) && (s.copied === true || s.readable === true);
 
 function masthead(data, edition, count, by) {
   const week = isNum(edition.week) ? edition.week : null;
@@ -78,7 +85,7 @@ const httpUrl = (u) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : n
 
 /** Where a story goes: the reader for a copied story, else its publisher's page (never a script or a bad address). */
 function storyHref(s) {
-  if (s && s.copied === true && STORY.test(String(s.id || ""))) return linkSeason ? `#story=${s.id}?season=${linkSeason}` : `#story=${s.id}`;
+  if (inReader(s) && STORY.test(String(s.id || ""))) return linkSeason ? `#story=${s.id}?season=${linkSeason}` : `#story=${s.id}`;
   return httpUrl(s && s.url);
 }
 
@@ -110,7 +117,7 @@ const hostOf = (s) => {
 function sourceLine(s) {
   const facts = [text(s.source || "News"), dateWords(s.publishedAt)].filter(Boolean).join(" · ");
   const href = storyHref(s);
-  const go = !href ? null : s.copied ? el("a", { class: "np-go", href, onclick: rememberSpot }, "The whole story ›") : el("a", { class: "np-go", href, target: "_blank", rel: "noopener" }, `Read it at ${text(s.source || hostOf(s) || "the site")} ›`);
+  const go = !href ? null : inReader(s) ? el("a", { class: "np-go", href, onclick: rememberSpot }, "The whole story ›") : el("a", { class: "np-go", href, target: "_blank", rel: "noopener" }, `Read it at ${text(s.source || hostOf(s) || "the site")} ›`);
   return el("p", { class: "np-src" }, el("span", {}, facts), go ? el("span", { "aria-hidden": "true" }, "·") : null, go);
 }
 
@@ -137,14 +144,14 @@ function cutText(opening, legs) {
 function briefItem(s) {
   const facts = [text(s.source || "News"), dateWords(s.publishedAt)].filter(Boolean).join(" · ");
   const href = storyHref(s);
-  const kids = [el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, facts, s.copied ? null : el("span", { class: "np-only", title: "Only the headline is on this server" }, "Headline only"))];
+  const kids = [el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, facts, inReader(s) ? null : el("span", { class: "np-only", title: "Only the headline is on this server" }, "Headline only"))];
   if (!href) return el("div", { class: "np-brief" }, kids);
   return href.startsWith("#") ? el("a", { class: "np-brief", href, onclick: rememberSpot, id: `np-s-${s.id}` }, kids) : el("a", { class: "np-brief", href, target: "_blank", rel: "noopener", id: `np-s-${s.id}` }, kids);
 }
 
 function alsoItem(s) {
   const href = storyHref(s);
-  const kids = [el("span", { class: "np-label" }, "Also"), el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, [text(s.source || "News"), dateWords(s.publishedAt), s.copied ? null : "Headline only"].filter(Boolean).join(" · "))];
+  const kids = [el("span", { class: "np-label" }, "Also"), el("span", { class: "np-brief__head" }, text(s.title)), el("span", { class: "np-src" }, [text(s.source || "News"), dateWords(s.publishedAt), inReader(s) ? null : "Headline only"].filter(Boolean).join(" · "))];
   if (!href) return el("div", { class: "np-also" }, kids);
   return href.startsWith("#") ? el("a", { class: "np-also", href, onclick: rememberSpot }, kids) : el("a", { class: "np-also", href, target: "_blank", rel: "noopener" }, kids);
 }
@@ -157,7 +164,7 @@ function storyCell(cell, i) {
   const pic = picture(c.picture, "np-pic--story");
   const head = el("h3", { class: "np-head np-head--story" }, linkTo(s, text(s.title)));
   const kicker = el("span", { class: "np-kicker" }, text(s.kicker || "The week"));
-  const body = s.copied ? cutText(s.opening, false) : el("span", { class: "np-only" }, "Headline only");
+  const body = s.copied ? cutText(s.opening, false) : s.readable ? null : el("span", { class: "np-only" }, "Headline only");
   const parts = c.first === "photo" && pic ? [pic, kicker, head] : [kicker, head, pic];
   return el("article", { class: `np-story np-span2${i ? " np-rule-v" : ""}`, id: `np-s-${s.id}` }, parts, body, sourceLine(s), c.also ? alsoItem(c.also) : null);
 }
@@ -404,14 +411,14 @@ function weekPages(data, edition, { kept = false, polls = null } = {}) {
   out.push(gameModule(gameOfWeek(matchups, ourGame)));
   const p2 = obj(lay.page2);
   if (p2.lead) {
-    out.push(folio("Page 2", ours().school ? `More ${usName()}` : "More stories", paperLine, "np-page-2")); // the mascot ("More Gators"), the school without one
+    out.push(folio("Page 2", paperTeam ? `More ${text(paperTeam.mascot || paperTeam.school)}` : ours().school ? `More ${usName()}` : "More stories", paperLine, "np-page-2")); // the mascot ("More Gators"), the school without one; batch 3: the switched team's
     out.push(el("section", { class: "np-row" }, leadStory(p2.lead, p2.picture, { page: 2 }), el("aside", { class: "np-rail np-span2 np-rule-v" }, el("div", {}, el("div", { class: "np-standing" }, "Briefs"), records(p2.briefs).map(briefItem)))));
     out.push(storyRow(p2.row));
   }
   for (const page of records(lay.more)) out.push(...morePage(page, paperLine));
   // the Top 25's Saturday (the agate) left the paper for the Top 25 page (wave 3, owner 2026-11-01, his inventory)
   if (!kept && polls) out.push(polls);
-  if (!kept && !edition.offseason) out.push(storiesBand(edition, matchups)); // rollover R3: the off-season paper has no week's games to pick
+  if (!kept && !edition.offseason && !paperTeam) out.push(storiesBand(edition, matchups)); // rollover R3: the off-season paper has no week's games to pick; batch 3: another team's paper has no picks
   return out.filter(Boolean);
 }
 
@@ -586,8 +593,38 @@ function offseasonLine(data, edition) {
   return el("p", { class: "note past-note" }, `The off-season paper: the week's stories about the team, chosen once a week. The next one comes ${when} morning.`, past ? el("span", {}, " ", el("a", { href: `#newspaper?season=${past}` }, `The ${past} papers`), ".") : null);
 }
 
+/** Batch 3: another team's paper on a switched device: its last seven days of stories on our paper's pages, nothing kept,
+ *  no week chips, no picks, no polls. */
+function renderTheirs(data, container) {
+  const team = obj(data.team);
+  const edition = data.edition && typeof data.edition === "object" ? data.edition : { layout: { front: {}, more: [] } };
+  if (!edition.layout) edition.layout = plainLayout(edition.headlines);
+  const count = isNum(obj(edition.layout).count) ? edition.layout.count : null;
+  const page = el(
+    "div",
+    { class: "page page--wide np np--theirs", id: "np-top" },
+    masthead(data, edition, count, null),
+    el(
+      "p",
+      { class: "note past-note" },
+      `${text(team.school)} in the news this week: its Google News search and the national feeds, read for ${text(team.school)}. A story opens in the reader; nothing here is kept. `,
+      el("button", { type: "button", class: "btn btn--quiet np-theirs__back", onclick: () => clearViewing() }, `Back to ${usSchool()}'s paper`),
+    ),
+    feedTrouble(data.feeds),
+    ...weekPages(data, edition, { kept: false }),
+  );
+  container.replaceChildren(page);
+  restoreSpot();
+  return page;
+}
+
 function render(envelope, container, asked, delay, memory) {
   const data = obj(envelope?.data);
+  paperTeam = data.theirs === true && data.team && typeof data.team === "object" ? data.team : null;
+  if (paperTeam) {
+    linkSeason = null;
+    return renderTheirs(data, container);
+  }
   linkSeason = isNum(data.past) ? data.past : null;
   if (linkSeason) return renderPast(data, container);
   const edition = editionOf(data);
@@ -662,7 +699,8 @@ export function createNewspaperView({ onStatus, edition = null, params = null } 
   const asked = typeof edition === "string" && EDITION.test(edition) ? edition : null;
   const delay = Number.isFinite(Number(getPrefs().delaySeconds)) ? Number(getPrefs().delaySeconds) : 30;
   const past = pastYear(params?.season); // rollover R3: #newspaper=week-8?season=2026, that season's paper as kept
-  const url = past ? `/api/seasons/${past}/paper${asked ? `?edition=${encodeURIComponent(asked)}` : ""}` : `/api/newspaper?delay=${delay}`;
+  const team = past ? null : otherTeam(params); // batch 3: a switched device's paper (viewing.js adds ?team=)
+  const url = past ? `/api/seasons/${past}/paper${asked ? `?edition=${encodeURIComponent(asked)}` : ""}` : team ? `/api/newspaper?team=${encodeURIComponent(team)}` : `/api/newspaper?delay=${delay}`;
   const memory = { open: new Set(), papers: new Map(), drawn: false, polls: { poll: typeof params?.poll === "string" && params.poll ? params.poll : null, sorts: {} } }; // the open weeks and the polls' choice survive the minute's refresh
   let page = null;
   let frame = null;

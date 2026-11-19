@@ -70,8 +70,8 @@ def test_stale_labels_are_gone():
         source = (STATIC_JS / name).read_text(encoding="utf-8")
         assert "SEC and Top 25" not in source and "SEC, Top 25" not in source and "SEC or Top 25" not in source, name
     # the ticker carries every FBS game; Phase 17 #25: the sheet no longer promises to open itself
-    # wave F5 (owner 2026-10-20): the ticker has no "FBS scores" label; only the My teams one names itself
-    assert "every FBS game" in live and "No FBS games" in live and '"My teams"' in live
+    # wave F5 (owner 2026-10-20): the ticker has no "FBS scores" label; batch 3 (2026-11-19, one team): no My teams one
+    assert "every FBS game" in live and "No FBS games" in live and '"My teams"' not in live
     assert "opens by itself" not in live and "1 hour before kickoff" not in live
 
 
@@ -860,16 +860,15 @@ scenarios.ticker = async () => {
   assert.equal(text(second.querySelector(".ticker__label")), "", "wave F5 (owner 2026-10-20): the national ticker has no label, whatever its source");
   assert.ok(text(sheetBody()).includes("Florida State"), "the open Scores sheet follows the ticker");
   assert.ok(!text(container).includes("SEC") && !text(document.body).includes("Top 25"));
-  // the My teams ticker still names itself, with the schedule's cadence when the scores come from it
+  // batch 3 (owner 2026-11-19, one team): an older answer still saying mode "mine" draws the plain national ticker
   ticker = { source: "games", mode: "mine", refreshMinutes: 20, games: [game("Florida State", "Miami", 3, 0)] };
   for (let i = 0; i < 4; i += 1) {
     await advance(15000);
     latest().emit("ping", { feed: feed("ok"), serverTime: new Date(now).toISOString() });
   }
   assert.equal(container.querySelector(".live-ticker .ticker"), first, "the same ticker still");
-  assert.equal(text(first.querySelector(".ticker__label")), "My teams, every 20 min");
-  assert.equal(first.getAttribute("aria-label"), "My teams, every 20 min");
-  assert.ok(text(sheetBody()).includes("Your primary and secondary teams' games"), "the Scores sheet says whose games these are");
+  assert.equal(text(first.querySelector(".ticker__label")), "");
+  assert.ok(!text(sheetBody()).includes("primary and secondary"), "no My teams words on the Scores sheet");
   view.unmount();
   assert.equal(timers.size, 0);
 };

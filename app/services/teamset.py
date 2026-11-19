@@ -1,16 +1,13 @@
 """Who "my teams" are (public release Phase 5b). Pure functions over the saved settings and CFBD's FBS list;
-nothing here fetches.
+nothing here fetches. Since batch 3 (owner 2026-11-19) the app knows one team, the home team: `current` returns it
+alone; `resolve` still reads the old picks for the tests and an older settings file.
 
-- Primary #1, the home team: TEAM in .env. The Season page, the Game program and the Live sheet follow it,
-  and only its colors and mascot theme the app.
-- Primaries #2 to #5 (a Tier 2 key): `primaryTeams` in the settings. Their team pages load as soon as a
-  device connects (POST /api/myteams/warm) and sit one tap away in the menu.
-- Secondary teams (a Tier 2 key): `likedTeams`, plus every FBS school in `likedConferences` and in
-  `likedStates`. Nothing is loaded for them until a page asks.
-
-Primaries and secondaries together fill the My teams ticker, the My teams page and the "My teams" scope of a
-ranked list. With a free key the set is the home team alone; saved picks stay in the settings (`locked`)
-and come back with a Tier 2 key."""
+- The home team: TEAM in .env. The Season page, the Game program and the Live sheet follow it, and only its
+  colors and mascot theme the app. Another team is seen only by switching a device (Change team, static/js/viewing.js),
+  which the server never stores.
+- An older settings file's `primaryTeams`, `likedTeams`, `likedConferences` and `likedStates` are read by `resolve`
+  alone; no page, ticker or ranked list uses them any more (the My Teams page, the warm-up, the My teams ticker and
+  the "mine" scope went with batch 3)."""
 
 from __future__ import annotations
 
@@ -19,7 +16,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.cfbd.models import Game, Team
-from app.services import gamekeys, plan
+from app.services import gamekeys
 
 HOME = "home"
 PRIMARY = "primary"
@@ -137,10 +134,11 @@ def resolve(home: str, prefs: Any, allowed: bool, teams: list[Team] | None = Non
 
 
 def current(settings: Any, prefs_store: Any, client: Any, teams: list[Team] | None = None) -> TeamSet:
-    """The team set right now: the home team from the settings, the picks from data/settings.json, and
-    the key's plan. With no settings store (a bare service in a test) the home team stands alone."""
-    prefs = getattr(prefs_store, "prefs", None)
-    return resolve(settings.team, prefs, plan.allows_liked(client.capabilities), teams)
+    """The team set right now: the home team alone (batch 3, owner 2026-11-19: "I want to take out all the secondary teams
+    ... Let's just have one team listed, and a change team for the switch"; his pick, no extra primaries either). Any other
+    team is seen through Change team, on one device for one visit (static/js/viewing.js). Picks saved in
+    data/settings.json by an older build are left there and read by nothing."""
+    return resolve(settings.team, None, True, teams)
 
 
 def opponents(games: Iterable[Game], team: str) -> list[str]:

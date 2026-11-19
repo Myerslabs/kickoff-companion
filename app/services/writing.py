@@ -5,7 +5,7 @@ only tool, the tool answers with one JSON object, and the app reads it leniently
 an AI itself.
 
     KINDS                         review, recap, scout, paper, datacheck, trivia, editor, art, trip, picks: what each asks and how its answer reads
-    build_prompt(kind, team, packet) -> str
+    build_prompt(kind, team, packet, so_far=None) -> str   so_far: the piece as it stands, for a refresh (batch 4)
     read(kind, text) -> (dict | None, warnings, error)
     WritingStore(data_dir, season)          data/season/<year>/writing/<kind>-<key>.json
     Lessons(data_dir)                       data/claude/lessons.json: what the weekly review learned, and the prompt's additions
@@ -325,8 +325,26 @@ KINDS: dict[str, Kind] = {
 }
 
 
-def build_prompt(kind: str, team: str, packet: dict[str, Any]) -> str:
-    """The prompt for one run: the task, the answer's shape, the rules, and the data the app holds."""
+REFRESH_RULES = (
+    "This is a refresh (Run with Claude, owner 2026-11-19: \"Each run should see what is in the current page and refresh it"
+    " with updated info, or additional info\"). What the page shows now is below. Start from it: keep what still holds,"
+    " correct what has changed, remove what is out of date (a player back from injury, a line that moved), and add what is"
+    " new since it was written. Never empty a part that has content unless all of it is out of date; answer the whole piece"
+    " in the same shape, not only the changes."
+)
+
+
+def refresh_text(so_far: Any, *, limit: int = 12_000) -> str:
+    """The refresh block for any prompt: the rules and the piece as it stands (cut short past `limit` characters)."""
+    data = json.dumps(so_far, indent=1, ensure_ascii=False, default=str)
+    if len(data) > limit:
+        data = data[:limit] + "\n... (cut short)"
+    return f"\n\n{REFRESH_RULES}\n\nWhat the page shows now:\n```json\n{data}\n```\n"
+
+
+def build_prompt(kind: str, team: str, packet: dict[str, Any], *, so_far: dict[str, Any] | None = None) -> str:
+    """The prompt for one run: the task, the answer's shape, the rules, and the data the app holds; with `so_far` (batch 4)
+    the piece as it stands and the refresh rules."""
     spec = KINDS[kind]
     words = {"team": team, "opponent": str(packet.get("opponent") or "the opponent"), "home": str(packet.get("home") or "the home team"), "away": str(packet.get("away") or "the away team"), "venue": str(packet.get("venue") or "the stadium")}
     task = spec.task.format(**words)
@@ -342,6 +360,7 @@ def build_prompt(kind: str, team: str, packet: dict[str, Any]) -> str:
         "Rules: never invent a fact, a quote, a name, a number or a source; leave a list empty when nothing reliable is found."
         " Plain football language. Valid JSON only: no comments, no trailing commas.\n\n"
         f"The data the app holds (from CollegeFootballData.com and the app's own files):\n```json\n{data}\n```\n"
+        + (refresh_text({k: v for k, v in so_far.items() if k not in ("writtenAt", "kind", "key", "season", "model")}) if isinstance(so_far, dict) and so_far else "")
     )
 
 
@@ -481,6 +500,7 @@ class Job:
     save: Callable[[dict[str, Any]], bool]  # writes the answer where it goes; True when something changed
     label: str = ""
     check: Callable[[dict[str, Any]], str | None] | None = None  # Wave 6: why the answer may not print (a figure not in the data), or None
+    so_far: dict[str, Any] | None = None  # batch 4: the piece as it stands, for a refresh (Run with Claude)
 
 
 class WritingRunner:
@@ -534,7 +554,7 @@ class WritingRunner:
         self.job, self.started_at, self.finished_at = job, datetime.now(timezone.utc), None
         self.error, self.warnings, self.saved, self.changed = None, [], False, None
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        prompt = build_prompt(job.kind, job.team, job.packet)
+        prompt = build_prompt(job.kind, job.team, job.packet, so_far=job.so_far)
         self.task = asyncio.create_task(self._run(resolved, prompt, job, model))
         return self.status()
 

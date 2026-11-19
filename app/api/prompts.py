@@ -82,10 +82,14 @@ def progress(state: Any) -> dict[str, Any]:
     one run (its steps), a season run (its batches) and the notes run (no steps: the bar has no fraction then)."""
     command = state.settings.claude_command
     runs = state.prompt_runs.status()
+    refresh = getattr(state, "page_refresh", None)
+    refreshing = refresh.status() if refresh is not None else None
+    if refreshing and refreshing.get("running"):
+        runs = refreshing  # batch 4: Run with Claude's queue, drawn as the one run's steps
     season = state.season_runner.status(command)
     notes = state.notes.status(command)
     batches = [b for b in season.get("batches") or [] if isinstance(b, dict)]
-    stamps = [runs.get("finishedAt"), notes.get("finishedAt"), *(b.get("finishedAt") for b in batches)]
+    stamps = [runs.get("finishedAt"), notes.get("finishedAt"), refreshing.get("finishedAt") if refreshing else None, *(b.get("finishedAt") for b in batches)]
     last = max((s for s in stamps if isinstance(s, str)), default=None)  # one ISO format, so the strings sort as times
     out: dict[str, Any] = {"running": False, "label": None, "detail": None, "fraction": None, "startedAt": None, "lastFinishedAt": last, "run": runs}
     season_done = sum(1 for b in batches if b.get("state") in ("saved", "failed", "stopped"))
@@ -124,6 +128,10 @@ async def prompts_run_status(request: Request) -> Any:
 @router.post("/api/prompts/run")
 async def prompts_run(body: RunRequest, request: Request) -> Any:
     runs: PromptRuns = request.app.state.prompt_runs
+    refresh = getattr(request.app.state, "page_refresh", None)
+    if refresh is not None and refresh.running:  # batch 4: one Claude run at a time
+        message = "Claude is refreshing a page; try again when the loading bar is gone."
+        return envelope({**runs.status(), "error": message}, source="live", errors=[{"code": "prompts_not_started", "message": message}])
     status = await runs.start(all=body.all)
     if status.get("error") and not status.get("running"):
         return envelope(status, source="live", errors=[{"code": "prompts_not_started", "message": status["error"]}])
